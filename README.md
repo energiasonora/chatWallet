@@ -10,6 +10,9 @@
 
 ChatWallet is a next-generation decentralized application that merges a secure crypto wallet with a private messenger. Our mission is to build the infrastructure for a digital society where sovereignty, privacy, and honor are the default.
 
+
+https://chatwallet.org
+
 -----
 
 ## 📖 Table of Contents
