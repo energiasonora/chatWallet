@@ -1,0 +1,48 @@
+{
+  "name": "chatWallet",
+  "version": "1.0.0",
+  "description": "ChatWallet is a next-generation decentralized application that merges a secure crypto wallet with a private messenger. Our mission is to build the infrastructure for a digital society where sovereignty, privacy, and honor are the default",
+  "repository": "git@github.com:energiasonora/chatWallet.git",
+  "author": "xunorus <xunorus@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@ceramicnetwork/3id-did-resolver": "^6.4.0",
+    "@ceramicnetwork/blockchain-utils-linking": "^5.6.0",
+    "@ceramicnetwork/http-client": "^6.4.0",
+    "@ceramicstudio/idx": "^0.12.2",
+    "@composedb/client": "^0.7.1",
+    "@github/mini-throttle": "^2.1.1",
+    "@lighthouse-web3/sdk": "^0.3.7",
+    "@metamask/sdk": "^0.33.0",
+    "@noble/secp256k1": "^2.1.0",
+    "@useorbis/db-sdk": "^0.0.60-alpha",
+    "@xmtp/browser-sdk": "^3.0.1",
+    "@xmtp/content-type-primitives": "^1.0.3",
+    "@xmtp/xmtp-js": "^13.0.4",
+    "bs58": "^6.0.0",
+    "cropperjs": "^1.6.1",
+    "did-session": "^4.0.0",
+    "elliptic": "^6.5.5",
+    "eth-crypto": "^2.6.0",
+    "key-did-resolver": "^4.0.0",
+    "parcel": "^2.11.0",
+    "parcel-reporter-static-files-copy": "^1.5.3",
+    "process": "^0.11.10",
+    "qr-scanner": "^1.4.2"
+  },
+  "staticFiles": {
+    "staticPath": "src/static"
+  },
+  "type": "module",
+  "@parcel/resolver-default": {
+    "packageExports": true
+  },
+  "devDependencies": {
+    "assert": "^2.0.0",
+    "buffer": "^5.5.0||^6.0.0",
+    "crypto-browserify": "^3.12.0",
+    "events": "^3.1.0",
+    "stream-browserify": "^3.0.0",
+    "vm-browserify": "^1.1.2"
+  }
+}
