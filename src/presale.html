@@ -1,0 +1,3165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>chatWallet - CWLT Presale</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #312e81 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .main-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 85px);
+            padding: 1rem;
+        }
+
+        /* Custom glow effect */
+        .glow-on-hover {
+            transition: box-shadow 0.3s ease-in-out;
+        }
+
+        .glow-on-hover:hover {
+            box-shadow: 0 0 15px 2px rgba(168, 85, 247, 0.6);
+        }
+
+        /* Custom focus ring */
+        .form-input:focus {
+            outline: none;
+        }
+
+        /* Hide spinner buttons on number inputs */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        /* Animated gradient for progress bar */
+        @keyframes animated-gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .animated-progress {
+            background-size: 200% 200%;
+            animation: animated-gradient 3s ease infinite;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-container,
+        .qr-modal-container {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+
+        /* Network Selector Styles */
+        .network-selector button:not(.active) {
+            background-color: transparent;
+            color: #a7a7a7;
+        }
+
+        .network-selector button.mainnet-btn.active {
+            background-color: #7c3aed;
+            /* violet-600 */
+            color: #ffffff;
+        }
+
+        .network-selector button.testnet-btn.active {
+            background-color: #facc15;
+            /* yellow-400 */
+            color: #1f2937;
+            /* gray-800 */
+        }
+
+
+
+        /* --- Notification Styles --- */
+        .notification {
+            position: fixed;
+            bottom: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: bottom 0.4s ease-in-out;
+            z-index: 999;
+        }
+
+        .notification.show {
+            bottom: 20px;
+        }
+
+        .notification.hide {
+            bottom: -150px;
+        }
+
+
+        /* --- Success Animation Styles --- */
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            animation: fall 3s linear forwards;
+            z-index: 100;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+
+
+        #successNotification,
+        #errorNotification {
+            position: fixed;
+            bottom: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: bottom 0.4s ease-in-out;
+            z-index: 999;
+            width: 90%;
+            max-width: 420px;
+        }
+
+        #successNotification.show,
+        #errorNotification.show {
+            bottom: 20px;
+        }
+
+
+        /* #successNotification.hide,
+        #errorNotification.hide {
+            bottom: -150px;
+        } */
+
+
+
+        @keyframes pulse-success {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.2);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .pulse-success {
+            animation: pulse-success 0.6s ease-in-out;
+        }
+
+        @keyframes number-animate-keyframes {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+
+            50% {
+                transform: translateY(-5px);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .number-animate {
+            animation: number-animate-keyframes 0.5s ease-in-out;
+        }
+
+        .wallet-icon {
+            width: 32px;
+            height: 32px;
+            margin-right: 1rem;
+        }
+
+
+
+        .testnet-style {
+            background: linear-gradient(135deg, #fef3c7, #fcd34d) !important;
+            border: 2px solid #f59e0b !important;
+            color: #92400e !important;
+        }
+
+        .testnet-style .success-icon {
+            color: #f59e0b !important;
+        }
+
+        .mainnet-style {
+            background: linear-gradient(135deg, #dcfce7, #86efac) !important;
+            border: 2px solid #22c55e !important;
+            color: #166534 !important;
+        }
+
+        .mainnet-style .success-icon {
+            color: #22c55e !important;
+        }
+
+        .pulse-testnet {
+            animation: pulse-yellow 0.6s ease-in-out;
+        }
+
+        @keyframes pulse-yellow {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 0 20px #f59e0b;
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        #fontLogo {
+            /* font-family: monospace!important; */
+            font-family: Major Mono Display, monospace !important;
+            font-size: 1.5em;
+
+        }
+
+
+
+        @keyframes balance-flash {
+          0%, 100% { color: #c084fc; }
+          50% { color: #ec4899; }
+        }
+        .balance-flash-animation {
+            animation: balance-flash 0.8s ease-in-out;
+        }
+        
+        /* Claim/Buy State Styles */
+        .buy-mode-ui, .claim-mode-ui {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <div class="flex items-center space-x-3">
+            <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <clipPath id="circleClip">
+                        <circle cx="50" cy="50" r="48" />
+                    </clipPath>
+                </defs>
+                <g clip-path="url(#circleClip)">
+                    <circle cx="50" cy="50" r="25" stroke="#c084fc" stroke-width="2" fill="none" />
+                    <circle cx="50" cy="50" r="50" stroke="#8b5cf6" stroke-width="2" fill="none" />
+                    <g>
+                        <circle cx="50" cy="25" r="25" stroke="#c084fc" stroke-width="2" fill="none" />
+                        <circle cx="50" cy="75" r="25" stroke="#c084fc" stroke-width="2" fill="none" />
+                        <circle cx="28.35" cy="37.5" r="25" stroke="#c084fc" stroke-width="2" fill="none" />
+                        <circle cx="71.65" cy="37.5" r="25" stroke="#c084fc" stroke-width="2" fill="none" />
+                        <circle cx="28.35" cy="62.5" r="25" stroke="#c084fc" stroke-width="2" fill="none" />
+                        <circle cx="71.65" cy="62.5" r="25" stroke="#c084fc" stroke-width="2" fill="none" />
+                    </g>
+                </g>
+                <circle cx="50" cy="50" r="49" stroke="#8b5cf6" stroke-width="3" fill="none" />
+            </svg>
+            <!-- <span class="text-xl font-bold text-white">iusNaturalis DAO</span> -->
+            <span class="text-xl font-bold text-white" id="fontLogo">CHATWALLET</span>
+            <!-- <span class="text-xl font-bold text-white" id="fontLogo">ChatWallet</span> -->
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <!-- Whitepaper Link -->
+            <!-- <a href="https://chatwallet.org/chatWalletToken_EN-FR-ES.pdf" id="whitepaper-link"
+                class="text-gray-400 hover:text-white transition-colors" title="Token Whitepaper">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                    </path>
+                </svg>
+            </a> -->
+            <!-- Settings Button -->
+            <button id="settings-btn" class="text-gray-400 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                    </path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </button>
+            <!-- Network Selector -->
+            <!-- <div class="network-selector hidden md:flex items-center bg-gray-900/50 border border-violet-500/30 rounded-full p-1 text-sm font-semibold">
+                <button id="mainnet-btn" class="px-3 py-1 rounded-full transition-colors duration-300">Mainnet</button>
+                <button id="testnet-btn" class="px-3 py-1 rounded-full transition-colors duration-300">Testnet</button>
+            </div> -->
+
+            <!-- Network Selector (Desktop) -->
+            <div
+                class="network-selector hidden md:flex items-center bg-gray-900/50 border border-violet-500/30 rounded-full p-1 text-sm font-semibold">
+                <button id="mainnet-btn-header"
+                    class="mainnet-btn px-3 py-1 rounded-full transition-colors duration-300">Mainnet</button>
+                <button id="testnet-btn-header"
+                    class="testnet-btn px-3 py-1 rounded-full transition-colors duration-300">Testnet</button>
+            </div>
+
+            <!-- Wallet Connection Area -->
+            <div class="relative">
+                <button id="connectButton"
+                    class="glow-on-hover bg-violet-600 hover:bg-violet-500 text-white font-semibold py-2 px-4 border border-violet-500 rounded-lg transition-all duration-300">
+                    Connect Wallet
+                </button>
+                <div id="balanceDisplay"
+                    class="absolute top-full right-0 mt-1 text-xs text-right text-gray-400 whitespace-nowrap hidden">
+                    Balance: <span id="userBalance" class="font-mono text-violet-300">0.00</span>
+                    <!-- Balance: <span id="userBalance" class="font-mono text-violet-300">0.00</span> CWLT -->
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Main Presale Card -->
+        <div id="presaleCard"
+            class="w-full max-w-md bg-gray-800 bg-opacity-60 backdrop-blur-sm border border-violet-500/20 rounded-2xl shadow-2xl shadow-violet-900/40 p-6 md:p-8 space-y-6">
+            <main class="space-y-6">
+                <!-- BUY MODE UI -->
+                <div id="buy-mode-ui" class="hidden">
+
+                <h1 class="text-2xl font-bold text-center text-violet-400">ChatWallet Token Presale</h1>
+
+
+                <div class="text-center mt-6 space-y-2">
+                    <div id="prominent-price-display" class="text-2xl md:text-3xl font-bold text-white">...</div>
+                </div>
+
+
+
+                <div class="space-y-4">
+                    <!-- Amount Input -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label for="amount-input" class="block text-sm font-medium text-gray-400">You pay</label>
+                            <span id="equivalent-value-display" class="text-sm font-mono text-gray-400">~ $0.00
+                                USD</span>
+                        </div>
+                        <div
+                            class="flex items-center bg-gray-900/70 border border-gray-600 rounded-lg focus-within:ring-2 focus-within:ring-violet-600 focus-within:border-violet-600 transition-all duration-200">
+                            <button id="decrease-btn"
+                                class="px-4 py-3 text-violet-400 hover:bg-violet-900/50 rounded-l-lg text-2xl transition-colors duration-200">-</button>
+                            <div class="relative w-full">
+                                <input type="number" id="amount-input" value="0.1"
+                                    class="form-input w-full bg-transparent p-3 text-2xl font-mono text-white text-center border-x border-gray-700 focus:ring-0"
+                                    placeholder="0.0">
+                                <div class="absolute top-1/2 right-4 -translate-y-1/2 flex items-center space-x-2">
+                                    <span id="input-currency-symbol" class="font-semibold text-gray-400 pt-1">ETH</span>
+                                    <button id="switch-currency-btn"
+                                        class="text-violet-400 hover:text-violet-300 p-1 rounded-full hover:bg-violet-900/50 transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <button id="increase-btn"
+                                class="px-4 py-3 text-violet-400 hover:bg-violet-900/50 rounded-r-lg text-2xl transition-colors duration-200">+</button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <svg class="w-8 h-8 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                        </svg>
+                    </div>
+
+                    <!-- Token Output -->
+                    <div class="bg-gray-900/70 border border-gray-700 rounded-lg p-3">
+                        <label class="block text-sm font-medium text-gray-400 mb-1">You receive (approx.)</label>
+                        <div class="flex justify-between items-baseline">
+                            <div id="token-amount" class="text-2xl font-mono text-violet-400">...</div>
+                            <span class="text-lg font-semibold text-gray-400"></span>
+                            <!-- <span class="text-lg font-semibold text-gray-400">CWLT</span> -->
+                        </div>
+                    </div>
+                </div>
+
+                <button id="buyButton"
+                    class="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white font-bold py-3 px-4 rounded-lg text-lg hover:from-violet-600 hover:to-fuchsia-600 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Buy CWLT
+                </button>
+
+                 <div class="text-center mt-4">
+                         <button id="switch-to-claim-btn" class="text-sm text-fuchsia-400 hover:underline hidden" data-lang="have_tokens_to_claim">Have tokens to claim?</button>
+                    </div>
+                </div>
+
+                <!-- CLAIM MODE UI -->
+                <div id="claim-mode-ui" class="hidden">
+                    <h1 class="text-2xl font-bold text-center text-fuchsia-400" data-lang="claim_title">Claim Your Tokens</h1>
+                     <div class="space-y-4 mt-6 text-center">
+                        <p class="text-gray-400" data-lang="claim_subtitle">The presale has concluded. You can now claim your purchased tokens.</p>
+                        <div class="bg-gray-900/70 border border-gray-700 rounded-lg p-4">
+                            <label class="block text-sm font-medium text-gray-400 mb-1" data-lang="claimable_balance">Your Claimable Balance</label>
+                            <div class="flex justify-center items-baseline space-x-2">
+                                <div id="claimable-amount" class="text-3xl font-mono text-fuchsia-400">0.00</div>
+                                <span class="text-xl font-semibold text-gray-400">CWLT</span>
+                            </div>
+                        </div>
+                        <!-- Countdown Timer -->
+                        <div id="claim-countdown-container" class="hidden mt-4">
+                             <p class="text-gray-400 text-sm" data-lang="claim_unlocks_in">Claim unlocks in:</p>
+                             <div id="claim-countdown-timer" class="text-2xl font-mono text-yellow-400"></div>
+                        </div>
+                     </div>
+                     <button id="claimButton" class="w-full mt-6 bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white font-bold py-3 px-4 rounded-lg text-lg hover:from-fuchsia-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" data-lang="claim_tokens">
+                        Claim Tokens
+                    </button>
+                    <div class="text-center mt-4">
+                         <button id="switch-to-buy-btn" class="text-sm text-violet-400 hover:underline" data-lang="want_to_buy_more">Want to buy more?</button>
+                    </div>
+                </div>
+            </main>
+            <footer class="space-y-4 pt-4 border-t border-gray-700/50">
+                <div class="flex justify-between text-sm font-medium">
+                    <span class="text-gray-400">Current Price</span>
+                    <span id="token-price" class="text-white font-mono">...</span>
+                </div>
+                <div class="flex justify-between text-sm font-medium">
+                    <span class="text-gray-400">Total Sold</span>
+                    <span id="total-sold" class="text-white font-mono">...</span>
+                </div>
+                <div>
+                    <div class="flex justify-between mb-1 text-xs font-semibold text-gray-400">
+                        <span>Progress</span>
+                        <span id="progress-percentage">...</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                        <div id="progress-bar"
+                            class="animated-progress bg-gradient-to-r from-violet-500 to-fuchsia-500 h-2.5 rounded-full"
+                            style="width: 0%"></div>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Wallet Connection Modal -->
+    <div id="walletModal"
+        class="modal-overlay fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div
+            class="modal-container w-full max-w-sm bg-gray-800 border border-violet-500/30 rounded-2xl shadow-2xl shadow-violet-900/50 p-6 space-y-4 transform scale-95 opacity-0">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold text-violet-300">Connect a Wallet</h2>
+                <button id="closeModal" class="text-gray-400 hover:text-white transition-colors">&times;</button>
+            </div>
+            <p class="text-gray-400 text-sm">Select your preferred wallet provider to continue.</p>
+            <div class="space-y-3 pt-2">
+                <button id="connectMetamask"
+                    class="w-full flex items-center justify-between p-4 bg-gray-900/70 hover:bg-gray-700/70 border border-gray-600 rounded-lg transition-all">
+                    <span class="font-semibold text-white">Metamask</span>
+                    <img src="img/MetaMask_Fox.svg" alt="MetaMask" class="wallet-icon">
+
+                    <!-- <svg class="w-8 h-8" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="none" height="256" width="256" /><path d="M211.5,128.1l-33.1-20.3-17.3,10-2.8,1.8-19.1,11.8,19.1,11.8,2.8,1.8,17.3,10,33.1-20.3a15.9,15.9,0,0,0,0-28.2Z" fill="#e2761b" /><path d="M178.4,107.8,161,97.7l-2.8-1.8-19.2-11.8L120,72.4,100.8,84.2l2.8,1.8,17.3,10,17.4,10.1,19.2,11.8,2.8,1.8L178.4,128l33.1,20.4V148.2Z" fill="#e2761b" /><path d="M80.4,142.2,63,132.1l-2.8-1.8L41.1,118.5l19.1-11.8L63,96.6l17.4,10.1,17.3,10-17.3,10L80.4,137,63,147.1l-2.8,1.8-19.1,11.8L22.5,148.2V128.1a15.9,15.9,0,0,1,0-28.2l33.1,20.4,2.8,1.8,19.1,11.8Z" fill="#d7c1b3" /><path d="M178.4,148.4,161,158.5l-2.8,1.8-19.2,11.8L120,183.8,100.8,172l2.8-1.8,17.3-10,17.4-10.1,19.2-11.8,2.8-1.8L178.4,128l33.1-20.4v20.2Z" fill="#e2761b" /><path d="M120,183.8,100.8,172,83.4,161.9,80.6,160.1l-17.3-10-17.4-10.1-19.2-11.8-2.8-1.8-17.4-10.7v20.2l17.4,10.7,2.8,1.8,19.1,11.8,19.2,11.8,2.8,1.8,17.3,10Z" fill="#d7c1b3" /><path d="M120,183.8,139.2,172l19.2-11.8,2.8-1.8,17.2-10V128.1l-17.3,10-2.8,1.8-19.1,11.8-19.2,11.8Zm0-111.4L139.2,84.2,100.8,84.2,83.4,94.3l17.4-10.1L120,72.4Z" fill="#233447" /><path d="M139.2,84.2,158.4,72.4,120,48,81.6,72.4,100.8,84.2Z" fill="#cc6228" /><path d="M81.6,72.4,62.4,84.2,43.2,72.4,81.6,48Z" fill="#e2751b" /><path d="M158.4,72.4,177.6,84.2l19.2-11.8L158.4,48Z" fill="#f6851b" /><path d="M81.6,183.6l38.4,23.4,38.4-23.4-19.2-11.8-19.2-11.8-19.2,11.8Z" fill="#c0ad9e" /><path d="M120,207l38.4-23.4L120,159.9Z" fill="#161616" /><path d="M81.6,183.6,120,207V159.9Z" fill="#424242" /></svg> -->
+                </button>
+                <button id="connectChatWallet"
+                    class="w-full flex items-center justify-between p-4 bg-gray-900/70 hover:bg-gray-700/70 border border-gray-600 rounded-lg transition-all">
+                    <span class="font-semibold text-white">ChatWallet</span>
+                    <img src="img/chatwalletlogov2.svg" alt="chatWallet" class="wallet-icon">
+
+                    <!-- <svg class="w-8 h-8 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg> -->
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- ChatWallet QR Modal -->
+    <div id="qrModal"
+        class="modal-overlay fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div
+            class="qr-modal-container w-full max-w-md bg-gray-800 border border-violet-500/30 rounded-2xl shadow-2xl shadow-violet-900/50 p-8 space-y-6 transform scale-95 opacity-0">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold text-violet-300">Connect ChatWallet</h2>
+                <button id="closeQrModal"
+                    class="text-gray-400 hover:text-white transition-colors text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="text-center space-y-4">
+                <p class="text-gray-400 text-sm">Scan this QR code with your ChatWallet mobile app</p>
+
+                <!-- QR Code Container -->
+                <div class="relative">
+                    <div id="qrCodeContainer" class="qr-code-container mx-auto">
+                        <!-- QR code will be generated here -->
+                    </div>
+                    <div class="qr-scanning-line"></div>
+                </div>
+
+                <!-- Connection String Display -->
+                <div class="bg-gray-900/70 border border-gray-600 rounded-lg p-3">
+                    <div class="text-xs text-gray-400 mb-1">Connection String:</div>
+                    <div id="connectionString" class="text-xs font-mono text-white break-all select-all">
+                        chatwallet://connect?session=...</div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex space-x-3">
+                    <button id="copyConnectionBtn"
+                        class="flex-1 flex items-center justify-center space-x-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        <span>Copy</span>
+                    </button>
+
+                    <button id="openInAppBtn"
+                        class="flex-1 flex items-center justify-center space-x-2 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z">
+                            </path>
+                        </svg>
+                        <span>Open App</span>
+                    </button>
+                </div>
+
+                <!-- Status -->
+                <div id="connectionStatus" class="text-sm text-gray-400">
+                    <div class="flex items-center justify-center space-x-2">
+                        <div class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                        <span>Waiting for connection...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <!-- Settings Modal -->
+     <div id="settingsModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-container w-full max-w-sm bg-gray-800 border border-violet-500/30 rounded-2xl shadow-2xl shadow-violet-900/50 p-6 space-y-4 transform scale-95 opacity-0">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold text-violet-300" data-lang="settings">Settings</h2>
+                <button id="closeSettingsModal" class="text-gray-400 hover:text-white transition-colors">&times;</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="language-select" class="block text-sm font-medium text-gray-400 mb-1" data-lang="language">Language</label>
+                    <select id="language-select" class="w-full bg-gray-900/70 border border-gray-600 rounded-lg p-2 text-white form-input">
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="currency-select" class="block text-sm font-medium text-gray-400 mb-1" data-lang="reference_currency">Reference Currency</label>
+                    <select id="currency-select" class="w-full bg-gray-900/70 border border-gray-600 rounded-lg p-2 text-white form-input">
+                        <option value="usd">USD ($)</option>
+                        <option value="eur">EUR (€)</option>
+                        <option value="ars">ARS ($)</option>
+                    </select>
+                </div>
+                 <div class="md:hidden">
+                    <label class="block text-sm font-medium text-gray-400 mb-1" data-lang="network">Network</label>
+                    <div class="network-selector flex items-center bg-gray-900/50 border border-violet-500/30 rounded-full p-1 text-sm font-semibold">
+                        <button id="mainnet-btn-modal" class="mainnet-btn w-1/2 px-3 py-1 rounded-full transition-colors duration-300">Mainnet</button>
+                        <button id="testnet-btn-modal" class="testnet-btn w-1/2 px-3 py-1 rounded-full transition-colors duration-300">Testnet</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- <div id="settingsModal"
+        class="modal-overlay fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div
+            class="modal-container w-full max-w-sm bg-gray-800 border border-violet-500/30 rounded-2xl shadow-2xl shadow-violet-900/50 p-6 space-y-4 transform scale-95 opacity-0">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold text-violet-300">Settings</h2>
+                <button id="closeSettingsModal"
+                    class="text-gray-400 hover:text-white transition-colors">&times;</button>
+            </div>
+            
+            <div class="space-y-2">
+                <label for="currency-select" class="block text-sm font-medium text-gray-400">Reference Currency</label>
+                <select id="currency-select"
+                    class="w-full bg-gray-900/70 border border-gray-600 rounded-lg p-2 text-white form-input">
+                    <option value="usd">USD ($)</option>
+                    <option value="eur">EUR (€)</option>
+                    <option value="ars">ARS ($)</option>
+                </select>
+            </div>
+
+            <div class="md:hidden">
+                <label class="block text-sm font-medium text-gray-400 mb-1">Network</label>
+                <div
+                    class="network-selector flex items-center bg-gray-900/50 border border-violet-500/30 rounded-full p-1 text-sm font-semibold">
+                    <button id="mainnet-btn-modal"
+                        class="mainnet-btn w-1/2 px-3 py-1 rounded-full transition-colors duration-300">Mainnet</button>
+                    <button id="testnet-btn-modal"
+                        class="testnet-btn w-1/2 px-3 py-1 rounded-full transition-colors duration-300">Testnet</button>
+                </div>
+            </div>
+
+        </div>
+    </div> -->
+
+    <!-- Success Notification -->
+    <div id="successNotification" class="w-full max-w-sm">
+        <div
+            class="bg-gray-800 border border-violet-500/30 rounded-2xl shadow-2xl shadow-violet-900/50 p-4 flex items-center space-x-4">
+            <div id="successIcon"
+                class="flex-shrink-0 w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <div>
+                <p id="successMessage" class="font-semibold text-white">Purchase Successful!</p>
+                <p id="purchaseAmount" class="text-sm text-gray-400 font-mono"></p>
+                <p id="transactionHash" class="text-xs text-gray-500 font-mono truncate"></p>
+            </div>
+            <button id="closeNotification" class="ml-auto text-gray-500 hover:text-white">&times;</button>
+        </div>
+    </div>
+
+    <!-- Warning Notification -->
+    <div id="warningNotification" class="notification w-full max-w-sm">
+        <div
+            class="bg-gray-800 border border-yellow-500/30 rounded-2xl shadow-2xl shadow-yellow-900/50 p-4 flex items-center space-x-4">
+            <div class="flex-shrink-0 w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                    </path>
+                </svg>
+            </div>
+            <div>
+                <p id="warningMessage" class="font-semibold text-white">Attention</p>
+                <p id="warningSubMessage" class="text-sm text-gray-400"></p>
+            </div>
+            <button id="closeWarningNotification" class="ml-auto text-gray-500 hover:text-white">&times;</button>
+        </div>
+    </div>
+
+
+    <!-- Error Notification -->
+    <div id="errorNotification" class="w-full">
+        <div
+            class="bg-red-800 border border-red-500/30 rounded-2xl shadow-2xl shadow-red-900/50 p-4 flex items-center space-x-4 error-style">
+            <div class="flex-shrink-0 w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 error-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <div>
+                <p id="errorMessage" class="font-semibold">Transaction Failed</p>
+                <p id="errorDetails" class="text-sm font-mono"></p>
+            </div>
+            <button id="closeErrorNotification" class="ml-auto hover:text-white">&times;</button>
+        </div>
+    </div>
+
+
+
+
+    <script src="js/ethers-6.13.2.umd.min.js"></script>
+    <script src="js/qr-code-styling.js"></script>
+
+
+    <script type="module">
+        // XMTP
+        import { Client } from '@xmtp/xmtp-js'
+        window.Client = Client;
+        import { MetaMaskSDK } from "@metamask/sdk"
+        window.MetaMaskSDK = MetaMaskSDK;
+
+    </script>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+             // --- Translations ---
+            const translations = {
+                en: {
+                    connect_wallet: "Connect Wallet",
+                    balance: "Balance",
+                    presale_title: "ChatWallet Token Presale",
+                    you_pay: "You pay",
+                    you_receive: "You receive (approx.)",
+                    buy_cwlt: "Buy CWLT",
+                    have_tokens_to_claim: "Have tokens to claim?",
+                    claim_title: "Claim Your Tokens",
+                    claim_subtitle: "You can now claim your tokens.",
+                    claimable_balance: "Your Claimable Balance",
+                    claim_tokens: "Claim Tokens",
+                    claim_unlocks_in: "Claim unlocks in:",
+                    want_to_buy_more: "Want to buy more?",
+                    current_price: "Current Price",
+                    total_sold: "Total Sold",
+                    progress: "Progress",
+                    price_increase_in: "Next Price Increase In:",
+                    connect_a_wallet: "Connect a Wallet",
+                    select_wallet_provider: "Select your preferred wallet provider to continue.",
+                    settings: "Settings",
+                    language: "Language",
+                    reference_currency: "Reference Currency",
+                    network: "Network",
+                    attention: "Attention",
+                    mainnet_not_active: "Mainnet is not active yet. Please use Testnet.",
+                    price_error: "Could not fetch live price. Using estimates.",
+                    purchase_success: "Successfully purchased",
+                    claim_success: "Successfully claimed",
+                    value: "Value",
+                    new_balance: "New Balance"
+                },
+                es: {
+                    connect_wallet: "Conectar Billetera",
+                    balance: "Saldo",
+                    presale_title: "Preventa de Token ChatWallet",
+                    you_pay: "Tú pagas",
+                    you_receive: "Tú recibes (aprox.)",
+                    buy_cwlt: "Comprar CWLT",
+                    have_tokens_to_claim: "¿Tienes tokens para reclamar?",
+                    claim_title: "Reclama Tus Tokens",
+                    claim_subtitle: "Ya puedes reclamar tus tokens.",
+                    claimable_balance: "Tu Saldo Reclamable",
+                    claim_tokens: "Reclamar Tokens",
+                    claim_unlocks_in: "Reclamo se desbloquea en:",
+                    want_to_buy_more: "¿Quieres comprar más?",
+                    current_price: "Precio Actual",
+                    total_sold: "Total Vendido",
+                    progress: "Progreso",
+                    price_increase_in: "Próximo Aumento de Precio en:",
+                    connect_a_wallet: "Conectar una Billetera",
+                    select_wallet_provider: "Selecciona tu proveedor de billetera preferido para continuar.",
+                    settings: "Ajustes",
+                    language: "Idioma",
+                    reference_currency: "Moneda de Referencia",
+                    network: "Red",
+                    attention: "Atención",
+                    mainnet_not_active: "Mainnet aún no está activa. Por favor, usa la Testnet.",
+                    price_error: "No se pudo obtener el precio en vivo. Usando estimaciones.",
+                    purchase_success: "¡Compraste exitosamente",
+                    claim_success: "¡Reclamaste exitosamente",
+                    value: "Valor",
+                    new_balance: "Nuevo Saldo"
+                },
+                fr: {
+                    connect_wallet: "Connecter le Portefeuille",
+                    balance: "Solde",
+                    presale_title: "Prévente du Jeton ChatWallet",
+                    you_pay: "Vous payez",
+                    you_receive: "Vous recevez (environ)",
+                    buy_cwlt: "Acheter CWLT",
+                    have_tokens_to_claim: "Avez-vous des jetons à réclamer?",
+                    claim_title: "Réclamez Vos Jetons",
+                    claim_subtitle: "Vous pouvez désormais récupérer vos jetons.",
+                    claimable_balance: "Votre Solde Réclamable",
+                    claim_tokens: "Réclamer les Jetons",
+                    claim_unlocks_in: "Le retrait se débloque dans:",
+                    want_to_buy_more: "Voulez-vous en acheter plus?",
+                    current_price: "Prix Actuel",
+                    total_sold: "Total Vendu",
+                    progress: "Progrès",
+                    price_increase_in: "Prochaine Augmentation de Prix Dans:",
+                    connect_a_wallet: "Connecter un Portefeuille",
+                    select_wallet_provider: "Sélectionnez votre fournisseur de portefeuille préféré pour continuer.",
+                    settings: "Paramètres",
+                    language: "Langue",
+                    reference_currency: "Devise de Référence",
+                    network: "Réseau",
+                    attention: "Attention",
+                    mainnet_not_active: "Mainnet n'est pas encore actif. Veuillez utiliser le Testnet.",
+                    price_error: "Impossible de récupérer le prix en direct. Utilisation d'estimations.",
+                    purchase_success: "Acheté avec succès",
+                    claim_success: "Réclamé avec succès",
+                    value: "Valeur",
+                    new_balance: "Nouveau Solde"
+                }
+            };
+            
+
+            window.translations = translations;
+
+             
+
+            // Define global variables
+            window.options = {}; // User-specific API keys (can be empty)
+
+           
+            window.optionsList = [
+                {
+                    "CWLT_CONTRACT_ADDRESS": "0x2aC45C33602E1a8450302100F1897BFF6C91a5d6",//chatWalletTokenF
+                    "CWLT_ABI": '[]',
+                    "PRESALE_CONTRACT_ADDRESS": "0x504fF398f4Bf7C597a391fCb1328bf5add7aCE44",//milestonePresaleV20.sol
+                    "PRESALE_ABI": ` [ { "inputs": [], "name": "buyTokens", "outputs": [], "stateMutability": "payable", "type": "function" }, { "inputs": [], "name": "cancelTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "recipient", "type": "address" } ], "name": "claimToAccount", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "claimTokens", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_tokenAddress", "type": "address" }, { "internalType": "uint256", "name": "_epochDuration", "type": "uint256" }, { "internalType": "uint256", "name": "_developmentObjective", "type": "uint256" }, { "internalType": "uint256", "name": "_timelockDelay", "type": "uint256" }, { "internalType": "address", "name": "_initialOwner", "type": "address" } ], "stateMutability": "nonpayable", "type": "constructor" }, { "inputs": [], "name": "ETHTransferFailed", "type": "error" }, { "inputs": [], "name": "EnforcedPause", "type": "error" }, { "inputs": [], "name": "EpochNotOver", "type": "error" }, { "inputs": [], "name": "ExceedsAvailableTokens", "type": "error" }, { "inputs": [], "name": "ExpectedPause", "type": "error" }, { "inputs": [], "name": "NoFundsToWithdraw", "type": "error" }, { "inputs": [], "name": "NoTokensToClaim", "type": "error" }, { "inputs": [], "name": "NoWithdrawalQueued", "type": "error" }, { "inputs": [ { "internalType": "address", "name": "owner", "type": "address" } ], "name": "OwnableInvalidOwner", "type": "error" }, { "inputs": [ { "internalType": "address", "name": "account", "type": "address" } ], "name": "OwnableUnauthorizedAccount", "type": "error" }, { "inputs": [], "name": "PurchaseInvalid", "type": "error" }, { "inputs": [], "name": "ReentrancyGuardReentrantCall", "type": "error" }, { "inputs": [], "name": "TimelockActive", "type": "error" }, { "inputs": [], "name": "WithdrawalAlreadyPending", "type": "error" }, { "inputs": [], "name": "WithdrawalAmountExceedsBalance", "type": "error" }, { "inputs": [], "name": "ZeroAddress", "type": "error" }, { "inputs": [], "name": "ZeroEpochDuration", "type": "error" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "DevelopmentFundsWithdrawn", "type": "event" }, { "inputs": [], "name": "executeTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "toDevelopment", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "toTreasury", "type": "uint256" } ], "name": "FundsDistributed", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "previousOwner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "newOwner", "type": "address" } ], "name": "OwnershipTransferred", "type": "event" }, { "inputs": [], "name": "pause", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "address", "name": "account", "type": "address" } ], "name": "Paused", "type": "event" }, { "inputs": [ { "internalType": "address payable", "name": "recipient", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "string", "name": "purpose", "type": "string" } ], "name": "queueTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "renounceOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "claimer", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TokensClaimed", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "owner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TokensClaimedToAccount", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "buyer", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "ethAmount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "tokenAmount", "type": "uint256" } ], "name": "TokensPurchased", "type": "event" }, { "inputs": [ { "internalType": "address", "name": "newOwner", "type": "address" } ], "name": "transferOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TreasuryWithdrawalCancelled", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TreasuryWithdrawalExecuted", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "purpose", "type": "string" }, { "indexed": false, "internalType": "uint256", "name": "unlockTime", "type": "uint256" } ], "name": "TreasuryWithdrawalQueued", "type": "event" }, { "inputs": [], "name": "unpause", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "address", "name": "account", "type": "address" } ], "name": "Unpaused", "type": "event" }, { "inputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "address payable", "name": "recipient", "type": "address" } ], "name": "withdrawDevelopmentFunds", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "BASE_PRICE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "paymentAmount", "type": "uint256" } ], "name": "calculateTokensForPayment", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "user", "type": "address" } ], "name": "claimableTokens", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEV_FEE_BPS", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEVELOPMENT_OBJECTIVE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "developmentFundsAvailable", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "EPOCH_DURATION", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getCurrentPrice", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getPresaleStats", "outputs": [ { "internalType": "uint256", "name": "currentPrice", "type": "uint256" }, { "internalType": "uint256", "name": "tokensRemaining", "type": "uint256" }, { "internalType": "uint256", "name": "saleProgressBP", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }, { "internalType": "uint256", "name": "objectiveProgressBP", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getTreasuryState", "outputs": [ { "internalType": "address", "name": "recipient", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "string", "name": "purpose", "type": "string" }, { "internalType": "uint256", "name": "unlockTime", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MAX_TOKENS_FOR_SALE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "owner", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "paused", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "PRICE_INCREMENT", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TOKEN", "outputs": [ { "internalType": "contract ChatWalletTokenF", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalFundsRaised", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalTokensSold", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TREASURY_FEE_BPS", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TREASURY_TIMELOCK_DELAY", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryFundsAvailable", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalAmount", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalPurpose", "outputs": [ { "internalType": "string", "name": "", "type": "string" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalRecipient", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalUnlockTime", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "userVestingInfo", "outputs": [ { "internalType": "uint192", "name": "amount", "type": "uint192" }, { "internalType": "uint64", "name": "startTimestamp", "type": "uint64" } ], "stateMutability": "view", "type": "function" } ]                       `,
+                    "TOKEN_CHAIN_NAME": 'Arbitrum sepolia',
+                    "CHAIN_ID": '421614',
+                    "EXPLORER": 'https://sepolia.arbiscan.io/',
+                    "API": 'https://arbitrum-sepolia.infura.io/v3/b17405e634bd40308be3eb4fa2485c9a',
+                    "ALCHEMY_KEY": 'X048z0PxuDPd5vbTiKLbWJgogG9Tvd2I',
+                    'INFURA_API_KEY': 'b17405e634bd40308be3eb4fa2485c9a',
+
+                },
+                // Mainnet
+                {
+                    "CWLT_CONTRACT_ADDRESS": "0x4697bDe7F6B40790D11C9Ab7628Fa4827fcE8bAe",//chatWalletTokenF
+                    "CWLT_ABI": '[]',
+                    "PRESALE_CONTRACT_ADDRESS": "0x99862a8FFB68acBa1A71E4065b83EB2C3cF4d14A",//milestonePresaleV21.sol
+                    "PRESALE_ABI": ` [ { "inputs": [], "name": "buyTokens", "outputs": [], "stateMutability": "payable", "type": "function" }, { "inputs": [], "name": "cancelTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "recipient", "type": "address" } ], "name": "claimToAccount", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "claimTokens", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_tokenAddress", "type": "address" }, { "internalType": "uint256", "name": "_epochDuration", "type": "uint256" }, { "internalType": "uint256", "name": "_developmentObjective", "type": "uint256" }, { "internalType": "uint256", "name": "_timelockDelay", "type": "uint256" }, { "internalType": "address", "name": "_initialOwner", "type": "address" } ], "stateMutability": "nonpayable", "type": "constructor" }, { "inputs": [], "name": "ETHTransferFailed", "type": "error" }, { "inputs": [], "name": "EnforcedPause", "type": "error" }, { "inputs": [], "name": "EpochNotOver", "type": "error" }, { "inputs": [], "name": "ExceedsAvailableTokens", "type": "error" }, { "inputs": [], "name": "ExpectedPause", "type": "error" }, { "inputs": [], "name": "NoFundsToWithdraw", "type": "error" }, { "inputs": [], "name": "NoTokensToClaim", "type": "error" }, { "inputs": [], "name": "NoWithdrawalQueued", "type": "error" }, { "inputs": [ { "internalType": "address", "name": "owner", "type": "address" } ], "name": "OwnableInvalidOwner", "type": "error" }, { "inputs": [ { "internalType": "address", "name": "account", "type": "address" } ], "name": "OwnableUnauthorizedAccount", "type": "error" }, { "inputs": [], "name": "PurchaseInvalid", "type": "error" }, { "inputs": [], "name": "ReentrancyGuardReentrantCall", "type": "error" }, { "inputs": [], "name": "TimelockActive", "type": "error" }, { "inputs": [], "name": "WithdrawalAlreadyPending", "type": "error" }, { "inputs": [], "name": "WithdrawalAmountExceedsBalance", "type": "error" }, { "inputs": [], "name": "ZeroAddress", "type": "error" }, { "inputs": [], "name": "ZeroEpochDuration", "type": "error" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "DevelopmentFundsWithdrawn", "type": "event" }, { "inputs": [], "name": "executeTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "toDevelopment", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "toTreasury", "type": "uint256" } ], "name": "FundsDistributed", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "previousOwner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "newOwner", "type": "address" } ], "name": "OwnershipTransferred", "type": "event" }, { "inputs": [], "name": "pause", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "address", "name": "account", "type": "address" } ], "name": "Paused", "type": "event" }, { "inputs": [ { "internalType": "address payable", "name": "recipient", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "string", "name": "purpose", "type": "string" } ], "name": "queueTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "renounceOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "claimer", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TokensClaimed", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "owner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TokensClaimedToAccount", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "buyer", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "ethAmount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "tokenAmount", "type": "uint256" } ], "name": "TokensPurchased", "type": "event" }, { "inputs": [ { "internalType": "address", "name": "newOwner", "type": "address" } ], "name": "transferOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TreasuryWithdrawalCancelled", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TreasuryWithdrawalExecuted", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "purpose", "type": "string" }, { "indexed": false, "internalType": "uint256", "name": "unlockTime", "type": "uint256" } ], "name": "TreasuryWithdrawalQueued", "type": "event" }, { "inputs": [], "name": "unpause", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "address", "name": "account", "type": "address" } ], "name": "Unpaused", "type": "event" }, { "inputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "address payable", "name": "recipient", "type": "address" } ], "name": "withdrawDevelopmentFunds", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "BASE_PRICE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "paymentAmount", "type": "uint256" } ], "name": "calculateTokensForPayment", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "user", "type": "address" } ], "name": "claimableTokens", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEV_FEE_BPS", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEVELOPMENT_OBJECTIVE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "developmentFundsAvailable", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "EPOCH_DURATION", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getCurrentPrice", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getPresaleStats", "outputs": [ { "internalType": "uint256", "name": "currentPrice", "type": "uint256" }, { "internalType": "uint256", "name": "tokensRemaining", "type": "uint256" }, { "internalType": "uint256", "name": "saleProgressBP", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }, { "internalType": "uint256", "name": "objectiveProgressBP", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getTreasuryState", "outputs": [ { "internalType": "address", "name": "recipient", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "string", "name": "purpose", "type": "string" }, { "internalType": "uint256", "name": "unlockTime", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MAX_TOKENS_FOR_SALE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "owner", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "paused", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "PRICE_INCREMENT", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TOKEN", "outputs": [ { "internalType": "contract ChatWalletTokenF", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalFundsRaised", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalTokensSold", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TREASURY_FEE_BPS", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TREASURY_TIMELOCK_DELAY", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryFundsAvailable", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalAmount", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalPurpose", "outputs": [ { "internalType": "string", "name": "", "type": "string" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalRecipient", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalUnlockTime", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "userVestingInfo", "outputs": [ { "internalType": "uint192", "name": "amount", "type": "uint192" }, { "internalType": "uint64", "name": "startTimestamp", "type": "uint64" } ], "stateMutability": "view", "type": "function" } ]                       `,
+                    "TOKEN_CHAIN_NAME": 'Arbitrum One',
+                    "CHAIN_ID": '42161',
+                    "EXPLORER": 'https://arbiscan.io/',
+                    "API": 'https://arbitrum-mainnet.infura.io/v3/b17405e634bd40308be3eb4fa2485c9a',
+                    "ALCHEMY_KEY": 'X048z0PxuDPd5vbTiKLbWJgogG9Tvd2I',
+                    'INFURA_API_KEY': 'b17405e634bd40308be3eb4fa2485c9a',
+
+                }
+
+            ]
+
+            // const arbitrumSepoliaChain = {
+            arbitrumSepoliaChain = {
+                chainId: "0x66eee", // Hexadecimal (decimal: 421613)
+                chainName: "Arbitrum Sepolia",
+                nativeCurrency: {
+                    name: "Ether",
+                    symbol: "ETH",
+                    decimals: 18,
+                },
+                rpcUrls: ["https://sepolia-rollup.arbitrum.io/rpc "],
+                blockExplorerUrls: ["https://sepolia.arbiscan.io/ "],
+            };
+
+
+
+            // --- DOM Elements ---
+            let MMSDK;
+
+               const presaleCard = document.getElementById('presaleCard');
+            const buyModeUI = document.getElementById('buy-mode-ui');
+            const claimModeUI = document.getElementById('claim-mode-ui');
+            const connectButton = document.getElementById('connectButton');
+            const buyButton = document.getElementById('buyButton');
+            const claimButton = document.getElementById('claimButton');
+            const switchToBuyBtn = document.getElementById('switch-to-buy-btn');
+            const switchToClaimBtn = document.getElementById('switch-to-claim-btn');
+
+    const claimableAmountDisplay = document.getElementById('claimable-amount');
+            const claimCountdownContainer = document.getElementById('claim-countdown-container');
+            const claimCountdownTimerDisplay = document.getElementById('claim-countdown-timer');
+
+            const prominentPriceDisplay = document.getElementById('prominent-price-display');
+
+
+            const amountInput = document.getElementById('amount-input');
+            const equivalentValueDisplay = document.getElementById('equivalent-value-display');
+            const tokenOutput = document.getElementById('token-amount');
+            const tokenPriceDisplay = document.getElementById('token-price');
+            const totalSoldDisplay = document.getElementById('total-sold');
+            const progressBar = document.getElementById('progress-bar');
+            const progressPercentage = document.getElementById('progress-percentage');
+            // New amount buttons
+            const decreaseBtn = document.getElementById('decrease-btn');
+            const increaseBtn = document.getElementById('increase-btn');
+            const switchCurrencyBtn = document.getElementById('switch-currency-btn');
+            const inputCurrencySymbol = document.getElementById('input-currency-symbol');
+            // Modal elements
+            const walletModal = document.getElementById('walletModal');
+            const closeModalButton = document.getElementById('closeModal');
+            const connectMetamaskButton = document.getElementById('connectMetamask');
+            const connectChatWalletButton = document.getElementById('connectChatWallet');
+            // Settings Modal elements
+            const settingsBtn = document.getElementById('settings-btn');
+            const settingsModal = document.getElementById('settingsModal');
+            const closeSettingsModalBtn = document.getElementById('closeSettingsModal');
+            const currencySelect = document.getElementById('currency-select');
+            const languageSelect = document.getElementById('language-select');
+
+            // Network selector elements
+            const mainnetButtons = document.querySelectorAll('.mainnet-btn');
+            const testnetButtons = document.querySelectorAll('.testnet-btn');
+            // const mainnetButton = document.getElementById('mainnet-btn');
+            // const testnetButton = document.getElementById('testnet-btn');
+
+            // Balance display elements
+            const balanceDisplay = document.getElementById('balanceDisplay');
+            const userBalanceDisplay = document.getElementById('userBalance');
+            // Success Notification elements
+            const successNotification = document.getElementById('successNotification');
+            const successIcon = document.getElementById('successIcon');
+            const successMessage = document.getElementById('successMessage');
+            const purchaseAmount = document.getElementById('purchaseAmount');
+            const transactionHash = document.getElementById('transactionHash');
+            const closeNotificationButton = document.getElementById('closeNotification');
+
+            const errorNotification = document.getElementById('errorNotification');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorDetails = document.getElementById('errorDetails');
+            const closeErrorNotification = document.getElementById('closeErrorNotification');
+
+            const warningNotification = document.getElementById('warningNotification');
+            const warningSubMessage = document.getElementById('warningSubMessage');
+            const closeWarningNotificationBtn = document.getElementById('closeWarningNotification');
+
+
+
+            // --- State and Configuration ---
+            // let isWalletConnected = false;
+            let currentNetwork = 'mainnet';
+            let fiatCurrency = 'usd';
+            const NETWORK_STORAGE_KEY = 'iusnaturalis-dao-network';
+            const CURRENCY_STORAGE_KEY = 'iusnaturalis-dao-currency';
+            const LANGUAGE_STORAGE_KEY = 'chatwallet-token-language';
+
+            let ethPrices = { usd: 0, eur: 0, ars: 0 };
+            let userTokenBalance = 0;
+            let inputMode = 'eth'; // 'eth' or 'fiat'
+            const ETH_STEP = 0.01;
+            const USD_STEP = 10;
+
+
+                  // --- TGE & Contract Simulation ---
+           
+                  
+
+            // --- API and Data Fetching ---
+            const fetchETHPrice = async () => {
+    const now = Date.now();
+    // Moved 'saved' to be accessible in the catch block
+    const saved = JSON.parse(localStorage.getItem('cachedETHPrice') || '{}');
+
+    // First, check if a valid, non-expired cache exists
+    if (saved.price && (now - saved.timestamp < CACHE_DURATION_MS)) {
+        ethPrices = saved.price;
+        console.log("Using fresh cached ETH price:", ethPrices);
+        updateCalculations();
+        return;
+    }
+
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd,eur,ars');
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        
+        const data = await response.json();
+        const newPrice = data.ethereum;
+
+        // Update the cache with the newly fetched price
+        localStorage.setItem('cachedETHPrice', JSON.stringify({
+            price: newPrice,
+            timestamp: now
+        }));
+
+        ethPrices = newPrice;
+        console.log("Fetched and cached new ETH price:", ethPrices);
+        updateCalculations();
+
+    } catch (error) {
+        console.error("Failed to fetch ETH price:", error);
+
+        // **MODIFICATION**: If fetch fails, try to use any available cached price
+        if (saved.price) {
+            ethPrices = saved.price;
+            console.log("Fetch failed. Using stale cached ETH price:", ethPrices);
+            updateCalculations();
+        } else {
+            // Only show an error if there's no cached price at all
+            console.error("No cached ETH price available.");
+            equivalentValueDisplay.textContent = "Price Error";
+        }
+    }
+};
+         
+
+            // --- Preference Logic ---
+
+
+            /**
+             * Muestra una notificación para informar al usuario sobre la red actual.
+             * @param {string} network - La red a la que se ha cambiado ('mainnet' o 'testnet').
+             */
+            const showNetworkNotification = (network) => {
+                // Ocultar elementos que no son relevantes para esta notificación
+                purchaseAmount.style.display = 'block';
+                transactionHash.style.display = 'none'; // Ocultamos el hash de la transacción
+
+                // Personalizar el mensaje según la red
+                if (network === 'mainnet') {
+                    successMessage.textContent = 'You are in Mainnet';
+                    purchaseAmount.textContent = '🚀 Transactions are real and will cost gas.';
+                    // Opcional: Cambiar el color del ícono para Mainnet
+                    successIcon.style.color = '#8b5cf6'; // Violeta
+                } else { // Asumimos testnet
+                    successMessage.textContent = 'You are in Testnet';
+                    purchaseAmount.textContent = '🧪 You are in a safe testing environment.';
+                    // Opcional: Cambiar el color del ícono para Testnet
+                    successIcon.style.color = '#f59e0b'; // Ámbar o Naranja
+                }
+
+                // Lógica para mostrar y animar la notificación (igual que la original)
+                successNotification.classList.remove('hide');
+                successNotification.classList.add('show');
+                successIcon.classList.add('pulse-success');
+
+                setTimeout(() => {
+                    hideSuccessNotification(); // Reutilizamos la función para ocultar
+                    // Restaurar estilos después de ocultar
+                    setTimeout(() => {
+                        purchaseAmount.style.display = 'block';
+                        transactionHash.style.display = 'block';
+                        successIcon.style.color = ''; // Restablece el color por defecto
+                    }, 500);
+                }, 4000); // Duración más corta para una notificación de estado
+
+                setTimeout(() => {
+                    successIcon.classList.remove('pulse-success');
+                }, 600);
+            };
+
+
+            // --- Preference Logic ---
+            const setLanguage = (lang) => {
+                currentLanguage = lang;
+                localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+                languageSelect.value = lang;
+                document.querySelectorAll('[data-lang]').forEach(el => {
+                    const key = el.getAttribute('data-lang');
+                    if (translations[lang][key]) {
+                        el.textContent = translations[lang][key];
+                    }
+                });
+            };
+
+            const loadLanguagePreference = () => {
+                const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+                setLanguage(savedLanguage || 'en');
+            };
+            
+
+
+            const setNetwork = (network, isManualChange = false) => {
+                // Save the new network choice to localStorage FIRST.
+                localStorage.setItem(NETWORK_STORAGE_KEY, network);
+
+                // If the change was triggered by a user click, reload the page.
+                if (isManualChange) {
+                    window.location.reload();
+                    return; // Stop the function here since the page will reload.
+                }
+
+                // This code below will now only run on the initial page load.
+                currentNetwork = network;
+                mainnetButtons.forEach(btn => btn.classList.toggle('active', network === 'mainnet'));
+                testnetButtons.forEach(btn => btn.classList.toggle('active', network === 'testnet'));
+
+                console.log(`Initialized with network: ${network}`);
+
+                optionsIndex = network === 'mainnet' ? 1 : 0;
+                console.warn("optionsIndex:", optionsIndex);
+
+                if (network === 'mainnet') {
+                    showWarningNotification("You are on Mainnet!");
+                }
+                if (network === 'testnet') {
+                    showNetworkNotification(network);
+                }
+            };
+            
+
+
+
+
+
+            const loadNetworkPreference = () => {
+                const savedNetwork = localStorage.getItem(NETWORK_STORAGE_KEY);
+                setNetwork(savedNetwork || 'mainnet');
+            };
+
+            const setFiatCurrency = (currency) => {
+                fiatCurrency = currency;
+                localStorage.setItem(CURRENCY_STORAGE_KEY, currency);
+                currencySelect.value = currency;
+                updateCalculations();
+                if (inputMode === 'fiat') {
+                    inputCurrencySymbol.textContent = fiatCurrency.toUpperCase();
+                }
+                console.log(`Switched to ${currency.toUpperCase()}`);
+            };
+
+            const loadCurrencyPreference = () => {
+                const savedCurrency = localStorage.getItem(CURRENCY_STORAGE_KEY);
+                setFiatCurrency(savedCurrency || 'usd');
+            };
+
+            // --- Modal Functions ---
+            const openModal = (modal) => {
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    modal.querySelector('.modal-container').classList.remove('scale-95', 'opacity-0');
+                }, 10);
+            };
+
+            const closeModal = (modal) => {
+                modal.querySelector('.modal-container').classList.add('scale-95', 'opacity-0');
+                modal.classList.add('opacity-0');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            };
+
+            // --- Wallet Connection Logic ---
+            // let MMSDK;
+
+            const handleWalletConnection = async (walletType) => {
+    console.warn(`handleWalletConnection: Connecting with ${walletType} on ${currentNetwork}...`);
+
+    // --- [Action Point 1: Handle ChatWallet] ---
+    if (walletType === 'ChatWallet') {
+        console.warn('ChatWallet is not active yet.');
+        showWarningNotification("ChatWallet is not active yet.");
+        closeModal(walletModal);
+        return; // Exit the function early
+    }
+
+    // --- [Action Point 2: Handle Metamask Connection & UI Updates] ---
+    if (walletType === 'Metamask') {
+        console.warn('metamask!');
+        // Initialize SDK if it doesn't exist
+        if (!window.MMSDK) {
+            window.MMSDK = new MetaMaskSDK({
+                dappMetadata: {
+                    name: 'CWLT Presale DApp',
+                    url: window.location.href,
+                },
+                infuraAPIKey: 'b17405e634bd40308be3eb4fa2485c9a',
+            });
+        }
+
+                    userAddress = await metamaskConnect()
+
+        try {
+            // --- [Connect and Fetch Data] ---
+            // const userAddress = await metamaskConnect();
+            // if (!userAddress) {
+            //     console.error("Metamask connection failed or was rejected by the user.");
+            //     return; // Exit if connection fails
+            // }
+
+            isWalletConnected = true;
+
+            // Fetch real on-chain balances
+            const userTokenOwed = await loadTokensOwed();
+            console.warn('userTokenOwed::::', userTokenOwed)
+            // TODO: Create and call a function to get the real claimable balance
+            // For now, we'll simulate it as in your example.
+            // const userClaimableBalance = Math.floor(Math.random() * 2000) + 200; // Replace with actual call e.g., await loadClaimableBalance();
+
+            // --- [Update UI Elements] ---
+            // Update connection button
+            const shortAddress = shortAddressETH(userAddress);
+            connectButton.textContent = `${shortAddress} 🔛`;
+            // connectButton.textContent = `Connected: ${shortAddress}`;
+            connectButton.classList.replace('bg-violet-600', 'bg-gray-600');
+            connectButton.classList.replace('hover:bg-violet-500', 'hover:bg-gray-500');
+            buyButton.disabled = false;
+
+            // Update balance displays
+              const userTokenBalance = await getUserCWLTBalance()
+            const tokenBalanceFormatted = Number(ethers.formatUnits(userTokenBalance, 18)).toFixed(2);
+            console.warn('tokenBalanceFormatted:',tokenBalanceFormatted)
+            userBalanceDisplay.textContent = `${tokenBalanceFormatted} CWLT`;
+                animateNumberUpdate(userBalanceDisplay);
+           
+           
+            // claimableAmountDisplay.textContent = formatNumber(tokenBalanceFormatted); // Assumes formatNumber exists
+            balanceDisplay.classList.remove('hidden');
+
+            
+
+            console.log(`${walletType} connected successfully. Address: ${userAddress}`);
+            closeModal(walletModal);
+
+        } catch (error) {
+            console.error("An error occurred during wallet connection:", error);
+            // Optionally, reset UI state on failure
+            isWalletConnected = false;
+            connectButton.textContent = 'Connect Wallet';
+            connectButton.classList.replace('bg-gray-600', 'bg-violet-600');
+            connectButton.classList.replace('hover:bg-gray-500', 'hover:bg-violet-500');
+            buyButton.disabled = true;
+        }
+    }
+};
+
+          
+
+            window.handleWalletConnection = handleWalletConnection;
+
+             
+            const handleWalletDisconnection = () => {
+                console.log('Disconnecting wallet...');
+
+                // Clear authentication data
+                localStorage.removeItem('auth');
+
+                // Clear wallet-related app state
+                isWalletConnected = false;
+                userTokenBalance = 0;
+                signer = null;
+                ethersProvider = null;
+                contract = null;
+                mt = null;
+                ccc = null;
+
+                // Reset UI elements
+                connectButton.textContent = 'Connect Wallet';
+                connectButton.classList.replace('bg-gray-600', 'bg-violet-600');
+                connectButton.classList.replace('hover:bg-gray-500', 'hover:bg-violet-500');
+                buyButton.disabled = true;
+                userBalanceDisplay.textContent = '';
+                balanceDisplay.classList.add('hidden');
+
+                // Terminate MetaMask SDK session (if supported)
+                if (window.MMSDK && typeof window.MMSDK.terminate === 'function') {
+                    window.MMSDK.terminate();
+                }
+
+                console.log('Wallet disconnected successfully.');
+            };
+            window.handleWalletDisconnection = handleWalletDisconnection;
+
+
+
+            // --- Success Animation Functions ---
+            const createConfetti = () => {
+                const colors = ['#8b5cf6', '#a855f7', '#c084fc', '#facc15', '#ffffff'];
+                for (let i = 0; i < 25; i++) {
+                    setTimeout(() => {
+                        const confetti = document.createElement('div');
+                        confetti.className = 'confetti';
+                        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                        confetti.style.left = Math.random() * window.innerWidth + 'px';
+                        confetti.style.top = '-10px';
+                        confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                        document.body.appendChild(confetti);
+
+                        setTimeout(() => {
+                            if (confetti.parentNode) {
+                                confetti.parentNode.removeChild(confetti);
+                            }
+                        }, 3000);
+                    }, i * 50);
+                }
+            };
+
+            window.createConfetti = createConfetti;
+
+            // --- Notifications ---
+
+            const showSuccessNotification = (fiatValue, tokensReceived, hash) => {
+                // const fakeHash = '0x' + Math.random().toString(16).substr(2, 12);
+                console.log('showSuccessNotification:', hash)
+                successMessage.textContent = `You successfully purchased ${formatNumber(tokensReceived)} CWLT!`;
+                purchaseAmount.textContent = `Value: ~${formatNumber(fiatValue)} ${fiatCurrency.toUpperCase()}`;
+
+                // make link hashs
+                let textLink = `<a target="_blank" rel="noopener noreferrer" href="${optionsList[optionsIndex].EXPLORER}/tx/${hash}">tx receipt</a>`;
+
+                // transactionHash.textContent = `Tx: ${hash}...`;
+                transactionHash.innerHTML = textLink;
+
+                successNotification.classList.remove('hide');
+                successNotification.classList.add('show');
+                successIcon.classList.add('pulse-success');
+
+                // setTimeout(() => {
+                //     hideSuccessNotification();
+                // }, 6000);
+
+                setTimeout(() => {
+                    successIcon.classList.remove('pulse-success');
+                }, 600);
+            };
+
+            window.showSuccessNotification = showSuccessNotification;
+
+
+                 // --- Notification Functions ---
+            const showClaimSuccessNotification = (message, value, tx) => {
+
+                let textLink = `<a target="_blank" rel="noopener noreferrer" href="${optionsList[optionsIndex].EXPLORER}/tx/${tx}">tx receipt</a>`;
+
+                // const fakeHash = '0x' + Math.random().toString(16).substr(2, 12);
+                successMessage.textContent = message;
+                purchaseAmount.textContent = value;
+                transactionHash.innerHTML = `Tx: ${textLink}...`;
+                // <!-- transactionHash.textContent = `Tx: ${textLink}...`; -->
+                successNotification.classList.remove('hide');
+                successNotification.classList.add('show');
+                successIcon.classList.add('pulse-success');
+                // setTimeout(() => hideSuccessNotification(), 6000);
+                setTimeout(() => successIcon.classList.remove('pulse-success'), 600);
+            };
+            window.showClaimSuccessNotification = showClaimSuccessNotification;
+
+                  const hideClaimSuccessNotification = () => {
+                successNotification.classList.remove('show');
+                successNotification.classList.add('hide');
+                setTimeout(() => successNotification.classList.remove('hide'), 400);
+            };
+            window.hideClaimSuccessNotification = hideClaimSuccessNotification;
+
+
+            //      const hideSuccessNotification = () => {
+            //     successNotification.classList.remove('show');
+            //     successNotification.classList.add('hide');
+            //     setTimeout(() => successNotification.classList.remove('hide'), 400);
+            // };
+            const hideSuccessNotification = () => {
+                successNotification.classList.remove('show');
+                successNotification.classList.add('hide');
+
+                setTimeout(() => {
+                    successNotification.classList.remove('hide');
+                }, 400);
+            };
+            window.hideSuccessNotification = hideSuccessNotification;
+
+
+            const showWarningNotification = (message) => {
+                warningSubMessage.textContent = message;
+                warningNotification.classList.remove('hide');
+                warningNotification.classList.add('show');
+                setTimeout(() => hideWarningNotification(), 5000);
+            };
+            window.showWarningNotification = showWarningNotification;
+
+            const hideWarningNotification = () => {
+                warningNotification.classList.remove('show');
+                warningNotification.classList.add('hide');
+                setTimeout(() => warningNotification.classList.remove('hide'), 400);
+            };
+
+
+            const showErrorNotification = (message, details = '') => {
+                errorMessage.textContent = message;
+                errorDetails.textContent = details;
+                errorNotification.classList.add('show');
+                setTimeout(() => errorNotification.classList.remove('show'), 8000);
+            };
+
+            window.showErrorNotification = showErrorNotification;
+
+            const animateNumberUpdate = (element) => {
+                element.classList.add('number-animate');
+                setTimeout(() => {
+                    element.classList.remove('number-animate');
+                }, 500);
+            };
+
+            window.animateNumberUpdate = animateNumberUpdate;
+
+
+            // GET CONTRACT INFO
+
+
+
+            // --- Core UI and Calculation Functions ---
+            const updateProminentPrice = async () => {
+                const ethFiatPrice = ethPrices[fiatCurrency]; // ETH → fiat (USD, EUR, ARS)
+                console.log('🐳 currentFiatPriceOfEth:', ethFiatPrice);
+                cpoeth = ethFiatPrice;
+
+                if (!ethPrices.usd || !ethFiatPrice) {
+                    prominentPriceDisplay.textContent = '...';
+                    return;
+                }
+
+                // 1. Get token price in wei (from smart contract or cache)
+                const tokenPriceInWei = await calculateCurrentTokenPrice();
+                console.log('🐳 currentTokenPrice in wei: ', tokenPriceInWei);
+                cp = tokenPriceInWei;
+
+                // 2. Convert token price to ETH
+                const tokenPriceInETH = Number(ethers.formatEther(tokenPriceInWei)); // e.g. 0.0012
+                console.log('🐳 tokenPriceInETH:', tokenPriceInETH);
+
+                // 3. Convert token price in ETH to fiat (1 CWLT in USD/EUR/ARS)
+                const tokenPriceInFiat = tokenPriceInETH * ethFiatPrice;
+                console.log('🐳 tokenPriceInFiat:', tokenPriceInFiat);
+
+                // 4. How many CWLT you can buy with 100 fiat?
+                const cwltPer100Fiat = 100 / tokenPriceInFiat;
+                cwcw = cwltPer100Fiat;
+
+                // 5. Display
+                prominentPriceDisplay.innerHTML = `100 ${fiatCurrency.toUpperCase()} = <span class="text-violet-400">${cwltPer100Fiat.toFixed(2)} CWLT</span>`;
+            };
+
+
+            let cachedTokenPrice = null;
+            let lastFetchTime = 0;
+            const CACHE_DURATION_MS = 60 * 1000; // 1 minute
+            const calculateCurrentTokenPrice = async () => {
+                const now = Date.now();
+                if (cachedTokenPrice && (now - lastFetchTime < CACHE_DURATION_MS)) {
+                    return cachedTokenPrice;
+                }
+
+                try {
+                    const tokenPrice = await readContract.getCurrentPrice(); // BigInt (wei)
+
+                    cachedTokenPrice = tokenPrice; // Keep as BigInt
+                    lastFetchTime = now;
+
+                    // Optional localStorage store as string
+                    localStorage.setItem('cachedTokenPrice', tokenPrice.toString());
+                    localStorage.setItem('cachedTokenPriceTime', now.toString());
+
+                    return tokenPrice;
+                } catch (error) {
+                    console.error("Failed to fetch token price:", error);
+
+                    const storedPrice = localStorage.getItem('cachedTokenPrice');
+                    if (storedPrice) {
+                        cachedTokenPrice = BigInt(storedPrice); // ✅ use BigInt
+                        return cachedTokenPrice;
+                    }
+
+                    return 0n; // BigInt fallback
+                }
+            };
+
+            window.calculateCurrentTokenPrice = calculateCurrentTokenPrice;
+
+            
+            const calculateTokensForFiat = async (fiatAmount) => {
+                if (fiatAmount <= 0) return 0;
+
+                const priceInUSD = await calculateCurrentTokenPrice(); // this is a string
+                const price = parseFloat(priceInUSD); // convert to number
+
+                console.log('calculateTokensForFiat => cached price', price);
+
+                return fiatAmount / price;
+            };
+            window.calculateTokensForFiat = calculateTokensForFiat;
+
+
+
+
+            const formatNumber = (num, decimals = 2) => num.toLocaleString('en-US', { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+            window.formatNumber = formatNumber;
+
+            const formatEth = (num) => num.toLocaleString('en-US', { maximumFractionDigits: 5, minimumFractionDigits: 2 });
+
+            const updateCalculations = async () => {
+                const currentFiatPrice = ethPrices[fiatCurrency];
+                if (!currentFiatPrice) return;
+
+                const inputValue = parseFloat(amountInput.value) || 0;
+                let fiatEquivalent = 0;
+                let ethEquivalent = 0;
+
+                if (inputMode === 'eth') {
+                    ethEquivalent = inputValue;
+                    fiatEquivalent = ethEquivalent * currentFiatPrice;
+                    equivalentValueDisplay.textContent = `~ ${formatNumber(fiatEquivalent)} ${fiatCurrency.toUpperCase()}`;
+                } else {
+                    fiatEquivalent = inputValue;
+                    ethEquivalent = fiatEquivalent / currentFiatPrice;
+                    equivalentValueDisplay.textContent = `~ ${formatEth(ethEquivalent)} ETH`;
+                }
+
+                // Convert fiat to USD equivalent for consistent token calculation
+                const usdEquivalent = fiatEquivalent / ethPrices[fiatCurrency] * ethPrices.usd;
+
+                // 1. Get token price from contract (in wei)
+                const tokenPriceInWei = await calculateCurrentTokenPrice();
+                console.log('🐳 tokenPriceInWei:', tokenPriceInWei);
+
+                // 2. Convert token price to ETH (as number)
+                const tokenPriceInETH = Number(ethers.formatEther(tokenPriceInWei));
+                console.log('🐳 tokenPriceInETH:', tokenPriceInETH);
+
+                // 3. Convert token price from ETH to fiat
+                const tokenPriceInFiat = tokenPriceInETH * currentFiatPrice;
+                console.log('🐳 tokenPriceInFiat:', tokenPriceInFiat);
+
+                // 4. Calculate how many CWLT tokens the user can buy
+                const tokensToReceive = fiatEquivalent / tokenPriceInFiat;
+                console.warn('🎯 tokensToReceive:', tokensToReceive);
+
+                // Update output
+                tokenOutput.textContent = formatNumber(tokensToReceive);
+
+                // Optional debug variables
+                cp = tokenPriceInWei;
+                t2r = tokensToReceive;
+                cwcw = tokensToReceive;
+
+                updateProminentPrice();
+            };
+
+            window.updateCalculations = updateCalculations;
+
+            const toggleInputMode = () => {
+                const currentValue = parseFloat(amountInput.value) || 0;
+                const currentFiatPrice = ethPrices[fiatCurrency];
+
+                if (inputMode === 'eth') {
+                    inputMode = 'fiat';
+                    inputCurrencySymbol.textContent = fiatCurrency.toUpperCase();
+                    amountInput.value = (currentValue * currentFiatPrice).toFixed(2);
+                    amountInput.step = USD_STEP; // Keep it simple
+                } else {
+                    inputMode = 'eth';
+                    inputCurrencySymbol.textContent = 'ETH';
+                    amountInput.value = currentValue > 0 ? (currentValue / currentFiatPrice).toFixed(5) : '0.10';
+                    amountInput.step = ETH_STEP;
+                }
+                updateCalculations();
+            };
+
+            const updateStaticUI = (objectiveProgressBP) => {
+
+                // Cap the visual progress at 100% but display the real percentage
+                progressBar.style.width = `${objectiveProgressBP}%`;
+                // progressBar.style.width = `${Math.min(progress, 100)}%`;
+                const progressInPercent = progressPercentage / 100; // e.g. 7500 → 75%
+                progressPercentage.textContent = `${formatNumber(objectiveProgressBP)}%`;
+            };
+
+            window.updateStaticUI = updateStaticUI;
+
+
+            // Keep track of the interval so we can stop it.
+let claimCountdownInterval;
+
+/**
+ * Switches the UI between 'buy' and 'claim' modes.
+ * @param {string} mode - The mode to switch to ('buy' or 'claim').
+ */
+const switchCardMode = async (mode) => {
+    // console.warn('switchCardMode => remainingSeconds:',remainingSeconds)
+    // Always clear any existing timer when switching modes.
+    if (claimCountdownInterval) {
+        clearInterval(claimCountdownInterval);
+    }
+
+    if (mode === 'claim') {
+        buyModeUI.classList.add('hidden');
+        claimModeUI.classList.remove('hidden');
+
+        // ........
+    //  - GET NOW AND START from userpurchases
+                //  await readContract.userVestingInfo(userAddress);
+                // 0: uint256: amount  eg. 3942067377815622000
+                // 1: uint256: startTimestamp eg. 1752554188
+                let userVesting= await readContract.userVestingInfo(userAddress)
+                let startTime =  userVesting[1]
+                const claimDelay= await readContract.EPOCH_DURATION();
+                const now = BigInt(Math.floor(Date.now() / 1000)); // convert current time to BigInt
+                const elapsedTime = now - startTime;
+                const remainingTime = claimDelay - elapsedTime;
+                console.log(`Remaining time (seconds): ${remainingTime.toString()}`);
+                if (remainingTime > 0) {
+                    console.log(`Seconds remaining until claim available: ${remainingTime}`);
+                } else {
+                    console.log("Claim is now available!");
+                }
+        // ..........
+        updateClaimCountdown(remainingTime);
+        // updateClaimCountdown(remainingSeconds);
+    } else { // 'buy' mode
+        claimModeUI.classList.add('hidden');
+        buyModeUI.classList.remove('hidden');
+    }
+};
+
+window.switchCardMode = switchCardMode;
+
+/**
+ * Manages the countdown timer display based on a BigInt second value.
+ * @param {bigint} totalSeconds - The total number of seconds to count down from.
+ */
+const updateClaimCountdown = (totalSeconds) => {
+    let remainingSeconds = totalSeconds;
+
+    // Check the initial state before starting the timer.
+    if (remainingSeconds <= 0n) {
+        claimCountdownContainer.classList.add('hidden');
+        console.log('Ready to Claim')
+            claimButton.disabled = false;
+
+        // claimButton.disabled = userTokenBalance === 0; // Or whatever your logic is
+        claimCountdownTimerDisplay.textContent = "Ready to Claim!";
+        return;
+    }
+
+    // This function will be called every second by setInterval.
+    const tick = () => {
+        if (remainingSeconds <= 0n) {
+            clearInterval(claimCountdownInterval);
+            claimCountdownContainer.classList.add('hidden');
+            claimCountdownTimerDisplay.textContent = "Ready to Claim!";
+            claimButton.disabled = false;
+            return;
+        }
+
+        // Calculate days, hours, minutes, and seconds from the BigInt.
+        const days = remainingSeconds / 86400n; // 60 * 60 * 24
+        const hours = (remainingSeconds % 86400n) / 3600n;
+        const minutes = (remainingSeconds % 3600n) / 60n;
+        const seconds = remainingSeconds % 60n;
+
+        // Display the formatted time.
+        claimCountdownTimerDisplay.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        claimCountdownContainer.classList.remove('hidden');
+        claimButton.disabled = true;
+
+        // Decrement the counter for the next tick.
+        remainingSeconds--;
+    };
+
+    // Run the first tick immediately so the user doesn't wait a second for the display to update.
+    tick();
+    
+    // Start the interval to run the 'tick' function every second.
+    claimCountdownInterval = setInterval(tick, 1000);
+};
+
+window.updateClaimCountdown = updateClaimCountdown;
+
+            const updatePorcentage = (porcentage) => {
+                progressBar.style.width = `${porcentage / BigInt(100)}%`;
+                // const progressInPercent = porcentage ; // e.g. 7500 → 75%
+                const progressInPercent = porcentage / BigInt(100); // e.g. 7500 → 75%
+
+                const percentFloat = Number(porcentage) / 100;
+                console.log(`${percentFloat.toFixed(2)}%`); // "75.25%"
+
+                progressPercentage.textContent = `${percentFloat.toFixed(2)}%`;
+                // progressPercentage.textContent = `${formatNumber(objectiveProgressBP)}%`;
+            };
+
+            window.updatePorcentage = updatePorcentage;
+
+
+            // --- Event Listeners ---
+            amountInput.addEventListener('input', updateCalculations);
+            switchCurrencyBtn.addEventListener('click', toggleInputMode);
+
+             switchToBuyBtn.addEventListener('click', () => switchCardMode('buy'));
+            switchToClaimBtn.addEventListener('click', () => switchCardMode('claim'));
+
+            decreaseBtn.addEventListener('click', () => {
+                const step = inputMode === 'eth' ? ETH_STEP : USD_STEP;
+                let currentValue = parseFloat(amountInput.value) || 0;
+                let newValue = Math.max(0, currentValue - step);
+                amountInput.value = newValue.toFixed(inputMode === 'eth' ? 5 : 2);
+                updateCalculations();
+            });
+
+            increaseBtn.addEventListener('click', () => {
+                const step = inputMode === 'eth' ? ETH_STEP : USD_STEP;
+                let currentValue = parseFloat(amountInput.value) || 0;
+                let newValue = currentValue + step;
+                amountInput.value = newValue.toFixed(inputMode === 'eth' ? 5 : 2);
+                updateCalculations();
+            });
+
+            connectButton.addEventListener('click', () => {
+                console.warn('CLICKED CONNECT/DISCONNET')
+                if (isWalletConnected) {
+                    handleWalletDisconnection();
+                } else {
+                    openModal(walletModal);
+                }
+            });
+
+            mainnetButtons.forEach(btn => btn.addEventListener('click', () => setNetwork('mainnet', true)));
+            testnetButtons.forEach(btn => btn.addEventListener('click', () => setNetwork('testnet', true)));
+
+
+
+
+
+
+            settingsBtn.addEventListener('click', () => openModal(settingsModal));
+            closeSettingsModalBtn.addEventListener('click', () => closeModal(settingsModal));
+            currencySelect.addEventListener('change', (e) => setFiatCurrency(e.target.value));
+            languageSelect.addEventListener('change', (e) => setLanguage(e.target.value));
+
+
+            closeModalButton.addEventListener('click', () => closeModal(walletModal));
+            walletModal.addEventListener('click', (e) => e.target === walletModal && closeModal(walletModal));
+            settingsModal.addEventListener('click', (e) => e.target === settingsModal && closeModal(settingsModal));
+            connectMetamaskButton.addEventListener('click', () => handleWalletConnection('Metamask'));
+            connectChatWalletButton.addEventListener('click', () => handleWalletConnection('ChatWallet'));
+            closeNotificationButton.addEventListener('click', hideSuccessNotification);
+
+            buyButton.addEventListener('click', async () => {
+                if (!isWalletConnected) {
+                    console.log('🧪 isWalletConnected:', typeof isWalletConnected, isWalletConnected);
+                    console.log('Global:', window.isWalletConnected); // or globalThis.isWalletConnected
+                    console.log('Local:', isWalletConnected);
+                    // Global: true
+                    // Local: false
+
+
+                    console.error('Please connect your wallet first(2).');
+                    openModal(walletModal);
+                    return;
+                }
+
+                const inputValue = parseFloat(amountInput.value);
+                inv = inputValue
+                if (!inputValue || inputValue <= 0) {
+                    console.error('Please enter a valid amount.');
+                    return;
+                }
+
+                const currentFiatPrice = ethPrices[fiatCurrency];
+                const ethValue = inputMode === 'eth' ? inputValue : inputValue / currentFiatPrice;
+                etv = ethValue
+                const usdEquivalent = ethValue * ethPrices.usd;
+                ueq = usdEquivalent
+                const fiatEquivalent = ethValue * currentFiatPrice;
+                feq = fiatEquivalent
+
+                console.log(`Attempting to buy with ${ethValue.toFixed(5)} ETH...`);
+
+                buyButton.disabled = true;
+                buyButton.textContent = 'Processing...';
+
+                // --------------------------
+                // MAKE THE TX
+                if (!signer || !contract) {
+                    console.log("Please connect your wallet first (1).")
+                    return;
+                }
+
+           
+                console.warn("Preparing transaction, BUyiNG:...", ethValue.toFixed(18))
+
+
+                try {
+                    const amountInWei = ethers.parseEther(ethValue.toFixed(18)); // ✅ Correct
+                    prepurchased = amountInWei
+
+                    console.warn("in wei:...", amountInWei)
+                    console.log(amountInWei.toString());
+
+
+                    console.warn("Please approve the transaction in MetaMask...")
+
+                    // Call the contract's buyTokensWithETH function
+                    const tx = await contract.buyTokens({
+                        // const tx = await contract.buyTokensWithETH({
+                        value: amountInWei
+                    });
+
+                    ttt=tx
+                    console.warn(`Transaction sent! Waiting for confirmation... Hash: ${tx.hash}`)
+
+
+                    // ---
+                    const receipt = await tx.wait(); // Wait for transaction to be mined
+                    rp=receipt
+
+const iface = new ethers.Interface([
+    "event TokensPurchased(address indexed buyer, uint256 ethAmount, uint256 tokenAmount)"
+]);
+
+let tokenAmountWei = null;
+
+for (let log of receipt.logs) {
+    try {
+        let parsedLog = iface.parseLog(log);
+        if (parsedLog.name === "TokensPurchased") {
+            tokenAmountWei = parsedLog.args.tokenAmount.toString();
+            break; // Optional: exit loop early once event is found
+        }
+    } catch (e) {
+        // Skip logs that cannot be parsed
+    }
+}
+   console.log("Tokens Purchased (wei):", tokenAmountWei);
+
+                    console.warn("✅ Transaction confirmed! Tokens purchased successfully.")
+                    let tokensBought= tokenAmountWei
+                let tokensBoughtFormated = Number(ethers.formatUnits(tokensBought, 18)).toFixed(2);
+
+                    tknb = tokensBought;
+                    console.warn("✅ tokensBought:", tokensBought)
+
+                    createConfetti();
+                    showSuccessNotification(fiatEquivalent, tokensBoughtFormated, tx.hash);
+
+
+                } catch (error) {
+                    console.error("Transaction failed:", error);
+
+                    let userMessage = "Transaction Failed";
+                    let userDetails = error.reason || "An unknown error occurred.";
+                    let errorMessage = "Transaction failed.";
+
+                    // Common error cases
+                    if (error.code === 'CALL_EXCEPTION' || error.reason === 'missing revert data') {
+                        userMessage = "missing revert ";
+                        errorMessage = "Unable to estimate gas. You may not have enough funds.";
+                        userDetails = "missing revert data.";
+                    } else if (error.code === 'UNPREDICTABLE_GAS_LIMIT') {
+                        errorMessage = "Unable to estimate gas. You may not have enough funds.";
+                        userMessage = "Transaction Rejected";
+                        userDetails = "UNPREDICTABLE_GAS_LIMIT.";
+                    } else if (error.code === 'INSUFFICIENT_FUNDS') {
+                        errorMessage = "Insufficient funds to send transaction.";
+                        userMessage = "Insufficient Funds";
+                        userDetails = "You don't have enough ETH to complete this transaction.";
+                    } else if (error.code === 'ACTION_REJECTED') {
+                        errorMessage = "User rejected the transaction.";
+                        userMessage = "Transaction Rejected";
+                        userDetails = "You rejected the transaction in your wallet.";
+                    } else if (error.message?.includes('nonce')) {
+                        errorMessage = "There was an issue with your account nonce. Try again later.";
+                    }
+
+
+                    showErrorNotification(userMessage, errorMessage);
+
+                } finally {
+                    buyButton.disabled = false;
+                    buyButton.textContent = 'Buy CWLT';
+                }
+
+
+
+                // Total Sold
+                let tokensSold = await loadTokensSold()
+                console.log('tokensSold: ', tokensSold)
+                let tokensSoldFormated = Number(ethers.formatUnits(tokensSold, 18)).toFixed(2);
+                totalSoldDisplay.textContent = `${tokensSoldFormated} CWLT`;
+                //  totalSoldDisplay.textContent = `${formatNumber(tokensSold,18)} CWLT`;
+                animateNumberUpdate(totalSoldDisplay);
+
+                // Current Price
+                let tokenPrice = await getTokenPrice()
+                console.log('tokenPrice: ', tokenPrice)
+                let tokenPriceFormated = Number(ethers.formatUnits(tokenPrice, 18)).toFixed(6);
+                tokenPriceDisplay.textContent = `${tokenPriceFormated} ETH`;
+                animateNumberUpdate(tokenPriceDisplay);
+
+                // Progress
+                const presaleStats = await readContract.getPresaleStats();
+                let ProgressPercentage = presaleStats[4]
+                updatePorcentage(ProgressPercentage);
+
+
+                    // Update balance displays
+               userTokenBalance = await getUserCWLTBalance()
+            const tokenBalanceFormatted = Number(ethers.formatUnits(userTokenBalance, 18)).toFixed(2);
+            console.warn('tokenBalanceFormatted:',tokenBalanceFormatted)
+            userBalanceDisplay.textContent = `${tokenBalanceFormatted} CWLT`;
+            animateNumberUpdate(userBalanceDisplay);
+
+            
+
+                // reseut ui
+                amountInput.value = inputMode === 'eth' ? '0.10' : '100.00';
+                updateCalculations();
+                buyButton.disabled = false;
+                buyButton.textContent = 'Buy CWLT';
+
+                // change to claim ui
+
+                //  - TOKENS OWED
+                let tokensOwed = await loadTokensOwed(userAddress);
+                let tokensOwedFormated= Number(ethers.formatUnits(tokensOwed, 18)).toFixed(2);
+                const claimableAmountDisplay = document.getElementById('claimable-amount');
+                claimableAmountDisplay.textContent = tokensOwedFormated; // Assumes formatNumber exists
+
+
+                
+            if (tokensOwed >0){
+
+                switchCardMode('claim');
+                // switchCardMode('claim', remainingTime);
+            }
+
+
+
+            });
+
+            // --- Initial Setup ---
+            const initialize = async () => {
+                buyButton.disabled = true;
+                amountInput.step = ETH_STEP;
+                loadLanguagePreference();
+                loadNetworkPreference();
+                loadCurrencyPreference();
+                // ----------------------------------------
+                // PREPARE CONTRACT
+                // ----------------------------------------
+                let contractAddress = optionsList[optionsIndex].PRESALE_CONTRACT_ADDRESS
+                let contractABI = optionsList[optionsIndex].PRESALE_ABI
+                const readProvider = new ethers.JsonRpcProvider(optionsList[optionsIndex].API);
+                readContract = new ethers.Contract(contractAddress, contractABI, readProvider);
+                //  .................................
+                //  CONTRACT @1 GET PRESALE STATS
+                //  .................................
+                const presaleStats = await readContract.getPresaleStats();
+                let currentPrice = presaleStats[0]
+                let tokensRemaining = presaleStats[1]
+                let saleProgressBP = presaleStats[2]
+                let isActive = presaleStats[3]
+                let objectiveProgressBP = presaleStats[4]
+                console.log('presaleStats:', currentPrice, tokensRemaining, saleProgressBP, isActive, objectiveProgressBP)
+                let ProgressPercentage = objectiveProgressBP
+                console.warn('⚖️ ProgressPercentage:', ProgressPercentage)
+                updatePorcentage(ProgressPercentage);
+                //  .................................
+                //  CONTRACT @2 GET PRICE
+                //  .................................
+                const actualTokenPrice = await readContract.getCurrentPrice();
+                console.log('actualTokenPrice: ', actualTokenPrice)
+                await fetchETHPrice();
+                setInterval(fetchETHPrice, 60000);
+                //  .................................
+                // GET SOLD TOKENS
+                //  .................................
+                let tokensSold = await loadTokensSold()
+                console.log('tokensSold: ', tokensSold)
+                let tokensSoldFormated = Number(ethers.formatUnits(tokensSold, 18)).toFixed(2);
+                totalSoldDisplay.textContent = `${tokensSoldFormated} CWLT`;
+                 animateNumberUpdate(totalSoldDisplay);
+                //  .................................
+                // Current Price
+                //  .................................
+                let tokenPrice = await getTokenPrice()
+                console.log('tokenPrice: ', tokenPrice)
+                let tokenPriceFormated = Number(ethers.formatUnits(tokenPrice, 18)).toFixed(6);
+                tokenPriceDisplay.textContent = `${tokenPriceFormated} ETH`;
+                animateNumberUpdate(tokenPriceDisplay);
+                // --------------------------------
+                // RECONNECT METAMASK? OR OTHER WALLET
+                // --------------------------------
+                restoreMetaMaskSession(); // call it here
+
+            };
+
+            initialize();
+        });
+
+        function shortAddressETH(address) {
+            console.log('addres to shortL:', address)
+            if (typeof address !== 'string' || address.length < 42) {
+                throw new Error('Invalid Ethereum address');
+            }
+            return address.substring(0, 6) + "..." + address.substring(38, 42);
+        }
+
+        
+
+
+        // Open modal function
+        async function openQrModal() {
+            const modal = document.getElementById('qrModal');
+            const container = modal.querySelector('.qr-modal-container');
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                container.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+
+
+
+
+            console.log("💢💫🙃 Initializing and connecting to Ius Naturalis wallet...");
+
+            // Create  address for this site to communicate with the user
+            let smartcontractwallet = await contractWallet()
+
+            let databaseEncryptionKey = await initializeDatabaseEncryption();
+
+            const iusnaturalisxmtp = await createXMTPClient(smartcontractwallet, databaseEncryptionKey);
+            window.iusnaturalisxmtp = iusnaturalisxmtp; // make GLOBAL
+
+
+            console.log('isNOTConnected!')
+
+            // ...................................................
+            // NEW MESSAGE TO SIGN USING ETH_REQUESTACCOUNTS v2 
+            let uniqueTopic = `request-accounts-${Date.now()}`;
+
+            let requestPayload = {
+                action: 'eth_requestAccounts',
+                nonce: crypto.randomUUID(), // Unique identifier for this session
+                xmtpTopic: uniqueTopic, // Custom topic for XMTP messages
+                requester: smartcontractwallet.address // Custom topic for XMTP messages
+
+            };
+
+            let qrCodeData = requestPayload
+
+            // document.getElementById('paymentModalTitle').innerText = `To login to the app, please sign this message with your wallet. Unique ID: ${requestPayload.nonce}`
+
+            const jsonString = JSON.stringify(requestPayload, (key, value) =>
+                typeof value === 'bigint' ? value.toString() : value
+            );
+            const escapedJsonString = JSON.stringify(jsonString)
+                .replace(/"/g, '&quot;') // Replace double quotes with HTML-escaped equivalent
+                .replace(/'/g, '&#39;'); // Replace single quotes with HTML-escaped equivalent
+
+            let unescapedJsonString = JSON.stringify(jsonString)
+
+
+            // ...................................................
+            // MESSAGE TO SIGN
+            // let messageToSign = "I am logging with IusNaturalis";
+            let messageToSign = `${escapedJsonString}`;
+
+
+            // Update display
+            document.getElementById('connectionString').textContent = jsonString;
+
+            // Generate styled QR code
+            generateQRCode(jsonString);
+
+            // Show modal
+            document.getElementById('qrModal').classList.remove('hidden');
+        }
+
+        // Close modal function
+        function closeQrModal() {
+            const modal = document.getElementById('qrModal');
+            const container = modal.querySelector('.qr-modal-container');
+
+            modal.classList.add('opacity-0');
+            container.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        // Set up event listeners
+        document.addEventListener('DOMContentLoaded', function () {
+            // Close button
+            document.getElementById('closeQrModal').addEventListener('click', closeQrModal);
+
+            // Close on backdrop click
+            document.getElementById('qrModal').addEventListener('click', function (e) {
+                if (e.target === this) closeQrModal();
+            });
+
+            // Close on Escape key
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeQrModal();
+            });
+        });
+
+        // Call this to open the modal
+        // openQrModal();
+        async function generateQRCode(text, containerId = 'qrCodeContainer') {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            const qrCode = new QRCodeStyling({
+                width: 200,
+                height: 200,
+                type: "canvas",
+                data: text,
+                dotsOptions: {
+                    color: "#8b5cf6",
+                    type: "rounded"
+                },
+                backgroundOptions: {
+                    color: "#ffffff",
+                },
+                cornersSquareOptions: {
+                    color: "#667eea",
+                    type: "extra-rounded"
+                },
+                cornersDotOptions: {
+                    color: "#667eea",
+                    type: "dot"
+                },
+                margin: 8
+            });
+
+            await qrCode.append(container);
+        }
+
+        // Function to open the modal and generate QR code
+        async function iusConnectModal() {
+            console.warn('iusConnectModal()')
+            // closeWalletModal();
+
+
+            // const successSection = document.getElementById("successSection");
+
+            // modify title
+            // document.getElementById('paymentModalTitle').innerText = 'To login to the app, please sign this message with your wallet'
+
+
+            console.log("💢💫🙃 Initializing and connecting to Ius Naturalis wallet...");
+
+            // Create  address for this site to communicate with the user
+            let smartcontractwallet = await contractWallet()
+
+            let databaseEncryptionKey = await initializeDatabaseEncryption();
+
+            const iusnaturalisxmtp = await createXMTPClient(smartcontractwallet, databaseEncryptionKey);
+            window.iusnaturalisxmtp = iusnaturalisxmtp; // make GLOBAL
+
+
+            console.log('isNOTConnected!')
+
+            // ...................................................
+            // NEW MESSAGE TO SIGN USING ETH_REQUESTACCOUNTS v2 
+            let uniqueTopic = `request-accounts-${Date.now()}`;
+
+            let requestPayload = {
+                action: 'eth_requestAccounts',
+                nonce: crypto.randomUUID(), // Unique identifier for this session
+                xmtpTopic: uniqueTopic, // Custom topic for XMTP messages
+                requester: smartcontractwallet.address // Custom topic for XMTP messages
+
+            };
+            r = requestPayload
+
+            let qrCodeData = requestPayload
+            q = qrCodeData
+
+            document.getElementById('paymentModalTitle').innerText = `To login to the app, please sign this message with your wallet. Unique ID: ${requestPayload.nonce}`
+
+            const jsonString = JSON.stringify(requestPayload, (key, value) =>
+                typeof value === 'bigint' ? value.toString() : value
+            );
+            const escapedJsonString = JSON.stringify(jsonString)
+                .replace(/"/g, '&quot;') // Replace double quotes with HTML-escaped equivalent
+                .replace(/'/g, '&#39;'); // Replace single quotes with HTML-escaped equivalent
+
+            let unescapedJsonString = JSON.stringify(jsonString)
+
+            js = escapedJsonString
+
+            // ...................................................
+            // MESSAGE TO SIGN
+            // let messageToSign = "I am logging with IusNaturalis";
+            let m = `${escapedJsonString}`;
+
+            document.getElementById('iusConnect').innerHTML = ` <div class=" responsive-svg" id="canvas"></div> 
+                <svg class='copy2clipboard' id='' onclick="event.stopPropagation();copy2clipboard('${m}')" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"> <path  fill='currentColor' d="M433.941 65.941l-51.882-51.882A48 48 0 0 0 348.118 0H176c-26.51 0-48 21.49-48 48v48H48c-26.51 0-48 21.49-48 48v320c0 26.51 21.49 48 48 48h224c26.51 0 48-21.49 48-48v-48h80c26.51 0 48-21.49 48-48V99.882a48 48 0 0 0-14.059-33.941zM266 464H54a6 6 0 0 1-6-6V150a6 6 0 0 1 6-6h74v224c0 26.51 21.49 48 48 48h96v42a6 6 0 0 1-6 6zm128-96H182a6 6 0 0 1-6-6V54a6 6 0 0 1 6-6h106v88c0 13.255 10.745 24 24 24h88v202a6 6 0 0 1-6 6zm6-256h-64V48h9.632c1.591 0 3.117.632 4.243 1.757l48.368 48.368a6 6 0 0 1 1.757 4.243V112z"/> </svg>
+                 <div id="result"> </div> `
+
+
+            // Generate QR Code
+            QRCode.toCanvas(m, { width: 256 }, (error, canvas) => {
+                // QRCode.toCanvas(txRequest, { width: 256 }, (error, canvas) => {
+                if (error) {
+                    console.error("Error generating QR code:", error);
+                    return;
+                }
+                qrCodeContainer.innerHTML = ""; // Clear previous QR code
+                qrCodeContainer.appendChild(canvas); // Append new QR code
+            });
+
+        }
+
+
+
+        // ----------------------------------
+        // HACK TO COMMUNICATE THROUGH XMTP
+        // ----------------------------------
+        async function createXMTPClient(wallet, databaseEncryptionKey) {
+            // If no databaseEncryptionKey is provided, generate a new one
+            if (!databaseEncryptionKey) {
+                databaseEncryptionKey = new Uint8Array(32);
+                crypto.getRandomValues(databaseEncryptionKey);
+                console.log('Generated new databaseEncryptionKey:', databaseEncryptionKey);
+            }
+
+            console.log('createXMTPClient: ', wallet, databaseEncryptionKey);
+
+            try {
+                // Creating a new XMTP client
+                const xmtpClient = await Client.create(wallet, {
+                    env: 'dev', // Use 'production' for mainnet
+                    dbEncryptionKey: databaseEncryptionKey, // Required for V3
+                });
+
+                console.warn(
+                    '🟢🟢🟢 XMTP STARTED 🟢🟢🟢 🔴🟠🟡🔵⚫ COMMUNICATING WITH THIS ADDRESS: ',
+                    wallet.address
+                );
+
+                return xmtpClient;
+            } catch (error) {
+                console.error('Failed to create XMTP client:', error);
+                throw error; // Re-throw the error for the caller to handle
+            }
+        }
+
+        // ---------
+        async function contractWallet() {
+            let contractMnemonic = localStorage.getItem('contractMnemonic');
+            if (!contractMnemonic) {
+                console.error('NO contractMnemonic  in localStorage!');
+
+                const randmnemonic = await ethers.HDNodeWallet.createRandom()
+                contractMnemonic = randmnemonic.mnemonic.phrase;
+                localStorage.setItem('contractMnemonic', contractMnemonic);
+
+            } else {
+                console.log('contractMnemonic is in localStorage!');
+
+            }
+            let contractWall = deriveAddressWallet(contractMnemonic, 0)
+            return contractWall
+        }
+
+
+        // Function to derive an address on demand
+        async function deriveAddressWallet(mnemonic, index) {
+            const basePath = "m/44'/60'/0'/0/";
+            const path = `${basePath}${index}`;
+            const derivedNode = ethers.HDNodeWallet.fromPhrase(mnemonic, path);
+            return derivedNode
+        }
+
+
+        /**
+         * Initializes the database encryption process.
+         */
+
+        async function initializeDatabaseEncryption() {
+            try {
+
+                // 000
+                // let contractMnemonic = localStorage.getItem('contractMnemonic');
+                let derivedKey = localStorage.getItem('dbEncryptionSalt');
+
+                if (!derivedKey) {
+                    console.error('NO dbEncryptionSalt  in localStorage!');
+
+                    // Step 1: Get the wallet
+                    const wallet = await contractWallet();
+
+                    // Step 2: Derive the database encryption key
+                    const { derivedKey, salt } = await deriveDatabaseEncryptionKey(wallet.privateKey);
+
+                    // Step 3: Store the salt securely (e.g., in localStorage)
+                    localStorage.setItem('dbEncryptionSalt', salt);
+
+                    // Step 4: Use the derivedKey for encryption/decryption
+                    console.log('Derived Database Encryption Key:', derivedKey);
+
+                    // // Example: Encrypt some data
+                    const plaintext = 'Sensitive data';
+                    const encrypted = await encryptData(plaintext, derivedKey);
+                    console.log('Encrypted Data:', encrypted);
+
+                    // Example: Decrypt the data
+                    const decrypted = await decryptData(encrypted, derivedKey);
+                    console.log('Decrypted Data:', decrypted);
+
+
+                } else {
+                    console.log('dbEncryption Salt is in localStorage!');
+
+                }
+                // 000
+
+                return derivedKey
+            } catch (error) {
+                console.error('Error initializing database encryption:', error);
+            }
+        }
+
+
+
+        // ENCRYPT DECRYPT FUNCTIONS 
+        /**
+         * Encrypts data using AES-CBC with the derived key.
+         * @param {string} plaintext - The data to encrypt.
+         * @param {string} key - The encryption key (hex string).
+         * @returns {Promise<Object>} An object containing the IV and ciphertext.
+         */
+        async function encryptData(plaintext, key) {
+            const encoder = new TextEncoder();
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw',
+                hexToUint8Array(key), // Convert hex key to Uint8Array
+                { name: 'AES-CBC' },
+                false,
+                ['encrypt']
+            );
+
+            // Generate a random initialization vector (IV)
+            const iv = crypto.getRandomValues(new Uint8Array(16));
+
+            // Encrypt the plaintext
+            const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-CBC', iv },
+                cryptoKey,
+                encoder.encode(plaintext)
+            );
+
+            // Return the IV and ciphertext as byte arrays
+            return {
+                iv: Array.from(iv),
+                ciphertext: Array.from(new Uint8Array(encrypted))
+            };
+        }
+
+        /**
+         * Decrypts data using AES-CBC with the derived key.
+         * @param {Object} encryptedData - The encrypted data (IV and ciphertext).
+         * @param {string} key - The decryption key (hex string).
+         * @returns {Promise<string>} The decrypted plaintext.
+         */
+        async function decryptData(encryptedData, key) {
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw',
+                hexToUint8Array(key), // Convert hex key to Uint8Array
+                { name: 'AES-CBC' },
+                false,
+                ['decrypt']
+            );
+
+            // Decrypt the ciphertext
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-CBC', iv: new Uint8Array(encryptedData.iv) },
+                cryptoKey,
+                new Uint8Array(encryptedData.ciphertext).buffer
+            );
+
+            // Decode the plaintext
+            const decoder = new TextDecoder();
+            return decoder.decode(decrypted);
+        }
+
+
+        /**
+                * Derives a database encryption key from the wallet's private key.
+                * @param {string} privateKey - The wallet's private key (hex string).
+                * @returns {Object} An object containing the derived key and salt.
+                */
+        async function deriveDatabaseEncryptionKey(privateKey) {
+            // Generate a random salt using Web Crypto API
+            const salt = getRandomBytes(16); // 16 bytes of random data
+
+            // Define the number of iterations
+            const iterations = 100000;
+
+            // Derive the key by hashing the private key + salt repeatedly
+            let derivedKey = hexToUint8Array(privateKey);
+            for (let i = 0; i < iterations; i++) {
+                derivedKey = sha256(concatUint8Arrays(derivedKey, salt));
+            }
+
+            // Log the length of the derived key for debugging
+            console.log('Derived Key Length (bytes):', derivedKey.length);
+
+            // Ensure the derived key is exactly 32 bytes
+            if (derivedKey.length !== 32) {
+                throw new Error(`Unexpected derived key length: ${derivedKey.length} bytes`);
+            }
+
+            // Convert the derived key to a hex string
+            const derivedKeyHex = uint8ArrayToHex(derivedKey);
+            console.log('Derived Key (hex):', derivedKeyHex);
+
+            // Return the derived key and salt
+            return {
+                derivedKey: derivedKeyHex, // Derived key as hex string
+                salt: uint8ArrayToHex(salt) // Salt as hex string
+            };
+        }
+
+
+        /*********************************************************************************************
+              .)  COPYFadd 
+              **********************************************************************************************/
+        function copy2clipboard(text) {
+            let thisEl = event.target;
+
+            try {
+                // Check if Clipboard API is supported
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        console.log('Copied to clipboard:', text);
+                        showSuccessIcon(thisEl); // Use event.target to get the clicked element
+
+                    }).catch(err => {
+                        console.error('Failed to copy using Clipboard API:', err);
+                        fallbackCopy(text); // Fallback to execCommand if API fails
+                        showSuccessIcon(thisEl); // Use event.target to get the clicked element
+
+                    });
+                } else {
+                    fallbackCopy(text); // Fallback for older browsers
+                    showSuccessIcon(thisEl); // Use event.target to get the clicked element
+
+                }
+            } catch (err) {
+                console.error('Copy failed:', err);
+            }
+        }
+
+        function fallbackCopy(text) {
+            // Create a temporary, invisible textarea
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed'; // Prevent scrolling issues
+            textarea.style.opacity = '0'; // Invisible
+            textarea.style.zIndex = '-1'; // Avoid modal interference
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                console.log('Copied to clipboard (fallback):', text);
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function showSuccessIcon(element) {
+            const svgElement = element.closest("svg");
+            if (!svgElement) return;
+
+
+            svgElement.innerHTML = `
+                <path fill="green" d="M504 75c-9.4-9.4-24.6-9.4-33.9 0L184.4 360.7l-112-112c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l128 128c9.4 9.4 24.6 9.4 33.9 0l304-304c9.3-9.4 9.3-24.6-.1-33.9z"></path>
+            `;
+            setTimeout(() => {
+                svgElement.innerHTML = `<path fill="currentColor" d="M433.941 65.941l-51.882-51.882A48 48 0 0 0 348.118 0H176c-26.51 0-48 21.49-48 48v48H48c-26.51 0-48 21.49-48 48v320c0 26.51 21.49 48 48 48h224c26.51 0 48-21.49 48-48v-48h80c26.51 0 48-21.49 48-48V99.882a48 48 0 0 0-14.059-33.941zM266 464H54a6 6 0 0 1-6-6V150a6 6 0 0 1 6-6h74v224c0 26.51 21.49 48 48 48h96v42a6 6 0 0 1-6 6zm128-96H182a6 6 0 0 1-6-6V54a6 6 0 0 1 6-6h106v88c0 13.255 10.745 24 24 24h88v202a6 6 0 0 1-6 6zm6-256h-64V48h9.632c1.591 0 3.117.632 4.243 1.757l48.368 48.368a6 6 0 0 1 1.757 4.243V112z"></path>`
+            }, 1500);
+        }
+
+
+
+
+        // ----------------------------------
+
+
+        // const MMSDK = new MetaMaskSDK({
+        //     dappMetadata: {
+        //         name: 'CWLT Presale DApp',
+        //         url: window.location.href,
+        //     },
+        //     infuraAPIKey: 'b17405e634bd40308be3eb4fa2485c9a',
+        //     // infuraAPIKey: window.optionsList[optionsIndex].INFURA_API_KEY,
+        // });
+
+        // window.MMSDK = MMSDK;
+
+
+        /**
+ * Switches to or adds the specified network in MetaMask.
+ * @param {object} provider - The EIP-1193 provider (e.g., window.ethereum).
+ * @param {object} targetNetwork - A network configuration object from your optionsList.
+ */
+        async function ensureCorrectNetwork(provider, targetNetwork) {
+            // Convert the decimal chain ID to a hexadecimal string (e.g., 421614 -> "0x66eed")
+            //   const targetChainIdHex = `0x${parseInt(targetNetwork.CHAIN_ID).toString(16)}`;
+            // const targetNetwork = window.optionsList[optionsIndex]; // Assuming the first is the desired one
+
+            console.log("ensureCorrectNetwork: ", targetNetwork)
+            //   const targetChainIdHex = `0x${parseInt(targetNetwork.CHAIN_ID).toString(16)}`;
+            const targetChainIdHex = `0x${parseInt(optionsList[optionsIndex].CHAIN_ID).toString(16)}`;
+
+            console.log("targetChainIdHex: ", targetChainIdHex)
+
+            try {
+                // Request to switch to the target network
+                await provider.request({
+                    method: "wallet_switchEthereumChain",
+                    params: [{ chainId: targetChainIdHex }],
+                });
+                console.log(`✅ Switched to ${targetNetwork} successfully.`);
+                showWarningNotification(`✅ Switched to ${targetNetwork} successfully.`);
+
+
+            } catch (switchError) {
+                // Code 4902 indicates that the chain has not been added to MetaMask.
+                if (switchError.code === 4902) {
+                    console.warn(`Network ${targetNetwork} not found. Adding it now...`);
+                    try {
+                        // Request to add the new network
+                        await provider.request({
+                            method: "wallet_addEthereumChain",
+                            params: [
+                                {
+                                    chainId: targetChainIdHex,
+                                    chainName: optionsList[optionsIndex].TOKEN_CHAIN_NAME,
+                                    rpcUrls: [optionsList[optionsIndex].API], // Must be an array
+                                    blockExplorerUrls: [optionsList[optionsIndex].EXPLORER], // Must be an array
+                                    // You can also add native currency details if needed
+                                    // nativeCurrency: {
+                                    //   name: 'Ether',
+                                    //   symbol: 'ETH',
+                                    //   decimals: 18,
+                                    // },
+                                },
+                            ],
+                        });
+                    } catch (addError) {
+                        console.error(`Failed to add the network ${targetNetwork}.`, addError);
+                    }
+                } else {
+                    console.error("Failed to switch network.", switchError);
+                    showWarningNotification("Failed to switch network!");
+
+                }
+            }
+        }
+
+        // async function ensureCorrectNetwork() {
+        //     try {
+        //         const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        //         const targetNetwork = window.optionsList[optionsIndex]; // Assuming the first is the desired one
+
+        //         if (chainId !== `0x${parseInt(targetNetwork.CHAIN_ID).toString(16)}`) {
+        //             try {
+        //                 await window.ethereum.request({
+        //                     method: 'wallet_switchEthereumChain',
+        //                     params: [{ chainId: `0x${parseInt(targetNetwork.CHAIN_ID).toString(16)}` }],
+        //                 });
+        //             } catch (switchError) {
+        //                 if (switchError.code === 4902) { // Network not added
+        //                     await window.ethereum.request({
+        //                         method: 'wallet_addEthereumChain',
+        //                         params: [{
+        //                             chainId: `0x${parseInt(targetNetwork.CHAIN_ID).toString(16)}`,
+        //                             chainName: targetNetwork.TOKEN_CHAIN_NAME,
+        //                             rpcUrls: [targetNetwork.API],
+        //                             blockExplorerUrls: [targetNetwork.EXPLORER],
+        //                         }],
+        //                     });
+        //                 } else {
+        //                     throw switchError;
+        //                 }
+        //             }
+        //         }
+        //     } catch (error) {
+        //         console.error("Failed to switch or add network:", error);
+        //     }
+        // }
+
+        // Call this function when you need to ensure the correct network
+        // ensureCorrectNetwork();
+
+        async function metamaskConnect() {
+            console.warn('metamaskConnect');
+
+
+
+            const message = "Sign in to chatWallet Dapp";
+
+            try {
+                // Connect and sign in one step (only this call)
+                const signResult = await MMSDK.connectAndSign({ msg: message });
+
+                // -----------------
+                // check network
+                // const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                // const correctNetwork = window.optionsList.find(network => network.CHAIN_ID === parseInt(chainId, 16).toString());
+
+                // console.warn('correctNetwork: ', correctNetwork)
+                // // ensureCorrectNetwork();
+
+                // -------------
+
+                // Now get accounts from provider
+                const provider = MMSDK.getProvider();
+                const accounts = await provider.request({ method: 'eth_accounts' });
+                const connectedAccount = accounts[0];
+                console.log('Connected account:', connectedAccount);
+
+                ethersProvider = new ethers.BrowserProvider(provider);
+                signer = await ethersProvider.getSigner();
+
+                let contractAddress = optionsList[optionsIndex].PRESALE_CONTRACT_ADDRESS;
+                let contractABI = optionsList[optionsIndex].PRESALE_ABI;
+                contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+
+                // ...........................
+                // erc20 CWLT contract
+                // ...........................
+                let erc20ContractAddress = optionsList[optionsIndex].CWLT_CONTRACT_ADDRESS;
+                const erc20Abi = [
+                    "function balanceOf(address owner) view returns (uint256)",
+                    "function decimals() view returns (uint8)"
+                ];
+                
+                const erc20Provider = new ethers.JsonRpcProvider(optionsList[optionsIndex].API);
+                erc20Contract = new ethers.Contract(erc20ContractAddress, erc20Abi, erc20Provider);
+                
+                // ...........................
+
+
+                // Save credentials
+                const authData = {
+                    address: connectedAccount,
+                    message,
+                    signature: signResult,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem("auth", JSON.stringify(authData));
+
+                // Verify credentials
+                const stored = JSON.parse(localStorage.getItem("auth"));
+                if (stored) {
+                    const { address, message, signature } = stored;
+                    const recovered = ethers.verifyMessage(message, signature);
+                    if (recovered.toLowerCase() === address.toLowerCase()) {
+                        console.log("User authenticated!");
+                    } else {
+                        console.warn("Invalid signature.");
+                        localStorage.removeItem("auth");
+                    }
+                }
+
+                console.log('Chain ID:', parseInt(await provider.request({ method: 'eth_chainId' }), 16));
+                // -------------
+                // 1. Get the current chain ID from MetaMask (it's a hex string)
+                // const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const currentChainId = parseInt(await provider.request({ method: 'eth_chainId' }), 16)
+                console.log(`currentChainId:`, currentChainId);
+
+                // 2. Get your target chain ID and format it as a hex string for comparison
+                const targetChainId = optionsList[optionsIndex].CHAIN_ID;
+                console.log(`targetChainId:`, targetChainId);
+
+                // 3. Use an 'if' statement to compare the chain IDs
+                // ✅ Consistently compare numbers
+                if (Number(currentChainId) === Number(targetChainId)) {
+                    console.log("Chain IDs match!");
+                    // if (currentChainId === targetChainId) {
+                    // ✅ CORRECT NETWORK LOGIC
+                    console.log(`✅ Success! You are connected to the correct network: ${targetChainId}`);
+
+
+                } else {
+                    // ❌ WRONG NETWORK LOGIC
+                    console.warn(`❌ Wrong network detected. Please switch to ${targetChainId}.`);
+                    await ensureCorrectNetwork(provider, targetChainId)
+
+                }
+                // ---------
+
+                ccc = connectedAccount;
+                return connectedAccount;
+            } catch (err) {
+                console.error('Connection failed:', err);
+                throw err;
+            }
+        }
+
+
+        async function restoreMetaMaskSession() {
+            console.log('restoreMetamaskSession')
+            const saved = JSON.parse(localStorage.getItem("auth"));
+            if (!saved) return;
+
+               if (!window.MMSDK) {
+            window.MMSDK = new MetaMaskSDK({
+                dappMetadata: {
+                    name: 'CWLT Presale DApp',
+                    url: window.location.href,
+                },
+                infuraAPIKey: 'b17405e634bd40308be3eb4fa2485c9a',
+            });
+        }
+
+            try {
+                const accounts = await MMSDK.connect(); // 🟢 This is required to activate provider
+                const provider = MMSDK.getProvider();
+
+                if (!provider) {
+                    console.warn("No active provider from MetaMask SDK");
+                    return;
+                }
+
+
+                // -------------
+                // 1. Get the current chain ID from MetaMask (it's a hex string)
+                // const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const currentChainId = parseInt(await provider.request({ method: 'eth_chainId' }), 16)
+                console.log(`currentChainId:`, currentChainId);
+
+                // 2. Get your target chain ID and format it as a hex string for comparison
+                const targetChainId = optionsList[optionsIndex].CHAIN_ID;
+                console.log(`targetChainId:`, targetChainId);
+
+                // 3. Use an 'if' statement to compare the chain IDs
+                // ✅ Consistently compare numbers
+                if (Number(currentChainId) === Number(targetChainId)) {
+                    console.log("Chain IDs match!");
+                    // if (currentChainId === targetChainId) {
+                    // ✅ CORRECT NETWORK LOGIC
+                    console.log(`✅ Success! You are connected to the correct network: ${targetChainId}`);
+
+
+                } else {
+                    // ❌ WRONG NETWORK LOGIC
+                    console.warn(`❌ Wrong network detected. Please switch to ${targetChainId}.`);
+                    await ensureCorrectNetwork(provider, targetChainId)
+                }
+
+
+                const ethAccounts = await provider.request({ method: "eth_accounts" });
+                if (!ethAccounts || ethAccounts.length === 0) return;
+
+
+                if (!accounts || accounts.length === 0) return;
+
+                const { address, message, signature } = saved;
+                const recovered = ethers.verifyMessage(message, signature);
+
+
+                if (recovered.toLowerCase() !== address.toLowerCase()) {
+                    console.warn("Invalid saved signature. Clearing...");
+                    localStorage.removeItem("auth");
+                    return;
+                }
+
+                console.warn("Restoring session for:", address);
+                userAddress = address; // Save it globally for reuse
+
+                // Reinitialize ethers
+                ethersProvider = new ethers.BrowserProvider(provider);
+                signer = await ethersProvider.getSigner();
+
+                // ...........................
+                // PRESALE contract
+                // ...........................
+                let contractAddress = optionsList[optionsIndex].PRESALE_CONTRACT_ADDRESS;
+                let contractABI = optionsList[optionsIndex].PRESALE_ABI;
+                contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+
+                // ...........................
+                // erc20 CWLT contract
+                // ...........................
+                let erc20ContractAddress = optionsList[optionsIndex].CWLT_CONTRACT_ADDRESS;
+                const erc20Abi = [ "function balanceOf(address owner) view returns (uint256)", "function decimals() view returns (uint8)" ];
+                const erc20Provider = new ethers.JsonRpcProvider(optionsList[optionsIndex].API);
+                erc20Contract = new ethers.Contract(erc20ContractAddress, erc20Abi, erc20Provider);
+                
+                // userTokenBalance = await getUserCWLTBalance();
+                // console.log('userTokenBalance:', userTokenBalance)
+                // ...........................
+
+
+                // Update UI
+                const shortAddress = shortAddressETH(address);
+                // connectButton.textContent = `Connected: ${realAddress}`;
+            connectButton.textContent = `${shortAddress}✅`;
+                connectButton.classList.replace('bg-violet-600', 'bg-gray-600');
+                connectButton.classList.replace('hover:bg-violet-500', 'hover:bg-gray-500');
+                buyButton.disabled = false;
+
+              
+
+                 // .......................
+                 //  USER BALANCE
+                 // .......................
+        const userTokenBalance = await getUserCWLTBalance()
+            const tokenBalanceFormatted = Number(ethers.formatUnits(userTokenBalance, 18)).toFixed(2);
+            console.warn('tokenBalanceFormatted:',tokenBalanceFormatted)
+            const userBalanceDisplay = document.getElementById('userBalance');
+            userBalanceDisplay.textContent = `${tokenBalanceFormatted} CWLT`;
+                    animateNumberUpdate(userBalanceDisplay);
+           
+                // let tokenBalanceFormated = Number(ethers.formatUnits(tokensOwed, 18)).toFixed(2);
+                // console.log('TOKENS OWED: ', tokensOwed)
+                // const userBalanceDisplay = document.getElementById('userBalance');
+                // userBalanceDisplay.textContent = `${tokenBalanceFormated} CWLT`;
+
+
+                balanceDisplay.classList.remove('hidden');
+
+                isWalletConnected = true;
+                mt = address;
+                ccc = address;
+
+                //  .................................
+                // --- TGE & Contract Simulation ---
+                //  .................................
+ 
+
+                // .......................
+                //  TOKENS OWED
+                 // .......................
+                 tokensOwed = await loadTokensOwed(userAddress);
+            let tokensOwedFormated= Number(ethers.formatUnits(tokensOwed, 18)).toFixed(2);
+
+                const claimableAmountDisplay = document.getElementById('claimable-amount');
+                claimableAmountDisplay.textContent = tokensOwedFormated; // Assumes formatNumber exists
+
+
+                console.warn('TGE CHECK')
+                    if (tokensOwed > 0) {
+                    console.warn('userClaimable balance :',tokensOwed)
+                    switchCardMode('claim');
+                    // switchCardMode('claim', preClaimCountdownInterval);
+                } else {
+                    switchCardMode('buy');
+                }
+            
+
+
+            } catch (err) {
+                console.warn("Error restoring MetaMask session:", err);
+            }
+        }
+
+
+        async function loadTokensOwed(address) {
+            const addr = address || userAddress;
+            if (!addr) {
+                console.warn('loadTokensOwed: No address provided');
+                return 0;
+            }
+
+            const userTokenBalance = await getTokensOwed(addr);
+            // ow= userTokenBalance
+            let owed= Number(ethers.formatUnits(userTokenBalance, 18)).toFixed(2);
+            console.warn('💵 loadTokensOwed :', owed );
+
+
+            return userTokenBalance;
+        }
+
+async function getUserCWLTBalance(address){
+    // console.log()
+    const addr = address || userAddress;
+            if (!addr) {
+                console.warn('getUserCWLTBalance: No address provided');
+                return 0;
+            }
+
+            console.log('getUserCWLTBalance for:', addr);
+    return  await erc20Contract.balanceOf(addr)
+}
+
+ 
+
+        async function switchToArbitrumSepolia() {
+            const provider = MMSDK.getProvider();
+
+            try {
+                // Step 1: Get current chain ID
+                const chainId = await provider.request({ method: 'eth_chainId' });
+                console.log("Current Chain ID:", chainId);
+
+                // Step 2: If already on Arbitrum Sepolia, do nothing
+                if (chainId === arbitrumSepoliaChain.chainId) {
+                    console.log("Already on Arbitrum Sepolia");
+                    return true;
+                }
+
+                // Step 3: Try to switch to Arbitrum Sepolia
+                await provider.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: arbitrumSepoliaChain.chainId }],
+                });
+
+                console.log("Successfully switched to Arbitrum Sepolia");
+                return true;
+
+            } catch (switchError) {
+                // Step 4: Handle case where chain isn't added yet
+                if (switchError.code === 4902) {
+                    console.log("Chain not found. Adding Arbitrum Sepolia...");
+
+                    try {
+                        await provider.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [arbitrumSepoliaChain],
+                        });
+
+                        // After adding, try switching again
+                        await provider.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: arbitrumSepoliaChain.chainId }],
+                        });
+
+                        console.log("Successfully added and switched to Arbitrum Sepolia");
+                        return true;
+                    } catch (addError) {
+                        console.error("Failed to add chain:", addError);
+                        alert("Failed to add Arbitrum Sepolia network.");
+                        return false;
+                    }
+                } else {
+                    console.error("Failed to switch network:", switchError);
+                    alert("Failed to switch to Arbitrum Sepolia.");
+                    return false;
+                }
+            }
+        }
+
+
+
+
+
+
+
+        async function getTokensOwed(userAddress) {
+            try {
+                console.log(`Consultando los tokens adeudados para la dirección: ${userAddress}`);
+
+                // Llama al mapping público como si fuera una función
+                //  await readContract.userVestingInfo(userAddress);
+                // 0: uint256: amount  eg. 3942067377815622000
+                // 1: uint256: startTimestamp eg. 1752554188
+
+
+                let userPurchases= await readContract.userVestingInfo(userAddress)
+                let totalPurchased= userPurchases[0]
+                let claimed= userPurchases[1]
+                const tokensOwedBigNumber = (totalPurchased- claimed )
+                // console.warn('tokensOwedBigNumber:', tokensOwedBigNumber)
+
+                // El resultado es un BigNumber (Ethers v5) o BigInt (Ethers v6).
+                // Es buena idea convertirlo a un formato legible.
+                const tokensOwedString = tokensOwedBigNumber.toString();
+
+                console.log(`💴 Tokens adeudados: ${tokensOwedString}`);
+
+                // Si los tokens tienen decimales (como Ether),  formatearlos
+                // const tokensOwedFormatted = ethers.utils.formatUnits(tokensOwedBigNumber, 18); // Para 18 decimales
+                // console.log(`Tokens adeudados (formateado): ${tokensOwedFormatted}`);
+
+                return tokensOwedString;
+
+            } catch (error) {
+                console.error("Error al obtener los datos del mapping 'userVestingInfo':", error);
+                return null;
+            }
+        }
+
+        async function loadTokensSold() {
+            try {
+                console.log(`Consultando los tokens Sold`);
+
+                // Llama al mapping público como si fuera una función
+                const tokensSoldBigNumber = await readContract.totalTokensSold();
+                tsold = tokensSoldBigNumber
+                // El resultado es un BigNumber (Ethers v5) o BigInt (Ethers v6).
+                // Es buena idea convertirlo a un formato legible.
+                const tokensSoldString = tokensSoldBigNumber.toString();
+
+                console.log(`Tokens Sold adeudados (en la unidad más pequeña, como wei): ${tokensSoldString}`);
+
+                // Si los tokens tienen decimales (como Ether), puedes formatearlos
+
+                return tokensSoldString;
+
+            } catch (error) {
+                console.error("Error al obtener los datos del mapping 'totalTokensSold':", error);
+                return null;
+            }
+
+        }
+
+
+        async function getPrice() {
+            // hard fix
+            let contractAddress = optionsList[optionsIndex].PRESALE_CONTRACT_ADDRESS
+            let contractABI = optionsList[optionsIndex].PRESALE_ABI
+            const readProvider = new ethers.JsonRpcProvider(optionsList[optionsIndex].API);
+            let readContract = new ethers.Contract(contractAddress, contractABI, readProvider);
+
+            console.warn('readContract: (654)', readContract)
+            // const ACTUAL_PRICE =  await readContract.getCurrentPrice();
+
+            return await readContract.getCurrentPrice();
+        }
+
+
+        async function getTokenPrice() {
+            try {
+                console.log(`Consultando  tokens price`);
+                const tokensPriceBigNumber = await readContract.getCurrentPrice();
+                const tokensPriceString = tokensPriceBigNumber.toString();
+                console.log(`Tokens Price(en la unidad más pequeña, como wei): ${tokensPriceString}`);
+                return tokensPriceString;
+
+            } catch (error) {
+                console.error("Error al obtener los datos del mapping 'totalTokensSold':", error);
+                return null;
+            }
+
+        }
+
+
+
+        function formatEthValue(value) {
+            // 1. Ensure the input is a string
+            const stringValue = String(value);
+
+            // 2. Ethers.js safely truncates extra decimals here
+            const valueInWei = ethers.parseUnits(stringValue, 18);
+
+            // 3. Convert back to a usable string with 18 decimals
+            return ethers.formatUnits(valueInWei, 18);
+        }
+
+       
+
+        // ...............
+        // CLAIM
+        // ...............
+claimButton.addEventListener('click', async() => {
+    console.warn('claimButton!')
+
+const formatedTokensOwed = Number(ethers.formatUnits(tokensOwed, 18)).toFixed(2);
+    console.warn('userTokenBalance en claimbutton!',formatedTokensOwed)
+    // console.warn('userTokenBalance en claimbutton!',tokensOwed)
+
+    // if(!isWalletConnected || userTokenBalance <= 0) return;
+    if(!isWalletConnected || tokensOwed <= 0) return;
+                console.log('claimTokens => userClaimableBalance:',tokensOwed)
+                claimButton.disabled = true;
+                claimButton.textContent = 'Claiming...';
+
+// .................
+// DO THE CLAIM TX
+// .................
+const tx = await contract.claimTokens()
+console.warn(`ClaimTokens initiated! Waiting for confirmation... Hash: ${tx.hash}`)
+await tx.wait();
+console.warn("✅ claimTokens confirmed! Tokens purchased successfully.")
+// .................
+
+// .................
+// get new token balance
+// .................
+const newUserTokenBalance = await getUserCWLTBalance()
+const tokenBalanceFormatted = Number(ethers.formatUnits(newUserTokenBalance, 18)).toFixed(2);
+console.warn('tokenBalanceFormatted:',tokenBalanceFormatted)
+            
+            
+            setTimeout(() => {
+                createConfetti();
+                showClaimSuccessNotification(
+                    `${translations[currentLanguage].claim_success} ${formatedTokensOwed} CWLT!`,
+                    `${translations[currentLanguage].new_balance}: ${tokenBalanceFormatted} CWLT`,
+                    tx.hash
+                );
+                
+                // .................
+                // UPDATE USER CWLT BALANCE
+                // .................
+                const userBalanceDisplay = document.getElementById('userBalance');
+                userBalanceDisplay.textContent = `${tokenBalanceFormatted} CWLT`;
+                animateNumberUpdate(userBalanceDisplay);
+                userBalanceDisplay.classList.add('balance-flash-animation');
+                setTimeout(() => userBalanceDisplay.classList.remove('balance-flash-animation'), 800);
+
+                  // .................
+                // UPDATE OWED TOKENS
+                // .................
+                    // userBalanceDisplay.textContent = formatNumber(userTokenBalance);
+                    const claimableAmountDisplay = document.getElementById('claimable-amount');
+                    claimableAmountDisplay.textContent = `0`;
+
+        // .................
+                // GO BACK TO BUY MODE
+                // .................
+                    switchCardMode('buy');
+
+                    // claimableAmountDisplay.textContent = formatNumber(userTokenBalance);
+                    // claimButton.textContent = translations[currentLanguage].claim_tokens;
+
+                }, 2000);
+            });
+
+    </script>
+</body>
+
+</html>
