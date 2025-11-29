@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatWallet Test UI</title>
+  <style>
+    :root {
+      --background: #f0f0f0;
+      --panel-bg: #ffffff;
+      --text-color: #333333;
+      --button-bg: #007bff;
+      --button-hover: #0056b3;
+      --border-color: #dddddd;
+      --shadow-color: rgba(0,0,0,0.1);
+      --error-color: #ff0000;
+      --success-color: #008000;
+    }
+
+    [data-theme="dark"] {
+      --background: #1a1a1a;
+      --panel-bg: #2c2c2c;
+      --text-color: #e0e0e0;
+      --button-bg: #1e90ff;
+      --button-hover: #63b3ed;
+      --border-color: #444444;
+      --shadow-color: rgba(0,0,0,0.5);
+      --error-color: #ff5555;
+      --success-color: #55ff55;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --background: #1a1a1a;
+        --panel-bg: #2c2c2c;
+        --text-color: #e0e0e0;
+        --button-bg: #1e90ff;
+        --button-hover: #63b3ed;
+        --border-color: #444444;
+        --shadow-color: rgba(0,0,0,0.5);
+        --error-color: #ff5555;
+        --success-color: #55ff55;
+      }
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: var(--background);
+      color: var(--text-color);
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+      max-width: 1200px;
+      margin: auto;
+    }
+    .panel {
+      flex: 1;
+      background: var(--panel-bg);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px var(--shadow-color);
+    }
+    h2 {
+      margin-top: 0;
+    }
+    input, button {
+      padding: 8px;
+      margin: 5px 0;
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--panel-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+    }
+    button {
+      background: var(--button-bg);
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: var(--button-hover);
+    }
+    .history {
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      border-top: 1px solid var(--border-color);
+      padding-top: 10px;
+    }
+    .history div {
+      margin: 5px 0;
+    }
+    .error {
+      color: var(--error-color);
+    }
+    .success {
+      color: var(--success-color);
+    }
+    .theme-toggle {
+      width: auto;
+      display: inline-block;
+    }
+    .mnemonic {
+      font-size: 0.9em;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Alice's Panel -->
+    <div class="panel">
+      <h2>Alice</h2>
+      <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+      <input id="alicePrivateKey" type="text" placeholder="Enter Alice's Private Key (optional)">
+      <button onclick="initAlice()">Initialize Wallet</button>
+      <button onclick="hardSync('alice')">Hard Sync (Cache Public Keys)</button>
+      <input id="aliceAmount" type="number" step="0.01" placeholder="Amount to send (ETH)">
+      <button onclick="sendTransaction('alice', 'bob')">Send to Bob</button>
+      <div id="aliceStatus"></div>
+      <div class="history" id="aliceHistory"></div>
+    </div>
+    <!-- Bob's Panel -->
+    <div class="panel">
+      <h2>Bob</h2>
+      <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+      <input id="bobPrivateKey" type="text" placeholder="Enter Bob's Private Key (optional)">
+      <button onclick="initBob()">Initialize Wallet</button>
+      <button onclick="hardSync('bob')">Hard Sync (Cache Public Keys)</button>
+      <input id="bobAmount" type="number" step="0.01" placeholder="Amount to send (ETH)">
+      <button onclick="sendTransaction('bob', 'alice')">Send to Alice</button>
+      <div id="bobStatus"></div>
+      <div class="history" id="bobHistory"></div>
+    </div>
+  </div>
+
+  <script type="module">
+      window.optionsList = [
+          {
+            "CHAIN_NAME": 'Arbitrum sepolia',
+            "CHAINID": '421614',
+            "EXPLORER": 'https://sepolia.arbiscan.io/',
+            "API": 'https://arbitrum-sepolia.infura.io/v3/36ab6df7aa10428d90fead2c1b861f10',
+                "ALCHEMY_KEY": 'X048z0PxuDPd5vbTiKLbWJgogG9Tvd2I',
+                "CONTRACT": '0x3F8Dd2F126b81ce8633c130F702f8aAE8BBE715e'//musicRegistryV14b.sol
+            }
+        ]
+		        import { Client } from '@xmtp/browser-sdk';
+        window.Client = Client;
+        import { Wallet } from 'ethers';
+        window.Wallet = Wallet;
+        import { ethers } from 'ethers';
+        window.ethers = ethers;
+
+          import { JsonRpcProvider } from 'ethers';
+        window.JsonRpcProvider = JsonRpcProvider;
+
+    // Theme management
+    function setTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      localStorage.setItem("theme", theme);
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute("data-theme");
+      const newTheme = currentTheme === "light" ? "dark" : "light";
+      setTheme(newTheme);
+    }
+
+    // Initialize theme
+    (function initializeTheme() {
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme) {
+        setTheme(savedTheme);
+      } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        setTheme("dark");
+      } else {
+        setTheme("light");
+      }
+    })();
+
+    // Configuration
+         providerUrl = optionsList[0].API; // Replace with your Infura key
+        const chainId = optionsList[0].TOKEN_CHAINID; // Sepolia
+        // const state = {
+    state = {
+      alice: { wallet: null, xmtp: null, publicKeys: {}, history: [] },
+      bob: { wallet: null, xmtp: null, publicKeys: {}, history: [] }
+    };
+
+    // Function to create a new wallet or load an existing one from localStorage
+    async function createOrLoadWallet(walletName) {
+      let mnemonic = localStorage.getItem(walletName);
+      if (!mnemonic) {
+        console.log(`No mnemonic found for ${walletName}, creating one...`);
+        const randomWallet = ethers.Wallet.createRandom();
+        mnemonic = randomWallet.mnemonic.phrase;
+        localStorage.setItem(walletName, mnemonic);
+      }
+      console.log(`Mnemonic for ${walletName}, found!`);
+      return ethers.Wallet.fromPhrase(mnemonic);
+    }
+
+    // Initialize wallet and XMTP
+    async function initializeWalletAndXMTP(user) {
+      try {
+        const provider = new JsonRpcProvider(providerUrl);
+        const privateKey = document.getElementById(`${user}PrivateKey`).value;
+        let wallet;
+        if (privateKey) {
+          wallet = new Wallet(privateKey, provider);
+          updateStatus(user, `Initialized wallet with private key: ${wallet.address}`, "success");
+        } else {
+          wallet = await createOrLoadWallet(user);
+          wallet = wallet.connect(provider);
+          updateStatus(user, `Initialized wallet: ${wallet.address}<br>
+          <span class="privkey">PrivKey: ${wallet.privateKey}</span>
+          <span class="pubkey">PubKey: ${wallet.publicKey}</span>
+          `, "success");
+          aa= wallet
+          // <span class="mnemonic">Mnemonic: ${wallet.mnemonic.phrase}</span>
+          // updateStatus(user, `Initialized wallet: ${wallet.address}<br><span class="mnemonic">Mnemonic: ${wallet.mnemonic.phrase}</span>`, "success");
+        }
+        // Create XMTP signer
+        const xmtpSigner = {
+          type: "EOA",
+          getIdentifier: () => ({ identifier: wallet.address, identifierKind: "Ethereum" }),
+          signMessage: async (message) => ethers.getBytes(await wallet.signMessage(message)),
+        };
+        // Initialize XMTP v3 client
+        const xmtp = await Client.create(xmtpSigner, { env: "dev" }); // Use 'dev' for testnet
+        state[user].wallet = wallet;
+        state[user].xmtp = xmtp;
+      } catch (error) {
+        updateStatus(user, `Error initializing: ${error.message}`, "error");
+      }
+    }
+
+    // Hard sync: Cache public keys
+    async function hardSync(user) {
+      const otherUser = user === "alice" ? "bob" : "alice";
+      if (!state[user].xmtp) {
+        updateStatus(user, "Initialize wallet first", "error");
+        return;
+      }
+      try {
+        const conversation = await state[user].xmtp.conversations.newConversation(
+          state[otherUser].wallet?.address || "0x0"
+        );
+        await conversation.send(state[user].wallet.publicKey);
+        const messages = await conversation.messages();
+        for (const msg of messages.reverse()) {
+          if (msg.content && typeof msg.content === "string" && msg.content.startsWith("0x")) {
+            state[user].publicKeys[otherUser] = msg.content;
+            break;
+          }
+        }
+        if (!state[user].publicKeys[otherUser]) {
+          updateStatus(user, "Waiting for other user's public key...", "success");
+          setTimeout(() => hardSync(user), 1000); // Retry after 1s
+          return;
+        }
+        updateStatus(user, `Cached ${otherUser}'s public key`, "success");
+      } catch (error) {
+        updateStatus(user, `Error syncing: ${error.message}`, "error");
+      }
+    }
+
+    // Generate stealth address
+    async function generateStealthAddress(provider, recipientPublicKey, senderPrivateKey, startIndex = 0) {
+      const sharedSecret = ethers.computeSharedSecret(senderPrivateKey, recipientPublicKey);
+      for (let i = startIndex; i < startIndex + 100; i++) {
+        const hs = ethers.keccak256(ethers.concatBytes([
+          ethers.getBytes(sharedSecret),
+          ethers.toBeHex(i, 32)
+        ]));
+        const hsPoint = ethers.computePublicKey(hs, false);
+        const recipientPoint = ethers.computePublicKey(recipientPublicKey, false);
+        const stPk = ethers.computePublicKey(
+          ethers.toBigInt(hsPoint) + ethers.toBigInt(recipientPoint),
+          false
+        );
+        const stAddr = ethers.computeAddress(stPk);
+        const balance = await provider.getBalance(stAddr);
+        const txCount = await provider.getTransactionCount(stAddr);
+        if (balance === 0n && txCount === 0) {
+          return { stAddr, index: i };
+        }
+      }
+      throw new Error("No unused address found");
+    }
+
+    // Send transaction
+    async function sendTransaction(sender, recipient) {
+      if (!state[sender].wallet) {
+        updateStatus(sender, "Initialize wallet first", "error");
+        return;
+      }
+      if (!state[sender].publicKeys[recipient]) {
+        updateStatus(sender, `Run hard sync to get ${recipient}'s public key`, "error");
+        return;
+      }
+      const amount = document.getElementById(`${sender}Amount`).value;
+      if (!amount || amount <= 0) {
+        updateStatus(sender, "Enter a valid amount", "error");
+        return;
+      }
+      try {
+        // const { stAddr, index } = await generateStealthAddress(
+        const { stAddr, index } = await generateStealthAddress(
+          state[sender].wallet.provider,
+          state[sender].publicKeys[recipient],
+          state[sender].wallet.privateKey
+        );
+        const tx = await state[sender].wallet.sendTransaction({
+          to: stAddr,
+          value: ethers.parseEther(amount)
+        });
+        state[sender].history.push({
+          type: "sent",
+          to: recipient,
+          chainId,
+          stAddr,
+          index,
+          amount,
+          txHash: tx.hash,
+          timestamp: new Date().toISOString()
+        });
+        updateHistory(sender);
+        updateStatus(sender, `Sent ${amount} ETH to ${recipient} at ${stAddr} (index ${index})`, "success");
+      } catch (error) {
+        updateStatus(sender, `Error sending: ${error.message}`, "error");
+      }
+    }
+
+    // Scan for funds
+    async function scanForFunds(user, sender) {
+      console.log('scanning for funds')
+      if (!state[user].wallet || !state[user].publicKeys[sender]) {
+        updateStatus(user, "Initialize wallet and sync public keys first", "error");
+        return;
+      }
+      try {
+        const provider = state[user].wallet.provider;
+        const sharedSecret = ethers.computeSharedSecret(
+          state[user].wallet.privateKey,
+          state[user].publicKeys[sender]
+        );
+        const currentBlock = await provider.getBlockNumber();
+        for (let i = 0; i < 100; i++) {
+          const hs = ethers.keccak256(ethers.concatBytes([
+            ethers.getBytes(sharedSecret),
+            ethers.toBeHex(i, 32)
+          ]));
+          const hsPoint = ethers.computePublicKey(hs, false);
+          const recipientPoint = ethers.computePublicKey(state[user].wallet.publicKey, false);
+          const stPk = ethers.computePublicKey(
+            ethers.toBigInt(hsPoint) + ethers.toBigInt(recipientPoint),
+            false
+          );
+          const stAddr = ethers.computeAddress(stPk);
+          const balance = await provider.getBalance(stAddr);
+          if (balance > 0n) {
+            const bPrivkey = (ethers.toBigInt(state[user].wallet.privateKey) + ethers.toBigInt(hs)) %
+              ethers.toBigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+            const stealthWallet = new ethers.Wallet(ethers.toBeHex(bPrivkey), provider);
+            state[user].history.push({
+              type: "received",
+              from: sender,
+              chainId,
+              stAddr,
+              index: i,
+              amount: ethers.formatEther(balance),
+              txHash: "unknown", // Simplified; fetch via logs in production
+              timestamp: new Date().toISOString()
+            });
+            // Sweep funds to main wallet
+            await stealthWallet.sendTransaction({
+              to: state[user].wallet.address,
+              value: balance
+            });
+            updateHistory(user);
+            updateStatus(user, `Received ${ethers.formatEther(balance)} ETH from ${sender} at ${stAddr}`, "success");
+          }
+        }
+      } catch (error) {
+        updateStatus(user, `Error scanning: ${error.message}`, "error");
+      }
+    }
+
+    // Update status
+    function updateStatus(user, message, type) {
+      const statusDiv = document.getElementById(`${user}Status`);
+      statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+    }
+
+    // Update transaction history
+    function updateHistory(user) {
+      const historyDiv = document.getElementById(`${user}History`);
+      historyDiv.innerHTML = state[user].history.map(entry => `
+        <div>
+          ${entry.type === "sent" ? `Sent ${entry.amount} ETH to ${entry.to}` : `Received ${entry.amount} ETH from ${entry.from}`}
+          on chain ${entry.chainId} at ${entry.stAddr} (index ${entry.index}) - ${entry.timestamp}
+        </div>
+      `).join("");
+    }
+
+    // Initialize Alice
+    async function initAlice() {
+      await initializeWalletAndXMTP("alice");
+      setInterval(() => scanForFunds("alice", "bob"), 10000); // Auto-scan every 10s
+    }
+
+    // Initialize Bob
+    async function initBob() {
+      await initializeWalletAndXMTP("bob");
+      setInterval(() => scanForFunds("bob", "alice"), 10000); // Auto-scan every 10s
+    }
+
+    // Expose functions to global scope for button onclick
+    window.toggleTheme = toggleTheme;
+    window.initAlice = initAlice;
+    window.initBob = initBob;
+    window.hardSync = hardSync;
+    window.sendTransaction = sendTransaction;
+  </script>
+</body>
+</html>

@@ -1,10 +1,55 @@
+
+## test
+### eas
+yarn parcel src/index.html src/81.html   --port 7777 --https 
+yarn parcel src/81.html   --port 7777 --https 
+
+yarn parcel src/index.html --port 7777 --https
+yarn parcel src/wallet.html --port 7777 --https
+
+# DEPLOY
+```
+rm -rf .parce-cache
+yarn parcel src/index.html --dist-dir public  --public-url ./
+firebase deploy
+```
+
+# contracts 
+
+en arb sepolia
+
+milestonepresalev21: 0x504fF398f4Bf7C597a391fCb1328bf5add7aCE44
+https://sepolia.arbiscan.io/address/0x504fF398f4Bf7C597a391fCb1328bf5add7aCE44#readContract
+
+chatwallettokenF: 0x2aC45C33602E1a8450302100F1897BFF6C91a5d6
+https://sepolia.arbiscan.io/address/0x2aC45C33602E1a8450302100F1897BFF6C91a5d6
+
+chatwalletdidv5: 0x4ccA3288A4319c9c44e8797087F8776A863342F5
+https://sepolia.arbiscan.io/address/0x4ccA3288A4319c9c44e8797087F8776A863342F5
+
+---
+Sourcify verification successful.
+https://repo.sourcify.dev/11155111/0xcdD92F0b9E5cd59488e533F746bb6c8dEf46eE13/
+https://sepolia.etherscan.io/tx/0xcdD92F0b9E5cd59488e533F746bb6c8dEf46eE13
+
+<!-- 0x96Df83456f0B4d161C3E00278Ba33670c796523d
+https://sepolia.etherscan.io/tx/0x863707c0f99a021e864a7c42f84219dcf4af2042622d316c33a2772228a6729e
+Sourcify verification successful.
+https://repo.sourcify.dev/11155111/0x96Df83456f0B4d161C3E00278Ba33670c796523d/ -->
+
+# INSTALL
+```
+nvm use 20
+yarn                              
+```
+
+# RUN
+```
+yarn parcel src/index.html  --port 4343 --https
+```
 # ChatWallet 💬💸
 
 [](https://opensource.org/licenses/MIT)
-[](http://makeapullrequest.com)
-[](https://www.google.com/search?q=https://github.com/YOUR_USERNAME/chatwallet/issues)
-[](https://www.google.com/search?q=https://github.com/YOUR_USERNAME/chatwallet/network/members)
-[](https://www.google.com/search?q=https://github.com/YOUR_USERNAME/chatwallet/stargazers)
 
 **A self-custodial, multichain wallet with end-to-end encrypted messaging. Redefining social and financial interaction in Web3.**
 
@@ -14,7 +59,6 @@ ChatWallet is a next-generation decentralized application that merges a secure c
 https://chatwallet.org
 
 -----
-
 ## 📖 Table of Contents
 
   - [About The Project](https://www.google.com/search?q=%23-about-the-project)
@@ -37,11 +81,11 @@ Today's digital world is fragmented. Financial tools are isolated from social co
 We believe that if you can chat with someone, you should be able to transact with them instantly, privately, and without intermediaries. By building on a foundation of decentralized identity, encrypted communication, and verifiable attestations, we aim to build a healthier and more trustworthy social fabric for the internet of value.
 
 ## ✨ Core Features
-
-  * 👤 **Sovereign Identity (DIDs):** Full control over your digital self using Ceramic Network and OrbisDB. You are not the product.
+  * 👤 **Multisig for group chats:** .
   * 🔐 **Self-Custodial Wallet (BIP39):** Your keys, your crypto. EVM-compatible at launch, with a multichain future (Solana and more).
-  * 💬 **Encrypted E2E Chat (XMTP):** Truly private, wallet-to-wallet communication. No one, not even us, can read your messages.
-  * 👻 **Financial Privacy (Stealth Addresses):** Protect your on-chain history with untraceable, single-use addresses for receiving assets.
+  * 💬 **Encrypted P2P Chat (XMTPv3):** Truly private, wallet-to-wallet communication. No one, not even us, can read your messages.
+  * 👻 **Financial Privacy (p2p Stealth Addresses):** Protect your on-chain history with untraceable, single-use addresses for receiving assets. Default on p2p chats.
+  * 👤 **Sovereign Identity (DIDs):** Full control over your digital self using Ceramic Network and OrbisDB. You are not the product.
   * 🤝 **Verifiable Reputation (Attestations):** Build a web of trust through verifiable claims made by peers, compatible with open standards like EAS.
   * 🤖 **Account Abstraction Ready (SCAs):** Paving the way for next-gen UX with social recovery, gasless transactions, and more.
   * 🔗 **Multichain by Design:** Built from the ground up to support multiple blockchain ecosystems.
@@ -61,35 +105,26 @@ ChatWallet is built with a modern, decentralized stack:
 
 To get a local copy up and running, follow these simple steps.
 
-# INSTALL
-```
-nvm use 20
-yarn                              
-```
 
-# RUN
-```
-yarn parcel src/index.html  --port 4343 --https
-```
 ## 🗺️ Roadmap
 
 We have an ambitious vision for the future of social finance.
 
-  - [x] **Phase 1: EVM Launch**
+  - [x] **Phase 1 Q3(2025): EVM Launch**
       - Core Wallet & Chat Features
       - DIDs on Ceramic
       - Stealth Addresses
-  - [ ] **Phase 2: Multichain Expansion**
+  - [ ] **Phase  Q4 (2025): Multichain Expansion**
       - Solana Integration
       - Native Attestation System (EAS compatible)
-  - [ ] **Phase 3: Account Abstraction**
+  - [ ] **Phase 3 Q1 (2026): Account Abstraction**
       - Smart Contract Account (SCA) support
       - Social Recovery & Gasless Transactions
-  - [ ] **Phase 4: Ecosystem Growth**
+  - [ ] **Phase 4 (Q2 2026): Ecosystem Growth**
       - Public API & Developer SDK
       - Grants program for dApps building on ChatWallet
 
-See the [open issues](https://www.google.com/search?q=https://github.com/YOUR_USERNAME/chatwallet/issues) for a full list of proposed features (and known issues).
+See the [open issues](https://github.com/energiasonora/chatWallet/issues) for a full list of proposed features (and known issues).
 
 ## 🤝 Contributing
 
@@ -114,3 +149,37 @@ Distributed under the MIT License. See `LICENSE` for more information.
 Your Name / Project Name - [@xunorus](https://www.google.com/search?q=https://twitter.com/xunorus)
 
 Project Link: [https://github.com/energiasonora/chatWallet](https://www.google.com/search?q=https://github.com/energiasonora/chatWallet)
+
+
+# XMTP End-to-End Encryption
+## The beauty of the XMTP SDK. 
+The end-to-end encryption is a fundamental part of the protocol and is handled automatically by the client library.
+
+Key Generation: When we call Client.create(state.wallet, ...), the SDK uses your wallet to generate a separate set of encryption keys. These keys are published on the XMTP network, allowing others to find them and encrypt messages for you.
+
+Sending Messages: When you use state.conversation.send(messageText), the SDK automatically fetches the recipient's encryption keys from the network, encrypts your message with them, and then sends the encrypted payload.
+
+Receiving Messages: The streamMessages() function receives the encrypted data. The SDK uses the private keys it generated during setup (which only your client has) to decrypt the messages before you see them as plain text.
+
+## only your public keys are published on the XMTP network, never your private keys.
+
+Your private keys must remain secret and should never leave your device. They are what allow you to decrypt messages sent to you.
+
+Here’s a simplified breakdown of what happens when you call Client.create():
+
+Key Bundle Generation: Your browser generates a new, separate set of cryptographic keys specifically for XMTP. This is often called a "key bundle." This bundle contains:
+
+An identity key, which is a long-term public/private key pair.
+
+A set of pre-keys, which are one-time public keys used to establish new secure chat sessions.
+
+Signing with Your Wallet: To prove you own your Ethereum address (0x...), your wallet (Alice's wallet in this case) signs your new public identity key. This signature is like a digital seal of approval, saying, "I, the owner of this Ethereum address, authorize this public key to send and receive messages on my behalf."
+
+Publishing to the Network: The public part of your key bundle (your public identity key, its signature from your wallet, and your public pre-keys) is then published to the XMTP network.
+
+When someone wants to message you, their client fetches this public bundle from the network. They can verify the signature to ensure the keys genuinely belong to your address and then use those public keys to encrypt the first message they send you
+
+
+# monad testnet
+cwlt 0x650C744D281ADeCC7808B7f0D377c07240e13a85
+smartwallet 0x6C10f399f7131c149c8a82602F8e4bD0F474E58B

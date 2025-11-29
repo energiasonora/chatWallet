@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XMTP v3 - Alice & Bob Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chat-bubble {
+            max-width: 75%;
+            padding: 8px 12px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+        .chat-bubble.sent {
+            background-color: #4f46e5; /* indigo-600 */
+            color: white;
+            align-self: flex-end;
+        }
+        .chat-bubble.received {
+            background-color: #374151; /* gray-700 */
+            color: #d1d5db; /* gray-300 */
+            align-self: flex-start;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto p-4">
+        <div class="text-center mb-6">
+            <h1 class="text-4xl font-bold text-white">XMTP v3 Alice & Bob Chat</h1>
+            <p class="text-gray-400 mt-2">Two Persistent In-Memory Wallets Chatting on the XMTP Dev Network</p>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-4">
+
+            <!-- Alice's Column -->
+            <div id="alice-container" class="flex-1 bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col">
+                <h2 class="text-2xl font-bold mb-4 text-center">Alice</h2>
+                <button id="alice-init" class="w-full px-4 py-2 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-colors">Initialize Alice</button>
+                <div id="alice-status" class="text-center text-gray-400 my-2 text-sm min-h-[20px]"></div>
+                <div id="alice-address" class="text-center text-xs text-gray-500 break-all mb-2"></div>
+                <div id="alice-inbox-id" class="text-center text-xs text-gray-500 break-all mb-4"></div>
+                
+                <div id="alice-messages" class="flex-1 bg-gray-900/50 rounded-lg p-3 overflow-y-auto mb-4 flex flex-col gap-2 h-64"></div>
+
+                <form id="alice-form" class="flex gap-2">
+                    <input id="alice-to" type="text" placeholder="Bob's Inbox ID" class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" required>
+                    <input id="alice-msg" type="text" placeholder="Message..." class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" required>
+                    <button type="submit" class="px-4 py-2 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700">Send</button>
+                </form>
+            </div>
+
+            <!-- Bob's Column -->
+            <div id="bob-container" class="flex-1 bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col">
+                <h2 class="text-2xl font-bold mb-4 text-center">Bob</h2>
+                <button id="bob-init" class="w-full px-4 py-2 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors">Initialize Bob</button>
+                <div id="bob-status" class="text-center text-gray-400 my-2 text-sm min-h-[20px]"></div>
+                <div id="bob-address" class="text-center text-xs text-gray-500 break-all mb-2"></div>
+                <div id="bob-inbox-id" class="text-center text-xs text-gray-500 break-all mb-4"></div>
+
+                <div id="bob-messages" class="flex-1 bg-gray-900/50 rounded-lg p-3 overflow-y-auto mb-4 flex flex-col gap-2 h-64"></div>
+                
+                <form id="bob-form" class="flex gap-2">
+                    <input id="bob-to" type="text" placeholder="Alice's Inbox ID" class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" required>
+                    <input id="bob-msg" type="text" placeholder="Message..." class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" required>
+                    <button type="submit" class="px-4 py-2 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700">Send</button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Import Ethers.js v6 -->
+    <!-- <script src="https://cdn.ethers.io/lib/ethers-6.13.1.umd.min.js"></script> -->
+
+    <!-- Import XMTP Browser SDK v3 -->
+    <script type="module">
+        // import { Client } from 'https://unpkg.com/@xmtp/browser-sdk@latest/dist/browser.esm.js';
+
+
+
+// import { Client } from 'https://unpkg.com/@xmtp/browser-sdk@latest/dist/browser.esm.js';
+        import { Client } from '@xmtp/browser-sdk';
+        window.Client = Client;
+        import { Wallet } from 'ethers';
+        window.Wallet = Wallet;
+        import { ethers } from 'ethers';
+        window.ethers = ethers;
+
+
+        // Store clients, wallets, and conversations in a global object
+        const users = {
+            alice: { client: null, wallet: null, conversations: new Map() },
+            bob: { client: null, wallet: null, conversations: new Map() }
+        };
+
+        // Function to create a new wallet or load an existing one from localStorage
+        async function createOrLoadWallet(walletName) {
+            let mnemonic = localStorage.getItem(walletName);
+            if (!mnemonic) {
+                console.log(`No mnemonic found for ${walletName}, creating one...`);
+                const randomWallet = ethers.Wallet.createRandom();
+                mnemonic = randomWallet.mnemonic.phrase;
+                localStorage.setItem(walletName, mnemonic);
+            }
+            console.log(`Mnemonic for ${walletName}, found!`);
+
+            return ethers.Wallet.fromPhrase(mnemonic);
+        }
+
+        // Generic function to initialize a user (Alice or Bob)
+        async function initializeUser(userName) {
+            const lowerCaseName = userName.toLowerCase();
+            const initBtn = document.getElementById(`${lowerCaseName}-init`);
+            const statusEl = document.getElementById(`${lowerCaseName}-status`);
+            const addressEl = document.getElementById(`${lowerCaseName}-address`);
+            const inboxIdEl = document.getElementById(`${lowerCaseName}-inbox-id`);
+
+            initBtn.disabled = true;
+            statusEl.textContent = 'Loading wallet...';
+
+            try {
+                // 1. Create/Load wallet and create XMTP signer
+                const wallet = await createOrLoadWallet(userName);
+                users[lowerCaseName].wallet = wallet;
+                addressEl.textContent = `Address: ${wallet.address}`;
+                
+                const xmtpSigner = {
+                    type: "EOA",
+                    getIdentifier: () => ({ identifier: wallet.address, identifierKind: "Ethereum" }),
+                    signMessage: async (message) => ethers.getBytes(await wallet.signMessage(message)),
+                };
+                
+                statusEl.textContent = 'Initializing XMTP client...';
+
+                // 2. Create and initialize the XMTP client
+                const xmtp = await Client.create(xmtpSigner, { env: 'dev' });
+                users[lowerCaseName].client = xmtp;
+                inboxIdEl.textContent = `Inbox ID: ${xmtp.inboxId}`;
+                
+                // 3. Sync with the network to get existing conversations before streaming
+                statusEl.textContent = 'Syncing with network...';
+                await xmtp.conversations.sync();
+                console.log(`${userName} sync complete.`);
+
+                statusEl.textContent = 'Client initialized. Ready to chat!';
+                initBtn.textContent = 'Initialized!';
+
+                // Auto-fill the other user's 'To' field if they are also initialized
+                const otherUser = lowerCaseName === 'alice' ? 'bob' : 'alice';
+                if (users[otherUser].client) {
+                    document.getElementById(`${otherUser}-to`).value = xmtp.inboxId;
+                    document.getElementById(`${lowerCaseName}-to`).value = users[otherUser].client.inboxId;
+                }
+
+                // 4. Start streaming for new messages
+                streamMessages(userName);
+
+            } catch (e) {
+                console.error(e);
+                statusEl.textContent = `Error: ${e.message}`;
+                initBtn.disabled = false;
+            }
+        }
+
+        // Generic function to send a message
+        async function sendMessage(senderName) {
+            const lowerCaseSender = senderName.toLowerCase();
+            const form = document.getElementById(`${lowerCaseSender}-form`);
+            const toInboxId = document.getElementById(`${lowerCaseSender}-to`).value;
+            const messageContent = document.getElementById(`${lowerCaseSender}-msg`).value;
+            const messagesEl = document.getElementById(`${lowerCaseSender}-messages`);
+
+            if (!toInboxId || !messageContent) {
+                alert('Recipient Inbox ID and message cannot be empty.');
+                return;
+            }
+
+            const sender = users[lowerCaseSender];
+            if (!sender.client) {
+                alert(`${senderName} is not initialized.`);
+                return;
+            }
+            
+            try {
+                // Check our conversation cache for an existing conversation
+                let conversation = sender.conversations.get(toInboxId);
+                
+                // If no conversation is cached, create a new one
+                if (!conversation) {
+                    console.log(`Creating new DM conversation from ${senderName} to ${toInboxId}`);
+                    conversation = await sender.client.conversations.newDm(toInboxId);
+                    sender.conversations.set(toInboxId, conversation);
+                }
+
+                // Send the message using the cached/new conversation object
+                await conversation.send(messageContent);
+                
+                // Add sent message to UI
+                appendMessage(messagesEl, messageContent, 'sent');
+                form.reset(); // Clear the input field
+                document.getElementById(`${lowerCaseSender}-to`).value = toInboxId;
+
+            } catch (e) {
+                console.error(`Error sending message from ${senderName}:`, e);
+                alert(`Error sending message: ${e.message}`);
+            }
+        }
+
+        // Generic function to stream messages for a user
+        async function streamMessages(userName) {
+            const lowerCaseName = userName.toLowerCase();
+            const client = users[lowerCaseName].client;
+            const messagesEl = document.getElementById(`${lowerCaseName}-messages`);
+
+            const stream = await client.conversations.streamAllMessages();
+            for await (const message of stream) {
+                // FIX: Add a check to ensure senderAddress exists before using it.
+                // The stream can yield items that are not standard messages.
+                if (!message.senderAddress) {
+                    continue;
+                }
+
+                if (message.senderAddress.toLowerCase() === client.address.toLowerCase()) {
+                    continue;
+                }
+                console.log(`New message for ${userName}:`, message);
+                appendMessage(messagesEl, message.content, 'received');
+            }
+        }
+        
+        // Helper to add a message bubble to the UI
+        function appendMessage(el, content, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = content;
+            messageDiv.className = `chat-bubble ${type}`;
+            el.appendChild(messageDiv);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('alice-init').addEventListener('click', () => initializeUser('Alice'));
+        document.getElementById('bob-init').addEventListener('click', () => initializeUser('Bob'));
+
+        document.getElementById('alice-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            sendMessage('Alice');
+        });
+        document.getElementById('bob-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            sendMessage('Bob');
+        });
+
+    </script>
+</body>
+</html>
