@@ -20,6 +20,16 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#111827">
     <style>
+
+:root {
+	/* --background:#41307c; */
+	--mainBk:#3a0092;
+	--bckmodal:#262626;
+	--background:radial-gradient(circle, var(--mainBk) 0%, var(--bckmodal) 100%);
+	--qrbackground: #4b5563;
+  }
+
+
         body {
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
@@ -429,7 +439,7 @@
                 class="absolute top-2 right-2 p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
             <img src="apple-touch-icon.png" alt="ChatWallet Icon" class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">V alpha 81</p>
+            <p class="text-sm text-gray-400">V alpha 83</p>
             <div class="space-y-2 pt-2">
                 <a href="https://chatwallet.org/presale" target="_blank" rel="noopener noreferrer"
                     class="inline-block w-full px-4 py-2 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors duration-200">
@@ -453,64 +463,64 @@
        <!-- DID information will be populated here -->
    </div>
 
-     <div class="w-full max-w-md h-full bg-gray-800 sm:rounded-2xl shadow-lg flex flex-col overflow-hidden">
+     <div class="w-full max-w-md h-full  sm:rounded-2xl  flex flex-col overflow-hidden">
+     <!-- <div class="w-full max-w-md h-full bg-gray-800 sm:rounded-2xl shadow-lg flex flex-col overflow-hidden"> -->
 
         <!-- Header -->
         <header id="appHeader" class="hidden p-4 bg-gray-900/30 flex justify-between items-center space-x-2">
-            <div id="userDidTrigger" class="flex items-center space-x-2 overflow-hidden cursor-pointer">
+            <!-- Izquierda: DID y Copiar -->
+            <div class="flex items-center space-x-1 overflow-hidden">
+
+             
+
+                <div id="userDidTrigger" class="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-gray-700/50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="text-indigo-400 flex-shrink-0">
+                        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+                        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+                        <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+                    </svg>
+                    <div id="address" class="text-sm text-gray-400 truncate"></div>
+                </div>
+                <button id="copyAddressButton" title="Copiar dirección" class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
+                    <svg id="copyIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+                    <svg id="checkIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="hidden text-green-400"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>
+
+                    
+                <button id="settingsBtn" title="Configuración" class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
+                </button>
+
+            <button id="mode-toggle-btn" title="Modo Offline (Cold Wallet)" class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                </button>
+                
+            </div>
+
+            <!-- Centro: Controles -->
+            <div class="flex items-center space-x-2">
+                <!-- <button id="mode-toggle-btn" title="Modo Offline (Cold Wallet)" class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                </button>
+                <button id="settingsBtn" title="Configuración" class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
+                </button> -->
+            </div>
+
+            <!-- Derecha: Contactos -->
+            <button id="contactsNavBtn" class="relative text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="text-indigo-400 flex-shrink-0">
-                    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-                    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-                    <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+                    class="w-5 h-5">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
-                <div id="address" class="text-sm text-gray-400 truncate"></div>
-            </div>
-            <div class="flex items-center space-x-1">
-                <button id="copyAddressButton" title="Copiar dirección"
-                    class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
-                    <svg id="copyIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                    </svg>
-                    <svg id="checkIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
-                        stroke-linejoin="round" class="hidden text-green-400">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                </button>
-                <button id="settingsBtn" title="Configuración"
-                    class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path
-                            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                        <circle cx="12" cy="12" r="3" />
-                    </svg>
-                </button>
-                <button id="historyBtn" title="Historial"
-                    class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M1 4h15" />
-                        <path d="M1 9h15" />
-                        <path d="M1 14h15" />
-                    </svg>
-                </button>
-             <!-- NUEVO: Interruptor de Modo Offline -->
-            <div class="flex items-center space-x-2 pl-2 border-l border-gray-700" title="Modo Offline (Cold Wallet)">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
-                <label for="mode-toggle" class="inline-flex items-center cursor-pointer">
-                    <input type="checkbox" value="" id="mode-toggle" class="sr-only peer">
-                    <div class="relative w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gray-400"></div>
-                </label>
-            </div>
-
-
-            </div>
+                <span id="totalUnreadBadge" class="unread-badge hidden">0</span>
+            </button>
         </header>
 
         <!-- Main Content -->
@@ -544,7 +554,8 @@
 
             <!-- VISTA PRINCIPAL (WALLET) -->
             <div id="walletView" class="view flex-col items-center justify-start space-y-6 h-full">
-                <div class="w-full max-w-[250px] p-4 bg-white rounded-xl shadow-lg">
+                <div class="w-full max-w-[250px] p-4  rounded-xl ">
+                <!-- <div class="w-full max-w-[250px] p-4 bg-white rounded-xl shadow-lg"> -->
                     <div id="qr-code"></div>
                 </div>
 
@@ -595,7 +606,7 @@
                     </div>
                 </div>
 
-                <div class="w-full grid grid-cols-3 gap-3 pt-4">
+                <div class="w-full max-w-[480px] mx-auto grid grid-cols-3 gap-3 pt-4">
                     <button id="sendBtn"
                         class="flex flex-col items-center p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -725,7 +736,16 @@
                     <!-- Pestaña: Web of Trust -->
                     <div id="humanity-tab" class="attestation-tab-content space-y-4">
                         <p class="text-xs text-gray-400">Atesta que una dirección pertenece a un humano y tu relación con él.</p>
-                        <input type="text" id="humanityRecipient" placeholder="Dirección del Destinatario" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                        <div class="text-xs text-gray-500 -mt-2">
+                            <span>Esquema: </span>
+                            <a id="humanitySchemaLink" href="#" target="_blank" rel="noopener noreferrer" class="font-mono text-indigo-400 hover:underline"></a>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="humanityRecipient" placeholder="Dirección del Destinatario" class="w-full bg-gray-700 rounded-lg p-2 pr-10 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                            <button data-target-input="humanityRecipient" class="attestation-contact-btn absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-indigo-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            </button>
+                        </div>
                         <div class="flex items-center justify-between bg-gray-700 p-2 rounded-lg">
                             <label for="isHuman" class="text-sm text-gray-300">¿Es Humano?</label>
                             <input type="checkbox" id="isHuman" checked class="form-checkbox h-5 w-5 text-indigo-600 bg-gray-800 border-gray-600 rounded focus:ring-indigo-500">
@@ -741,7 +761,16 @@
                     <!-- Pestaña: Acuerdos Verbales -->
                     <div id="agreement-tab" class="attestation-tab-content space-y-4 hidden">
                          <p class="text-xs text-gray-400">Registra un acuerdo verbal o de chat en la cadena.</p>
-                        <input type="text" id="agreementRecipient" placeholder="Dirección del Destinatario" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                        <div class="text-xs text-gray-500 -mt-2">
+                            <span>Esquema: </span>
+                            <a id="agreementSchemaLink" href="#" target="_blank" rel="noopener noreferrer" class="font-mono text-indigo-400 hover:underline"></a>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="agreementRecipient" placeholder="Dirección del Destinatario" class="w-full bg-gray-700 rounded-lg p-2 pr-10 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                            <button data-target-input="agreementRecipient" class="attestation-contact-btn absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-indigo-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            </button>
+                        </div>
                         <input type="text" id="agreementHash" placeholder="Hash del Acuerdo (bytes32)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
                         <input type="text" id="agreementUrl" placeholder="URL del Documento (opcional)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
                         <input type="text" id="agreementType" placeholder="Tipo de Acuerdo (ej. Préstamo)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
@@ -751,7 +780,16 @@
                     <!-- Pestaña: Prueba de Autoría -->
                     <div id="authorship-tab" class="attestation-tab-content space-y-4 hidden">
                         <p class="text-xs text-gray-400">Crea una prueba inmutable de autoría para un contenido digital.</p>
-                        <input type="text" id="authorshipRecipient" placeholder="Dirección del Destinatario (Autor)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                        <div class="text-xs text-gray-500 -mt-2">
+                            <span>Esquema: </span>
+                            <a id="authorshipSchemaLink" href="#" target="_blank" rel="noopener noreferrer" class="font-mono text-indigo-400 hover:underline"></a>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="authorshipRecipient" placeholder="Dirección del Destinatario (Autor)" class="w-full bg-gray-700 rounded-lg p-2 pr-10 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                            <button data-target-input="authorshipRecipient" class="attestation-contact-btn absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-indigo-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            </button>
+                        </div>
                         <input type="text" id="contentHash" placeholder="Hash del Contenido (bytes32)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
                         <input type="text" id="authorshipTitle" placeholder="Título del Contenido" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
                         <input type="text" id="authorshipLicense" placeholder="Licencia (ej. CC-BY)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
@@ -761,43 +799,74 @@
                 </div>
                 <div id="attestationStatus" class="text-center text-sm min-h-[2rem] p-2"></div>
             </div>
+
+            <!-- VISTA DE HISTORIAL -->
+            <div id="historyView" class="view flex-col h-full space-y-4">
+                <div class="flex-shrink-0 text-center">
+                    <h2 class="text-xl font-bold mb-2">Historial de Transacciones</h2>
+                    <div class="relative inline-block w-full max-w-xs">
+                         <select id="historyNetworkSelector" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 appearance-none text-center">
+                             <!-- Opciones de red se llenarán aquí -->
+                         </select>
+                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                             <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                         </div>
+                    </div>
+                </div>
+                <div class="flex-grow overflow-y-auto bg-gray-900/50 rounded-lg -mx-4 sm:-mx-6 px-4 sm:px-6">
+                    <!-- Encabezados de la tabla -->
+                    <div class="sticky top-0 bg-gray-800 grid grid-cols-3 gap-2 p-2 text-xs font-bold text-gray-400 border-b border-gray-700">
+                        <div class="text-left">Fecha</div>
+                        <div class="text-center">Hash</div>
+                        <div class="text-right">Monto</div>
+                    </div>
+                    <div id="transactionList" class="space-y-1 pt-1">
+                         <!-- Las transacciones se insertarán aquí -->
+                         <div id="historyLoader" class="hidden text-center p-4">
+                             <p class="text-gray-400">Buscando transacciones...</p>
+                         </div>
+                         <div id="noHistoryMessage" class="hidden text-center p-4">
+                             <p class="text-gray-500">No se encontraron transacciones en esta red.</p>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL/POPOVER PARA SELECCIONAR CONTACTO EN ATESTACIÓN -->
+            <div id="attestationContactSelector" class="hidden absolute z-20 w-64 bg-gray-600 border border-gray-500 rounded-lg shadow-xl">
+                <div class="p-2 border-b border-gray-500 flex justify-between items-center">
+                    <h4 class="text-sm font-semibold">Seleccionar Contacto</h4>
+                    <button id="closeAttestationContactSelector" class="text-xl leading-none">&times;</button>
+                </div>
+                <div id="attestationContactList" class="max-h-48 overflow-y-auto">
+                    <!-- La lista de contactos se poblará aquí -->
+                </div>
+            </div>
         </main>
 
         <!-- Backup Reminder (Fixed Position) -->
         <!-- Navegación -->
         <nav id="appNav" class="hidden grid grid-cols-3 justify-items-center gap-4 p-2 bg-gray-900/30">
-            <button data-view="walletView"
-                class="nav-btn flex flex-col items-center p-2 rounded-lg transition-colors duration-200 active">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button data-view="walletView" class="nav-btn flex flex-col items-center p-2 rounded-lg transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
                     <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
                     <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
                 </svg>
                 <span class="text-xs mt-1">Wallet</span>
             </button>
-            <button data-view="attestationView"
-                class="nav-btn flex flex-col items-center p-2 rounded-lg transition-colors duration-200">
+            <button data-view="attestationView" class="nav-btn flex flex-col items-center p-2 rounded-lg transition-colors duration-200">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                     <path d="m9 12 2 2 4-4"></path>
                 </svg>
                 <span class="text-xs mt-1">Atestar</span>
             </button>
-
-
-            <!-- <button id="contactsNavBtn" class="nav-btn relative flex flex-col items-center p-2 rounded-lg transition-colors duration-200"> -->
-            <button id="contactsNavBtn" class=" relative flex flex-col items-center p-2 rounded-lg transition-colors duration-200">
+            <button data-view="historyView" id="historyNavBtn" class="nav-btn flex flex-col items-center p-2 rounded-lg transition-colors duration-200">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    <path d="M1 4h15" /><path d="M1 9h15" /><path d="M1 14h15" />
                 </svg>
-                <span class="text-xs mt-1">Contactos</span>
-                <span id="totalUnreadBadge" class="unread-badge hidden">
-                    0
-                </span>
+                <span class="text-xs mt-1">Historial</span>
             </button>
         </nav>
     </div>
@@ -896,6 +965,16 @@
                     <input type="text" id="recipientAddress" required placeholder="0x..."
                         class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
                 </div>
+                <!-- Selector de Token/Red en el Modal -->
+                <div class="relative">
+                    <label for="amount" class="block text-sm text-gray-400 mb-1">Activo</label>
+                    <button type="button" id="sendModalTokenSelector" class="w-full bg-gray-700 rounded-lg p-2 text-left flex justify-between items-center">
+                        <span id="sendModalTokenName">ETH (Arbitrum Sepolia)</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div id="sendModalTokenMenu" class="absolute z-10 mt-1 w-full bg-gray-600 rounded-lg shadow-lg hidden max-h-48 overflow-y-auto">
+                    </div>
+                </div>
                 <div>
                     <label for="amount" class="block text-sm text-gray-400 mb-1">Monto</label>
                     <input type="number" step="0.01" id="amount" required placeholder="0.0"
@@ -938,20 +1017,29 @@
     <div id="backupWalletModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
         <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
             <div class="flex justify-between items-center">
-                <h3 class="text-lg font-bold text-yellow-300">Copia de Seguridad</h3>
+                <h3 class="text-lg font-bold text-yellow-300" data-i18n-key="backup_wallet_title">Copia de Seguridad</h3>
                 <button id="closeBackupModal" class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <!-- Language Selector Added -->
+            <div class="pt-2">
+                <label for="backup-lang-selector" class="block text-sm text-gray-400 mb-1" data-i18n-key="language_label">Idioma</label>
+                <select id="backup-lang-selector" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Selector de idioma del modal de copia de seguridad">
+                    <option value="es">Español</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                </select>
             </div>
             <div id="backupWarningView">
                 <div class="bg-red-900/50 border border-red-500 text-red-300 text-sm rounded-lg p-3 my-4">
-                    <p><strong>¡ADVERTENCIA DE SEGURIDAD!</strong></p>
-                    <p class="mt-2">Estás a punto de revelar tus claves secretas. NUNCA compartas esta información. Cualquiera con acceso a ellas puede robar tus fondos de forma irreversible.</p>
+                    <p><strong data-i18n-key="backup_warning_title">¡ADVERTENCIA DE SEGURIDAD!</strong></p>
+                    <p class="mt-2" data-i18n-key="backup_warning_body">Estás a punto de revelar tus claves secretas. NUNCA compartas esta información. Cualquiera con acceso a ellas puede robar tus fondos de forma irreversible.</p>
                 </div>
-                <button id="showBackupKeysBtn" class="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700">Entiendo el riesgo, mostrar claves</button>
-                <button id="cancelBackupBtn" class="w-full mt-2 px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500">Cancelar</button>
+                <button id="showBackupKeysBtn" class="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700" data-i18n-key="backup_understand_risk">Entiendo el riesgo, mostrar claves</button>
+                <button id="cancelBackupBtn" class="w-full mt-2 px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500" data-i18n-key="cancel_button">Cancelar</button>
             </div>
             <div id="backupKeysView" class="hidden space-y-4">
                 <div id="backupMnemonicContainer" class="hidden">
-                    <label class="block text-sm text-gray-400 mb-1">Frase Mnemónica (12 palabras)</label>
+                    <label class="block text-sm text-gray-400 mb-1" data-i18n-key="backup_mnemonic_label">Frase Mnemónica (12 palabras)</label>
                     <div class="relative">
                         <p id="backupMnemonic" class="w-full bg-gray-900 rounded-lg p-3 font-mono text-sm text-gray-300 select-all"></p>
                         <button onclick="copyBackupData('backupMnemonic', this)" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1">
@@ -960,7 +1048,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm text-gray-400 mb-1">Clave Privada</label>
+                    <label class="block text-sm text-gray-400 mb-1" data-i18n-key="backup_private_key_label">Clave Privada</label>
                     <div class="relative">
                         <p id="backupPrivateKey" class="w-full bg-gray-900 rounded-lg p-3 font-mono text-xs text-gray-300 select-all break-all"></p>
                         <button onclick="copyBackupData('backupPrivateKey', this)" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1">
@@ -968,7 +1056,7 @@
                         </button>
                     </div>
                 </div>
-                <button id="closeBackupModalBtn" class="w-full px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500">He guardado mis claves</button>
+                <button id="closeBackupModalBtn" class="w-full px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500" data-i18n-key="backup_keys_saved">He guardado mis claves</button>
             </div>
         </div>
     </div>
@@ -1041,42 +1129,33 @@
         </div>
     </div>
 
-    <!-- Modal Historial de Transacciones -->
-    <div id="historyModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
-        <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4 text-center">
-            <div class="flex justify-between items-center">
-                <h3 class="text-lg font-bold">Historial de Transacciones</h3>
-                <button id="closeHistoryModal" class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
-            </div>
-            <p class="text-sm text-gray-400">
-                Abre el explorador de bloques para ver todas las transacciones de tu dirección.
-            </p>
-            <a id="historyLink" href="#" target="_blank" rel="noopener noreferrer"
-                class="inline-block w-full px-4 py-2 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500 transition-colors duration-200">
-                Ver en Explorador
-            </a>
-        </div>
-    </div>
-
     <!-- Modal Configuración -->
     <div id="settingsModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-40">
         <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
             <div class="flex justify-between items-center">
-                <h3 class="text-lg font-bold">Configuración</h3>
+                <h3 class="text-lg font-bold" data-i18n-key="settings_title">Configuración</h3>
                 <button id="closeSettingsModal"
                     class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
             </div>
             <div class="space-y-2">
-                <button id="backupWalletSettingsBtn" class="w-full px-4 py-2 font-semibold text-yellow-300 bg-yellow-900/50 border border-yellow-700 rounded-lg hover:bg-yellow-800/50 transition-colors">
+                <button id="backupWalletSettingsBtn" class="w-full px-4 py-2 font-semibold text-yellow-300 bg-yellow-900/50 border border-yellow-700 rounded-lg hover:bg-yellow-800/50 transition-colors" data-i18n-key="backup_wallet_button">
                     Hacer Copia de Seguridad
                 </button>
+            </div>
+            <!-- Language Selector Added -->
+            <div class="space-y-2">
+                 <label for="settings-lang-selector" class="block text-sm text-gray-400 mb-1" data-i18n-key="language_label">Idioma</label>
+                <select id="settings-lang-selector" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Selector de idioma de la configuración">
+                    <option value="es">Español</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                </select>
             </div>
             <hr class="border-gray-600">
             <div class="space-y-2 text-center text-sm">
                 <div id="privateKey" class="text-red-400 break-all font-mono text-xs p-2 bg-gray-900/50 rounded"></div>
             </div>
-            <button id="forgetWalletButton"
-                class="w-full px-4 py-2 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">Olvidar
+            <button id="forgetWalletButton" class="w-full px-4 py-2 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700" data-i18n-key="forget_wallet_button">Olvidar
                 Billetera</button>
             <hr class="border-gray-600">
             <h2 class="text-md text-center font-semibold text-indigo-300">Gestionar Instalaciones</h2>
@@ -1176,9 +1255,9 @@
 
     <!-- User DID Window -->
     <div id="userDidWindow" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
-        <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4">
+        <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
             <div class="flex justify-between items-center">
-                <h3 class="text-lg font-bold">Your Decentralized Identity</h3>
+                <h3 class="text-lg font-bold">Your DID</h3>
                 <button id="closeUserDidWindow" class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
             </div>
             
@@ -1189,7 +1268,7 @@
                 <div class="flex-grow">
                     <label for="userDidAlias" class="block text-sm text-gray-400 mb-1">Alias Name</label>
                     <input type="text" id="userDidAlias" placeholder="Your Alias" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
-                    <p id="usernameStatus" class="text-xs mt-1 min-h-[1rem] font-medium"></p>
+                    <p id="usernameStatus" class="text-xs mt-1 min-h-[1rem] font-medium break-words"></p>
                 </div>
             </div>
 
@@ -1205,9 +1284,46 @@
                 </div>
             </div>
 
-            <div class="flex justify-end space-x-3 pt-2">
-                <button id="saveUserDid" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Save</button>
+            <!-- Sección de Documentos -->
+            <div>
+                <div class="flex justify-between items-center">
+                    <h4 class="text-md font-semibold text-gray-300">Documentos Verificables</h4>
+                </div>
+                <!-- Dropzone -->
+                <div id="documentDropzone" class="mt-2 border-2 border-dashed border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 transition-colors">
+                    <div class="flex flex-col items-center justify-center">
+                        <svg class="w-10 h-10 text-gray-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625a1.875 1.875 0 0 0-1.875 1.875v17.25a1.875 1.875 0 0 0 1.875 1.875h12.75a1.875 1.875 0 0 0 1.875-1.875V11.25a3.375 3.375 0 0 0-3.375-3.375h-1.5" /></svg>
+                        <p class="text-sm text-gray-400">Arrastra y suelta tus documentos aquí</p>
+                        <p class="text-xs text-gray-500 mt-1">o <span id="openFileLink" class="text-indigo-400 hover:underline">selecciona un archivo</span></p>
+                    </div>
+                    <input type="file" id="documentUploadInput" class="hidden" multiple />
+                </div>
+                <div id="userDidDocuments" class="mt-3 text-sm text-gray-400 bg-gray-900/50 p-3 rounded-lg max-h-40 overflow-y-auto space-y-2">
+                    <!-- Los elementos de los documentos se poblarán aquí -->
+                </div>
             </div>
+            <!-- Fin Sección de Documentos -->
+
+            <div class="flex justify-end space-x-3 pt-2">
+                <button id="reserveDidButton" class="hidden px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 flex items-center space-x-2"><span>Reservar Alias</span></button>
+                <button id="saveUserDid" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Revocar Instalaciones XMTP -->
+    <div id="revokeInstallationsModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-yellow-300">Límite de Instalaciones XMTP</h3>
+                <button id="closeRevokeModal" class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="bg-yellow-900/50 border border-yellow-700 text-yellow-300 text-sm rounded-lg p-3">
+                <p>Has alcanzado el límite de 10 dispositivos/instalaciones para tu billetera en la red de desarrollo de XMTP.</p>
+                <p class="mt-2">Para continuar, necesitas revocar las instalaciones antiguas. Esto no afectará tus mensajes.</p>
+            </div>
+            <p id="revokeStatus" class="text-center text-sm min-h-[1.5rem]"></p>
+            <button id="revokeInstallationsBtn" class="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700">Revocar Instalaciones Antiguas</button>
         </div>
     </div>
 
@@ -1215,9 +1331,9 @@
     <script src="js/Tone.min.js"></script>
     <!-- Ethers.js v6 -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.1/ethers.umd.min.js"></script> -->
-    <script src="js/ethers-6.13.2.umd.min.js"></script>
+    <!-- <script src="js/ethers-6.13.2.umd.min.js"></script>  -->
     <!-- EAS SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@ethereum-attestation-service/eas-sdk/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ethereum-attestation-service/eas-sdk/dist/index.umd.js"></script>
 
 
     <script type="module">
@@ -1227,8 +1343,9 @@
         window.ContentTypeId = ContentTypeId;
         window.ReadReceiptCodec = ReadReceiptCodec;
 
-
-        const { EAS, SchemaEncoder } = window.eas;
+        import { EAS, SchemaEncoder, } from "@ethereum-attestation-service/eas-sdk";
+        // import { EAS, NO_EXPIRATION, SchemaEncoder, } from "@ethereum-attestation-service/eas-sdk";
+        // const { EAS, SchemaEncoder } = window.eas;
         window.EAS = EAS;
         window.SchemaEncoder = SchemaEncoder;
 
@@ -1259,8 +1376,27 @@
                 "CHATWALLET_DID_ADDRESS" : "0x4ccA3288A4319c9c44e8797087F8776A863342F5",
             }
         
-
+     const chatWalletToken = {
+                "TOKEN_CHAIN_NAME": 'Arbitrum Sepolia',
+                "TOKEN_CHAINID": '421614',
+                "EXPLORER": 'https://sepolia.arbiscan.io/',
+                "API": 'https://arbitrum-sepolia.infura.io/v3/b17405e634bd40308be3eb4fa2485c9a',
+                "SYMBOL": 'CWLT',
+                "CHATWALLET_TOKEN_ADDRESS" : "0x4697bDe7F6B40790D11C9Ab7628Fa4827fcE8bAe",
+            }
+        
         const defaultNetworks = [
+          {
+                "TOKEN_CHAIN_NAME": "Sepolia",
+                "TOKEN_CHAINID": "11155111",
+                "EXPLORER": "https://sepolia.etherscan.io/",
+                "API": "https://sepolia.infura.io/v3/b17405e634bd40308be3eb4fa2485c9a",
+                "EAS_CONTRACT_ADDRESS": "0x7b20064246948e3625b915773918343133c23583",
+                "NATIVE_SYMBOL": "ETH",
+                "CHATWALLET_DID_ADDRESS": "0x4ccA3288A4319c9c44e8797087F8776A863342F5",
+                "CHATWALLET_TOKEN_ADDRESS": "0x2aC45C33602E1a8450302100F1897BFF6C91a5d6"
+            },
+
             {
                 "TOKEN_CHAIN_NAME": 'Arbitrum Sepolia',
                 "TOKEN_CHAINID": '421614',
@@ -1339,6 +1475,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         var contacts = [];
         var provider = null; // Ethers provider
         const processedMessages = new Set();
+        let currentRpcIndex = 0;
         let html5QrCodeScanner = null;
         let notificationTimeout = null;
         let currentRestoreMode = 'privateKey';
@@ -1514,6 +1651,17 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         const attestAgreementBtn = document.getElementById('attestAgreementBtn');
         const attestAuthorshipBtn = document.getElementById('attestAuthorshipBtn');
         const attestationStatus = document.getElementById('attestationStatus');
+        const humanitySchemaLink = document.getElementById('humanitySchemaLink');
+        const agreementSchemaLink = document.getElementById('agreementSchemaLink');
+        const authorshipSchemaLink = document.getElementById('authorshipSchemaLink');
+        const historyView = document.getElementById('historyView');
+        const historyNetworkSelector = document.getElementById('historyNetworkSelector');
+        const transactionList = document.getElementById('transactionList');
+        const historyLoader = document.getElementById('historyLoader');
+        const noHistoryMessage = document.getElementById('noHistoryMessage');
+        const HUMANITY_SCHEMA_UID = "0x35293aa6e1ea93a8e35c4b685c564459b36334a5ea753830c31558361e1633d7";
+        const AGREEMENT_SCHEMA_UID = "0x82a334c3025f345757e3a8b03882513a15e054f85ac5a82845e292095584203a";
+        const AUTHORSHIP_SCHEMA_UID = "0x4a021077e24b313c428a15314b74b1238823001427173e506b7282df16d0a2d3";
 
         // --- UI Navegación ---
         function showView(viewId) {
@@ -1530,6 +1678,14 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             if (viewId !== 'chatView') {
                 console.log('no es chatView, resetear currentConversation a null');
                 currentConversation = null;
+            }
+
+            if (viewId === 'attestationView') {
+                updateSchemaLinks();
+            }
+            if (viewId === 'historyView') {
+                populateHistoryNetworkSelector();
+                fetchTransactionHistory();
             }
         }
 
@@ -1576,13 +1732,13 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
         // --- Funciones de Billetera y XMTP ---
         async function initializeWalletAndXmtp(wallet, isNewWallet = false) {
-              console.log(`
             if (isOffline) {
                 console.log("Initialize in OFFLINE mode.");
                 statusEl.textContent = "Modo Offline: Billetera cargada.";
                 // No intentes conectar a XMTP
                 return;
             }
+              console.log(`
 
  ██████╗██╗  ██╗ █████╗ ████████╗██╗    ██╗ █████╗ ██╗     ██╗     ███████╗████████╗
 ██╔════╝██║  ██║██╔══██╗╚══██╔══╝██║    ██║██╔══██╗██║     ██║     ██╔════╝╚══██╔══╝
@@ -1641,13 +1797,72 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
                 //     // Could also save this to local storage or a more persistent state.
                 // }
                 
-            } catch (error) {
+            } catch (e) {
                 console.error("Error al inicializar XMTP:", error);
-                statusEl.textContent = `Error al inicializar: ${error.message}`;
-                resetUI();
+                const errorMessage = e.message || e.toString();
+
+                // Comprobar si es el error de 10/10 instalaciones
+                const regex = /InboxID\s+([a-fA-F0-9]+)/;
+                const match = errorMessage.match(regex);
+
+                if (match && match[1]) {
+                    const inboxIdToRevoke = match[1];
+                    console.warn("XMTP installation limit reached. InboxID:", inboxIdToRevoke);
+                    showRevokeModal(inboxIdToRevoke);
+                } else {
+                    // Manejo de otros errores de inicialización
+                    statusEl.textContent = `Error al inicializar: ${errorMessage}`;
+                    const nextRpc = getNextRpc();
+                    statusEl.textContent += `... Intentando con nuevo RPC: ${nextRpc}`;
+                    console.log(`Cambiando a RPC: ${nextRpc}`);
+                    setTimeout(() => {
+                        initializeWalletAndXmtp(wallet, isNewWallet);
+                    }, 1000);
+                    resetUI();
+                }
             }
         }
 
+        function showRevokeModal(inboxId) {
+            const modal = document.getElementById('revokeInstallationsModal');
+            const revokeBtn = document.getElementById('revokeInstallationsBtn');
+            const closeBtn = document.getElementById('closeRevokeModal');
+            const statusEl = document.getElementById('revokeStatus');
+
+            statusEl.textContent = '';
+            revokeBtn.disabled = false;
+            revokeBtn.textContent = 'Revocar Instalaciones Antiguas';
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            revokeBtn.onclick = () => revokeXmtpInstallations(inboxId);
+            closeBtn.onclick = () => modal.classList.add('hidden');
+        }
+
+
+        async function rotateRpcAndRetry() {
+            const selectedNetwork = optionsList[currentTokenIndex];
+            if (!Array.isArray(selectedNetwork.rpc) || selectedNetwork.rpc.length <= 1) {
+                console.log("No hay otros RPCs para rotar en la red actual.");
+                return;
+            }
+
+            const currentApiIndex = selectedNetwork.rpc.indexOf(selectedNetwork.API);
+            const nextApiIndex = (currentApiIndex + 1) % selectedNetwork.rpc.length;
+            const nextApi = selectedNetwork.rpc[nextApiIndex];
+
+            if (nextApi === selectedNetwork.rpc[0]) { // Si hemos completado un ciclo
+                console.error("Se han probado todos los RPCs para esta red. No se puede conectar.");
+                balanceDisplay.textContent = `Error de conexión`;
+                return;
+            }
+
+            console.warn(`⚠️ Fallo de conexión RPC. Rotando a: ${nextApi}`);
+            selectedNetwork.API = nextApi; // Actualizar la API activa para la red
+            provider = new window.ethers.JsonRpcProvider(selectedNetwork.API);
+            await updateBalance(); // Reintentar con el nuevo provider
+        }
         // --- Transacciones con Ethers.js ---
         async function updateBalance() {
             if (isOffline) {
@@ -1668,6 +1883,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
             // Primero, siempre obtener el saldo nativo (gas) y manejar errores de conexión
             try {
+
                 const nativeBalanceWei = await provider.getBalance(currentWallet.address);
                 nativeBalanceFormatted = parseFloat(ethers.formatEther(nativeBalanceWei)).toFixed(4);
                 console.log("native balance:", nativeBalanceFormatted);
@@ -1675,11 +1891,15 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
                 gasBalanceValue.textContent = `${nativeBalanceFormatted} ${nativeSymbol}`;
                 gasBalanceValue.classList.toggle('text-red-400', parseFloat(nativeBalanceFormatted) < 0.001);
+                localStorage.setItem('currentRpcIndex', currentRpcIndex); // Guardar el RPC que funcionó
+                // localStorage.setItem('currentRpcIndex', currentRpcIndex); // Guardar el RPC que funcionó
 
             } catch (gasError) {
-                console.error("Error fetching gas balance:", gasError);
-                gasBalanceValue.textContent = `Error ${nativeSymbol}`;
-                balanceDisplay.textContent = `Error de conexión`; // Mostrar error en el balance principal
+                console.error("Error fetching gas balance:", gasError.message);
+                if (gasError.message.includes('failed to fetch')) {
+                    await rotateRpcAndRetry();
+                }
+                // gasBalanceValue.textContent = `Error ${nativeSymbol}`;
                 return; // Detener la ejecución si no se puede obtener el balance de gas
             }
 
@@ -1716,7 +1936,10 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
                 document.getElementById('smartWalletBalanceDisplay').classList.remove('hidden');
                 try {
                     const cwTokenContract = new ethers.Contract(generalOptions.CHATWALLET_TOKEN_ADDRESS, erc20Abi, provider);
+                    cw1 = cwTokenContract
                     const balanceWei = await cwTokenContract.balanceOf(currentWallet.address);
+                    cw1bal = balanceWei
+
                     // Asumiendo 18 decimales para CWLT, ajustar si es diferente
                     const formattedBalance = parseFloat(ethers.formatUnits(balanceWei, 18)).toFixed(2);
                 console.log("chatwallet balance:", formattedBalance);
@@ -2260,7 +2483,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         async function startOrLoadConversation(recipientAddress) {
             if (!chatwalletxmtp) { return; }
 
-            if (!isAddress(recipientAddress)) {
+            if (!ethers.isAddress(recipientAddress)) {
                 console.warn('not an eth address, trying to resolve from inboxId');
                 try {
                     const newConversation = await chatwalletxmtp.conversations.newDm(recipientAddress);
@@ -2426,9 +2649,13 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             const baseUrl = window.location.href.split('?')[0];
             const chatUrl = `${baseUrl}?address=${wallet.address}`;
             const qrCode = new QRCodeStyling({
-                width: 220, height: 220, data: chatUrl,
+                width: 370  , height: 370, 
+                // width: 220, height: 220, 
+                data: chatUrl,
                 dotsOptions: { color: "#4f46e5", type: "rounded" },
-                backgroundOptions: { color: "#ffffff" },
+                // backgroundOptions: { color: "var(--qrbackground)", },
+                // backgroundOptions: { color: "#ffffff" },
+                backgroundOptions: { color: "#111828" },
                 cornersSquareOptions: { type: "extra-rounded", color: "#4f46e5" },
                 cornersDotOptions: { type: "dot", color: "#4f46e5" }
             });
@@ -2686,19 +2913,6 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             const explorerUrl = txData.txHash ? `${network.EXPLORER}tx/${txData.txHash}` : '#';
             const explorerLink = txData.txHash ? `<a href="${explorerUrl}" target="_blank" class="text-xs text-indigo-400 hover:underline mt-2 inline-block">Ver en explorador</a>` : '';
 
-            // Lógica para añadir red si no existe
-            let addNetworkButtonHTML = '';
-            if (!isSentByMe && txData.network) {
-                const networkExists = optionsList.some(net => 
-                    net.TOKEN_CHAINID === txData.network.TOKEN_CHAINID && 
-                    net.TOKEN_ADDRESS === txData.network.TOKEN_ADDRESS
-                );
-                if (!networkExists) {
-                    const networkData = JSON.stringify(txData.network).replace(/"/g, '&quot;');
-                    addNetworkButtonHTML = `<button onclick='addSharedNetwork(${networkData})' class="mt-3 w-full text-sm bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition">Añadir red "${txData.network.TOKEN_CHAIN_NAME}"</button>`;
-                }
-            }
-
             if (isRequest) {
                 title = isSentByMe ? `Solicitaste un pago` : `Te solicitaron un pago`;
                 amountColor = "text-white";
@@ -2722,7 +2936,20 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
                         </div>
                     </div>
                     <div class="mt-2 text-left">${explorerLink}</div>
-                    ${addNetworkButtonHTML}
+                    ${(() => {
+                        if (isSentByMe || !txData.network) return '';
+
+                        const existingNetIndex = optionsList.findIndex(net => {
+                            if (txData.network.TOKEN_ADDRESS) {
+                                return net.TOKEN_CHAINID === txData.network.TOKEN_CHAINID && net.TOKEN_ADDRESS === txData.network.TOKEN_ADDRESS;
+                            }
+                            return net.TOKEN_CHAINID === txData.network.TOKEN_CHAINID && !net.TOKEN_ADDRESS;
+                        });
+
+                        // Mostrar botón si la red no existe O si existe pero no es favorita (y hay al menos un favorito)
+                        const shouldShowButton = existingNetIndex === -1 || (!optionsList[existingNetIndex].isFavorite && optionsList.some(n => n.isFavorite));
+                        return shouldShowButton ? `<button onclick='addSharedNetwork(${JSON.stringify(txData.network).replace(/"/g, '&quot;')})' class="mt-3 w-full text-sm bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center justify-center space-x-2"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg> <span>Añadir ${txData.network.TOKEN_SYMBOL || txData.network.TOKEN_CHAIN_NAME} a la lista</span> </button>` : '';
+                    })()}
                     ${actionButtonHTML}
                 </div>
             `;
@@ -3085,17 +3312,27 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
         function addSharedNetwork(networkData) {
             if (!networkData || !networkData.TOKEN_CHAINID) return;
-            const networkExists = optionsList.some(net => 
-                net.TOKEN_CHAINID === networkData.TOKEN_CHAINID && 
-                net.TOKEN_ADDRESS === networkData.TOKEN_ADDRESS
+
+            const existingNetIndex = optionsList.findIndex(net =>
+                net.TOKEN_CHAINID === networkData.TOKEN_CHAINID &&
+                (net.TOKEN_ADDRESS || null) === (networkData.TOKEN_ADDRESS || null)
             );
-            if (networkExists) {
-                alert(`La red "${networkData.TOKEN_CHAIN_NAME}" ya existe en tu billetera.`);
-                return;
+
+            if (existingNetIndex !== -1) {
+                // La red ya existe, así que la marcamos como favorita y la seleccionamos.
+                optionsList[existingNetIndex].isFavorite = true;
+                saveNetworks();
+                switchNetwork(existingNetIndex);
+                alert(`"${networkData.TOKEN_CHAIN_NAME}" ahora es visible en tu lista de tokens.`);
+            } else {
+                // La red es nueva, la añadimos y la marcamos como favorita.
+                const newNetwork = { ...networkData, isFavorite: true };
+                optionsList.push(newNetwork);
+                saveNetworks();
+                const newIndex = optionsList.length - 1;
+                switchNetwork(newIndex);
+                alert(`¡La red "${networkData.TOKEN_CHAIN_NAME}" ha sido añadida y seleccionada!`);
             }
-            optionsList.push({ ...networkData, isFavorite: false });
-            saveNetworks();
-            alert(`¡La red "${networkData.TOKEN_CHAIN_NAME}" ha sido añadida! Puedes gestionarla en la configuración.`);
         }
         function openManageNetworksModal() {
             loadAllChainsData();
@@ -3188,6 +3425,85 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         // --- FIN: PRESENCIA Y RECIBOS DE LECTURA ---
 
 
+        // --- INICIO: LÓGICA DE SELECCIÓN DE CONTACTOS PARA ATESTACIÓN ---
+        const attestationContactSelector = document.getElementById('attestationContactSelector');
+        const attestationContactList = document.getElementById('attestationContactList');
+        const closeAttestationContactSelector = document.getElementById('closeAttestationContactSelector');
+        let attestationTargetInput = null;
+
+        function openAttestationContactSelector(event) {
+            event.stopPropagation();
+            const button = event.currentTarget;
+            attestationTargetInput = document.getElementById(button.dataset.targetInput);
+
+            attestationContactList.innerHTML = ''; // Limpiar lista
+            if (contacts.length > 0) {
+                contacts.forEach(contact => {
+                    const contactItem = document.createElement('button');
+                    contactItem.className = 'w-full text-left px-3 py-2 hover:bg-gray-500 transition-colors text-sm';
+                    contactItem.textContent = contact.name;
+                    contactItem.onclick = () => {
+                        if (attestationTargetInput) {
+                            attestationTargetInput.value = contact.address;
+                        }
+                        closeAttestationSelector();
+                    };
+                    attestationContactList.appendChild(contactItem);
+                });
+            } else {
+                attestationContactList.innerHTML = '<p class="p-3 text-xs text-gray-300">No hay contactos guardados.</p>';
+            }
+
+            // Posicionar y mostrar el selector
+            const rect = button.getBoundingClientRect();
+            const selectorWidth = attestationContactSelector.offsetWidth || 256; // Usar un ancho por defecto si es 0
+
+            attestationContactSelector.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            // Alinear el borde derecho del selector con el borde derecho del botón
+            attestationContactSelector.style.left = `${rect.right + window.scrollX - selectorWidth}px`;
+            attestationContactSelector.classList.remove('hidden');
+        }
+
+        function updateSchemaLinks() {
+            const easScanBaseUrl = `https://sepolia.easscan.org/schema/view/`;
+            humanitySchemaLink.href = `${easScanBaseUrl}${HUMANITY_SCHEMA_UID}`;
+            agreementSchemaLink.href = `${easScanBaseUrl}${AGREEMENT_SCHEMA_UID}`;
+            authorshipSchemaLink.href = `${easScanBaseUrl}${AUTHORSHIP_SCHEMA_UID}`;
+
+            humanitySchemaLink.textContent = `${HUMANITY_SCHEMA_UID.slice(0, 6)}...${HUMANITY_SCHEMA_UID.slice(-4)}`;
+            agreementSchemaLink.textContent = `${AGREEMENT_SCHEMA_UID.slice(0, 6)}...${AGREEMENT_SCHEMA_UID.slice(-4)}`;
+            authorshipSchemaLink.textContent = `${AUTHORSHIP_SCHEMA_UID.slice(0, 6)}...${AUTHORSHIP_SCHEMA_UID.slice(-4)}`;
+        }
+
+        function closeAttestationSelector() {
+            attestationContactSelector.classList.add('hidden');
+            attestationTargetInput = null;
+        }
+
+        document.querySelectorAll('.attestation-contact-btn').forEach(btn => {
+            btn.addEventListener('click', openAttestationContactSelector);
+        });
+        closeAttestationContactSelector.addEventListener('click', closeAttestationSelector);
+
+        // --- INICIO: LÓGICA DE PESTAÑAS DE ATESTACIÓN ---
+        attestationTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTabId = tab.dataset.tab;
+
+                // Actualizar estilos de los botones de pestaña
+                attestationTabs.forEach(btn => {
+                    btn.classList.remove('border-indigo-500', 'text-white');
+                    btn.classList.add('border-transparent', 'text-gray-400');
+                });
+                tab.classList.add('border-indigo-500', 'text-white');
+                tab.classList.remove('border-transparent', 'text-gray-400');
+
+                // Mostrar/Ocultar contenido de las pestañas
+                attestationContents.forEach(content => {
+                    content.classList.toggle('hidden', content.id !== `${targetTabId}-tab`);
+                });
+            });
+        });
         // --- Event Listeners ---
         createWalletButton.addEventListener('click', async () => {
             statusEl.textContent = "Creando billetera...";
@@ -3326,6 +3642,10 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         document.addEventListener('click', (e) => {
             if (!tokenSelectorMenu.classList.contains('hidden') && !tokenSelectorMenu.contains(e.target)) {
                 tokenSelectorMenu.classList.add('hidden');
+            }
+            // Cerrar selector de contactos de atestación si se hace clic fuera
+            if (!attestationContactSelector.classList.contains('hidden') && !attestationContactSelector.contains(e.target)) {
+                closeAttestationSelector();
             }
         });
 
@@ -3583,6 +3903,8 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
                     await initializeWalletAndXmtp(savedWallet, false);
                 } catch (e) {
                     statusEl.textContent = "No se pudo cargar la billetera. Crea o restaura una.";
+                    
+                    alert('No se pudo cargar la billetera. Crea o restaura una')
                     localStorage.removeItem(WALLET_STORAGE_KEY);
                     resetUI();
                 }
@@ -3593,8 +3915,6 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
                 resetUI();
             }
         }
-
-        init();
 
         let toneJsReady = typeof Tone !== 'undefined';
         let clickSynth;
@@ -3733,19 +4053,106 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             filter.frequency.exponentialRampTo(100, 1.2, now + 0.05);
         }
  
+        // --- Internationalization (i18n) Logic ---
+        const translations = {
+            es: {
+                "language_label": "Idioma",
+                "settings_title": "Configuración",
+                "backup_wallet_button": "Hacer Copia de Seguridad",
+                "forget_wallet_button": "Olvidar Billetera",
+                "backup_wallet_title": "Copia de Seguridad",
+                "backup_warning_title": "¡ADVERTENCIA DE SEGURIDAD!",
+                "backup_warning_body": "Estás a punto de revelar tus claves secretas. NUNCA compartas esta información. Cualquiera con acceso a ellas puede robar tus fondos de forma irreversible.",
+                "backup_understand_risk": "Entiendo el riesgo, mostrar claves",
+                "cancel_button": "Cancelar",
+                "backup_mnemonic_label": "Frase Mnemónica (12 palabras)",
+                "backup_private_key_label": "Clave Privada",
+                "backup_keys_saved": "He guardado mis claves",
+            },
+            en: {
+                "language_label": "Language",
+                "settings_title": "Settings",
+                "backup_wallet_button": "Backup Wallet",
+                "forget_wallet_button": "Forget Wallet",
+                "backup_wallet_title": "Wallet Backup",
+                "backup_warning_title": "SECURITY WARNING!",
+                "backup_warning_body": "You are about to reveal your secret keys. NEVER share this information. Anyone with access to them can steal your funds irreversibly.",
+                "backup_understand_risk": "I understand the risk, show keys",
+                "cancel_button": "Cancel",
+                "backup_mnemonic_label": "Mnemonic Phrase (12 words)",
+                "backup_private_key_label": "Private Key",
+                "backup_keys_saved": "I have saved my keys",
+            },
+            fr: {
+                "language_label": "Langue",
+                "settings_title": "Paramètres",
+                "backup_wallet_button": "Sauvegarder le Portefeuille",
+                "forget_wallet_button": "Oublier le Portefeuille",
+                "backup_wallet_title": "Sauvegarde du Portefeuille",
+                "backup_warning_title": "AVERTISSEMENT DE SÉCURITÉ !",
+                "backup_warning_body": "Vous êtes sur le point de révéler vos clés secrètes. Ne partagez JAMAIS cette information. Toute personne y ayant accès peut voler vos fonds de manière irréversible.",
+                "backup_understand_risk": "Je comprends le risque, afficher les clés",
+                "cancel_button": "Annuler",
+                "backup_mnemonic_label": "Phrase Mnémonique (12 mots)",
+                "backup_private_key_label": "Clé Privée",
+                "backup_keys_saved": "J'ai sauvegardé mes clés",
+            }
+        };
+
+        function translateUI(lang) {
+            const langTranslations = translations[lang] || translations['es']; // Fallback to Spanish
+            document.querySelectorAll('[data-i18n-key]').forEach(element => {
+                const key = element.getAttribute('data-i18n-key');
+                if (langTranslations[key]) {
+                    element.textContent = langTranslations[key];
+                }
+            });
+        }
+
+        // --- Language Switcher Logic ---
+        const LANGUAGE_STORAGE_KEY = 'chatwallet-lang';
+
+        function setLanguage(lang) {
+            console.log(`Setting language to: ${lang}`);
+            localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+            document.querySelectorAll('#settings-lang-selector, #backup-lang-selector').forEach(selector => {
+                selector.value = lang;
+            });
+            translateUI(lang);
+        }
+
+        function initializeLanguage() {
+            const savedLang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+            setLanguage(savedLang);
+        }
+
+        // --- Carga Inicial ---
+        // Se llama a initializeLanguage() primero para traducir la UI lo antes posible.
+        initializeLanguage();
+
+        // Language switcher event listeners
+        document.getElementById('settings-lang-selector').addEventListener('change', (e) => {
+            setLanguage(e.target.value);
+        });
+        document.getElementById('backup-lang-selector').addEventListener('change', (e) => {
+            setLanguage(e.target.value);
+        });
+
  
         // User DID Window Logic
         const userDidTrigger = document.getElementById('userDidTrigger');
         const userDidWindow = document.getElementById('userDidWindow');
         const closeUserDidWindow = document.getElementById('closeUserDidWindow');
         const userDidAvatar = document.getElementById('userDidAvatar');
+        const saveUserDid = document.getElementById('saveUserDid');
         const avatarUpload = document.getElementById('avatarUpload');
         const userDidAliasInput = document.getElementById('userDidAlias');
         const usernameStatusEl = document.getElementById('usernameStatus');
         const contactNameInput = document.getElementById('contactName');
+        const reserveDidButton = document.getElementById('reserveDidButton');
         const modeToggle = document.getElementById('mode-toggle');
         const contactNameStatusEl = document.getElementById('contactNameStatus');
-
+        const modeToggleBtn = document.getElementById('mode-toggle-btn');
         // Brand Modal
         const brandTag = document.getElementById('brand-tag');
         const brandModal = document.getElementById('brandModal');
@@ -3759,14 +4166,15 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         closeBrandModal.addEventListener('click', () => brandModal.classList.add('hidden'));
 
         // --- MODO OFFLINE ---
-        modeToggle.addEventListener('change', async () => {
-            isOffline = modeToggle.checked;
+        modeToggleBtn.addEventListener('click', async () => {
+            isOffline = !isOffline; // Invertir el estado
             if (isOffline) {
                 await goOffline();
             } else {
                 await goOnline();
             }
             updateOfflineUI();
+            // No hay un toggle visual que necesite ser actualizado, el ícono cambia de color
         });
 
         async function goOffline() {
@@ -3797,6 +4205,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             const body = document.body;
             body.classList.toggle('cold-mode', isOffline);
             body.classList.toggle('hot-mode', !isOffline);
+            modeToggleBtn.classList.toggle('text-yellow-400', isOffline);
             updateBalance(); // Esto mostrará '---' si está offline
         }
 
@@ -3808,7 +4217,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             dataTextarea.value = signedTx;
             qrContainer.innerHTML = ''; // Limpiar QR anterior
             const qrCode = new QRCodeStyling({
-                width: 220, height: 220, data: signedTx,
+                width: 370, height: 370, data: signedTx,
                 dotsOptions: { color: "#000000", type: "dots" },
                 backgroundOptions: { color: "#ffffff" },
             });
@@ -3835,6 +4244,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
             if (username.length < 3) {
                  if (username.length > 0) {
+                    reserveDidButton.classList.add('hidden');
                     usernameStatusEl.textContent = 'Debe tener al menos 3 caracteres.';
                     usernameStatusEl.classList.add('text-gray-400');
                 }
@@ -3842,6 +4252,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             }
              if (!/^[a-z0-9_]+$/.test(username)) {
                 usernameStatusEl.textContent = 'Solo letras minúsculas, números y _';
+                reserveDidButton.classList.add('hidden');
                 usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-red-400';
                 return;
             }
@@ -3887,9 +4298,10 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             try {
                 // const arbSepoliaRpc = "https://sepolia-rollup.arbitrum.io/rpc";
 
+                const sepoliaRPCs = ["https://sepolia-rollup.arbitrum.io/rpc"];
             console.log('currentTokenIndex?:',currentTokenIndex)
 
-                const checkProvider = new ethers.JsonRpcProvider(generalOptions.API);
+                const checkProvider = new ethers.JsonRpcProvider(sepoliaRPCs[currentRpcIndex]);
                 
 
             // const provider = new ethers.JsonRpcProvider(optionsList[0].API);
@@ -3909,10 +4321,11 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
                 if (ethers.getAddress(address) === ethers.ZeroAddress) {
             console.log('✅ Nombre disponible')
-
+                    reserveDidButton.classList.remove('hidden');
                     statusElement.textContent = '✅ Nombre disponible';
                     statusElement.className = 'text-xs mt-1 min-h-[1rem] text-green-400';
                 } else {
+                    reserveDidButton.classList.add('hidden');
             console.log('❌ Nombre no disponible')
 
                     statusElement.textContent = '❌ Nombre no disponible';
@@ -3925,16 +4338,91 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             }
         }
 
+        async function handleReserveDid() {
+            const username = userDidAliasInput.value.trim().toLowerCase();
+            if (!username) {
+                alert("Por favor, introduce un alias.");
+                return;
+            }
+
+            const button = document.getElementById('reserveDidButton');
+            button.disabled = true;
+            button.innerHTML = `<span>Reservando...</span>`;
+
+            try {
+                const didProvider = new ethers.JsonRpcProvider(sepoliaRPCs[currentRpcIndex]);
+                const didSigner = currentWallet.connect(didProvider);
+                const contract = new ethers.Contract(generalOptions.CHATWALLET_DID_ADDRESS, CHATWALLET_DID_ABI, didSigner);
+
+                // Obtener el precio de registro del contrato
+                const registrationPrice = await contract.nativePrice();
+
+                // Preparar la transacción
+                const tx = await contract.setProfile(username, "", {
+                    value: registrationPrice
+                });
+
+                usernameStatusEl.textContent = 'Esperando confirmación de la transacción...';
+                usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-yellow-400';
+
+                await tx.wait(); // Esperar a que la transacción se mine
+
+                usernameStatusEl.textContent = `¡Alias "${username}" reservado con éxito!`;
+                usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-green-400 break-words';
+                reserveDidButton.classList.add('hidden');
+
+            } catch (error) {
+                console.error("Error al reservar el DID:", error);
+                usernameStatusEl.textContent = `Error: ${error.reason || error.message}`;
+                usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-red-400 break-words';
+            } finally {
+                button.disabled = false;
+                button.innerHTML = `<span>Reservar Alias</span>`;
+            }
+        }
 
         userDidTrigger.addEventListener('click', () => {
+            loadUserProfile();
             userDidWindow.classList.remove('hidden');
             userDidWindow.classList.add('flex');
         });
+
+        function saveUserProfile() {
+            const alias = userDidAliasInput.value;
+            const links = document.getElementById('userDidLinks').value;
+            const avatar = userDidAvatar.src;
+
+            const profile = {
+                alias,
+                links,
+                avatar
+            };
+
+            localStorage.setItem('chatwallet-user-profile', JSON.stringify(profile));
+            alert('Perfil guardado localmente.');
+            userDidWindow.classList.add('hidden');
+        }
+
+        function loadUserProfile() {
+            const savedProfile = localStorage.getItem('chatwallet-user-profile');
+            if (savedProfile) {
+                const profile = JSON.parse(savedProfile);
+                userDidAliasInput.value = profile.alias || '';
+                document.getElementById('userDidLinks').value = profile.links || '';
+                if (profile.avatar) {
+                    userDidAvatar.src = profile.avatar;
+                }
+            }
+        }
 
         closeUserDidWindow.addEventListener('click', () => {
             userDidWindow.classList.add('hidden');
             userDidWindow.classList.remove('flex');
         });
+
+        reserveDidButton.addEventListener('click', handleReserveDid);
+
+        saveUserDid.addEventListener('click', saveUserProfile);
         
         userDidAvatar.addEventListener('click', () => {
             avatarUpload.click();
@@ -3961,23 +4449,111 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             // Aquí podrías mostrar una notificación de "copiado"
         });
 
-        // --- Lógica del Historial de Transacciones ---
-        const historyBtnHeader = document.getElementById('historyBtn');
-        const historyModal = document.getElementById('historyModal');
-        const closeHistoryModal = document.getElementById('closeHistoryModal');
-        const historyLink = document.getElementById('historyLink');
+        // --- Lógica del Historial de Transacciones (Nueva Vista) ---
+        function populateHistoryNetworkSelector() {
+            historyNetworkSelector.innerHTML = '';
+            optionsList.forEach((network, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = network.TOKEN_CHAIN_NAME;
+                if (index === currentTokenIndex) {
+                    option.selected = true;
+                }
+                historyNetworkSelector.appendChild(option);
+            });
+        }
 
-        historyBtnHeader.addEventListener('click', () => {
-            const selectedNetwork = optionsList[currentTokenIndex];
-            historyLink.href = `${selectedNetwork.EXPLORER}address/${currentWallet.address}`;
-            historyModal.classList.remove('hidden');
-            historyModal.classList.add('flex');
+        async function fetchTransactionHistory() {
+            if (!currentWallet || isOffline) return;
+
+            transactionList.innerHTML = '';
+            historyLoader.classList.remove('hidden');
+            noHistoryMessage.classList.add('hidden');
+
+            const selectedNetworkIndex = parseInt(historyNetworkSelector.value, 10);
+            const network = optionsList[selectedNetworkIndex];
+
+            // Construir la URL de la API del explorador
+            let apiUrl = '';
+            if (network.EXPLORER.includes('etherscan.io')) {
+                const domain = network.EXPLORER.includes('sepolia') ? 'api-sepolia.etherscan.io' : 'api.etherscan.io';
+                apiUrl = `https://${domain}/api?module=account&action=txlist&address=${currentWallet.address}&startblock=0&endblock=99999999&sort=desc&apikey=YOUR_ETHERSCAN_API_KEY`;
+            } else if (network.EXPLORER.includes('arbiscan.io')) {
+                const domain = network.EXPLORER.includes('sepolia') ? 'api-sepolia.arbiscan.io' : 'api.arbiscan.io';
+                apiUrl = `https://${domain}/api?module=account&action=txlist&address=${currentWallet.address}&startblock=0&endblock=99999999&sort=desc&apikey=YOUR_ARBISCAN_API_KEY`;
+            } else if (network.EXPLORER.includes('basescan.org')) {
+                 const domain = network.EXPLORER.includes('sepolia') ? 'api-sepolia.basescan.org' : 'api.basescan.org';
+                apiUrl = `https://${domain}/api?module=account&action=txlist&address=${currentWallet.address}&startblock=0&endblock=99999999&sort=desc&apikey=YOUR_BASESCAN_API_KEY`;
+            }
+
+            if (!apiUrl) {
+                historyLoader.classList.add('hidden');
+                noHistoryMessage.textContent = "Explorador no compatible para esta red.";
+                noHistoryMessage.classList.remove('hidden');
+                return;
+            }
+            
+            // NOTA: Usar claves de API en el lado del cliente no es seguro.
+            // Esto es solo para demostración. En producción, esto debería hacerse a través de un backend.
+            apiUrl = apiUrl.replace('YOUR_ETHERSCAN_API_KEY', '9D8X6S3Z4I4B3M5A6T7U8V9W1X2Y3Z4A5B') // Clave pública de Etherscan
+                           .replace('YOUR_ARBISCAN_API_KEY', 'YOUR_ARBISCAN_API_KEY') // Reemplazar con clave si se tiene
+                           .replace('YOUR_BASESCAN_API_KEY', 'YOUR_BASESCAN_API_KEY'); // Reemplazar con clave si se tiene
+
+
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                historyLoader.classList.add('hidden');
+
+                if (data.status === "1" && data.result.length > 0) {
+                    // Aquí se encriptaría y guardaría en el DID si la funcionalidad existiera.
+                    // Por ahora, solo mostramos los datos.
+                    renderTransactionHistory(data.result, network);
+                } else {
+                    noHistoryMessage.textContent = "No se encontraron transacciones en esta red.";
+                    noHistoryMessage.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error("Error fetching transaction history:", error);
+                historyLoader.classList.add('hidden');
+                noHistoryMessage.textContent = "Error al cargar el historial.";
+                noHistoryMessage.classList.remove('hidden');
+            }
+        }
+
+        function renderTransactionHistory(transactions, network) {
+            transactionList.innerHTML = ''; // Limpiar
+            transactions.slice(0, 50).forEach(tx => { // Limitar a las últimas 50 para rendimiento
+                const date = new Date(parseInt(tx.timeStamp) * 1000);
+                const isOut = tx.from.toLowerCase() === currentWallet.address.toLowerCase();
+                const value = ethers.formatEther(tx.value);
+
+                const item = document.createElement('a');
+                item.href = `${network.EXPLORER}tx/${tx.hash}`;
+                item.target = "_blank";
+                item.rel = "noopener noreferrer";
+                item.className = 'grid grid-cols-3 items-center gap-2 p-2 text-xs rounded-md hover:bg-gray-700/50 transition-colors';
+                item.innerHTML = `
+                    <div class="text-gray-400">${date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })} ${date.toLocaleTimeString('es-ES')}</div>
+                    <div class="font-mono truncate">
+                        ${tx.hash.slice(0, 8)}...${tx.hash.slice(-6)}
+                    </div>
+                    <div class="text-right font-semibold ${isOut ? 'text-red-400' : 'text-green-400'}">
+                        ${isOut ? '-' : '+'} ${parseFloat(value).toFixed(5)} ${network.NATIVE_SYMBOL}
+                    </div>
+                `;
+                transactionList.appendChild(item);
+            });
+        }
+
+        historyNetworkSelector.addEventListener('change', fetchTransactionHistory);
+
+        document.getElementById('historyNavBtn').addEventListener('click', () => {
+            showView('historyView');
         });
 
-        closeHistoryModal.addEventListener('click', () => {
-            historyModal.classList.add('hidden');
-            historyModal.classList.remove('flex');
-        });
+        init();
      </script>
 
 <script type="module" >

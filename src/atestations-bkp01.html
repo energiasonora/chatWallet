@@ -39,13 +39,6 @@
             padding-bottom: 20px;
         }
 
-        .schema-section {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.8rem; margin-top: -10px; margin-bottom: 15px;
-        }
-
         h1 { margin: 0; font-size: 1.5rem; }
         h2 { font-size: 1.2rem; margin-top: 0; color: var(--accent); }
         .subtitle { color: var(--text-secondary); font-size: 0.9rem; }
@@ -122,12 +115,9 @@
             <h1>ChatWallet / IusNaturalis</h1>
             <span class="subtitle">Integración de Soberanía Digital (EAS)</span>
         </div>
-        <div id="wallet-status" style="display: flex; gap: 0.5rem; align-items: center; min-width: 400px;">
-            <input id="userPk" type="password" placeholder="Private Key (Opcional)" 
-                   style="background-color: var(--bg-color); border-color: var(--border); flex-grow: 1;">
-            <button id="connect-btn">Init Wallet</button>
+        <div id="wallet-status">
+            <button id="connect-btn">Conectar Wallet</button>
             <span id="address-display" style="display:none; margin-left: 10px;" class="status-badge"></span>
-            <span id="balance-display" style="display:none; margin-left: 10px;" class="status-badge"></span>
         </div>
     </header>
 
@@ -141,11 +131,6 @@
     <div class="card">
         <h2>1. Web of Trust (Confianza Humana)</h2>
         <p class="subtitle">Da fe de que un usuario es humano y confiable.</p>
-        <div class="schema-section">
-            <span class="text-secondary">Esquema: </span>
-            <a id="wot-schema-link" href="#" target="_blank" rel="noopener noreferrer" style="color: var(--accent); text-decoration: none;"></a>
-            <button id="btn-register-wot" style="padding: 2px 8px; font-size: 0.7rem;" disabled>Registrar Esquema</button>
-       </div>
         
         <div class="form-group">
             <label>Address del Usuario (Recipient)</label>
@@ -153,12 +138,17 @@
         </div>
         <div class="grid-2">
             <div class="form-group">
-                <label>Es Humano (bool)</label>
-                <input type="checkbox" id="wot-is-human" checked style="width: auto;">
+                <label>Nivel de Confianza (1-5)</label>
+                <input type="number" id="wot-level" min="1" max="5" value="3">
             </div>
             <div class="form-group">
-                <label>Nivel de Confianza (1-10)</label>
-                <input type="number" id="wot-level" min="1" max="10" value="8">
+                <label>Relación</label>
+                <select id="wot-relation">
+                    <option value="Amigo">Amigo</option>
+                    <option value="Colega">Colega</option>
+                    <option value="Familiar">Familiar</option>
+                    <option value="Conocido">Conocido</option>
+                </select>
             </div>
         </div>
         <button id="btn-attest-trust" disabled>Testificar Confianza</button>
@@ -168,10 +158,6 @@
     <div class="card">
         <h2>2. Acuerdo Verbal / Chat</h2>
         <p class="subtitle">Inmutabiliza un acuerdo realizado en el chat.</p>
-        <div style="font-size: 0.8rem; margin-top: -10px; margin-bottom: 15px;">
-            <span class="text-secondary">Esquema: </span>
-            <a id="agree-schema-link" href="#" target="_blank" rel="noopener noreferrer" style="color: var(--accent); text-decoration: none;"></a>
-        </div>
         
         <div class="form-group">
             <label>Contraparte (Address)</label>
@@ -198,10 +184,6 @@
     <div class="card">
         <h2>3. Prueba de Autoría</h2>
         <p class="subtitle">Registra propiedad intelectual de un archivo.</p>
-        <div style="font-size: 0.8rem; margin-top: -10px; margin-bottom: 15px;">
-            <span class="text-secondary">Esquema: </span>
-            <a id="auth-schema-link" href="#" target="_blank" rel="noopener noreferrer" style="color: var(--accent); text-decoration: none;"></a>
-        </div>
         
         <div class="form-group">
             <label>Título de la Obra</label>
@@ -239,26 +221,26 @@
         // import { Client, ContentTypeId } from '@xmtp/browser-sdk';
         // import { ethers, Wallet, isAddress, getBytes, formatEther, JsonRpcProvider, Contract,ZeroAddress } from 'ethers';
 
-    import { EAS, SchemaEncoder, SchemaRegistry } from "@ethereum-attestation-service/eas-sdk";
+    import { EAS, SchemaEncoder } from "@ethereum-attestation-service/eas-sdk";
     import { BrowserProvider, ethers } from "ethers";
 
-    // Configuración para Sepolia (Testnet)
-    const EAS_CONTRACT_ADDRESS = "0xC2679fBD37d54388Ce493F1DB75320D236e1815e"; // EAS Contract on Sepolia
-    const SCHEMA_REGISTRY_CONTRACT_ADDRESS = "0x0a7E2Ff54e76B8E6659aedc9103FB21c038050D0"; // SchemaRegistry Contract on Sepolia
-    // const SCHEMA_REGISTRY_CONTRACT_ADDRESS = "0x0a7E2Ff54e76B8E6659a458d75a809866E459461"; // SchemaRegistry Contract on Sepolia
+    // Configuración para SEPOLIA (Testnet)
+    // EAS Contract Address oficial en Sepolia
+    const EAS_CONTRACT_ADDRESS = "0xC2679fBD37d54388Ce493F1DB75320D236e1815e"; 
     
-    // UIDs de esquemas públicos y verificados en Sepolia para la demo.
-    // Puedes verlos en el explorador de EAS: https://sepolia.easscan.org/
-    let SCHEMA_UID_TRUST = localStorage.getItem('schema_uid_trust') || "0x0000000000000000000000000000000000000000000000000000000000000000"; // Se recupera de localStorage
-    const SCHEMA_UID_AGREEMENT = "0x282cacad3d3232168284615d4314c6367c57888465c1e94b735e0241aa753639"; // Schema: bytes32 agreementHash,string documentURL,string agreementType
-    const SCHEMA_UID_AUTHORSHIP = "0x2f34a2ffe5f540550419645735e2e3a531b49989f602c7d03223015f49f13394"; // Schema: bytes32 contentHash,string title,string license,string contentURL
+    // IMPORTANTE: Estos UIDs deben existir en la blockchain. 
+    // Si no existen, fallará. Deberías registrarlos primero en https://sepolia.easscan.org/register
+    // He puesto place holders. ¡DEBES CAMBIARLOS POR UIDS REALES TUYOS O GENÉRICOS!
+    const SCHEMA_UID_TRUST = "0x0000000000000000000000000000000000000000000000000000000000000000"; // Reemplazar
+    const SCHEMA_UID_AGREEMENT = "0x0000000000000000000000000000000000000000000000000000000000000000"; // Reemplazar
+    const SCHEMA_UID_AUTHORSHIP = "0x0000000000000000000000000000000000000000000000000000000000000000"; // Reemplazar
 
        const generalOptions = {
-                "TOKEN_CHAIN_NAME": 'Sepolia',
-                "TOKEN_CHAINID": '11155111',
-                "EXPLORER": 'https://sepolia.etherscan.io/',
-                "API": 'https://sepolia.infura.io/v3/b17405e634bd40308be3eb4fa2485c9a',
-                "EAS_CONTRACT_ADDRESS": EAS_CONTRACT_ADDRESS,
+                "TOKEN_CHAIN_NAME": 'Arbitrum Sepolia',
+                "TOKEN_CHAINID": '421614',
+                "EXPLORER": 'https://sepolia.arbiscan.io/',
+                "API": 'https://arbitrum-sepolia.infura.io/v3/b17405e634bd40308be3eb4fa2485c9a',
+                "EAS_CONTRACT_ADDRESS": "0x7b20064246948e3625b915773918343133c23583",
                 "NATIVE_SYMBOL": 'ETH',
                 "CHATWALLET_TOKEN_ADDRESS" : "0x2aC45C33602E1a8450302100F1897BFF6C91a5d6",
                 "CHATWALLET_DID_ADDRESS" : "0x4ccA3288A4319c9c44e8797087F8776A863342F5",
@@ -267,60 +249,33 @@
     // 2. ATTESTATION SERVICE CLASS
     // ------------------------------------------------------------------
     class AttestationService {
-        constructor() {
-            this.eas = null;
-            this.schemaRegistry = null;
+        constructor(contractAddress) {
+            this.contractAddress = contractAddress;
+            this.eas = new EAS(contractAddress);
             this.signer = null;
             this.provider = null;
         }
 
-        async connect(privateKey) {
-            // Use a public RPC for the demo to work without a browser wallet
-            this.provider = new ethers.JsonRpcProvider(generalOptions.API);
+        async connect() {
+            if (!window.ethereum) throw new Error("No se detectó Wallet");
             
-            let wallet;
-            const storageKey = 'cw_attestation_wallet';
-
-            if (privateKey) {
-                wallet = new ethers.Wallet(privateKey, this.provider);
-                localStorage.setItem(storageKey, privateKey);
-                log('Wallet inicializada desde PK y guardada en localStorage.', 'info');
-            } else {
-                const storedPk = localStorage.getItem(storageKey);
-                if (storedPk) {
-                    wallet = new ethers.Wallet(storedPk, this.provider);
-                    log('Wallet restaurada desde localStorage.', 'success');
-                } else {
-                    wallet = ethers.Wallet.createRandom(this.provider);
-                    localStorage.setItem(storageKey, wallet.privateKey);
-                    log(`Nueva wallet generada y guardada. PK: ${wallet.privateKey}`, "warn");
-                }
-            }
-
-            this.signer = wallet;
-
-            // The EAS contract address depends on the connected network.
-            // For this demo, we are hardcoding Sepolia.
-            const easContractAddress = EAS_CONTRACT_ADDRESS;
-            if (!easContractAddress) {
-                throw new Error(`EAS Contract not defined for chain ID ${generalOptions.TOKEN_CHAINID}`);
-            }
-
-            this.eas = new EAS(easContractAddress);
+            this.provider = new BrowserProvider(window.ethereum);
+            this.signer = await this.provider.getSigner();
+            
+            // Conectar el signer a la instancia EAS
             this.eas.connect(this.signer);
-
-            this.schemaRegistry = new SchemaRegistry(SCHEMA_REGISTRY_CONTRACT_ADDRESS);
-            this.schemaRegistry.connect(this.signer);
             
             return await this.signer.getAddress();
         }
 
         // Caso 1: Web of Trust
-        async attestHumanity(recipient, isHuman, trustLevel) {
-            const schemaEncoder = new SchemaEncoder("bool isHuman,uint8 trustLevel");
+        // Schema: bool esHumano, uint8 nivelConfianza, string relacion
+        async attestHumanity(recipient, esHumano, nivelConfianza, relacion) {
+            const schemaEncoder = new SchemaEncoder("bool esHumano, uint8 nivelConfianza, string relacion");
             const encodedData = schemaEncoder.encodeData([
-                { name: "isHuman", value: isHuman, type: "bool" },
-                { name: "trustLevel", value: trustLevel, type: "uint8" }
+                { name: "esHumano", value: esHumano, type: "bool" },
+                { name: "nivelConfianza", value: parseInt(nivelConfianza), type: "uint8" },
+                { name: "relacion", value: relacion, type: "string" }
             ]);
 
             return await this._attest(SCHEMA_UID_TRUST, encodedData, recipient);
@@ -328,15 +283,15 @@
 
         // Caso 2: Acuerdos
         // Schema: bytes32 hashAcuerdo, string urlDocumento, string tipoAcuerdo
-        async attestAgreement(recipient, textToHash, documentURL, agreementType) {
+        async attestAgreement(recipient, textToHash, urlDocumento, tipoAcuerdo) {
             // Generar hash del texto del acuerdo
             const hashAcuerdo = ethers.keccak256(ethers.toUtf8Bytes(textToHash));
             
-            const schemaEncoder = new SchemaEncoder("bytes32 agreementHash,string documentURL,string agreementType");
+            const schemaEncoder = new SchemaEncoder("bytes32 hashAcuerdo, string urlDocumento, string tipoAcuerdo");
             const encodedData = schemaEncoder.encodeData([
-                { name: "agreementHash", value: hashAcuerdo, type: "bytes32" },
-                { name: "documentURL", value: documentURL, type: "string" },
-                { name: "agreementType", value: agreementType, type: "string" }
+                { name: "hashAcuerdo", value: hashAcuerdo, type: "bytes32" },
+                { name: "urlDocumento", value: urlDocumento, type: "string" },
+                { name: "tipoAcuerdo", value: tipoAcuerdo, type: "string" }
             ]);
 
             return await this._attest(SCHEMA_UID_AGREEMENT, encodedData, recipient);
@@ -344,15 +299,15 @@
 
         // Caso 3: Autoría (Self-Attestation usualmente)
         // Schema: bytes32 hashContenido, string titulo, string licencia, string url
-        async attestAuthorship(recipient, contentToHash, title, license, contentURL) {
+        async attestAuthorship(recipient, contentToHash, titulo, licencia, url) {
             const hashContenido = ethers.keccak256(ethers.toUtf8Bytes(contentToHash));
 
-            const schemaEncoder = new SchemaEncoder("bytes32 contentHash,string title,string license,string contentURL");
+            const schemaEncoder = new SchemaEncoder("bytes32 hashContenido, string titulo, string licencia, string url");
             const encodedData = schemaEncoder.encodeData([
-                { name: "contentHash", value: hashContenido, type: "bytes32" },
-                { name: "title", value: title, type: "string" },
-                { name: "license", value: license, type: "string" },
-                { name: "contentURL", value: contentURL, type: "string" }
+                { name: "hashContenido", value: hashContenido, type: "bytes32" },
+                { name: "titulo", value: titulo, type: "string" },
+                { name: "licencia", value: licencia, type: "string" },
+                { name: "url", value: url, type: "string" }
             ]);
 
             return await this._attest(SCHEMA_UID_AUTHORSHIP, encodedData, recipient);
@@ -381,30 +336,12 @@
             const newAttestationUID = await tx.wait();
             return newAttestationUID;
         }
-
-        async registerSchema(schemaString, resolverAddress, revocable) {
-            if (!this.eas) throw new Error("EAS not connected");
-
-            // Usamos la instancia de schemaRegistry que creamos en connect()
-            const transaction = await this.schemaRegistry.register({
-                schema: schemaString,
-                resolverAddress: resolverAddress || ethers.ZeroAddress,
-                revocable: revocable,
-            });
-
-            // Esperar a que la transacción sea minada y obtener el UID del evento
-            const receipt = await transaction.wait();
-            const events = receipt.logs.map(log => this.schemaRegistry.interface.parseLog(log)).filter(Boolean);
-            const registeredEvent = events.find(e => e.name === 'Registered');
-            
-            return registeredEvent.args.uid;
-        }
     }
 
     // ------------------------------------------------------------------
     // 3. UI LOGIC
     // ------------------------------------------------------------------
-    const attestationService = new AttestationService();
+    const attestationService = new AttestationService(EAS_CONTRACT_ADDRESS);
     const consoleOutput = document.getElementById('console-output');
 
     // Helper Logger
@@ -418,52 +355,20 @@
         consoleOutput.scrollTop = consoleOutput.scrollHeight;
     }
 
-    // Helper para actualizar los links a los esquemas
-    function updateSchemaLinks() {
-        const easScanBaseUrl = `https://sepolia.easscan.org/schema/view/`;        
-        const wotLink = document.getElementById('wot-schema-link');
-        
-        if (SCHEMA_UID_TRUST !== "0x0000000000000000000000000000000000000000000000000000000000000000") {
-            wotLink.href = `${easScanBaseUrl}${SCHEMA_UID_TRUST}`;
-            wotLink.textContent = `${SCHEMA_UID_TRUST.substring(0,10)}...`;
-        } else {
-            wotLink.textContent = "No registrado";
-            wotLink.removeAttribute("href");
-        }
-
-        const agreeLink = document.getElementById('agree-schema-link');
-        agreeLink.href = `${easScanBaseUrl}${SCHEMA_UID_AGREEMENT}`;
-        agreeLink.textContent = `${SCHEMA_UID_AGREEMENT.substring(0,10)}...`;
-
-        const authLink = document.getElementById('auth-schema-link');
-        authLink.href = `${easScanBaseUrl}${SCHEMA_UID_AUTHORSHIP}`;
-        authLink.textContent = `${SCHEMA_UID_AUTHORSHIP.substring(0,10)}...`;
-    }
-
     // Connect Wallet
     document.getElementById('connect-btn').addEventListener('click', async () => {
         try {
-            const privateKey = document.getElementById('userPk').value;
-            log("Conectando wallet...", "info");
-            const address = await attestationService.connect(privateKey);
-            
-            // Mostrar address
+            const address = await attestationService.connect();
             document.getElementById('address-display').textContent = `${address.substring(0,6)}...${address.substring(38)}`;
             document.getElementById('address-display').style.display = 'inline-block';
             document.getElementById('address-display').classList.add('status-connected');
             document.getElementById('connect-btn').textContent = "Conectado";
             document.getElementById('connect-btn').disabled = true;
-
-            // Mostrar balance
-            const balance = await attestationService.provider.getBalance(address);
-            document.getElementById('balance-display').textContent = `${ethers.formatEther(balance).substring(0, 8)} ETH`;
-            document.getElementById('balance-display').style.display = 'inline-block';
             
             // Habilitar botones
             document.getElementById('btn-attest-trust').disabled = false;
             document.getElementById('btn-attest-agree').disabled = false;
             document.getElementById('btn-attest-auth').disabled = false;
-            document.getElementById('btn-register-wot').disabled = false;
             
             // Auto-fill destinatarios consigo mismo para testing
             document.getElementById('wot-recipient').value = address;
@@ -475,42 +380,15 @@
         }
     });
 
-    // Handler: Register Web of Trust Schema
-    document.getElementById('btn-register-wot').addEventListener('click', async () => {
-        try {
-            const schemaString = "bool isHuman,uint8 trustLevel";
-            const resolverAddress = ethers.ZeroAddress;
-            const revocable = true;
-
-            // Generamos el UID esperado para ver si ya existe
-            const expectedUID = await attestationService.schemaRegistry.getSchemaUID(schemaString, resolverAddress, revocable);
-            
-            try {
-                const schemaRecord = await attestationService.schemaRegistry.getSchema({ uid: expectedUID });
-                log(`El esquema WoT ya existe con UID: ${schemaRecord.uid}`, "info");
-                SCHEMA_UID_TRUST = schemaRecord.uid;
-            } catch (error) {
-                log("El esquema WoT no existe. Registrándolo...", "info");
-                const newSchemaUID = await attestationService.registerSchema(schemaString, resolverAddress, true);
-                log(`Esquema WoT registrado! Nuevo UID: ${newSchemaUID}`, "success");
-                SCHEMA_UID_TRUST = newSchemaUID;
-            }
-            localStorage.setItem('schema_uid_trust', SCHEMA_UID_TRUST);
-            updateSchemaLinks();
-        } catch (e) {
-            log(`Fallo al registrar esquema: ${e.message}`, "error");
-        }
-    });
-
     // Handler: Web of Trust
     document.getElementById('btn-attest-trust').addEventListener('click', async () => {
         try {
             const recipient = document.getElementById('wot-recipient').value;
-            const isHuman = document.getElementById('wot-is-human').checked;
-            const trustLevel = parseInt(document.getElementById('wot-level').value);
-
-            const uid = await attestationService.attestHumanity(recipient, isHuman, trustLevel);
-            log(`Testimonio de Confianza Exitoso! UID: ${uid}`, "success");
+            const level = document.getElementById('wot-level').value;
+            const relation = document.getElementById('wot-relation').value;
+            
+            const uid = await attestationService.attestHumanity(recipient, true, level, relation);
+            log(`Attestation Exitosa! UID: ${uid}`, "success");
             log(`Ver en explorer: https://sepolia.easscan.org/attestation/view/${uid}`);
         } catch (e) {
             log(`Fallo WoT: ${e.message}`, "error");
@@ -548,9 +426,6 @@
             log(`Fallo Autoría: ${e.message}`, "error");
         }
     });
-
-    // Inicializar los links al cargar la página
-    updateSchemaLinks();
 
 </script>
 

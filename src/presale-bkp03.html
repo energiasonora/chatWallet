@@ -1060,8 +1060,7 @@
 
 
             // --- State and Configuration ---
-             isWalletConnected = false;
-            // let isWalletConnected = false;
+            let isWalletConnected = false;
             let currentNetwork = 'mainnet';
             let fiatCurrency = 'usd';
             const NETWORK_STORAGE_KEY = 'iusnaturalis-dao-network';
@@ -1249,86 +1248,64 @@
 
             // --- Wallet Connection Logic ---
             // let MMSDK;
-            
-            const onWalletConnected = async (address, walletType) => {
-                userAddress = address;
-                isWalletConnected = true;
-
-                const userTokenOwed = await loadTokensOwed();
-                console.warn('userTokenOwed::::', userTokenOwed);
-
-                const shortAddress = shortAddressETH(userAddress);
-                connectButton.textContent = `${shortAddress} 🔛`;
-                console.warn("😶😶😶 adding address 1rs time");
-
-                connectButton.classList.replace('bg-violet-600', 'bg-gray-600');
-                connectButton.classList.replace('hover:bg-violet-500', 'hover:bg-gray-600');
-                buyButton.disabled = false;
-                buyButton.textContent = translations[currentLanguage].buy_cwlt || 'Buy CWLT';
-
-                const userTokenBalance = await getUserCWLTBalance();
-                const tokenBalanceFormatted = Number(ethers.formatUnits(userTokenBalance, 18)).toFixed(2);
-                userBalanceDisplay.textContent = `${tokenBalanceFormatted} CWLT`;
-                animateNumberUpdate(userBalanceDisplay);
-                balanceDisplay.classList.remove('hidden');
-
-                console.log(`${walletType} connected successfully. Address: ${userAddress}`);
-                closeModal(walletModal);
-            };
-
-            const onWalletConnectionError = (error) => {
-                console.error("An error occurred during wallet connection:", error);
-                isWalletConnected = false;
-                connectButton.textContent = 'Connect Wallet';
-                connectButton.classList.replace('bg-gray-600', 'bg-violet-600');
-                connectButton.classList.replace('hover:bg-gray-500', 'hover:bg-violet-500');
-                buyButton.textContent = 'Connect Wallet';
-            };
-
-            const walletConnectStrategies = {
-                'Metamask': async () => {
-                        console.warn(` 😶😶 Metamask.`);
-
-                    if (typeof window.ethereum === 'undefined' || !window.ethereum.isMetaMask) {
-                        throw new Error("MetaMask is not installed. Please install it to connect.");
-                    }
-                    return await metamaskConnect();
-                },
-                'ChatWallet': async () => {
-                    // This remains a placeholder for now.
-                    throw new Error("ChatWallet is not active yet.");
-                }
-                // Future wallets can be added here, e.g.:
-                // 'WalletConnect': async () => { ... }
-            };
 
             const handleWalletConnection = async (walletType) => {
                 console.warn(`handleWalletConnection: Connecting with ${walletType} on ${currentNetwork}...`);
 
-                const connectFunction = walletConnectStrategies[walletType];
-
-                if (!connectFunction) {
-                    console.error(`No connection strategy found for wallet type: ${walletType}`);
-                    showErrorNotification("Unsupported Wallet", `Connection logic for ${walletType} is not implemented.`);
+                if (walletType === 'ChatWallet') {
+                    console.warn('ChatWallet is not active yet.');
+                    showWarningNotification("ChatWallet is not active yet.");
+                    closeModal(walletModal);
                     return;
                 }
 
-                try {
-                    const connectedAddress = await connectFunction();
-                    if (connectedAddress) {
-                        console.warn(` 😶😶 walelt connected.`);
-                        await onWalletConnected(connectedAddress, walletType);
-                    } else {
-                        // This case handles user rejection without throwing an error.
-                        console.error(`${walletType} connection failed or was rejected by the user.`);
+                if (walletType === 'Metamask') {
+                    if (typeof window.ethereum === 'undefined' || !window.ethereum.isMetaMask) {
+                        console.warn('MetaMask is not installed.');
+                        showWarningNotification("MetaMask is not installed. Please install it to connect.");
+                        closeModal(walletModal);
+                        return;
                     }
-                } catch (error) {
-                    onWalletConnectionError(error);
-                    showWarningNotification(error.message); // Show user-friendly error
-                } finally {
-                    closeModal(walletModal);
+
+                    try {
+                        const connectedAddress = await metamaskConnect();
+                        if (!connectedAddress) {
+                            console.error("Metamask connection failed or was rejected by the user.");
+                            return;
+                        }
+                        userAddress = connectedAddress;
+                        isWalletConnected = true;
+
+                        const userTokenOwed = await loadTokensOwed();
+                        console.warn('userTokenOwed::::', userTokenOwed);
+
+                        const shortAddress = shortAddressETH(userAddress);
+                        connectButton.textContent = `${shortAddress} 🔛`;
+                        connectButton.classList.replace('bg-violet-600', 'bg-gray-600');
+                        connectButton.classList.replace('hover:bg-violet-500', 'hover:bg-gray-600');
+                        buyButton.disabled = false;
+                        buyButton.textContent = translations[currentLanguage].buy_cwlt || 'Buy CWLT';
+
+                        const userTokenBalance = await getUserCWLTBalance();
+                        const tokenBalanceFormatted = Number(ethers.formatUnits(userTokenBalance, 18)).toFixed(2);
+                        userBalanceDisplay.textContent = `${tokenBalanceFormatted} CWLT`;
+                        animateNumberUpdate(userBalanceDisplay);
+                        balanceDisplay.classList.remove('hidden');
+
+                        console.log(`${walletType} connected successfully. Address: ${userAddress}`);
+                        closeModal(walletModal);
+
+                    } catch (error) {
+                        console.error("An error occurred during wallet connection:", error);
+                        isWalletConnected = false;
+                        connectButton.textContent = 'Connect Wallet';
+                        connectButton.classList.replace('bg-gray-600', 'bg-violet-600');
+                        connectButton.classList.replace('hover:bg-gray-500', 'hover:bg-violet-500');
+                        buyButton.textContent = 'Connect Wallet';
+                    }
                 }
             };
+
             window.handleWalletConnection = handleWalletConnection;
 
              
@@ -1439,9 +1416,6 @@
                 transactionHash.innerHTML = `Tx: ${textLink}...`;
                 // <!-- transactionHash.textContent = `Tx: ${textLink}...`; -->
                 successNotification.classList.remove('hide');
-                // Show the "Send to ChatWallet" UI
-                document.getElementById('send-to-chatwallet-container').classList.add('active');
-
                 successNotification.classList.add('show');
                 successIcon.classList.add('pulse-success');
                 // setTimeout(() => hideSuccessNotification(), 6000);
@@ -1820,7 +1794,7 @@ window.updateClaimCountdown = updateClaimCountdown;
             });
 
             connectButton.addEventListener('click', () => {
-                console.warn('CLICKED CONNECT/DISCONNET',isWalletConnected)
+                console.warn('CLICKED CONNECT/DISCONNET')
                 if (isWalletConnected) {
                     openModal(disconnectModal);
                 } else {
@@ -2146,7 +2120,7 @@ for (let log of receipt.logs) {
                 // --------------------------------
                 // RECONNECT METAMASK? OR OTHER WALLET
                 // --------------------------------
-                restoreMetaMaskSession(); // call it here
+                await restoreMetaMaskSession(); // call it here
             };
 
             initialize();
@@ -2918,7 +2892,7 @@ for (let log of receipt.logs) {
                     return;
                 }
 
-                // console.warn("😶 Restoring session for:", address);
+                console.warn("Restoring session for:", address);
                 userAddress = address; // Save it globally for reuse
 
                 // Reinitialize ethers
@@ -2950,8 +2924,6 @@ for (let log of receipt.logs) {
                 const shortAddress = shortAddressETH(address);
                 // connectButton.textContent = `Connected: ${realAddress}`;
             connectButton.textContent = `${shortAddress}✅`;
-                console.warn("😶😶😶 adding address recurrently");
-
                 connectButton.classList.replace('bg-violet-600', 'bg-gray-700');
                 connectButton.classList.replace('hover:bg-violet-500', 'hover:bg-gray-500');
                 buyButton.disabled = false;

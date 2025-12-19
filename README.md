@@ -1,6 +1,10 @@
 
 ## test
+yarn parcel src/index.html src/82.html src/stealthAB.html src/dapp.html src/atestations.html src/stealthAB.html src/presale.html src/helia.html --port 7777 --https
+<!-- yarn parcel src/index.html src/82.html src/stealthAB.html src/dapp.html src/atestations.html src/stealthAB.html src/presale.html --port 7777 --https -->
+
 ### eas
+yarn parcel src/index.html src/81.html src/stealthAB.html src/atestations.html  --port 7777 --https 
 yarn parcel src/index.html src/81.html   --port 7777 --https 
 yarn parcel src/81.html   --port 7777 --https 
 
@@ -10,6 +14,8 @@ yarn parcel src/wallet.html --port 7777 --https
 # DEPLOY
 ```
 rm -rf .parce-cache
+yarn parcel src/index.html src/presale.html  src/book.html src/demo.html src/manifiesto.html src/roadmap.html src/dapp.html src/atestations.html src/stealthAB.html --dist-dir public  --public-url ./
+yarn parcel src/index.html src/presale.html  src/book.html src/demo.html src/manifiesto.html src/roadmap.html src/dapp.html --dist-dir public  --public-url ./
 yarn parcel src/index.html --dist-dir public  --public-url ./
 firebase deploy
 ```

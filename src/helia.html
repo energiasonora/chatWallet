@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatWallet P2P - Single File</title>
+  <style>
+    /* --- ESTILOS CSS --- */
+    body { background: #0f0f0f; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 30px; max-width: 1200px; margin: 0 auto; }
+    h2 { margin-top: 0; padding-bottom: 10px; border-bottom: 1px solid #333; font-size: 1.2rem; }
+    
+    .card { background: #1a1a1a; padding: 25px; border-radius: 12px; border: 1px solid #333; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 10px; }
+    
+    label { font-size: 0.85rem; color: #888; margin-bottom: -5px; display: block; }
+    
+    /* Inputs y Botones */
+    input[type="file"] { background: #222; padding: 10px; border-radius: 6px; width: 100%; box-sizing: border-box; color: #fff; }
+    
+    textarea { width: 100%; background: #000; color: #00ff00; border: 1px solid #333; padding: 10px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 11px; resize: vertical; min-height: 80px; box-sizing: border-box; }
+    
+    button { padding: 12px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.9rem; margin-top: 5px; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+    
+    .btn-alice { background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white; }
+    .btn-alice:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4); }
+    
+    .btn-bob { background: linear-gradient(135deg, #00b894, #55efc4); color: #000; }
+    .btn-bob:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 184, 148, 0.4); }
+    
+    .btn-init { grid-column: span 2; background: #333; color: white; border: 1px dashed #555; }
+    .btn-init:hover { background: #444; border-color: #fff; }
+
+    /* Logs */
+    .log-container { background: #000; padding: 10px; border-radius: 6px; height: 150px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 11px; border: 1px solid #333; }
+    .log-entry { margin-bottom: 4px; border-bottom: 1px solid #111; padding-bottom: 2px; }
+    .log-time { color: #555; margin-right: 5px; }
+    
+    /* Download Zone */
+    #downloadZone a { display: block; text-align: center; background: #2d3436; color: #00b894; padding: 15px; border-radius: 8px; text-decoration: none; border: 1px dashed #00b894; font-weight: bold; margin-top: 10px; }
+    #downloadZone a:hover { background: #00b894; color: #000; }
+  </style>
+</head>
+<body>
+
+  <button id="btnInit" class="btn-init">🔌 Inicializar Sistema P2P (Helia + Ethers)</button>
+
+  <div class="card">
+    <h2 style="color: #a29bfe">👩 Alice (Emisor)</h2>
+    
+    <label>1. Selecciona Archivo</label>
+    <input type="file" id="fileInput" disabled />
+    
+    <div id="fileInfo" style="font-size: 0.8rem; color: #aaa; min-height: 15px;"></div>
+
+    <button id="btnEncryptUpload" class="btn-alice" disabled>🔒 Encriptar y Subir a IPFS</button>
+    
+    <label>Log de Actividad:</label>
+    <div id="aliceLog" class="log-container"></div>
+  </div>
+
+  <div class="card">
+    <h2 style="color: #55efc4">👨 Bob (Receptor)</h2>
+    
+    <label>Simulación Canal XMTP (JSON Payload)</label>
+    <textarea id="commChannel" readonly placeholder="Esperando mensaje encriptado..."></textarea>
+    
+    <button id="btnDownloadDecrypt" class="btn-bob" disabled>🔓 Bajar y Desencriptar</button>
+    
+    <div id="downloadZone"></div>
+    
+    <label>Log de Actividad:</label>
+    <div id="bobLog" class="log-container"></div>
+  </div>
+
+  <script type="module">
+    // Importaciones directas (Parcel las resolverá desde node_modules)
+    import { ethers } from 'ethers';
+    import { createHelia } from 'helia';
+    import { unixfs } from '@helia/unixfs';
+
+    // Referencias UI
+    const ui = {
+      btnInit: document.getElementById('btnInit'),
+      fileInput: document.getElementById('fileInput'),
+      fileInfo: document.getElementById('fileInfo'),
+      btnUpload: document.getElementById('btnEncryptUpload'),
+      btnDownload: document.getElementById('btnDownloadDecrypt'),
+      channel: document.getElementById('commChannel'),
+      aliceLog: document.getElementById('aliceLog'),
+      bobLog: document.getElementById('bobLog'),
+      downloadZone: document.getElementById('downloadZone')
+    };
+
+    // Estado Global
+    let helia;
+    let fs;
+
+    // --- FUNCIONES DE UTILIDAD (LOGS) ---
+    function log(who, msg) {
+      const el = who === 'alice' ? ui.aliceLog : ui.bobLog;
+      const time = new Date().toLocaleTimeString().split(' ')[0];
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+      el.appendChild(entry);
+      el.scrollTop = el.scrollHeight; // Auto-scroll
+    }
+
+    // --- 1. INICIALIZAR SISTEMA ---
+    ui.btnInit.addEventListener('click', async () => {
+      try {
+        ui.btnInit.textContent = "⏳ Iniciando Nodo IPFS (esto toma unos segundos)...";
+        ui.btnInit.disabled = true;
+
+        // Iniciar Helia
+        helia = await createHelia();
+        fs = unixfs(helia);
+
+        // Crear Wallets dummy para simular identidad
+        const w1 = ethers.Wallet.createRandom();
+        const w2 = ethers.Wallet.createRandom();
+
+        log('alice', `Identidad creada: ${w1.address.substring(0,8)}...`);
+        log('bob', `Identidad creada: ${w2.address.substring(0,8)}...`);
+        log('alice', `Nodo Helia activo. PeerID: ${helia.libp2p.peerId.toString().substring(0,10)}...`);
+
+        // Activar UI
+        ui.fileInput.disabled = false;
+        ui.btnInit.style.display = 'none'; // Ocultar botón init
+        log('alice', "Sistema listo. Selecciona un archivo.");
+
+      } catch (e) {
+        console.error(e);
+        ui.btnInit.textContent = "❌ Error al iniciar";
+        alert("Error: " + e.message);
+      }
+    });
+
+    // Evento visual al seleccionar archivo
+    ui.fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        ui.fileInfo.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+        ui.btnUpload.disabled = false;
+      }
+    });
+
+    // --- 2. ALICE: ENCRIPTAR Y SUBIR ---
+    ui.btnUpload.addEventListener('click', async () => {
+      const file = ui.fileInput.files[0];
+      if (!file) return;
+
+      try {
+        ui.btnUpload.disabled = true;
+        log('alice', "1. Generando llaves de encriptación (AES-GCM)...");
+        
+        // A. Generar Llave Simétrica
+        const key = await window.crypto.subtle.generateKey(
+          { name: "AES-GCM", length: 256 },
+          true,
+          ["encrypt", "decrypt"]
+        );
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+        // B. Encriptar
+        log('alice', "2. Encriptando archivo en memoria...");
+        const fileBuffer = await file.arrayBuffer();
+        const encryptedBuffer = await window.crypto.subtle.encrypt(
+          { name: "AES-GCM", iv: iv },
+          key,
+          fileBuffer
+        );
+
+        // C. Subir a IPFS
+        log('alice', "3. Subiendo bloque encriptado a IPFS...");
+        const cid = await fs.addBytes(new Uint8Array(encryptedBuffer));
+        log('alice', `✅ Subida completada. CID: ${cid.toString()}`);
+
+        // D. Preparar mensaje para Bob
+        const exportedKey = await window.crypto.subtle.exportKey("jwk", key);
+        
+        const payload = {
+          cid: cid.toString(),
+          filename: file.name,
+          mime: file.type,
+          key: exportedKey,
+          iv: Array.from(iv)
+        };
+
+        // E. Enviar (Simulación)
+        ui.channel.value = JSON.stringify(payload, null, 2);
+        log('alice', "4. Mensaje enviado a través del canal.");
+        
+        // Habilitar a Bob
+        ui.btnDownload.disabled = false;
+        ui.btnDownload.classList.add('pulse'); // Efecto visual si tuviéramos css animado
+        log('bob', "📩 Has recibido un mensaje encriptado.");
+
+      } catch (e) {
+        console.error(e);
+        log('alice', "❌ Error: " + e.message);
+        ui.btnUpload.disabled = false;
+      }
+    });
+
+    // --- 3. BOB: BAJAR Y DESENCRIPTAR ---
+    ui.btnDownload.addEventListener('click', async () => {
+      try {
+        const data = JSON.parse(ui.channel.value);
+        ui.btnDownload.disabled = true;
+        
+        log('bob', `1. Buscando CID ${data.cid.substring(0,10)}... en la red.`);
+        
+        // A. Descargar de IPFS
+        // Recolectamos todos los chunks en un array
+        const chunks = [];
+        let totalLength = 0;
+        
+        for await (const chunk of fs.cat(data.cid)) {
+          chunks.push(chunk);
+          totalLength += chunk.length;
+          // Aquí podrías calcular progreso si enviaras el tamaño total en el payload
+        }
+        
+        // Unir chunks
+        const encryptedBytes = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const chunk of chunks) {
+          encryptedBytes.set(chunk, offset);
+          offset += chunk.length;
+        }
+        log('bob', "2. Archivo encriptado descargado.");
+
+        // B. Desencriptar
+        log('bob', "3. Desencriptando con la llave recibida...");
+        
+        const key = await window.crypto.subtle.importKey(
+          "jwk",
+          data.key,
+          { name: "AES-GCM" },
+          true,
+          ["decrypt"]
+        );
+
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: new Uint8Array(data.iv) },
+          key,
+          encryptedBytes
+        );
+
+        // C. Generar Link de Descarga
+        const blob = new Blob([decryptedBuffer], { type: data.mime });
+        const url = URL.createObjectURL(blob);
+        
+        ui.downloadZone.innerHTML = `
+          <a href="${url}" download="${data.filename}">
+            💾 GUARDAR ARCHIVO <br>
+            <span style="font-size:0.8em; font-weight:normal">${data.filename}</span>
+          </a>
+        `;
+        
+        log('bob', "✅ ¡Éxito! Archivo listo para guardar.");
+
+      } catch (e) {
+        console.error(e);
+        log('bob', "❌ Error: " + e.message);
+        ui.btnDownload.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

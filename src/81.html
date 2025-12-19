@@ -2308,7 +2308,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         async function startOrLoadConversation(recipientAddress) {
             if (!chatwalletxmtp) { return; }
 
-            if (!isAddress(recipientAddress)) {
+            if (!ethers.isAddress(recipientAddress)) {
                 console.warn('not an eth address, trying to resolve from inboxId');
                 try {
                     const newConversation = await chatwalletxmtp.conversations.newDm(recipientAddress);

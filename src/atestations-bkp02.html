@@ -244,12 +244,10 @@
 
     // Configuración para Sepolia (Testnet)
     const EAS_CONTRACT_ADDRESS = "0xC2679fBD37d54388Ce493F1DB75320D236e1815e"; // EAS Contract on Sepolia
-    const SCHEMA_REGISTRY_CONTRACT_ADDRESS = "0x0a7E2Ff54e76B8E6659aedc9103FB21c038050D0"; // SchemaRegistry Contract on Sepolia
-    // const SCHEMA_REGISTRY_CONTRACT_ADDRESS = "0x0a7E2Ff54e76B8E6659a458d75a809866E459461"; // SchemaRegistry Contract on Sepolia
     
     // UIDs de esquemas públicos y verificados en Sepolia para la demo.
     // Puedes verlos en el explorador de EAS: https://sepolia.easscan.org/
-    let SCHEMA_UID_TRUST = localStorage.getItem('schema_uid_trust') || "0x0000000000000000000000000000000000000000000000000000000000000000"; // Se recupera de localStorage
+    let SCHEMA_UID_TRUST = "0x0000000000000000000000000000000000000000000000000000000000000000"; // Se establecerá dinámicamente
     const SCHEMA_UID_AGREEMENT = "0x282cacad3d3232168284615d4314c6367c57888465c1e94b735e0241aa753639"; // Schema: bytes32 agreementHash,string documentURL,string agreementType
     const SCHEMA_UID_AUTHORSHIP = "0x2f34a2ffe5f540550419645735e2e3a531b49989f602c7d03223015f49f13394"; // Schema: bytes32 contentHash,string title,string license,string contentURL
 
@@ -305,12 +303,12 @@
             if (!easContractAddress) {
                 throw new Error(`EAS Contract not defined for chain ID ${generalOptions.TOKEN_CHAINID}`);
             }
-
             this.eas = new EAS(easContractAddress);
-            this.eas.connect(this.signer);
 
-            this.schemaRegistry = new SchemaRegistry(SCHEMA_REGISTRY_CONTRACT_ADDRESS);
-            this.schemaRegistry.connect(this.signer);
+            // Conectar el signer a la instancia EAS
+            this.eas.connect(this.signer);
+            // The schemaRegistry is available after connecting the EAS instance
+            this.schemaRegistry = this.eas.schemaRegistry;
             
             return await this.signer.getAddress();
         }
@@ -478,24 +476,11 @@
     // Handler: Register Web of Trust Schema
     document.getElementById('btn-register-wot').addEventListener('click', async () => {
         try {
+            log("Registrando el esquema 'Web of Trust'...", "info");
             const schemaString = "bool isHuman,uint8 trustLevel";
-            const resolverAddress = ethers.ZeroAddress;
-            const revocable = true;
-
-            // Generamos el UID esperado para ver si ya existe
-            const expectedUID = await attestationService.schemaRegistry.getSchemaUID(schemaString, resolverAddress, revocable);
-            
-            try {
-                const schemaRecord = await attestationService.schemaRegistry.getSchema({ uid: expectedUID });
-                log(`El esquema WoT ya existe con UID: ${schemaRecord.uid}`, "info");
-                SCHEMA_UID_TRUST = schemaRecord.uid;
-            } catch (error) {
-                log("El esquema WoT no existe. Registrándolo...", "info");
-                const newSchemaUID = await attestationService.registerSchema(schemaString, resolverAddress, true);
-                log(`Esquema WoT registrado! Nuevo UID: ${newSchemaUID}`, "success");
-                SCHEMA_UID_TRUST = newSchemaUID;
-            }
-            localStorage.setItem('schema_uid_trust', SCHEMA_UID_TRUST);
+            const newSchemaUID = await attestationService.registerSchema(schemaString, ethers.ZeroAddress, true);
+            log(`Esquema WoT registrado! Nuevo UID: ${newSchemaUID}`, "success");
+            SCHEMA_UID_TRUST = newSchemaUID;
             updateSchemaLinks();
         } catch (e) {
             log(`Fallo al registrar esquema: ${e.message}`, "error");

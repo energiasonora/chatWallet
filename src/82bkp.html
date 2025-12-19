@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Wallet & Chat XMTP</title>
+    <title>Crypto Wallet & Chat XMTP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
@@ -428,7 +429,7 @@
                 class="absolute top-2 right-2 p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
             <img src="apple-touch-icon.png" alt="ChatWallet Icon" class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">V alpha 80</p>
+            <p class="text-sm text-gray-400">V alpha 82</p>
             <div class="space-y-2 pt-2">
                 <a href="https://chatwallet.org/presale" target="_blank" rel="noopener noreferrer"
                     class="inline-block w-full px-4 py-2 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors duration-200">
@@ -708,11 +709,101 @@
                 <!-- FIN: ÁREA MODIFICADA -->
             </div>
 
+            <!-- VISTA DE ATESTACIONES -->
+            <div id="attestationView" class="view flex-col h-full p-4 space-y-4">
+                <h2 class="text-xl font-bold text-center">Crear Atestación</h2>
+
+                <!-- Pestañas de Navegación -->
+                <div class="flex border-b border-gray-700">
+                    <button data-tab="humanity" class="attestation-tab-btn flex-1 py-2 text-sm font-semibold border-b-2 border-indigo-500 text-white">Web of Trust</button>
+                    <button data-tab="agreement" class="attestation-tab-btn flex-1 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-400">Acuerdo</button>
+                    <button data-tab="authorship" class="attestation-tab-btn flex-1 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-400">Autoría</button>
+                </div>
+
+                <!-- Contenido de las Pestañas -->
+                <div class="flex-grow overflow-y-auto">
+                    <!-- Pestaña: Web of Trust -->
+                    <div id="humanity-tab" class="attestation-tab-content space-y-4">
+                        <p class="text-xs text-gray-400">Atesta que una dirección pertenece a un humano y tu relación con él.</p>
+                        <div class="text-xs text-gray-500 -mt-2">
+                            <span>Esquema: </span>
+                            <a id="humanitySchemaLink" href="#" target="_blank" rel="noopener noreferrer" class="font-mono text-indigo-400 hover:underline"></a>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="humanityRecipient" placeholder="Dirección del Destinatario" class="w-full bg-gray-700 rounded-lg p-2 pr-10 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                            <button data-target-input="humanityRecipient" class="attestation-contact-btn absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-indigo-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between bg-gray-700 p-2 rounded-lg">
+                            <label for="isHuman" class="text-sm text-gray-300">¿Es Humano?</label>
+                            <input type="checkbox" id="isHuman" checked class="form-checkbox h-5 w-5 text-indigo-600 bg-gray-800 border-gray-600 rounded focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label for="trustLevel" class="block text-sm text-gray-400 mb-1">Nivel de Confianza (0-100)</label>
+                            <input type="range" id="trustLevel" min="0" max="100" value="75" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <input type="text" id="relationship" placeholder="Relación (ej. colega, amigo)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button id="attestHumanityBtn" class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Atestar Humanidad</button>
+                    </div>
+
+                    <!-- Pestaña: Acuerdos Verbales -->
+                    <div id="agreement-tab" class="attestation-tab-content space-y-4 hidden">
+                         <p class="text-xs text-gray-400">Registra un acuerdo verbal o de chat en la cadena.</p>
+                        <div class="text-xs text-gray-500 -mt-2">
+                            <span>Esquema: </span>
+                            <a id="agreementSchemaLink" href="#" target="_blank" rel="noopener noreferrer" class="font-mono text-indigo-400 hover:underline"></a>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="agreementRecipient" placeholder="Dirección del Destinatario" class="w-full bg-gray-700 rounded-lg p-2 pr-10 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                            <button data-target-input="agreementRecipient" class="attestation-contact-btn absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-indigo-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            </button>
+                        </div>
+                        <input type="text" id="agreementHash" placeholder="Hash del Acuerdo (bytes32)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                        <input type="text" id="agreementUrl" placeholder="URL del Documento (opcional)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <input type="text" id="agreementType" placeholder="Tipo de Acuerdo (ej. Préstamo)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button id="attestAgreementBtn" class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Atestar Acuerdo</button>
+                    </div>
+
+                    <!-- Pestaña: Prueba de Autoría -->
+                    <div id="authorship-tab" class="attestation-tab-content space-y-4 hidden">
+                        <p class="text-xs text-gray-400">Crea una prueba inmutable de autoría para un contenido digital.</p>
+                        <div class="text-xs text-gray-500 -mt-2">
+                            <span>Esquema: </span>
+                            <a id="authorshipSchemaLink" href="#" target="_blank" rel="noopener noreferrer" class="font-mono text-indigo-400 hover:underline"></a>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="authorshipRecipient" placeholder="Dirección del Destinatario (Autor)" class="w-full bg-gray-700 rounded-lg p-2 pr-10 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                            <button data-target-input="authorshipRecipient" class="attestation-contact-btn absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-indigo-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            </button>
+                        </div>
+                        <input type="text" id="contentHash" placeholder="Hash del Contenido (bytes32)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                        <input type="text" id="authorshipTitle" placeholder="Título del Contenido" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <input type="text" id="authorshipLicense" placeholder="Licencia (ej. CC-BY)" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <input type="text" id="authorshipUrl" placeholder="URL del Contenido" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button id="attestAuthorshipBtn" class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Atestar Autoría</button>
+                    </div>
+                </div>
+                <div id="attestationStatus" class="text-center text-sm min-h-[2rem] p-2"></div>
+            </div>
+
+            <!-- MODAL/POPOVER PARA SELECCIONAR CONTACTO EN ATESTACIÓN -->
+            <div id="attestationContactSelector" class="hidden absolute z-20 w-64 bg-gray-600 border border-gray-500 rounded-lg shadow-xl">
+                <div class="p-2 border-b border-gray-500 flex justify-between items-center">
+                    <h4 class="text-sm font-semibold">Seleccionar Contacto</h4>
+                    <button id="closeAttestationContactSelector" class="text-xl leading-none">&times;</button>
+                </div>
+                <div id="attestationContactList" class="max-h-48 overflow-y-auto">
+                    <!-- La lista de contactos se poblará aquí -->
+                </div>
+            </div>
         </main>
 
         <!-- Backup Reminder (Fixed Position) -->
         <!-- Navegación -->
-        <nav id="appNav" class="hidden grid grid-cols-2 justify-items-center gap-4 p-2 bg-gray-900/30">
+        <nav id="appNav" class="hidden grid grid-cols-3 justify-items-center gap-4 p-2 bg-gray-900/30">
             <button data-view="walletView"
                 class="nav-btn flex flex-col items-center p-2 rounded-lg transition-colors duration-200 active">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -723,6 +814,16 @@
                 </svg>
                 <span class="text-xs mt-1">Wallet</span>
             </button>
+            <button data-view="attestationView"
+                class="nav-btn flex flex-col items-center p-2 rounded-lg transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    <path d="m9 12 2 2 4-4"></path>
+                </svg>
+                <span class="text-xs mt-1">Atestar</span>
+            </button>
+
+
             <!-- <button id="contactsNavBtn" class="nav-btn relative flex flex-col items-center p-2 rounded-lg transition-colors duration-200"> -->
             <button id="contactsNavBtn" class=" relative flex flex-col items-center p-2 rounded-lg transition-colors duration-200">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -875,20 +976,29 @@
     <div id="backupWalletModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
         <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
             <div class="flex justify-between items-center">
-                <h3 class="text-lg font-bold text-yellow-300">Copia de Seguridad</h3>
+                <h3 class="text-lg font-bold text-yellow-300" data-i18n-key="backup_wallet_title">Copia de Seguridad</h3>
                 <button id="closeBackupModal" class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <!-- Language Selector Added -->
+            <div class="pt-2">
+                <label for="backup-lang-selector" class="block text-sm text-gray-400 mb-1" data-i18n-key="language_label">Idioma</label>
+                <select id="backup-lang-selector" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Selector de idioma del modal de copia de seguridad">
+                    <option value="es">Español</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                </select>
             </div>
             <div id="backupWarningView">
                 <div class="bg-red-900/50 border border-red-500 text-red-300 text-sm rounded-lg p-3 my-4">
-                    <p><strong>¡ADVERTENCIA DE SEGURIDAD!</strong></p>
-                    <p class="mt-2">Estás a punto de revelar tus claves secretas. NUNCA compartas esta información. Cualquiera con acceso a ellas puede robar tus fondos de forma irreversible.</p>
+                    <p><strong data-i18n-key="backup_warning_title">¡ADVERTENCIA DE SEGURIDAD!</strong></p>
+                    <p class="mt-2" data-i18n-key="backup_warning_body">Estás a punto de revelar tus claves secretas. NUNCA compartas esta información. Cualquiera con acceso a ellas puede robar tus fondos de forma irreversible.</p>
                 </div>
-                <button id="showBackupKeysBtn" class="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700">Entiendo el riesgo, mostrar claves</button>
-                <button id="cancelBackupBtn" class="w-full mt-2 px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500">Cancelar</button>
+                <button id="showBackupKeysBtn" class="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700" data-i18n-key="backup_understand_risk">Entiendo el riesgo, mostrar claves</button>
+                <button id="cancelBackupBtn" class="w-full mt-2 px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500" data-i18n-key="cancel_button">Cancelar</button>
             </div>
             <div id="backupKeysView" class="hidden space-y-4">
                 <div id="backupMnemonicContainer" class="hidden">
-                    <label class="block text-sm text-gray-400 mb-1">Frase Mnemónica (12 palabras)</label>
+                    <label class="block text-sm text-gray-400 mb-1" data-i18n-key="backup_mnemonic_label">Frase Mnemónica (12 palabras)</label>
                     <div class="relative">
                         <p id="backupMnemonic" class="w-full bg-gray-900 rounded-lg p-3 font-mono text-sm text-gray-300 select-all"></p>
                         <button onclick="copyBackupData('backupMnemonic', this)" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1">
@@ -897,7 +1007,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm text-gray-400 mb-1">Clave Privada</label>
+                    <label class="block text-sm text-gray-400 mb-1" data-i18n-key="backup_private_key_label">Clave Privada</label>
                     <div class="relative">
                         <p id="backupPrivateKey" class="w-full bg-gray-900 rounded-lg p-3 font-mono text-xs text-gray-300 select-all break-all"></p>
                         <button onclick="copyBackupData('backupPrivateKey', this)" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1">
@@ -905,7 +1015,7 @@
                         </button>
                     </div>
                 </div>
-                <button id="closeBackupModalBtn" class="w-full px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500">He guardado mis claves</button>
+                <button id="closeBackupModalBtn" class="w-full px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500" data-i18n-key="backup_keys_saved">He guardado mis claves</button>
             </div>
         </div>
     </div>
@@ -999,21 +1109,29 @@
     <div id="settingsModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-40">
         <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
             <div class="flex justify-between items-center">
-                <h3 class="text-lg font-bold">Configuración</h3>
+                <h3 class="text-lg font-bold" data-i18n-key="settings_title">Configuración</h3>
                 <button id="closeSettingsModal"
                     class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
             </div>
             <div class="space-y-2">
-                <button id="backupWalletSettingsBtn" class="w-full px-4 py-2 font-semibold text-yellow-300 bg-yellow-900/50 border border-yellow-700 rounded-lg hover:bg-yellow-800/50 transition-colors">
+                <button id="backupWalletSettingsBtn" class="w-full px-4 py-2 font-semibold text-yellow-300 bg-yellow-900/50 border border-yellow-700 rounded-lg hover:bg-yellow-800/50 transition-colors" data-i18n-key="backup_wallet_button">
                     Hacer Copia de Seguridad
                 </button>
+            </div>
+            <!-- Language Selector Added -->
+            <div class="space-y-2">
+                 <label for="settings-lang-selector" class="block text-sm text-gray-400 mb-1" data-i18n-key="language_label">Idioma</label>
+                <select id="settings-lang-selector" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Selector de idioma de la configuración">
+                    <option value="es">Español</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                </select>
             </div>
             <hr class="border-gray-600">
             <div class="space-y-2 text-center text-sm">
                 <div id="privateKey" class="text-red-400 break-all font-mono text-xs p-2 bg-gray-900/50 rounded"></div>
             </div>
-            <button id="forgetWalletButton"
-                class="w-full px-4 py-2 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">Olvidar
+            <button id="forgetWalletButton" class="w-full px-4 py-2 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700" data-i18n-key="forget_wallet_button">Olvidar
                 Billetera</button>
             <hr class="border-gray-600">
             <h2 class="text-md text-center font-semibold text-indigo-300">Gestionar Instalaciones</h2>
@@ -1115,7 +1233,7 @@
     <div id="userDidWindow" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
         <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4">
             <div class="flex justify-between items-center">
-                <h3 class="text-lg font-bold">Your Decentralized Identity</h3>
+                <h3 class="text-lg font-bold">Your DID</h3>
                 <button id="closeUserDidWindow" class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
             </div>
             
@@ -1126,7 +1244,7 @@
                 <div class="flex-grow">
                     <label for="userDidAlias" class="block text-sm text-gray-400 mb-1">Alias Name</label>
                     <input type="text" id="userDidAlias" placeholder="Your Alias" class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
-                    <p id="usernameStatus" class="text-xs mt-1 min-h-[1rem] font-medium"></p>
+                    <p id="usernameStatus" class="text-xs mt-1 min-h-[1rem] font-medium break-words"></p>
                 </div>
             </div>
 
@@ -1142,8 +1260,29 @@
                 </div>
             </div>
 
+            <!-- Sección de Documentos -->
+            <div>
+                <div class="flex justify-between items-center">
+                    <h4 class="text-md font-semibold text-gray-300">Documentos Verificables</h4>
+                </div>
+                <!-- Dropzone -->
+                <div id="documentDropzone" class="mt-2 border-2 border-dashed border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 transition-colors">
+                    <div class="flex flex-col items-center justify-center">
+                        <svg class="w-10 h-10 text-gray-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625a1.875 1.875 0 0 0-1.875 1.875v17.25a1.875 1.875 0 0 0 1.875 1.875h12.75a1.875 1.875 0 0 0 1.875-1.875V11.25a3.375 3.375 0 0 0-3.375-3.375h-1.5" /></svg>
+                        <p class="text-sm text-gray-400">Arrastra y suelta tus documentos aquí</p>
+                        <p class="text-xs text-gray-500 mt-1">o <span id="openFileLink" class="text-indigo-400 hover:underline">selecciona un archivo</span></p>
+                    </div>
+                    <input type="file" id="documentUploadInput" class="hidden" multiple />
+                </div>
+                <div id="userDidDocuments" class="mt-3 text-sm text-gray-400 bg-gray-900/50 p-3 rounded-lg max-h-40 overflow-y-auto space-y-2">
+                    <!-- Los elementos de los documentos se poblarán aquí -->
+                </div>
+            </div>
+            <!-- Fin Sección de Documentos -->
+
             <div class="flex justify-end space-x-3 pt-2">
-                <button id="saveUserDid" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Save</button>
+                <button id="reserveDidButton" class="hidden px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 flex items-center space-x-2"><span>Reservar Alias</span></button>
+                <button id="saveUserDid" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Guardar</button>
             </div>
         </div>
     </div>
@@ -1152,7 +1291,10 @@
     <script src="js/Tone.min.js"></script>
     <!-- Ethers.js v6 -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.1/ethers.umd.min.js"></script> -->
-    <script src="js/ethers-6.13.2.umd.min.js"></script>
+    <!-- <script src="js/ethers-6.13.2.umd.min.js"></script>  -->
+    <!-- EAS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@ethereum-attestation-service/eas-sdk/dist/index.umd.js"></script>
+
 
     <script type="module">
         import { Client, ContentTypeId } from '@xmtp/browser-sdk';
@@ -1161,6 +1303,11 @@
         window.ContentTypeId = ContentTypeId;
         window.ReadReceiptCodec = ReadReceiptCodec;
 
+        import { EAS, SchemaEncoder, } from "@ethereum-attestation-service/eas-sdk";
+        // import { EAS, NO_EXPIRATION, SchemaEncoder, } from "@ethereum-attestation-service/eas-sdk";
+        // const { EAS, SchemaEncoder } = window.eas;
+        window.EAS = EAS;
+        window.SchemaEncoder = SchemaEncoder;
 
         import { ethers, Wallet, isAddress, getBytes, formatEther, JsonRpcProvider, Contract,ZeroAddress } from 'ethers';
         window.Wallet = Wallet;
@@ -1183,6 +1330,7 @@
                 "TOKEN_CHAINID": '421614',
                 "EXPLORER": 'https://sepolia.arbiscan.io/',
                 "API": 'https://arbitrum-sepolia.infura.io/v3/b17405e634bd40308be3eb4fa2485c9a',
+                "EAS_CONTRACT_ADDRESS": "0x7b20064246948e3625b915773918343133c23583",
                 "NATIVE_SYMBOL": 'ETH',
                 "CHATWALLET_TOKEN_ADDRESS" : "0x2aC45C33602E1a8450302100F1897BFF6C91a5d6",
                 "CHATWALLET_DID_ADDRESS" : "0x4ccA3288A4319c9c44e8797087F8776A863342F5",
@@ -1195,6 +1343,7 @@
                 "TOKEN_CHAINID": '421614',
                 "EXPLORER": 'https://sepolia.arbiscan.io/',
                 "API": 'https://arbitrum-sepolia.infura.io/v3/b17405e634bd40308be3eb4fa2485c9a',
+                "EAS_CONTRACT_ADDRESS": "0x7b20064246948e3625b915773918343133c23583",
                 "NATIVE_SYMBOL": 'ETH',
                 "CHATWALLET_DID_ADDRESS" : "0x96Df83456f0B4d161C3E00278Ba33670c796523d",
                 "CHATWALLET_TOKEN_ADDRESS" : "0x2aC45C33602E1a8450302100F1897BFF6C91a5d6",
@@ -1205,6 +1354,7 @@
                 "TOKEN_CHAINID": '42161',
                 "EXPLORER": 'https://arbiscan.io/',
                 "API": 'https://arb1.arbitrum.io/rpc',
+                "EAS_CONTRACT_ADDRESS": "0x4200000000000000000000000000000000000021",
                 "NATIVE_SYMBOL": 'ETH'
             },
             {
@@ -1212,6 +1362,7 @@
                 "TOKEN_CHAINID": '421614',
                 "EXPLORER": 'https://sepolia.arbiscan.io/',
                 "API": 'https://arbitrum-sepolia.infura.io/v3/b17405e634bd40308be3eb4fa2485c9a',
+                "EAS_CONTRACT_ADDRESS": "0x7b20064246948e3625b915773918343133c23583",
                 "NATIVE_SYMBOL": 'ETH',
                 "TOKEN_ADDRESS": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
                 // "TOKEN_ADDRESS": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
@@ -1223,6 +1374,7 @@
                 "TOKEN_CHAINID": '42161',
                 "EXPLORER": 'https://arbiscan.io/',
                 "API": 'https://arb1.arbitrum.io/rpc',
+                "EAS_CONTRACT_ADDRESS": "0x4200000000000000000000000000000000000021",
                 "NATIVE_SYMBOL": 'ETH',
                 "TOKEN_ADDRESS": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
                 "TOKEN_SYMBOL": "USDC",
@@ -1264,6 +1416,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         var contacts = [];
         var provider = null; // Ethers provider
         const processedMessages = new Set();
+        let currentRpcIndex = 0;
         let html5QrCodeScanner = null;
         let notificationTimeout = null;
         let currentRestoreMode = 'privateKey';
@@ -1432,6 +1585,20 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         const sendTxBtn = document.getElementById('sendTxBtn');
 
 
+        // Attestation View
+        const attestationTabs = document.querySelectorAll('.attestation-tab-btn');
+        const attestationContents = document.querySelectorAll('.attestation-tab-content');
+        const attestHumanityBtn = document.getElementById('attestHumanityBtn');
+        const attestAgreementBtn = document.getElementById('attestAgreementBtn');
+        const attestAuthorshipBtn = document.getElementById('attestAuthorshipBtn');
+        const attestationStatus = document.getElementById('attestationStatus');
+        const humanitySchemaLink = document.getElementById('humanitySchemaLink');
+        const agreementSchemaLink = document.getElementById('agreementSchemaLink');
+        const authorshipSchemaLink = document.getElementById('authorshipSchemaLink');
+        const HUMANITY_SCHEMA_UID = "0x35293aa6e1ea93a8e35c4b685c564459b36334a5ea753830c31558361e1633d7";
+        const AGREEMENT_SCHEMA_UID = "0x82a334c3025f345757e3a8b03882513a15e054f85ac5a82845e292095584203a";
+        const AUTHORSHIP_SCHEMA_UID = "0x4a021077e24b313c428a15314b74b1238823001427173e506b7282df16d0a2d3";
+
         // --- UI Navegación ---
         function showView(viewId) {
             allViews.forEach(view => view.classList.remove('active'));
@@ -1447,6 +1614,10 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             if (viewId !== 'chatView') {
                 console.log('no es chatView, resetear currentConversation a null');
                 currentConversation = null;
+            }
+
+            if (viewId === 'attestationView') {
+                updateSchemaLinks();
             }
         }
 
@@ -1561,10 +1732,38 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             } catch (error) {
                 console.error("Error al inicializar XMTP:", error);
                 statusEl.textContent = `Error al inicializar: ${error.message}`;
+                const nextRpc = getNextRpc();
+                statusEl.textContent += `... Intentando con nuevo RPC: ${nextRpc}`;
+                console.log(`Cambiando a RPC: ${nextRpc}`);
+                setTimeout(() => {
+                    initializeWalletAndXmtp(wallet, isNewWallet);
+                }, 1000);
                 resetUI();
             }
         }
 
+        async function rotateRpcAndRetry() {
+            const selectedNetwork = optionsList[currentTokenIndex];
+            if (!Array.isArray(selectedNetwork.rpc) || selectedNetwork.rpc.length <= 1) {
+                console.log("No hay otros RPCs para rotar en la red actual.");
+                return;
+            }
+
+            const currentApiIndex = selectedNetwork.rpc.indexOf(selectedNetwork.API);
+            const nextApiIndex = (currentApiIndex + 1) % selectedNetwork.rpc.length;
+            const nextApi = selectedNetwork.rpc[nextApiIndex];
+
+            if (nextApi === selectedNetwork.rpc[0]) { // Si hemos completado un ciclo
+                console.error("Se han probado todos los RPCs para esta red. No se puede conectar.");
+                balanceDisplay.textContent = `Error de conexión`;
+                return;
+            }
+
+            console.warn(`⚠️ Fallo de conexión RPC. Rotando a: ${nextApi}`);
+            selectedNetwork.API = nextApi; // Actualizar la API activa para la red
+            provider = new window.ethers.JsonRpcProvider(selectedNetwork.API);
+            await updateBalance(); // Reintentar con el nuevo provider
+        }
         // --- Transacciones con Ethers.js ---
         async function updateBalance() {
             if (isOffline) {
@@ -1585,6 +1784,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
             // Primero, siempre obtener el saldo nativo (gas) y manejar errores de conexión
             try {
+
                 const nativeBalanceWei = await provider.getBalance(currentWallet.address);
                 nativeBalanceFormatted = parseFloat(ethers.formatEther(nativeBalanceWei)).toFixed(4);
                 console.log("native balance:", nativeBalanceFormatted);
@@ -1592,11 +1792,15 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
                 gasBalanceValue.textContent = `${nativeBalanceFormatted} ${nativeSymbol}`;
                 gasBalanceValue.classList.toggle('text-red-400', parseFloat(nativeBalanceFormatted) < 0.001);
+                localStorage.setItem('currentRpcIndex', currentRpcIndex); // Guardar el RPC que funcionó
+                // localStorage.setItem('currentRpcIndex', currentRpcIndex); // Guardar el RPC que funcionó
 
             } catch (gasError) {
-                console.error("Error fetching gas balance:", gasError);
-                gasBalanceValue.textContent = `Error ${nativeSymbol}`;
-                balanceDisplay.textContent = `Error de conexión`; // Mostrar error en el balance principal
+                console.error("Error fetching gas balance:", gasError.message);
+                if (gasError.message.includes('failed to fetch')) {
+                    await rotateRpcAndRetry();
+                }
+                // gasBalanceValue.textContent = `Error ${nativeSymbol}`;
                 return; // Detener la ejecución si no se puede obtener el balance de gas
             }
 
@@ -2177,7 +2381,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         async function startOrLoadConversation(recipientAddress) {
             if (!chatwalletxmtp) { return; }
 
-            if (!isAddress(recipientAddress)) {
+            if (!ethers.isAddress(recipientAddress)) {
                 console.warn('not an eth address, trying to resolve from inboxId');
                 try {
                     const newConversation = await chatwalletxmtp.conversations.newDm(recipientAddress);
@@ -2603,19 +2807,6 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             const explorerUrl = txData.txHash ? `${network.EXPLORER}tx/${txData.txHash}` : '#';
             const explorerLink = txData.txHash ? `<a href="${explorerUrl}" target="_blank" class="text-xs text-indigo-400 hover:underline mt-2 inline-block">Ver en explorador</a>` : '';
 
-            // Lógica para añadir red si no existe
-            let addNetworkButtonHTML = '';
-            if (!isSentByMe && txData.network) {
-                const networkExists = optionsList.some(net => 
-                    net.TOKEN_CHAINID === txData.network.TOKEN_CHAINID && 
-                    net.TOKEN_ADDRESS === txData.network.TOKEN_ADDRESS
-                );
-                if (!networkExists) {
-                    const networkData = JSON.stringify(txData.network).replace(/"/g, '&quot;');
-                    addNetworkButtonHTML = `<button onclick='addSharedNetwork(${networkData})' class="mt-3 w-full text-sm bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition">Añadir red "${txData.network.TOKEN_CHAIN_NAME}"</button>`;
-                }
-            }
-
             if (isRequest) {
                 title = isSentByMe ? `Solicitaste un pago` : `Te solicitaron un pago`;
                 amountColor = "text-white";
@@ -2639,7 +2830,20 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
                         </div>
                     </div>
                     <div class="mt-2 text-left">${explorerLink}</div>
-                    ${addNetworkButtonHTML}
+                    ${(() => {
+                        if (isSentByMe || !txData.network) return '';
+
+                        const existingNetIndex = optionsList.findIndex(net => {
+                            if (txData.network.TOKEN_ADDRESS) {
+                                return net.TOKEN_CHAINID === txData.network.TOKEN_CHAINID && net.TOKEN_ADDRESS === txData.network.TOKEN_ADDRESS;
+                            }
+                            return net.TOKEN_CHAINID === txData.network.TOKEN_CHAINID && !net.TOKEN_ADDRESS;
+                        });
+
+                        // Mostrar botón si la red no existe O si existe pero no es favorita (y hay al menos un favorito)
+                        const shouldShowButton = existingNetIndex === -1 || (!optionsList[existingNetIndex].isFavorite && optionsList.some(n => n.isFavorite));
+                        return shouldShowButton ? `<button onclick='addSharedNetwork(${JSON.stringify(txData.network).replace(/"/g, '&quot;')})' class="mt-3 w-full text-sm bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center justify-center space-x-2"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg> <span>Añadir ${txData.network.TOKEN_SYMBOL || txData.network.TOKEN_CHAIN_NAME} a la lista</span> </button>` : '';
+                    })()}
                     ${actionButtonHTML}
                 </div>
             `;
@@ -3002,17 +3206,27 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
         function addSharedNetwork(networkData) {
             if (!networkData || !networkData.TOKEN_CHAINID) return;
-            const networkExists = optionsList.some(net => 
-                net.TOKEN_CHAINID === networkData.TOKEN_CHAINID && 
-                net.TOKEN_ADDRESS === networkData.TOKEN_ADDRESS
+
+            const existingNetIndex = optionsList.findIndex(net =>
+                net.TOKEN_CHAINID === networkData.TOKEN_CHAINID &&
+                (net.TOKEN_ADDRESS || null) === (networkData.TOKEN_ADDRESS || null)
             );
-            if (networkExists) {
-                alert(`La red "${networkData.TOKEN_CHAIN_NAME}" ya existe en tu billetera.`);
-                return;
+
+            if (existingNetIndex !== -1) {
+                // La red ya existe, así que la marcamos como favorita y la seleccionamos.
+                optionsList[existingNetIndex].isFavorite = true;
+                saveNetworks();
+                switchNetwork(existingNetIndex);
+                alert(`"${networkData.TOKEN_CHAIN_NAME}" ahora es visible en tu lista de tokens.`);
+            } else {
+                // La red es nueva, la añadimos y la marcamos como favorita.
+                const newNetwork = { ...networkData, isFavorite: true };
+                optionsList.push(newNetwork);
+                saveNetworks();
+                const newIndex = optionsList.length - 1;
+                switchNetwork(newIndex);
+                alert(`¡La red "${networkData.TOKEN_CHAIN_NAME}" ha sido añadida y seleccionada!`);
             }
-            optionsList.push({ ...networkData, isFavorite: false });
-            saveNetworks();
-            alert(`¡La red "${networkData.TOKEN_CHAIN_NAME}" ha sido añadida! Puedes gestionarla en la configuración.`);
         }
         function openManageNetworksModal() {
             loadAllChainsData();
@@ -3105,6 +3319,85 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         // --- FIN: PRESENCIA Y RECIBOS DE LECTURA ---
 
 
+        // --- INICIO: LÓGICA DE SELECCIÓN DE CONTACTOS PARA ATESTACIÓN ---
+        const attestationContactSelector = document.getElementById('attestationContactSelector');
+        const attestationContactList = document.getElementById('attestationContactList');
+        const closeAttestationContactSelector = document.getElementById('closeAttestationContactSelector');
+        let attestationTargetInput = null;
+
+        function openAttestationContactSelector(event) {
+            event.stopPropagation();
+            const button = event.currentTarget;
+            attestationTargetInput = document.getElementById(button.dataset.targetInput);
+
+            attestationContactList.innerHTML = ''; // Limpiar lista
+            if (contacts.length > 0) {
+                contacts.forEach(contact => {
+                    const contactItem = document.createElement('button');
+                    contactItem.className = 'w-full text-left px-3 py-2 hover:bg-gray-500 transition-colors text-sm';
+                    contactItem.textContent = contact.name;
+                    contactItem.onclick = () => {
+                        if (attestationTargetInput) {
+                            attestationTargetInput.value = contact.address;
+                        }
+                        closeAttestationSelector();
+                    };
+                    attestationContactList.appendChild(contactItem);
+                });
+            } else {
+                attestationContactList.innerHTML = '<p class="p-3 text-xs text-gray-300">No hay contactos guardados.</p>';
+            }
+
+            // Posicionar y mostrar el selector
+            const rect = button.getBoundingClientRect();
+            const selectorWidth = attestationContactSelector.offsetWidth || 256; // Usar un ancho por defecto si es 0
+
+            attestationContactSelector.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            // Alinear el borde derecho del selector con el borde derecho del botón
+            attestationContactSelector.style.left = `${rect.right + window.scrollX - selectorWidth}px`;
+            attestationContactSelector.classList.remove('hidden');
+        }
+
+        function updateSchemaLinks() {
+            const easScanBaseUrl = `https://sepolia.easscan.org/schema/view/`;
+            humanitySchemaLink.href = `${easScanBaseUrl}${HUMANITY_SCHEMA_UID}`;
+            agreementSchemaLink.href = `${easScanBaseUrl}${AGREEMENT_SCHEMA_UID}`;
+            authorshipSchemaLink.href = `${easScanBaseUrl}${AUTHORSHIP_SCHEMA_UID}`;
+
+            humanitySchemaLink.textContent = `${HUMANITY_SCHEMA_UID.slice(0, 6)}...${HUMANITY_SCHEMA_UID.slice(-4)}`;
+            agreementSchemaLink.textContent = `${AGREEMENT_SCHEMA_UID.slice(0, 6)}...${AGREEMENT_SCHEMA_UID.slice(-4)}`;
+            authorshipSchemaLink.textContent = `${AUTHORSHIP_SCHEMA_UID.slice(0, 6)}...${AUTHORSHIP_SCHEMA_UID.slice(-4)}`;
+        }
+
+        function closeAttestationSelector() {
+            attestationContactSelector.classList.add('hidden');
+            attestationTargetInput = null;
+        }
+
+        document.querySelectorAll('.attestation-contact-btn').forEach(btn => {
+            btn.addEventListener('click', openAttestationContactSelector);
+        });
+        closeAttestationContactSelector.addEventListener('click', closeAttestationSelector);
+
+        // --- INICIO: LÓGICA DE PESTAÑAS DE ATESTACIÓN ---
+        attestationTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTabId = tab.dataset.tab;
+
+                // Actualizar estilos de los botones de pestaña
+                attestationTabs.forEach(btn => {
+                    btn.classList.remove('border-indigo-500', 'text-white');
+                    btn.classList.add('border-transparent', 'text-gray-400');
+                });
+                tab.classList.add('border-indigo-500', 'text-white');
+                tab.classList.remove('border-transparent', 'text-gray-400');
+
+                // Mostrar/Ocultar contenido de las pestañas
+                attestationContents.forEach(content => {
+                    content.classList.toggle('hidden', content.id !== `${targetTabId}-tab`);
+                });
+            });
+        });
         // --- Event Listeners ---
         createWalletButton.addEventListener('click', async () => {
             statusEl.textContent = "Creando billetera...";
@@ -3243,6 +3536,10 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         document.addEventListener('click', (e) => {
             if (!tokenSelectorMenu.classList.contains('hidden') && !tokenSelectorMenu.contains(e.target)) {
                 tokenSelectorMenu.classList.add('hidden');
+            }
+            // Cerrar selector de contactos de atestación si se hace clic fuera
+            if (!attestationContactSelector.classList.contains('hidden') && !attestationContactSelector.contains(e.target)) {
+                closeAttestationSelector();
             }
         });
 
@@ -3511,8 +3808,6 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             }
         }
 
-        init();
-
         let toneJsReady = typeof Tone !== 'undefined';
         let clickSynth;
         let toneStarted = false;
@@ -3650,6 +3945,91 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             filter.frequency.exponentialRampTo(100, 1.2, now + 0.05);
         }
  
+        // --- Internationalization (i18n) Logic ---
+        const translations = {
+            es: {
+                "language_label": "Idioma",
+                "settings_title": "Configuración",
+                "backup_wallet_button": "Hacer Copia de Seguridad",
+                "forget_wallet_button": "Olvidar Billetera",
+                "backup_wallet_title": "Copia de Seguridad",
+                "backup_warning_title": "¡ADVERTENCIA DE SEGURIDAD!",
+                "backup_warning_body": "Estás a punto de revelar tus claves secretas. NUNCA compartas esta información. Cualquiera con acceso a ellas puede robar tus fondos de forma irreversible.",
+                "backup_understand_risk": "Entiendo el riesgo, mostrar claves",
+                "cancel_button": "Cancelar",
+                "backup_mnemonic_label": "Frase Mnemónica (12 palabras)",
+                "backup_private_key_label": "Clave Privada",
+                "backup_keys_saved": "He guardado mis claves",
+            },
+            en: {
+                "language_label": "Language",
+                "settings_title": "Settings",
+                "backup_wallet_button": "Backup Wallet",
+                "forget_wallet_button": "Forget Wallet",
+                "backup_wallet_title": "Wallet Backup",
+                "backup_warning_title": "SECURITY WARNING!",
+                "backup_warning_body": "You are about to reveal your secret keys. NEVER share this information. Anyone with access to them can steal your funds irreversibly.",
+                "backup_understand_risk": "I understand the risk, show keys",
+                "cancel_button": "Cancel",
+                "backup_mnemonic_label": "Mnemonic Phrase (12 words)",
+                "backup_private_key_label": "Private Key",
+                "backup_keys_saved": "I have saved my keys",
+            },
+            fr: {
+                "language_label": "Langue",
+                "settings_title": "Paramètres",
+                "backup_wallet_button": "Sauvegarder le Portefeuille",
+                "forget_wallet_button": "Oublier le Portefeuille",
+                "backup_wallet_title": "Sauvegarde du Portefeuille",
+                "backup_warning_title": "AVERTISSEMENT DE SÉCURITÉ !",
+                "backup_warning_body": "Vous êtes sur le point de révéler vos clés secrètes. Ne partagez JAMAIS cette information. Toute personne y ayant accès peut voler vos fonds de manière irréversible.",
+                "backup_understand_risk": "Je comprends le risque, afficher les clés",
+                "cancel_button": "Annuler",
+                "backup_mnemonic_label": "Phrase Mnémonique (12 mots)",
+                "backup_private_key_label": "Clé Privée",
+                "backup_keys_saved": "J'ai sauvegardé mes clés",
+            }
+        };
+
+        function translateUI(lang) {
+            const langTranslations = translations[lang] || translations['es']; // Fallback to Spanish
+            document.querySelectorAll('[data-i18n-key]').forEach(element => {
+                const key = element.getAttribute('data-i18n-key');
+                if (langTranslations[key]) {
+                    element.textContent = langTranslations[key];
+                }
+            });
+        }
+
+        // --- Language Switcher Logic ---
+        const LANGUAGE_STORAGE_KEY = 'chatwallet-lang';
+
+        function setLanguage(lang) {
+            console.log(`Setting language to: ${lang}`);
+            localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+            document.querySelectorAll('#settings-lang-selector, #backup-lang-selector').forEach(selector => {
+                selector.value = lang;
+            });
+            translateUI(lang);
+        }
+
+        function initializeLanguage() {
+            const savedLang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+            setLanguage(savedLang);
+        }
+
+        // --- Carga Inicial ---
+        // Se llama a initializeLanguage() primero para traducir la UI lo antes posible.
+        initializeLanguage();
+
+        // Language switcher event listeners
+        document.getElementById('settings-lang-selector').addEventListener('change', (e) => {
+            setLanguage(e.target.value);
+        });
+        document.getElementById('backup-lang-selector').addEventListener('change', (e) => {
+            setLanguage(e.target.value);
+        });
+
  
         // User DID Window Logic
         const userDidTrigger = document.getElementById('userDidTrigger');
@@ -3660,6 +4040,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
         const userDidAliasInput = document.getElementById('userDidAlias');
         const usernameStatusEl = document.getElementById('usernameStatus');
         const contactNameInput = document.getElementById('contactName');
+        const reserveDidButton = document.getElementById('reserveDidButton');
         const modeToggle = document.getElementById('mode-toggle');
         const contactNameStatusEl = document.getElementById('contactNameStatus');
 
@@ -3752,6 +4133,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
             if (username.length < 3) {
                  if (username.length > 0) {
+                    reserveDidButton.classList.add('hidden');
                     usernameStatusEl.textContent = 'Debe tener al menos 3 caracteres.';
                     usernameStatusEl.classList.add('text-gray-400');
                 }
@@ -3759,6 +4141,7 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             }
              if (!/^[a-z0-9_]+$/.test(username)) {
                 usernameStatusEl.textContent = 'Solo letras minúsculas, números y _';
+                reserveDidButton.classList.add('hidden');
                 usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-red-400';
                 return;
             }
@@ -3804,9 +4187,10 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             try {
                 // const arbSepoliaRpc = "https://sepolia-rollup.arbitrum.io/rpc";
 
+                const sepoliaRPCs = ["https://sepolia-rollup.arbitrum.io/rpc"];
             console.log('currentTokenIndex?:',currentTokenIndex)
 
-                const checkProvider = new ethers.JsonRpcProvider(generalOptions.API);
+                const checkProvider = new ethers.JsonRpcProvider(sepoliaRPCs[currentRpcIndex]);
                 
 
             // const provider = new ethers.JsonRpcProvider(optionsList[0].API);
@@ -3826,10 +4210,11 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
 
                 if (ethers.getAddress(address) === ethers.ZeroAddress) {
             console.log('✅ Nombre disponible')
-
+                    reserveDidButton.classList.remove('hidden');
                     statusElement.textContent = '✅ Nombre disponible';
                     statusElement.className = 'text-xs mt-1 min-h-[1rem] text-green-400';
                 } else {
+                    reserveDidButton.classList.add('hidden');
             console.log('❌ Nombre no disponible')
 
                     statusElement.textContent = '❌ Nombre no disponible';
@@ -3842,6 +4227,48 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             }
         }
 
+        async function handleReserveDid() {
+            const username = userDidAliasInput.value.trim().toLowerCase();
+            if (!username) {
+                alert("Por favor, introduce un alias.");
+                return;
+            }
+
+            const button = document.getElementById('reserveDidButton');
+            button.disabled = true;
+            button.innerHTML = `<span>Reservando...</span>`;
+
+            try {
+                const didProvider = new ethers.JsonRpcProvider(sepoliaRPCs[currentRpcIndex]);
+                const didSigner = currentWallet.connect(didProvider);
+                const contract = new ethers.Contract(generalOptions.CHATWALLET_DID_ADDRESS, CHATWALLET_DID_ABI, didSigner);
+
+                // Obtener el precio de registro del contrato
+                const registrationPrice = await contract.nativePrice();
+
+                // Preparar la transacción
+                const tx = await contract.setProfile(username, "", {
+                    value: registrationPrice
+                });
+
+                usernameStatusEl.textContent = 'Esperando confirmación de la transacción...';
+                usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-yellow-400';
+
+                await tx.wait(); // Esperar a que la transacción se mine
+
+                usernameStatusEl.textContent = `¡Alias "${username}" reservado con éxito!`;
+                usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-green-400 break-words';
+                reserveDidButton.classList.add('hidden');
+
+            } catch (error) {
+                console.error("Error al reservar el DID:", error);
+                usernameStatusEl.textContent = `Error: ${error.reason || error.message}`;
+                usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-red-400 break-words';
+            } finally {
+                button.disabled = false;
+                button.innerHTML = `<span>Reservar Alias</span>`;
+            }
+        }
 
         userDidTrigger.addEventListener('click', () => {
             userDidWindow.classList.remove('hidden');
@@ -3852,6 +4279,8 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             userDidWindow.classList.add('hidden');
             userDidWindow.classList.remove('flex');
         });
+
+        reserveDidButton.addEventListener('click', handleReserveDid);
         
         userDidAvatar.addEventListener('click', () => {
             avatarUpload.click();
@@ -3895,6 +4324,8 @@ CHATWALLET_DID_ABI = [ { "inputs": [ { "internalType": "address", "name": "_toke
             historyModal.classList.add('hidden');
             historyModal.classList.remove('flex');
         });
+
+        init();
      </script>
 
 <script type="module" >

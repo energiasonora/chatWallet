@@ -49,6 +49,8 @@
             --c6: #396aab;
             --c7: #00A86B; /* Multisig for Group Chats */
             --c8: #34495e; /* New color for Offline Mode (Wet Asphalt) */
+            --c9: #a7a19a;
+
             --pico-font-size: 100%;
 
             /* --- New variables from Mint Page --- */
@@ -325,10 +327,16 @@
         .col__content--1 {
             background: var(--c1);
         }
+ .col__content--9 {
+            background: var(--c9);
+        }
 
         @media all and (max-width: 768px) {
             .col__content--1 {
                 background: var(--c1b);
+            }
+             .col__content--9 {
+                background: var(--c9);
             }
         }
 
@@ -1360,42 +1368,30 @@
                     <img src="img/ninjaCatLogoV4White.png" class="logocw" alt="ChatWallet icon">
 
                     <h2 class="hero__tagline">
-                        <span lang="en">Private Chat. Digital sovereignity.</span>
-                        <span lang="es">Chat Privado. Soberania digital.</span>
-                        <span lang="fr">Chat Privé. Souverainite numerique.</span>
+                        <span lang="en">Private Chat. self-custodial wallet.</span>
+                        <span lang="es">Chat Privado. Billetera de autocustodia.</span>
+                        <span lang="fr">Chat Privé. Portefeuille en auto-garde.</span>
                     </h2>
-                    <p class="intro__txt">
-                        <span lang="en">The open-source, peer-to-peer crypto wallet with a built-in open chat protocol. No KYC, no limits.</span>
-                        <span lang="es">La billetera cripto de código abierto y peer-to-peer con protocolo abierto de mensajería integrado.
-                            Sin KYC, sin límites.</span>
-                        <span lang="fr">Le portefeuille crypto open-source et peer-to-peer avec open source chat intégrée.
-                            Sans KYC, sin limites.</span>
-                    </p>
+                    <h3 style="font-family: 'Inter', sans-serif; font-size: clamp(1rem, 3vw, 1.5rem); color: #c0c0c0; margin-top: 1rem; font-weight: 500;">
+                        <span lang="en">Digital Sovereignty</span>
+                        <span lang="es">Soberanía Digital</span>
+                        <span lang="fr">Souveraineté Numérique</span>
+                    </h3>
+                   
+         
 
-                    <!-- Countdown Timer -->
-                    <div id="countdown-container">
-                        <h3 class="countdown-title">
-                            <span lang="en">First Tokens Available In:</span>
-                            <span lang="es">Primeros Tokens Disponibles En:</span>
-                            <span lang="fr">Premiers Jetons Disponibles Dans:</span>
-                        </h3>
-                        <div id="countdown-timer">
-                            <div><span id="days">00</span><span class="label" lang="en">Days</span><span class="label" lang="es">Días</span><span class="label" lang="fr">Jours</span></div>
-                            <div><span id="hours">00</span><span class="label" lang="en">Hours</span><span class="label" lang="es">Horas</span><span class="label" lang="fr">Heures</span></div>
-                            <div><span id="minutes">00</span><span class="label" lang="en">Minutes</span><span class="label" lang="es">Minutos</span><span class="label" lang="fr">Minutes</span></div>
-                            <div><span id="seconds">00</span><span class="label" lang="en">Seconds</span><span class="label" lang="es">Segundos</span><span class="label" lang="fr">Secondes</span></div>
-                        </div>
-                    </div>
 
                     <div class="hero__cta-group">
                         <div class="headerpresale">
-                            <a href="https://chatwallet.org/presale" class="btn btn--primary">
-                                <span lang="en">Get Tokens</span>
-                                <span lang="es">Comprar Tokens</span>
-                                <span lang="fr">Obtenir des Jetons</span>
+                            <a href="/dapp" class="btn btn--primary">
+                                <span lang="en">Try it!</span>
+                                <span lang="es">Abrir DApp</span>
+                                <span lang="fr">Ouvrir DApp</span>
                             </a>
                         </div>
                     </div>
+
+
                 </div>
 
                 <img class="intro__img intro__img--1" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
@@ -1416,13 +1412,61 @@
                                     lang="fr">Souverain</span></span>
                         </h2>
                         <div class="col__content-wrap">
-                            <p class="col__content-txt">
+                            <!-- <p class="col__content-txt">
                                 <span lang="en">A hot wallet for day-to-day transactions. A gentle claw at the system — you're the one in control.
                                 </span>
                                 <span lang="es">Para el dia a dia. Libre y ágil. Un zarpazo suave al sistema, vos
                                     mandás.</span>
                                 <span lang="fr">Portefeuille chaud pour les transactions quotidiennes. Une attaque douce mais subversive contre le système — tu reprends le contrôle.</span>
+                            </p> -->
+
+
+                                <p class="col__content-txt">
+                                <span lang="en">Funded by the community</span>
+                                <span lang="es">Financiado por la comunidad</span>
+                                <span lang="fr">Financé par la communauté</span>
                             </p>
+
+  <div class="headerpresale" style="margin-top: 2rem;">
+                                <a href="/presale" class="btn btn--primary">
+                                     <span lang="en">Get Tokens</span>
+                                <span lang="es">Comprar Tokens</span>
+                                <span lang="fr">Obtenir des Jetons</span>
+                                </a>
+                            </div>
+
+<!-- 
+                                       <p class="intro__txt">
+                        <span lang="en">Funded by the community.</span>
+                        <span lang="es">Fundado por la comunidad.</span>
+                        <span lang="fr">Financé par la communauté.</span>
+                    </p> -->
+
+                    <!-- Countdown Timer -->
+                    <!-- <div id="countdown-container">
+                        <h3 class="countdown-title">
+                            <span lang="en">First Tokens Available In:</span>
+                            <span lang="es">Primeros Tokens Disponibles En:</span>
+                            <span lang="fr">Premiers Jetons Disponibles Dans:</span>
+                        </h3>
+                        <div id="countdown-timer">
+                            <div><span id="days">00</span><span class="label" lang="en">Days</span><span class="label" lang="es">Días</span><span class="label" lang="fr">Jours</span></div>
+                            <div><span id="hours">00</span><span class="label" lang="en">Hours</span><span class="label" lang="es">Horas</span><span class="label" lang="fr">Heures</span></div>
+                            <div><span id="minutes">00</span><span class="label" lang="en">Minutes</span><span class="label" lang="es">Minutos</span><span class="label" lang="fr">Minutes</span></div>
+                            <div><span id="seconds">00</span><span class="label" lang="en">Seconds</span><span class="label" lang="es">Segundos</span><span class="label" lang="fr">Secondes</span></div>
+                        </div>
+                    </div> -->
+
+                    
+                            <!-- <div class="headerpresale" style="margin-top: 2rem;">
+                                <a href="/presale" class="btn btn--primary">
+                                     <span lang="en">Get Tokens</span>
+                                <span lang="es">Comprar Tokens</span>
+                                <span lang="fr">Obtenir des Jetons</span>
+                                </a>
+                            </div> -->
+
+
                         </div>
                     </div>
                 </div>
@@ -1461,8 +1505,11 @@
                 </div>
 
                 <div class="col col--2">
-                    <div class="col__image-wrap"><img class="img img--1" src="chatninja.png"
-                            alt="Illustration of people chatting directly" loading="lazy" /></div>
+                    <div class="col__image-wrap">
+                        <video class="img img--1" autoplay loop muted playsinline>
+                            <source src="./vid/animacionchatcifrado.mp4" type="video/mp4">
+                        </video>
+                    </div>
                 </div>
             </section>
 
@@ -1489,7 +1536,7 @@
                 </div>
             </section>
 
-            <section class="slide slide--4" id="slide-4">
+            <!-- <section class="slide slide--4" id="slide-4">
                 <div class="col col--1">
                     <div class="col__content col__content--multisig">
                         <h2 class="col__content-title">
@@ -1501,7 +1548,6 @@
                             <p class="col__content-txt">
                                 <span lang="en">Group chats come with multisig capabilities out of the box. Simplify fund management with your own secure and easy-to-use treasury.</span>
                                 <span lang="es">Chats grupales con multisig listo para usar.<br> Simplifica la gestión de fondos con una tesorería segura y fácil de usar.</span>
-                                <!-- <span lang="es">Los chats grupales incluyen capacidades multisig listas para usar. Simplifica la gestión de fondos con una tesorería segura, fácil de usar y que es tuya.</span> -->
                                 <span lang="fr">
                                     Les chats de groupe ont le multisig intégré. Gérez vos fonds facilement avec une trésorerie sécurisée qui vous appartient.
                                 </span>
@@ -1513,7 +1559,7 @@
                     <div class="col__image-wrap"><img class="img img--1" src="chatfriends.webp"
                             alt="Abstract image representing financial privacy" loading="lazy" /></div>
                 </div>
-            </section>
+            </section> -->
 
 
                  <section class="slide slide--5" id="slide-5">
@@ -1570,7 +1616,7 @@
 
             <section class="slide slide--7" id="slide-7">
                 <div class="col col--1">
-                    <div class="col__content col__content--1">
+                    <div class="col__content col__content--9">
                         <h2 class="col__content-title">
                             <span class="line__inner"><span lang="en">Open</span><span lang="es">Código</span><span
                                     lang="fr">Open</span></span><br />
@@ -1647,24 +1693,21 @@
                     <div class="content-pane">
                         <div class="content-inner">
                             <h1 class="major-mono-display-mint">
-                                <span lang="en">Coming Soon!</span>
-                                <span lang="es">¡Próximamente!</span>
-                                <span lang="fr">Bientôt Disponible !</span>
+                                <span lang="en">Chapter 1 Pre-Launch</span>
+                                <span lang="es">Pre-Lanzamiento Capítulo 1</span>
+                                <span lang="fr">Pré-lancement Chapitre 1</span>
                             </h1>
                             <p class="subtitle-mint">
-                                <span lang="en">Our exciting new book "Crypto for Beginners" will be available soon.
-                                    Stay tuned for updates!</span>
-                                <span lang="es">Nuestro emocionante nuevo libro "Cripto para Principiantes" estará
-                                    disponible pronto. ¡Mantente atento a las actualizaciones!</span>
-                                <span lang="fr">Notre nouveau livre passionnant "Crypto pour Débutants" sera bientôt
-                                    disponible. Restez à l'écoute pour les mises à jour !</span>
+                                <span lang="en">Mint the NFT for "Crypto for Beginners: Chapter 1" and get exclusive access.</span>
+                                <span lang="es">Mintea el NFT de "Cripto para Principiantes: Capítulo 1" y obtén acceso exclusivo.</span>
+                                <span lang="fr">Minez le NFT de "Crypto pour Débutants : Chapitre 1" et obtenez un accès exclusif.</span>
                             </p>
 
-                            <button id="mint-button" disabled>
-                                <span lang="en">COMING SOON</span>
-                                <span lang="es">PRÓXIMAMENTE</span>
-                                <span lang="fr">Bientôt Disponible</span>
-                            </button>
+                            <a href="book.html" id="mint-button" role="button" style="text-decoration: none;">
+                                <span lang="en">Mint Chapter 1</span>
+                                <span lang="es">Mintear Capítulo 1</span>
+                                <span lang="fr">Miner le Chapitre 1</span>
+                            </a>
 
                         </div>
                     </div>
@@ -1676,9 +1719,9 @@
                     <div class="footer-new__brand">
                         <h3 class="footer-new__logo">CHATWALLET</h3>
                         <p>
-                            <span lang="en">Private Chat. Sovereign Payments.</span>
-                            <span lang="es">Chat Privado. Pagos Soberanos.</span>
-                            <span lang="fr">Chat Privé. Paiements Souverains.</span>
+                            <span lang="en">Private Chat. self-custodial wallet. Digital sovereignty.</span>
+                            <span lang="es">Chat Privado. Billetera de autocustodia. Soberanía digital.</span>
+                            <span lang="fr">Chat Privé. Portefeuille en auto-garde. Souveraineté numérique.</span>
                         </p>
                     </div>
                     <div class="footer-new__links">
@@ -1724,22 +1767,12 @@
                                 </span>
                             </li>
                             <li>
-                                <a href="#slide-10">
-                                    <span lang="en">Mint Book: Crypto for Beginners</span>
-                                    <span lang="es">Mintear Libro: Crypto para Principiantes</span>
-                                    <span lang="fr">Miner Livre: Crypto para Débutants</span>
+                                <a href="book.html">
+                                    <span lang="en">Mint Book: Chapter 1</span>
+                                    <span lang="es">Mintear Libro: Capítulo 1</span>
+                                    <span lang="fr">Miner Livre : Chapitre 1</span>
                                 </a>
                             </li>
-                        </ul>
-                    </div>
-                    <div class="footer-new__links">
-                        <h4>
-                            <span lang="en">Community</span>
-                            <span lang="es">Comunidad</span>
-                            <span lang="fr">Communauté</span>
-                        </h4>
-                        <ul>
-                            <li><a href="https://github.com/energiasonora/chatWallet">Github</a></li>
                         </ul>
                     </div>
                     <div class="footer-new__links">
@@ -1750,6 +1783,7 @@
                         </h4>
                         <ul>
                             <li><a href="https://energiasonora.xyz" target="_blank" rel="noopener noreferrer">Energia Sonora</a></li>
+                            <li><a href="https://github.com/energiasonora/chatWallet">Github</a></li>
                         </ul>
                     </div>
                     <div class="footer-new__presale">
@@ -1834,7 +1868,7 @@
 
                 if (distance < 0) {
                     clearInterval(timer);
-                    document.getElementById("countdown-container").innerHTML = `<h3 class="countdown-title"><span lang="en">The First Tokens Are Now Available!</span><span lang="es">¡Los Primeros Tokens Ya Están Disponibles!</span><span lang="fr">Les Premiers Jetons Sont Maintenant Disponibles !</span></h3>`;
+                    document.getElementById("countdown-container").innerHTML = `<h3 class="countdown-title"><span lang="en">Funded by the community.</span><span lang="es">Fundado por la comunidad de usuarios</span><span lang="fr">Les Premiers Jetons Sont Maintenant Disponibles !</span></h3>`;
                 }
             }, 1000);
 

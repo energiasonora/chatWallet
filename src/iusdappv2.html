@@ -57,190 +57,6 @@
   		<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
 		<![endif]-->
     <script>document.documentElement.className = 'js';</script>
-    <!-- Process Modal Styles -->
-    <style>
-        /* Process Modal Styles */
-        #processModalBackdrop {
-            position: fixed;
-            inset: 0;
-            background-color: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-            z-index: 5000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #processModal {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        #processModalSteps li {
-            display: flex;
-            align-items: center;
-            padding: 10px 0;
-            font-weight: 500;
-            color: #4a5568;
-            transition: all 0.3s ease;
-        }
-
-        #processModalSteps li span {
-            width: 24px;
-            height: 24px;
-            margin-right: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Estado: Pendiente (Spinner) */
-        #processModalSteps li.status-pending span {
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .icon-pending {
-            border: 3px solid #e2e8f0;
-            border-top-color: #6c63ff;
-            border-radius: 50%;
-        }
-
-        .icon-success {
-            color: #48bb78;
-            font-weight: bold;
-        }
-
-        .icon-error {
-            color: #f56565;
-            font-weight: bold;
-        }
-
-        #processModalSteps li.status-success {
-            color: #2d3748;
-        }
-
-        #processModalSteps li.status-error {
-            color: #e53e3e;
-        }
-
-        /* Success Animation */
-        .checkmark-circle {
-            stroke-dasharray: 264;
-            stroke-dashoffset: 264;
-            animation: draw-circle 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
-        }
-
-        .checkmark-check {
-            stroke-dasharray: 48;
-            stroke-dashoffset: 48;
-            stroke-linecap: round;
-            animation: draw-check 0.5s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards;
-            transform-origin: 50% 50%;
-        }
-
-        @keyframes draw-circle {
-            to {
-                stroke-dashoffset: 0;
-            }
-        }
-
-        @keyframes draw-check {
-            to {
-                stroke-dashoffset: 0;
-            }
-        }
-
-        /* Dapp Info Modal */
-        #dappInfoModalBackdrop {
-            position: fixed;
-            inset: 0;
-            background-color: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-            z-index: 5000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #dappInfoModal {
-            background: white;
-            border-radius: 12px;
-            padding: 32px;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Dark mode styles */
-        .dark-mode #processModal,
-        .dark-mode #dappInfoModal {
-            background: #2d3748;
-            color: white;
-        }
-
-        .dark-mode #processModalSteps li {
-            color: #a0aec0;
-        }
-
-        .dark-mode #processModalSteps li.status-success {
-            color: #e2e8f0;
-        }
-
-        /* Status Bar Enhanced */
-        #statusBar {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 16px;
-            border-radius: 8px;
-            color: white;
-            transition: all 0.3s ease-in-out;
-            z-index: 4000;
-            max-width: 400px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        #statusBar.status-success {
-            background: #48bb78;
-        }
-
-        #statusBar.status-error {
-            background: #f56565;
-        }
-
-        #statusBar.status-info {
-            background: #6c63ff;
-        }
-
-        /* Hide by default */
-        #statusBar {
-            opacity: 0;
-            transform: translateY(100px);
-            pointer-events: none;
-        }
-
-        #statusBar.show {
-            opacity: 1;
-            transform: translateY(0);
-            pointer-events: auto;
-        }
-    </style>
 </head>
 
 <body class="demo-1">
@@ -261,64 +77,6 @@
 
     <div id="headerNotes"></div>
 
-    <!-- === INICIO: MODAL DE PROCESO (Minteo y Compra) === -->
-    <div id="processModalBackdrop">
-        <div id="processModal">
-            <!-- Título dinámico -->
-            <h3 id="modalTitle" class="text-xl font-bold mb-4">Procesando...</h3>
-            <p class="text-gray-600 mb-4">Please wait. This process may take a moment. Do not close this window.</p>
-
-            <!-- Contenedor de la animación de éxito -->
-            <div id="processSuccessAnimation" style="display: none;" class="text-center mb-4">
-                <svg viewBox="0 0 84 84" width="100" height="100" class="mx-auto">
-                    <circle class="checkmark-circle" cx="42" cy="42" r="40" stroke="#48bb78" stroke-width="4"
-                        fill="none" stroke-dasharray="264" stroke-dashoffset="264" />
-                    <polyline class="checkmark-check" points="28,42 38,52 56,34" stroke="#48bb78" stroke-width="5"
-                        stroke-dasharray="48" stroke-dashoffset="48" stroke-linecap="round" />
-                </svg>
-            </div>
-
-            <!-- Pasos dinámicos -->
-            <ul id="processModalSteps" class="list-none space-y-3">
-                <!-- Los pasos se generarán dinámicamente con JS -->
-            </ul>
-
-            <!-- Botón de cierre (oculto por defecto) -->
-            <button id="closeProcessModalBtn" class="btn btn-primary w-full mt-4" style="display: none;">Close</button>
-        </div>
-    </div>
-    <!-- === FIN: MODAL DE PROCESO === -->
-
-    <!-- === INICIO: MODAL DE INFORMACIÓN DEL DAPP === -->
-    <div id="dappInfoModalBackdrop">
-        <div id="dappInfoModal">
-            <h3 class="text-2xl font-bold mb-6">App Info</h3>
-
-            <div class="flex justify-between py-3 border-b border-gray-200">
-                <span class="font-semibold text-gray-600">Developer:</span>
-                <span class="text-gray-800">ChatWallet Team</span>
-            </div>
-
-            <div class="flex justify-between py-3 border-b border-gray-200">
-                <span class="font-semibold text-gray-600">Version:</span>
-                <span class="text-gray-800">2.0.0</span>
-            </div>
-
-            <div class="flex justify-between py-3 border-b border-gray-200">
-                <span class="font-semibold text-gray-600">Chain:</span>
-                <span class="text-gray-800">Multi-chain Support</span>
-            </div>
-
-            <div class="flex justify-between py-3 border-b border-gray-200">
-                <span class="font-semibold text-gray-600">Website:</span>
-                <span class="text-blue-500 hover:text-blue-700"><a href="#" target="_blank"
-                        class="text-blue-500 hover:text-blue-700">chatwallet.app</a></span>
-            </div>
-
-            <button id="closeDappInfoBtn" class="btn btn-primary w-full mt-6">Close</button>
-        </div>
-    </div>
-    <!-- === FIN: MODAL DE INFORMACIÓN DEL DAPP === -->
     <!-- /*********************************************************************************************
   .) OVERLAY
   **********************************************************************************************/ -->
@@ -2417,6 +2175,9 @@
 
 
 
+
+
+
         // You would replace this ABI with the one fetched from Etherscan or another source
         const permitToken = [
             {
@@ -3591,6 +3352,7 @@ Wallet encrypted and saved into localstorage
 
 
 
+
         async function updateBadge() {
             // // console.log('updateBadge()')
             var ulElement = document.getElementById('cwContacts');
@@ -3637,6 +3399,8 @@ Wallet encrypted and saved into localstorage
         }
 
 
+
+
         async function getChatAddresses() {
             console.log('GETCHATADDRESSES')
             allConversations = await chatwalletxmtp.conversations.list()
@@ -3668,6 +3432,9 @@ Wallet encrypted and saved into localstorage
         }
 
 
+
+
+
         async function createGroupChat() {
             // console.log('createGroupChat()')
             Swal.fire({
@@ -3677,6 +3444,8 @@ Wallet encrypted and saved into localstorage
                 footer: '<a href="#">Why do I have this issue?</a>'
             });
         }
+
+
 
         // Initialize an empty list to store processed addresses
         let processedAddresses = [];
@@ -3717,6 +3486,13 @@ Wallet encrypted and saved into localstorage
                 return conversation;
             }
         }
+
+
+
+
+
+
+
 
 
         // ------------------------
@@ -4199,9 +3975,12 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
         }
 
 
+
+
         /*********************************************************************************************
         .) CONTACTS MANAGEMENT
         **********************************************************************************************/
+
 
         async function addUnknownContact(addr, msg) {
             console.warn('👤 addUnknownContact()', addr, msg)
@@ -4351,6 +4130,7 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
             }
 
         }
+
 
         // --------------------------------
         async function loadContactsFromLocalstorage() {
@@ -4569,6 +4349,10 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
         }
         // fin loadContacts
 
+
+
+
+
         async function saveContacts() {
             // console.log('saveContacts()')
 
@@ -4757,6 +4541,9 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
 
         }
 
+
+
+
         function setToAddress() {
             var toaddr = document.getElementById("toAddr").value;
 
@@ -4778,6 +4565,8 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
 
 
         }
+
+
 
         function customcopy2clipboard(text) {
             // console.log('customcopy2clipboard()', text)
@@ -4822,9 +4611,12 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
 
         }
 
+
         async function addUser() {
             // console.log('ADDING NEW USER ADDRESS')
         }
+
+
 
         // EDIT CONTACT LOCALNAME
         // el.address
@@ -4944,6 +4736,8 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
 
         }
 
+
+
         async function encryptContacts(contacts) {
             // console.log('encryptContacts(): ', contacts)
             // Save the encrypted contacts to DID 
@@ -4981,6 +4775,7 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
             }
         }
 
+
         async function decryptContacts() {
 
             let signer = await getSigner();
@@ -5001,6 +4796,8 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
 
         }
 
+
+
         function RemoveContactFromLocalStorage(address) {
             // console.log('RemoveContactFromLocalStorage()');
 
@@ -5018,6 +4815,9 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
             Toast.fire({ icon: 'warning', title: 'Contact removed successfully!', text: '' });
             loadContacts()
         }
+
+
+
 
         function addToAgenda() {
             // console.log('addToAgenda()')
@@ -5060,6 +4860,7 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
 
             SaveContactsToLocalStorage(contact)
         }
+
 
 
         async function buildAllMiniAvatars(DIDsArray) {
@@ -5134,6 +4935,7 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
         }
 
 
+
         async function chatHistory(addr) {
 
             let conversation = await chatwalletxmtp.conversations.newConversation(addr)
@@ -5143,6 +4945,9 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
                 // console.log(message.content);
             }
         }
+
+
+
 
         function simplifyDate(dateString) {
             // Create a new Date object
@@ -5205,6 +5010,9 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
         //     img.src = base64Image;
         //   });
         // }
+
+
+
 
 
         async function openCard(toAddr, avtr) {
@@ -5304,6 +5112,10 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
             }
         }
 
+
+
+
+
         var cwContacts = document.getElementById('cwContacts');
 
         cwContacts.addEventListener('contextmenu', function (e) {
@@ -5315,6 +5127,9 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
                 // console.log('Right-clicked on li element');
             }
         });
+
+
+
 
         async function initChatClient(wallet) {
             console.warn(`
@@ -5358,6 +5173,9 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
         function truncate(text, maxLength = 200) {
             return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
         }
+
+
+
 
         // Mantener un registro de los mensajes procesados para evitar duplicados
         const processedMessages = new Set();
@@ -8404,14 +8222,14 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
 
             }
 
-            // document.getElementById('refreshButton').addEventListener('click', () => {
-            //     const button = document.getElementById('refreshButton');
-            //     button.classList.add('loading');
-            //     setTimeout(() => button.classList.remove('loading'), 1000);
-            //     console.warn('Refreshing balances...');
-            //     // Call your reloadBalances() function here
+            document.getElementById('refreshButton').addEventListener('click', () => {
+                const button = document.getElementById('refreshButton');
+                button.classList.add('loading');
+                setTimeout(() => button.classList.remove('loading'), 1000);
+                console.warn('Refreshing balances...');
+                // Call your reloadBalances() function here
 
-            // });
+            });
 
             return
 
@@ -8644,7 +8462,7 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
 
                 // Handle provider (if not provided)
                 if (!provider) {
-                    console.warn('💚💛 (provider not passed) CREATING PROVIDER FOR CHAIN ID at checkCustomERC20Balance:', chainId);
+                    console.warn('💚💛 (provider not passed) CREATING PROVIDER FOR CHAIN ID:', chainId);
                     const rpcs = await getRPCsByChainId(Number(chainId));
                     if (!rpcs || rpcs.length === 0) {
                         throw new Error('No RPCs found for the given chainId');
@@ -8676,8 +8494,6 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
                 c1 = contract;
                 const balance = await contract.balanceOf(userAddress);
                 bal1 = balance;
-                console.warn('💚💛 balance (bal1) at checkCustomERC20Balance:', balance);
-
                 // console.log(`Balance of ${userAddress}:`, ethers.formatUnits(balance, 18));
 
             } catch (error) {
@@ -8716,7 +8532,7 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
                 // -----------------
                 // GET PROVIDER
                 // -----------------
-                console.warn('CREATING PROVIDER FOR CHAIN ID at checkERC20Balance:', chainId)
+                console.warn('CREATING PROVIDER FOR CHAIN ID:', chainId)
                 const rpcs = await getRPCsByChainId(Number(chainId));
                 const selProv = await simpleRandomProvider(rpcs);
                 providerForContract = await new ethers.JsonRpcProvider(selProv);
@@ -9972,6 +9788,11 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
         }
 
 
+
+
+
+
+
         // claim stealth address funds to self wallet
         // claimStealthAddrFunds()
         // async function claimBob(destAddress){
@@ -10113,6 +9934,7 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
 
 
         }
+
 
 
         // Function triggered by the initial button click
@@ -12257,6 +12079,9 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
             });
         }
 
+
+
+
         // Function to handle fetching and displaying transactions
         async function handleTransactionHistory(address) {
             // Check if data is already in localStorage
@@ -12277,6 +12102,7 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
                 }
             }
         }
+
 
 
         // ----------------------------------------------
@@ -12352,6 +12178,8 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
         }
 
 
+
+
         // ---------------------------------------------
         //   OFFLINE ONLINE MODES
         // Function to check and update online/offline status
@@ -12381,6 +12209,7 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
         }
 
 
+
         // 	document.addEventListener('visibilitychange', () => {
         //   if (document.visibilityState === 'visible') {
         //     alert('The web app is visible to the user.');
@@ -12391,7 +12220,7 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
 
 
         // NOTIFICATIONS FOR FUNDING
-        // function notify() {
+        function notify() {
             // create the notification
             var notification = new NotificationFx({
                 message: `<span class="icon icon-megaphone">
@@ -12404,371 +12233,10 @@ onclick="event.stopPropagation(); deleteChat('${toAddr.toString()}')">
                     bttn.disabled = false;
                 }
             });
-            // === INICIO: MODAL Y NOTIFICACIÓN SYSTEM ===
-
-            // Sleep utility function
-            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-            // Cache DOM elements for modals
-            let modalDom = {};
-
-            // Initialize modal system
-            function initModalSystem() {
-                modalDom.processModalBackdrop = document.getElementById('processModalBackdrop');
-                modalDom.processModal = document.getElementById('processModal');
-                modalDom.modalTitle = document.getElementById('modalTitle');
-                modalDom.processModalSteps = document.getElementById('processModalSteps');
-                modalDom.processSuccessAnimation = document.getElementById('processSuccessAnimation');
-                modalDom.closeProcessModalBtn = document.getElementById('closeProcessModalBtn');
-
-                modalDom.dappInfoModalBackdrop = document.getElementById('dappInfoModalBackdrop');
-                modalDom.closeDappInfoBtn = document.getElementById('closeDappInfoBtn');
-
-                // Setup event listeners
-                setupModalEventListeners();
-            }
-
-            // Setup event listeners for modals
-            function setupModalEventListeners() {
-                // Close process modal
-                if (modalDom.closeProcessModalBtn) {
-                    modalDom.closeProcessModalBtn.addEventListener('click', hideProcessModal);
-                }
-
-                // Close dapp info modal
-                if (modalDom.closeDappInfoBtn) {
-                    modalDom.closeDappInfoBtn.addEventListener('click', hideDappInfoModal);
-                }
-
-                // Close dapp info modal on backdrop click
-                if (modalDom.dappInfoModalBackdrop) {
-                    modalDom.dappInfoModalBackdrop.addEventListener('click', (e) => {
-                        if (e.target === modalDom.dappInfoModalBackdrop) {
-                            hideDappInfoModal();
-                        }
-                    });
-                }
-            }
-
-            // === PROCESO MODAL FUNCTIONS ===
-
-            /**
-             * Muestra el modal de proceso con pasos dinámicos
-             */
-            function showProcessModal(title, steps = []) {
-                if (!modalDom.processModalBackdrop) return;
-
-                modalDom.modalTitle.textContent = title;
-
-                // Generar pasos dinámicamente
-                const stepsHtml = steps.map((step, index) => `
-                <li id="process-step-${index}" class="flex items-center p-3 border-b border-gray-100">
-                    <span class="w-6 h-6 mr-3 rounded-full bg-gray-200 flex items-center justify-center">
-                        <span class="w-3 h-3 rounded-full bg-gray-400"></span>
-                    </span>
-                    <span class="text-gray-700">${step}</span>
-                </li>
-            `).join('');
-
-                modalDom.processModalSteps.innerHTML = stepsHtml;
-                modalDom.processSuccessAnimation.style.display = 'none';
-                modalDom.closeProcessModalBtn.style.display = 'none';
-                modalDom.processModalBackdrop.style.display = 'flex';
-            }
-
-            /**
-             * Actualiza el estado de un paso en el modal
-             */
-            function updateProcessStep(stepIndex, status, message = '') {
-                const stepElement = document.getElementById(`process-step-${stepIndex}`);
-                if (!stepElement) return;
-
-                const span = stepElement.querySelector('span');
-                const text = stepElement.querySelector('span:last-child');
-
-                // Limpiar clases anteriores
-                stepElement.className = 'flex items-center p-3 border-b border-gray-100';
-                span.className = 'w-6 h-6 mr-3 rounded-full flex items-center justify-center';
-
-                if (status === 'pending') {
-                    stepElement.classList.add('text-blue-600');
-                    span.classList.add('bg-blue-100');
-                    span.innerHTML = '<div class="w-3 h-3 rounded-full bg-blue-500 animate-spin"></div>';
-                } else if (status === 'success') {
-                    stepElement.classList.add('text-green-600');
-                    span.classList.add('bg-green-100');
-                    span.innerHTML = '<span class="text-green-600">✓</span>';
-                } else if (status === 'error') {
-                    stepElement.classList.add('text-red-600');
-                    span.classList.add('bg-red-100');
-                    span.innerHTML = '<span class="text-red-600">✗</span>';
-                }
-
-                if (message) {
-                    text.textContent = message;
-                }
-            }
-
-            /**
-             * Muestra el modal de éxito
-             */
-            function showProcessSuccess(title = 'Success!') {
-                if (!modalDom.processModalBackdrop) return;
-
-                modalDom.modalTitle.textContent = title;
-                modalDom.processModalSteps.style.display = 'none';
-                modalDom.processSuccessAnimation.style.display = 'block';
-                modalDom.closeProcessModalBtn.textContent = 'Close';
-                modalDom.closeProcessModalBtn.style.display = 'block';
-
-                // Animar el checkmark
-                const circle = modalDom.processSuccessAnimation.querySelector('.checkmark-circle');
-                const check = modalDom.processSuccessAnimation.querySelector('.checkmark-check');
-
-                if (circle) circle.style.animation = 'draw-circle 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards';
-                if (check) check.style.animation = 'draw-check 0.5s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards';
-            }
-
-            /**
-             * Oculta el modal de proceso
-             */
-            function hideProcessModal() {
-                if (!modalDom.processModalBackdrop) return;
-
-                modalDom.processModalBackdrop.style.display = 'none';
-                modalDom.processModalSteps.style.display = 'block';
-                modalDom.processSuccessAnimation.style.display = 'none';
-                modalDom.closeProcessModalBtn.style.display = 'none';
-            }
-
-            // === DAPP INFO MODAL FUNCTIONS ===
-
-            function showDappInfoModal() {
-                if (modalDom.dappInfoModalBackdrop) {
-                    modalDom.dappInfoModalBackdrop.style.display = 'flex';
-                }
-            }
-
-            function hideDappInfoModal() {
-                if (modalDom.dappInfoModalBackdrop) {
-                    modalDom.dappInfoModalBackdrop.style.display = 'none';
-                }
-            }
-
-            // === ENHANCED NOTIFICATION SYSTEM ===
-
-            let notificationTimeout = null;
-
-            /**
-             * Muestra una notificación mejorada con más opciones
-             */
-            function showEnhancedNotification(message, type = 'info', duration = 4000, options = {}) {
-                console.log(`[Enhanced Notification: ${type}]`, message);
-
-                // Crear elemento de notificación si no existe
-                let statusBar = document.getElementById('statusBar');
-                if (!statusBar) {
-                    statusBar = document.createElement('div');
-                    statusBar.id = 'statusBar';
-                    document.body.appendChild(statusBar);
-                }
-
-                // Limpiar clases anteriores
-                statusBar.className = 'fixed bottom-6 right-6 p-4 rounded-lg text-white shadow-lg transition-all duration-300 z-50 max-w-sm';
-
-                // Agregar clase según el tipo
-                statusBar.classList.add(`status-${type}`);
-
-                // Contenido de la notificación
-                statusBar.innerHTML = `
-                <div class="flex items-start space-x-3">
-                    <div class="flex-shrink-0">
-                        ${getNotificationIcon(type)}
-                    </div>
-                    <div class="flex-1">
-                        <p class="font-medium">${message}</p>
-                        ${options.actionText ? `<button onclick="${options.actionFunction || 'void(0)'}" class="mt-2 text-sm underline hover:no-underline">${options.actionText}</button>` : ''}
-                    </div>
-                    <button onclick="hideEnhancedNotification()" class="flex-shrink-0 ml-2 text-white hover:text-gray-200">
-                        <span class="sr-only">Close</span>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-            `;
-
-                // Mostrar notificación
-                statusBar.classList.add('show');
-
-                // Auto-ocultar
-                if (notificationTimeout) {
-                    clearTimeout(notificationTimeout);
-                    // === TESTING FUNCTIONS ===
-
-                    /**
-                     * Test the modal and notification system
-                     */
-                    function testModalSystem() {
-                        console.log('Testing modal and notification system...');
-
-                        // Test 1: Show success notification
-                        showEnhancedNotification('System initialized successfully!', 'success');
-
-                        // Test 2: Show info notification after 2 seconds
-                        setTimeout(() => {
-                            showEnhancedNotification('Testing process modal...', 'info');
-                        }, 2000);
-
-                        // Test 3: Show process modal after 3 seconds
-                        setTimeout(() => {
-                            showMintProcess();
-                        }, 3000);
-                    }
-
-                    /**
-                     * Test notification types
-                     */
-                    function testNotifications() {
-                        showEnhancedNotification('This is a success message!', 'success', 3000);
-                        setTimeout(() => {
-                            showEnhancedNotification('This is an error message!', 'error', 3000);
-                        }, 1000);
-                        setTimeout(() => {
-                            showEnhancedNotification('This is a warning message!', 'warning', 3000);
-                        }, 2000);
-                        setTimeout(() => {
-                            showEnhancedNotification('This is an info message!', 'info', 3000);
-                        }, 3000);
-                    }
-
-                    /**
-                     * Test transfer process modal
-                     */
-                    function testTransferProcess() {
-                        showTransferProcess('0x1234567890abcdef1234567890abcdef12345678', '100.50');
-                    }
-
-                    // Make test functions globally available for console testing
-                    window.testModalSystem = testModalSystem;
-                    window.testNotifications = testNotifications;
-                    window.testTransferProcess = testTransferProcess;
-                    window.showMintProcess = showMintProcess;
-                    window.showTransferProcess = showTransferProcess;
-                    window.showEnhancedNotification = showEnhancedNotification;
-                    window.showDappInfoModal = showDappInfoModal;
-
-                    // Auto-run a basic test after initialization (comment out if not wanted)
-                    // document.addEventListener('DOMContentLoaded', function() {
-                    //     setTimeout(() => {
-                    //         console.log('🎉 Modal system ready! Run testModalSystem() to test.');
-                    //         showEnhancedNotification('Modal system loaded! Type testModalSystem() in console to test.', 'info', 5000);
-                    //     }, 2000);
-                    // });
-
-                    // === END TESTING FUNCTIONS ===
-                }
-
-                notificationTimeout = setTimeout(() => {
-                    hideEnhancedNotification();
-                }, duration);
-            }
-
-            /**
-             * Obtiene el icono apropiado para el tipo de notificación
-             */
-            function getNotificationIcon(type) {
-                const icons = {
-                    success: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
-                    error: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
-                    warning: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>',
-                    info: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
-                };
-                return icons[type] || icons.info;
-            }
-
-            /**
-             * Oculta la notificación mejorada
-             */
-            function hideEnhancedNotification() {
-                const statusBar = document.getElementById('statusBar');
-                if (statusBar) {
-                    statusBar.classList.remove('show');
-                    setTimeout(() => {
-                        statusBar.className = 'hidden';
-                    }, 300);
-                }
-
-                if (notificationTimeout) {
-                    clearTimeout(notificationTimeout);
-                    notificationTimeout = null;
-                }
-            }
-
-            // === PROCESO MODAL TEMPLATES ===
-
-            /**
-             * Template para operaciones de minting
-             */
-            async function showMintProcess() {
-                const steps = [
-                    'Preparing transaction...',
-                    'Connecting to wallet...',
-                    'Estimating gas fees...',
-                    'Sending transaction...',
-                    'Waiting for confirmation...',
-                    'Minting complete!'
-                ];
-
-                showProcessModal('Minting Token...', steps);
-
-                for (let i = 0; i < steps.length; i++) {
-                    updateProcessStep(i, 'pending');
-                    await sleep(1000 + Math.random() * 2000); // Simular tiempo de espera
-                    updateProcessStep(i, 'success', `${steps[i]} (completed)`);
-                }
-
-                await sleep(500);
-                showProcessSuccess('Token minted successfully!');
-            }
-
-            /**
-             * Template para operaciones de transferencia
-             */
-            async function showTransferProcess(recipient, amount) {
-                const steps = [
-                    `Validating recipient: ${recipient.substring(0, 8)}...`,
-                    'Checking balance...',
-                    'Estimating transaction cost...',
-                    'Preparing transaction...',
-                    'Sending to network...',
-                    'Transaction confirmed!'
-                ];
-
-                showProcessModal(`Transferring ${amount}...`, steps);
-
-                for (let i = 0; i < steps.length; i++) {
-                    updateProcessStep(i, 'pending');
-                    await sleep(800 + Math.random() * 1500);
-                    updateProcessStep(i, 'success', `${steps[i]} (completed)`);
-                }
-
-                await sleep(500);
-                showProcessSuccess('Transfer completed!');
-            }
-
-            // === INICIALIZACIÓN ===
-
-            // Inicializar el sistema de modales cuando el DOM esté listo
-            document.addEventListener('DOMContentLoaded', function () {
-                setTimeout(initModalSystem, 100); // Pequeño delay para asegurar que todos los elementos están disponibles
-            });
-
-            // === FIN: MODAL Y NOTIFICACIÓN SYSTEM ===
 
             // show the notification
             notification.show();
-        // }
+        }
     </script>
 
     <!-- <script type="module" src="js/demo1.js"></script> -->

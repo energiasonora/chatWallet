@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto para Principiantes - Capítulo 1</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <script src="js/ethers-6.13.2.umd.min.js"></script>
+    <script src="js/qr-code-styling.js"></script>
+
+    <style>
+        /* --- General Styling --- */
+        :root {
+            --primary-blue: #0077c2;
+            --background-color: #ffffff;
+            --text-dark: #212529;
+            --text-light: #495057;
+            --white: #ffffff;
+            --border-color: #dee2e6;
+            --success-green: #28a745;
+            --info-bg: #f8f9fa;
+            --modal-backdrop: rgba(0, 0, 0, 0.6);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-dark);
+            margin: 0;
+            box-sizing: border-box;
+        }
+        
+        /* --- Layout Structure --- */
+        .page-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .image-pane {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+            box-sizing: border-box;
+        }
+        
+        .content-pane {
+            width: 100%;
+            text-align: center;
+            padding: 0 20px 40px 20px;
+            box-sizing: border-box;
+        }
+
+        .content-inner {
+            max-width: 450px;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 992px) {
+            .page-wrapper {
+                flex-direction: row;
+                min-height: 100vh;
+            }
+            .image-pane {
+                width: 50%;
+                height: 100vh;
+                position: sticky;
+                top: 0;
+                padding: 40px;
+            }
+            .content-pane {
+                width: 50%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                padding: 40px;
+            }
+        }
+
+        .artwork-container {
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+        }
+
+        .artwork-container img,
+        .artwork-container video {
+            width: 100%;
+            height: auto;
+            border-radius: 16px;
+            object-fit: cover;
+        }
+
+        #animated-video { display: none; }
+        
+        @media (min-width: 992px) {
+            .artwork-container {
+                max-width: none;
+                width: 100%;
+                height: 100%;
+            }
+            .artwork-container img,
+            .artwork-container video {
+                object-fit: cover; 
+                width: 100%;
+                height: 100%;
+            }
+        }
+
+        h1.major-mono-display {
+            font-family: 'Major Mono Display', monospace;
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-light);
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+        
+        .price-info {
+            background-color: var(--info-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 0 auto 30px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px 15px;
+        }
+        
+        .price-info span {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        
+        .price-info .separator {
+            color: var(--border-color);
+            display: inline-block;
+        }
+
+        #mint-button {
+            font-weight: 500;
+            font-size: 1rem;
+            background-color: var(--primary-blue);
+            color: var(--white);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #mint-button:hover:not(:disabled) {
+            background-color: #005f9a;
+            transform: translateY(-3px);
+        }
+
+        #mint-button:disabled {
+            background-color: #a9a9a9;
+            cursor: not-allowed;
+        }
+        
+        #result-section {
+            display: none;
+            margin-top: 30px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 30px;
+        }
+
+        #result-section h2 {
+            font-size: 1.8rem;
+            color: var(--success-green);
+            margin-bottom: 20px;
+        }
+
+        .download-button {
+            display: inline-block;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 1rem;
+            background-color: var(--success-green);
+            color: var(--white);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+            margin-bottom: 30px;
+        }
+        
+        .download-button:hover {
+            background-color: #218838;
+        }
+
+        .receipt {
+            background-color: var(--info-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: left;
+        }
+        
+        .receipt h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .receipt p {
+            margin: 8px 0;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .receipt p strong {
+            color: var(--text-dark);
+            white-space: nowrap;
+        }
+
+        .receipt p span {
+            font-family: monospace;
+            word-break: break-all;
+            margin-left: 15px;
+            text-align: right;
+            color: var(--primary-blue);
+        }
+
+        #status-value {
+            font-weight: bold;
+            color: var(--success-green);
+        }
+
+        /* QR Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--modal-backdrop);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: var(--white);
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 90%;
+            width: 400px;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.visible .modal-content {
+            transform: scale(1);
+        }
+        #qr-code-container {
+            margin: 20px auto;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        #payment-status {
+            margin-top: 15px;
+            font-weight: 500;
+            color: var(--text-light);
+        }
+
+        @media (max-width: 991px) {
+            h1.major-mono-display { font-size: 1.8rem; }
+            .subtitle { font-size: 1rem; }
+        }
+        
+        @media (max-width: 420px) {
+            .price-info .separator { display: none; }
+            .price-info { gap: 5px 10px; }
+            .price-info span { font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="page-wrapper">
+        <div class="image-pane">
+            <div class="artwork-container">
+                <img id="static-image" src="./img/LIBROES.jpg" alt="Portada del libro 'Crypto para Principiantes'">
+                <video id="animated-video" muted playsinline>
+                    <source src="./vid/animatedChatWallet.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+
+        <div class="content-pane">
+            <div class="content-inner">
+                <h1 class="major-mono-display">Crypto para Principiantes</h1>
+                <p class="subtitle">Obtén acceso exclusivo al Capítulo 1 minteando el NFT de acceso. Una guía para iniciar tu viaje en cripto.</p>
+
+                <div class="price-info">
+                    <span id="price-eth">0.005 ETH</span>
+                    <span class="separator">|</span>
+                    <span id="price-usd">~15 USD</span>
+                </div>
+
+                <button id="mint-button">Comprar con Crypto</button>
+
+                <div id="result-section">
+                    <h2>¡Acceso Concedido!</h2>
+                    <a href="#" id="download-link" class="download-button" download="Crypto-para-Principiantes-Cap1.pdf">Descargar Capítulo 1</a>
+                    <div class="receipt">
+                        <h3>Recibo de Transacción</h3>
+                        <p><strong>Status:</strong> <span id="status-value"></span></p>
+                        <p><strong>Tx Hash:</strong> <span id="tx-hash"></span></p>
+                        <p><strong>Block:</strong> <span id="block-number"></span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div id="qr-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Escanear para Pagar</h2>
+            <p>Usa tu wallet móvil para escanear el código y completar la compra.</p>
+            <div id="qr-code-container"></div>
+            <p id="payment-status">Esperando el pago en la blockchain...</p>
+            <button id="close-modal-btn">Cancelar</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN ---
+        const PAYMENT_ADDRESS = "0x9d51a3e880fcb01e5b71658fb8f3cef8d32900eb"; // Reemplazar con tu dirección
+        const CHAIN_ID = 421614; // Arbitrum Sepolia
+        const PRICE_IN_ETH = "0.005";
+        const CHAPTER_FILE_URL = "./assets/chapter1.pdf"; // Reemplazar con la URL real del archivo
+
+        // --- DOM Elements ---
+        const mintButton = document.getElementById('mint-button');
+        const staticImage = document.getElementById('static-image');
+        const animatedVideo = document.getElementById('animated-video');
+        const resultSection = document.getElementById('result-section');
+        const downloadLink = document.getElementById('download-link');
+        const txHashSpan = document.getElementById('tx-hash');
+        const blockNumberSpan = document.getElementById('block-number');
+        const statusSpan = document.getElementById('status-value');
+        const qrModal = document.getElementById('qr-modal');
+        const qrCodeContainer = document.getElementById('qr-code-container');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const paymentStatus = document.getElementById('payment-status');
+
+        // --- Funciones ---
+        function launchConfetti() {
+            const duration = 2 * 1000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
+
+            function randomInRange(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+
+            const interval = setInterval(function() {
+                const timeLeft = animationEnd - Date.now();
+                if (timeLeft <= 0) return clearInterval(interval);
+                const particleCount = 50 * (timeLeft / duration);
+                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+            }, 250);
+        }
+        
+        function showQrModal() {
+            const amountInWei = ethers.parseEther(PRICE_IN_ETH).toString();
+            const paymentUri = `ethereum:${PAYMENT_ADDRESS}@${CHAIN_ID}?value=${amountInWei}`;
+            
+            qrCodeContainer.innerHTML = ''; // Limpiar QR anterior
+            const qrCode = new QRCodeStyling({
+                width: 250,
+                height: 250,
+                data: paymentUri,
+                dotsOptions: { color: "#0077c2", type: "rounded" },
+                backgroundOptions: { color: "#ffffff" },
+                cornersSquareOptions: { type: "extra-rounded", color: "#005f9a" },
+            });
+            qrCode.append(qrCodeContainer);
+            
+            qrModal.classList.add('visible');
+        }
+
+        function hideQrModal() {
+            qrModal.classList.remove('visible');
+        }
+
+        function simulatePayment() {
+            paymentStatus.textContent = "Detectando pago en la blockchain...";
+            
+            // Simulación de espera de la transacción
+            setTimeout(() => {
+                hideQrModal();
+                mintButton.textContent = 'Pago Confirmado!';
+                
+                // Simular éxito final
+                setTimeout(showSuccess, 1500);
+            }, 4000);
+        }
+
+        function showSuccess() {
+            staticImage.style.display = 'none';
+            animatedVideo.style.display = 'block';
+            animatedVideo.play();
+            
+            launchConfetti();
+            
+            const fakeTxHash = '0x' + [...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+            const fakeBlock = Math.floor(Math.random() * 100000) + 18500000;
+            
+            statusSpan.textContent = 'Success';
+            txHashSpan.innerHTML = `<a href="https://sepolia.arbiscan.io/tx/${fakeTxHash}" target="_blank">${fakeTxHash.substring(0, 10)}...</a>`;
+            blockNumberSpan.textContent = `#${fakeBlock}`;
+            downloadLink.href = CHAPTER_FILE_URL;
+            
+            resultSection.style.display = 'block';
+            mintButton.textContent = 'Minteado Exitosamente';
+        }
+
+        // --- Event Listeners ---
+        mintButton.addEventListener('click', () => {
+            mintButton.disabled = true;
+            mintButton.textContent = 'Preparando QR...';
+            
+            showQrModal();
+            simulatePayment();
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            hideQrModal();
+            mintButton.disabled = false;
+            mintButton.textContent = 'Comprar con Crypto';
+        });
+        
+        // Cierra el modal si se hace clic fuera del contenido
+        qrModal.addEventListener('click', (e) => {
+            if (e.target === qrModal) {
+                closeModalBtn.click();
+            }
+        });
+
+    </script>
+</body>
+</html>

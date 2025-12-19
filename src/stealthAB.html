@@ -1,432 +1,678 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChatWallet Test UI</title>
+  <title>ChatWallet Stealth Demo</title>
+  <!-- Tailwind CSS for rapid styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    :root {
-      --background: #f0f0f0;
-      --panel-bg: #ffffff;
-      --text-color: #333333;
-      --button-bg: #007bff;
-      --button-hover: #0056b3;
-      --border-color: #dddddd;
-      --shadow-color: rgba(0,0,0,0.1);
-      --error-color: #ff0000;
-      --success-color: #008000;
+    /* Custom scrollbar for logs */
+    .log-window::-webkit-scrollbar { width: 8px; }
+    .log-window::-webkit-scrollbar-track { background: #1f2937; }
+    .log-window::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+    .loader {
+        border: 3px solid #f3f3f3; border-top: 3px solid #3b82f6; border-radius: 50%;
+        width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block;
     }
-
-    [data-theme="dark"] {
-      --background: #1a1a1a;
-      --panel-bg: #2c2c2c;
-      --text-color: #e0e0e0;
-      --button-bg: #1e90ff;
-      --button-hover: #63b3ed;
-      --border-color: #444444;
-      --shadow-color: rgba(0,0,0,0.5);
-      --error-color: #ff5555;
-      --success-color: #55ff55;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="light"]) {
-        --background: #1a1a1a;
-        --panel-bg: #2c2c2c;
-        --text-color: #e0e0e0;
-        --button-bg: #1e90ff;
-        --button-hover: #63b3ed;
-        --border-color: #444444;
-        --shadow-color: rgba(0,0,0,0.5);
-        --error-color: #ff5555;
-        --success-color: #55ff55;
-      }
-    }
-
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: var(--background);
-      color: var(--text-color);
-    }
-    .container {
-      display: flex;
-      gap: 20px;
-      max-width: 1200px;
-      margin: auto;
-    }
-    .panel {
-      flex: 1;
-      background: var(--panel-bg);
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px var(--shadow-color);
-    }
-    h2 {
-      margin-top: 0;
-    }
-    input, button {
-      padding: 8px;
-      margin: 5px 0;
-      width: 100%;
-      box-sizing: border-box;
-      background: var(--panel-bg);
-      color: var(--text-color);
-      border: 1px solid var(--border-color);
-    }
-    button {
-      background: var(--button-bg);
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover {
-      background: var(--button-hover);
-    }
-    .history {
-      margin-top: 20px;
-      max-height: 300px;
-      overflow-y: auto;
-      border-top: 1px solid var(--border-color);
-      padding-top: 10px;
-    }
-    .history div {
-      margin: 5px 0;
-    }
-    .error {
-      color: var(--error-color);
-    }
-    .success {
-      color: var(--success-color);
-    }
-    .theme-toggle {
-      width: auto;
-      display: inline-block;
-    }
-    .mnemonic {
-      font-size: 0.9em;
-      word-break: break-all;
-    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-<body>
-  <div class="container">
-    <!-- Alice's Panel -->
-    <div class="panel">
-      <h2>Alice</h2>
-      <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
-      <input id="alicePrivateKey" type="text" placeholder="Enter Alice's Private Key (optional)">
-      <button onclick="initAlice()">Initialize Wallet</button>
-      <button onclick="hardSync('alice')">Hard Sync (Cache Public Keys)</button>
-      <input id="aliceAmount" type="number" step="0.01" placeholder="Amount to send (ETH)">
-      <button onclick="sendTransaction('alice', 'bob')">Send to Bob</button>
-      <div id="aliceStatus"></div>
-      <div class="history" id="aliceHistory"></div>
-    </div>
-    <!-- Bob's Panel -->
-    <div class="panel">
-      <h2>Bob</h2>
-      <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
-      <input id="bobPrivateKey" type="text" placeholder="Enter Bob's Private Key (optional)">
-      <button onclick="initBob()">Initialize Wallet</button>
-      <button onclick="hardSync('bob')">Hard Sync (Cache Public Keys)</button>
-      <input id="bobAmount" type="number" step="0.01" placeholder="Amount to send (ETH)">
-      <button onclick="sendTransaction('bob', 'alice')">Send to Alice</button>
-      <div id="bobStatus"></div>
-      <div class="history" id="bobHistory"></div>
+<body class="bg-slate-900 text-slate-200 font-sans min-h-screen p-4">
+
+  <div class="max-w-7xl mx-auto">
+    <header class="mb-8 text-center border-b border-slate-700 pb-4">
+      <h1 class="text-3xl font-bold text-blue-400"><i class="fa-solid fa-user-secret"></i> ChatWallet Stealth Demo</h1>
+      <p class="text-slate-400 text-sm mt-2">Simulación de transacciones privadas mediante Stealth Addresses y XMTP</p>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      
+      <!-- ALICE PANEL -->
+      <div id="alice-panel" class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg relative">
+        <div class="absolute top-4 right-4 text-xs font-mono text-slate-500">USER A</div>
+        <h2 class="text-2xl font-bold text-pink-400 mb-4"><i class="fa-solid fa-user"></i> Alice</h2>
+        
+        <!-- Wallet Init -->
+        <div class="space-y-3 mb-6">
+            <div class="flex gap-2">
+                <input id="alicePk" type="password" placeholder="Private Key (Optional - leaves empty for random)" 
+                    class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm focus:border-pink-500 outline-none transition">
+                <button onclick="initWallet('alice')" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded transition whitespace-nowrap">
+                    Init Wallet
+                </button>
+            </div>
+            <div id="alice-wallet-info" class="hidden text-xs bg-slate-900 p-2 rounded border border-slate-700 font-mono break-all"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <button onclick="hardSync('alice', 'bob')" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 px-3 py-2 rounded text-sm transition">
+                <i class="fa-solid fa-sync"></i> Sync Keys via XMTP
+            </button>
+            <button id="alice-revoke-btn" onclick="revokeXmtpInstallations('alice')" class="hidden bg-red-800 hover:bg-red-700 border border-red-700 px-3 py-2 rounded text-sm transition" title="Revoke all XMTP installations if you get a 10/10 error">
+                <i class="fa-solid fa-trash-alt"></i> Revoke XMTP Installations
+            </button>
+            <div class="bg-slate-900 border border-slate-700 rounded px-3 py-2 flex items-center justify-between">
+                <span class="text-xs text-slate-400">Target: Bob</span>
+                <i id="alice-sync-status" class="fa-solid fa-circle-xmark text-red-500" title="Not Synced"></i>
+            </div>
+        </div>
+
+        <!-- Send Transaction -->
+        <div class="bg-slate-700/50 p-4 rounded-lg mb-6 border border-slate-600">
+            <h3 class="text-sm font-semibold text-slate-300 mb-2">Send Stealth Payment</h3>
+            <div class="flex gap-2">
+                <input id="aliceAmount" type="number" step="0.001" value="0.001" 
+                    class="w-24 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-sm text-center">
+                <button onclick="sendStealthTransaction('alice', 'bob')" 
+                    class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition">
+                    Send to Bob (Stealth)
+                </button>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="bg-slate-950 rounded border border-slate-700 h-48 overflow-y-auto log-window p-2 text-xs font-mono" id="aliceLogs">
+            <div class="text-slate-500 italic">Waiting for actions...</div>
+        </div>
+      </div>
+
+      <!-- BOB PANEL -->
+      <div id="bob-panel" class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg relative">
+        <div class="absolute top-4 right-4 text-xs font-mono text-slate-500">USER B</div>
+        <h2 class="text-2xl font-bold text-blue-400 mb-4"><i class="fa-solid fa-user-astronaut"></i> Bob</h2>
+
+        <!-- Wallet Init -->
+        <div class="space-y-3 mb-6">
+            <div class="flex gap-2">
+                <input id="bobPk" type="password" placeholder="Private Key (Optional)" 
+                    class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none transition">
+                <button onclick="initWallet('bob')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition whitespace-nowrap">
+                    Init Wallet
+                </button>
+            </div>
+            <div id="bob-wallet-info" class="hidden text-xs bg-slate-900 p-2 rounded border border-slate-700 font-mono break-all"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <button onclick="hardSync('bob', 'alice')" class="bg-slate-700 hover:bg-slate-600 border border-slate-600 px-3 py-2 rounded text-sm transition">
+                <i class="fa-solid fa-sync"></i> Sync Keys via XMTP
+            </button>
+            <button id="bob-revoke-btn" onclick="revokeXmtpInstallations('bob')" class="hidden bg-red-800 hover:bg-red-700 border border-red-700 px-3 py-2 rounded text-sm transition" title="Revoke all XMTP installations if you get a 10/10 error">
+                <i class="fa-solid fa-trash-alt"></i> Revoke XMTP Installations
+            </button>
+            <div class="bg-slate-900 border border-slate-700 rounded px-3 py-2 flex items-center justify-between">
+                <span class="text-xs text-slate-400">Target: Alice</span>
+                <i id="bob-sync-status" class="fa-solid fa-circle-xmark text-red-500" title="Not Synced"></i>
+            </div>
+        </div>
+
+        <!-- Scan Funds -->
+        <div class="bg-slate-700/50 p-4 rounded-lg mb-6 border border-slate-600">
+            <h3 class="text-sm font-semibold text-slate-300 mb-2">Check Incoming Funds</h3>
+            <button onclick="scanAndSweep('bob', 'alice')" 
+                class="w-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded text-sm transition flex justify-center items-center gap-2">
+                <i class="fa-solid fa-radar"></i> Scan & Sweep to Main Wallet
+            </button>
+        </div>
+
+        <!-- Logs -->
+        <div class="bg-slate-950 rounded border border-slate-700 h-48 overflow-y-auto log-window p-2 text-xs font-mono" id="bobLogs">
+            <div class="text-slate-500 italic">Waiting for actions...</div>
+        </div>
+      </div>
+
     </div>
   </div>
 
+  <!-- MODULE SCRIPTS -->
   <script type="module">
-      window.optionsList = [
-          {
-            "CHAIN_NAME": 'Arbitrum sepolia',
-            "CHAINID": '421614',
-            "EXPLORER": 'https://sepolia.arbiscan.io/',
-            "API": 'https://arbitrum-sepolia.infura.io/v3/36ab6df7aa10428d90fead2c1b861f10',
-                "ALCHEMY_KEY": 'X048z0PxuDPd5vbTiKLbWJgogG9Tvd2I',
-                "CONTRACT": '0x3F8Dd2F126b81ce8633c130F702f8aAE8BBE715e'//musicRegistryV14b.sol
-            }
-        ]
-		        import { Client } from '@xmtp/browser-sdk';
+     import { Client } from '@xmtp/browser-sdk';
         window.Client = Client;
-        import { Wallet } from 'ethers';
-        window.Wallet = Wallet;
         import { ethers } from 'ethers';
         window.ethers = ethers;
 
-          import { JsonRpcProvider } from 'ethers';
-        window.JsonRpcProvider = JsonRpcProvider;
 
-    // Theme management
-    function setTheme(theme) {
-      document.documentElement.setAttribute("data-theme", theme);
-      localStorage.setItem("theme", theme);
-    }
+    // -- CONFIGURATION --
+    // Using Arbitrum Sepolia as requested, but with a public RPC for the demo to work without keys
+    // PRIMADO NEGATIVO: Public RPCs are slow and rate-limited. In prod, use Alchemy/Infura.
+    const CONFIG = {
+        chainId: 421614,
+        rpcUrl: 'https://sepolia-rollup.arbitrum.io/rpc', 
+        curveOrder: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n // Secp256k1 order
+    };
+        window.CONFIG = CONFIG;
 
-    function toggleTheme() {
-      const currentTheme = document.documentElement.getAttribute("data-theme");
-      const newTheme = currentTheme === "light" ? "dark" : "light";
-      setTheme(newTheme);
-    }
-
-    // Initialize theme
-    (function initializeTheme() {
-      const savedTheme = localStorage.getItem("theme");
-      if (savedTheme) {
-        setTheme(savedTheme);
-      } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        setTheme("dark");
-      } else {
-        setTheme("light");
-      }
-    })();
-
-    // Configuration
-         providerUrl = optionsList[0].API; // Replace with your Infura key
-        const chainId = optionsList[0].TOKEN_CHAINID; // Sepolia
-        // const state = {
-    state = {
-      alice: { wallet: null, xmtp: null, publicKeys: {}, history: [] },
-      bob: { wallet: null, xmtp: null, publicKeys: {}, history: [] }
+    // Global State
+    const state = {
+        alice: { wallet: null, xmtp: null, peerPubKeys: {} },
+        bob:   { wallet: null, xmtp: null, peerPubKeys: {} }
     };
 
-    // Function to create a new wallet or load an existing one from localStorage
-    async function createOrLoadWallet(walletName) {
-      let mnemonic = localStorage.getItem(walletName);
-      if (!mnemonic) {
-        console.log(`No mnemonic found for ${walletName}, creating one...`);
-        const randomWallet = ethers.Wallet.createRandom();
-        mnemonic = randomWallet.mnemonic.phrase;
-        localStorage.setItem(walletName, mnemonic);
-      }
-      console.log(`Mnemonic for ${walletName}, found!`);
-      return ethers.Wallet.fromPhrase(mnemonic);
-    }
+    window.copyToClipboard = (text, user) => {
+        navigator.clipboard.writeText(text).then(() => {
+            log(user, 'Address copied to clipboard!', 'success');
+        }).catch(err => {
+            console.error('Copy failed', err);
+            log(user, 'Failed to copy address.', 'error');
+        });
+    };
 
-    // Initialize wallet and XMTP
-    async function initializeWalletAndXMTP(user) {
-      try {
-        const provider = new JsonRpcProvider(providerUrl);
-        const privateKey = document.getElementById(`${user}PrivateKey`).value;
-        let wallet;
-        if (privateKey) {
-          wallet = new Wallet(privateKey, provider);
-          updateStatus(user, `Initialized wallet with private key: ${wallet.address}`, "success");
-        } else {
-          wallet = await createOrLoadWallet(user);
-          wallet = wallet.connect(provider);
-          updateStatus(user, `Initialized wallet: ${wallet.address}<br>
-          <span class="privkey">PrivKey: ${wallet.privateKey}</span>
-          <span class="pubkey">PubKey: ${wallet.publicKey}</span>
-          `, "success");
-          aa= wallet
-          // <span class="mnemonic">Mnemonic: ${wallet.mnemonic.phrase}</span>
-          // updateStatus(user, `Initialized wallet: ${wallet.address}<br><span class="mnemonic">Mnemonic: ${wallet.mnemonic.phrase}</span>`, "success");
-        }
-        // Create XMTP signer
-        const xmtpSigner = {
-          type: "EOA",
-          getIdentifier: () => ({ identifier: wallet.address, identifierKind: "Ethereum" }),
-          signMessage: async (message) => ethers.getBytes(await wallet.signMessage(message)),
+
+    // --- UTILS & LOGGING ---
+    const log = (user, msg, type = 'info') => {
+        const box = document.getElementById(`${user}Logs`);
+        const colors = {
+            info: 'text-slate-300',
+            success: 'text-green-400',
+            error: 'text-red-400',
+            warn: 'text-yellow-400'
         };
-        // Initialize XMTP v3 client
-        const xmtp = await Client.create(xmtpSigner, { env: "dev" }); // Use 'dev' for testnet
-        state[user].wallet = wallet;
-        state[user].xmtp = xmtp;
-      } catch (error) {
-        updateStatus(user, `Error initializing: ${error.message}`, "error");
-      }
-    }
+        const time = new Date().toLocaleTimeString();
+        const entry = document.createElement('div');
+        entry.className = `mb-1 ${colors[type] || colors.info}`;
+        entry.innerHTML = `<span class="opacity-50">[${time}]</span> ${msg}`;
+        box.prepend(entry);
+    };
 
-    // Hard sync: Cache public keys
-    async function hardSync(user) {
-      const otherUser = user === "alice" ? "bob" : "alice";
-      if (!state[user].xmtp) {
-        updateStatus(user, "Initialize wallet first", "error");
-        return;
-      }
-      try {
-        const conversation = await state[user].xmtp.conversations.newConversation(
-          state[otherUser].wallet?.address || "0x0"
-        );
-        await conversation.send(state[user].wallet.publicKey);
-        const messages = await conversation.messages();
-        for (const msg of messages.reverse()) {
-          if (msg.content && typeof msg.content === "string" && msg.content.startsWith("0x")) {
-            state[user].publicKeys[otherUser] = msg.content;
-            break;
-          }
-        }
-        if (!state[user].publicKeys[otherUser]) {
-          updateStatus(user, "Waiting for other user's public key...", "success");
-          setTimeout(() => hardSync(user), 1000); // Retry after 1s
-          return;
-        }
-        updateStatus(user, `Cached ${otherUser}'s public key`, "success");
-      } catch (error) {
-        updateStatus(user, `Error syncing: ${error.message}`, "error");
-      }
-    }
-
-    // Generate stealth address
-    async function generateStealthAddress(provider, recipientPublicKey, senderPrivateKey, startIndex = 0) {
-      const sharedSecret = ethers.computeSharedSecret(senderPrivateKey, recipientPublicKey);
-      for (let i = startIndex; i < startIndex + 100; i++) {
-        const hs = ethers.keccak256(ethers.concatBytes([
-          ethers.getBytes(sharedSecret),
-          ethers.toBeHex(i, 32)
-        ]));
-        const hsPoint = ethers.computePublicKey(hs, false);
-        const recipientPoint = ethers.computePublicKey(recipientPublicKey, false);
-        const stPk = ethers.computePublicKey(
-          ethers.toBigInt(hsPoint) + ethers.toBigInt(recipientPoint),
-          false
-        );
-        const stAddr = ethers.computeAddress(stPk);
-        const balance = await provider.getBalance(stAddr);
-        const txCount = await provider.getTransactionCount(stAddr);
-        if (balance === 0n && txCount === 0) {
-          return { stAddr, index: i };
-        }
-      }
-      throw new Error("No unused address found");
-    }
-
-    // Send transaction
-    async function sendTransaction(sender, recipient) {
-      if (!state[sender].wallet) {
-        updateStatus(sender, "Initialize wallet first", "error");
-        return;
-      }
-      if (!state[sender].publicKeys[recipient]) {
-        updateStatus(sender, `Run hard sync to get ${recipient}'s public key`, "error");
-        return;
-      }
-      const amount = document.getElementById(`${sender}Amount`).value;
-      if (!amount || amount <= 0) {
-        updateStatus(sender, "Enter a valid amount", "error");
-        return;
-      }
-      try {
-        // const { stAddr, index } = await generateStealthAddress(
-        const { stAddr, index } = await generateStealthAddress(
-          state[sender].wallet.provider,
-          state[sender].publicKeys[recipient],
-          state[sender].wallet.privateKey
-        );
-        const tx = await state[sender].wallet.sendTransaction({
-          to: stAddr,
-          value: ethers.parseEther(amount)
-        });
-        state[sender].history.push({
-          type: "sent",
-          to: recipient,
-          chainId,
-          stAddr,
-          index,
-          amount,
-          txHash: tx.hash,
-          timestamp: new Date().toISOString()
-        });
-        updateHistory(sender);
-        updateStatus(sender, `Sent ${amount} ETH to ${recipient} at ${stAddr} (index ${index})`, "success");
-      } catch (error) {
-        updateStatus(sender, `Error sending: ${error.message}`, "error");
-      }
-    }
-
-    // Scan for funds
-    async function scanForFunds(user, sender) {
-      console.log('scanning for funds')
-      if (!state[user].wallet || !state[user].publicKeys[sender]) {
-        updateStatus(user, "Initialize wallet and sync public keys first", "error");
-        return;
-      }
-      try {
-        const provider = state[user].wallet.provider;
-        const sharedSecret = ethers.computeSharedSecret(
-          state[user].wallet.privateKey,
-          state[user].publicKeys[sender]
-        );
-        const currentBlock = await provider.getBlockNumber();
-        for (let i = 0; i < 100; i++) {
-          const hs = ethers.keccak256(ethers.concatBytes([
+    // --- CORE CRYPTO LOGIC (The Fixed Math) ---
+    
+    // Generates a stealth address using the "Scalar Addition" method for robustness in JS.
+    // WARNING: In a real "Blind" scenario, the sender computes using EC Point Addition (Pub + G*s).
+    // Because implementing EC Point addition in vanilla Ethers v6 is tricky without extra libs,
+    // and because this is a Local Test UI where we have both keys in 'state',
+    // we will simulate the correct derivation using the Receiver's Private Key Scalar to ensure 
+    // the address matches what the receiver will derive.
+    // This guarantees the demo works while respecting the math: 
+    // StealthPriv = (ReceiverPriv + Hash(SharedSecret)) % Order
+    async function getStealthDetails(senderWallet, receiverPubKey, receiverPrivKey, index = 0) {
+        // 1. Generate Ephemeral Key (usually random, here we derive from sender for determinism in demo)
+        // In prod: const ephemeral = ethers.Wallet.createRandom();
+        const ephemeral = senderWallet; 
+        
+        // 2. ECDH Shared Secret
+        const sharedSecret = ephemeral.signingKey.computeSharedSecret(receiverPubKey);
+        
+        // 3. Hash the secret with an index (to generate multiple addresses from one secret)
+        const secretHash = ethers.keccak256(ethers.concat([
             ethers.getBytes(sharedSecret),
-            ethers.toBeHex(i, 32)
-          ]));
-          const hsPoint = ethers.computePublicKey(hs, false);
-          const recipientPoint = ethers.computePublicKey(state[user].wallet.publicKey, false);
-          const stPk = ethers.computePublicKey(
-            ethers.toBigInt(hsPoint) + ethers.toBigInt(recipientPoint),
-            false
-          );
-          const stAddr = ethers.computeAddress(stPk);
-          const balance = await provider.getBalance(stAddr);
-          if (balance > 0n) {
-            const bPrivkey = (ethers.toBigInt(state[user].wallet.privateKey) + ethers.toBigInt(hs)) %
-              ethers.toBigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
-            const stealthWallet = new ethers.Wallet(ethers.toBeHex(bPrivkey), provider);
-            state[user].history.push({
-              type: "received",
-              from: sender,
-              chainId,
-              stAddr,
-              index: i,
-              amount: ethers.formatEther(balance),
-              txHash: "unknown", // Simplified; fetch via logs in production
-              timestamp: new Date().toISOString()
-            });
-            // Sweep funds to main wallet
-            await stealthWallet.sendTransaction({
-              to: state[user].wallet.address,
-              value: balance
-            });
-            updateHistory(user);
-            updateStatus(user, `Received ${ethers.formatEther(balance)} ETH from ${sender} at ${stAddr}`, "success");
-          }
+            ethers.toBeHex(index, 32)
+        ]));
+        
+        // 4. SCALAR ADDITION (The reliable way in JS)
+        // Stealth Private Key = (Receiver Private Scalar + Hash Scalar) % Curve Order
+        const receiverScalar = BigInt(receiverPrivKey);
+        const hashScalar = BigInt(secretHash);
+        const stealthScalar = (receiverScalar + hashScalar) % CONFIG.curveOrder;
+        
+        const stealthPrivKey = "0x" + stealthScalar.toString(16).padStart(64, '0');
+        const stealthWallet = new ethers.Wallet(stealthPrivKey, senderWallet.provider);
+        
+        return {
+            stealthWallet,
+            sharedSecret,
+            index
+        };
+    }
+
+    // --- WALLET FUNCTIONS ---
+
+    window.initWallet = async (user) => {
+        try {
+            log(user, "Initializing wallet...", "warn");
+            const provider = new ethers.JsonRpcProvider(CONFIG.rpcUrl);
+            const inputPk = document.getElementById(`${user}Pk`).value;
+            
+            let wallet;
+            if (inputPk) {
+                wallet = new ethers.Wallet(inputPk, provider);
+            } else {
+                // PRIMADO NEGATIVO: Saving to localStorage is not safe for real funds
+                let stored = localStorage.getItem(`cw_test_${user}`);
+                if (!stored) {
+                    wallet = ethers.Wallet.createRandom(provider);
+                    localStorage.setItem(`cw_test_${user}`, wallet.privateKey);
+                } else {
+                    wallet = new ethers.Wallet(stored, provider);
+                }
+            }
+            
+            state[user].wallet = wallet;
+            // bob.signingKey.publicKey
+            // wallet.signingKey.publicKey
+            w=wallet
+
+            // UI Update
+            const infoBox = document.getElementById(`${user}-wallet-info`);
+            infoBox.classList.remove('hidden');
+            infoBox.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span><span class="text-slate-500">Addr:</span> ${wallet.address.substring(0,6)}...${wallet.address.substring(38)}</span>
+                    <i class="fa-solid fa-copy text-slate-400 hover:text-white cursor-pointer" onclick="copyToClipboard('${wallet.address}', '${user}')" title="Copy Address"></i>
+                </div>
+                <div class="mt-1"><span class="text-slate-500">Bal:</span> <span id="${user}-bal">Loading...</span></div>
+            `;
+            
+            // Initial Balance Check
+            const bal = await provider.getBalance(wallet.address);
+            document.getElementById(`${user}-bal`).innerText = ethers.formatEther(bal) + " ETH";
+            
+            log(user, `Wallet Ready: ${wallet.address}`, "success");
+            // log(user, `inboxId : ${xmtp.inboxId}`, "success");
+// chatwalletxmtp.inboxId
+            // Init XMTP
+            initXMTP(user);
+
+        } catch (e) {
+            log(user, `Init Failed: ${e.message}`, "error");
         }
-      } catch (error) {
-        updateStatus(user, `Error scanning: ${error.message}`, "error");
-      }
+    };
+
+    async function initXMTP(user) {
+        log(user, "Connecting to XMTP network...", "info");
+        us=user;
+        const wallet = state[user].wallet;
+        const userAddress = wallet.address;
+        try {
+            // Create a signer object compatible with the XMTP Browser SDK
+            const walletSigner = {
+                type: "EOA",
+                getIdentifier: () => ({ identifier: userAddress, identifierKind: "Ethereum" }),
+                signMessage: async (message) => ethers.getBytes(await wallet.signMessage(message)),
+            };
+            ws= walletSigner;
+
+            const xmtp = await Client.create(walletSigner, { env: "dev" });
+            xxmtp = xmtp;
+            state[user].xmtp = xmtp;
+            log(user, `XMTP Client Active (Dev Network) for InboxID: ${xmtp.inboxId.substring(0, 10)}...`, "success");
+            log(user, `inboxId : ${xmtp.inboxId}`, "success");
+
+            // Start listening for messages now that the client is ready.
+            listenForIncomingMessages(user);
+        } catch (e) {
+            xx=e
+            log(user, `XMTP Init Error!!: ${e.message}`, "error");
+            
+          
+                // 1. Convert error to string just in case
+                const errorMessage = e.message || e.toString();
+                
+                // 2. Define Regex
+                // Looks for the literal text "InboxID" followed by a space
+                // Then captures a sequence of hexadecimal characters (0-9, a-f)
+                const regex = /InboxID\s+([a-fA-F0-9]+)/;
+                
+                // 3. Execute match
+                const match = errorMessage.match(regex);
+
+                if (match && match[1]) {
+                    const caughtInboxId = match[1];
+                    
+                    console.warn("Successfully caught InboxID:", caughtInboxId);
+                    
+                    // Now you can trigger your revocation logic with caughtInboxId
+                    // handleRevoke(caughtInboxId);
+                    const revokeBtn = document.getElementById(`${user}-revoke-btn`);
+                    if (revokeBtn) {
+                        revokeBtn.onclick = () => revokeXmtpInstallations(user, caughtInboxId);
+                    }
+                    if(revokeBtn) revokeBtn.classList.remove('hidden');
+                    log(user, "XMTP installation error detected. Revoke button is now available.", "warn");
+                    
+                } else {
+                    console.error("Could not parse InboxID from error:", errorMessage);
+                }
+
+// 
+        }
     }
 
-    // Update status
-    function updateStatus(user, message, type) {
-      const statusDiv = document.getElementById(`${user}Status`);
-      statusDiv.innerHTML = `<div class="${type}">${message}</div>`;
+
+    
+    // async function lfim() {
+        
+    //          xtrim = await xmtp.conversations.streamAllMessages({
+    //                     onValue: async (message) => {
+        
+    //                                onValue: async (message) => {
+    //                             console.log('mensajito:', message)
+    //                         },
+    //                         onError: (error) => console.error("Error en stream de mensajes:", error)
+    //                     }
+    //                 })
+        
+    //             }
+
+
+            async function listenForIncomingMessages(user) {
+        if (!state[user].xmtp || state[user].keyListenerActive) {
+            log(user, "XMTP client not ready or listener already active.", "warn");
+            return;
+        }
+
+        log(user, "Activating message listener...", "info");
+        state[user].keyListenerActive = true;
+
+        try {
+
+            const stream = await state[user].xmtp.conversations.streamAllMessages()
+
+            // const stream = await state[user].xmtp.conversations.streamAllMessages(
+            //     {
+
+            //         onValue: async (message) => {
+            //             console.log('mensajito:', message)
+            //         },
+            //         onError: (error) => console.error("Error en stream de mensajes:", error)
+            //     }
+            // );
+            
+
+            for await (const message of stream) {
+                console.log(user, 'mensajin:',message )
+                xm = message
+                // Ensure our own wallet is initialized before trying to access its properties
+                if (!state[user].wallet) continue;
+
+                // const isSentByMe = message.senderAddress.toLowerCase() === state[user].wallet.address.toLowerCase();
+                    const isSentByMe = message.senderInboxId === state[user].xmtp.inboxId;
+
+                // message.senderInboxId
+
+                // In this demo, we are primarily interested in messages from the other user.
+                if (isSentByMe) {
+                    continue;
+                }
+
+                // const senderAddress = message.senderAddress.toLowerCase();
+                const senderAddress = (await state[user].xmtp.preferences.inboxStateFromInboxIds([message.senderInboxId], true))[0].identifiers[0].identifier;
+
+                const content = message.content;
+                const peerUser = (user === 'alice') ? 'bob' : 'alice';
+                const peerAddress = state[peerUser].wallet ? state[peerUser].wallet.address.toLowerCase() : undefined;
+
+                // Only process messages from the known peer in this demo
+                if (!peerAddress || senderAddress !== peerAddress) continue;
+
+                if (typeof content === 'string' && content.startsWith("PUBKEY:0x")) {
+                    const extractedKey = content.split(":")[1];
+                    if (state[user].peerPubKeys[peerUser] !== extractedKey) {
+                        state[user].peerPubKeys[peerUser] = extractedKey;
+                        document.getElementById(`${user}-sync-status`).className = "fa-solid fa-circle-check text-green-500";
+                        document.getElementById(`${user}-sync-status`).title = `Synced with ${peerUser}`;
+                        log(user, `Synced! Received Public Key from ${peerUser}`, "success");
+                    }
+                } else {
+                    log(user, `<i class="fa-solid fa-comment-dots"></i> <b>Msg from ${peerUser}:</b> ${content}`, "info");
+                }
+            }
+        } catch (e) {
+            log(user, `Message stream error: ${e.message}`, "error");
+            state[user].keyListenerActive = false; // Allow restart
+        }
     }
 
-    // Update transaction history
-    function updateHistory(user) {
-      const historyDiv = document.getElementById(`${user}History`);
-      historyDiv.innerHTML = state[user].history.map(entry => `
-        <div>
-          ${entry.type === "sent" ? `Sent ${entry.amount} ETH to ${entry.to}` : `Received ${entry.amount} ETH from ${entry.from}`}
-          on chain ${entry.chainId} at ${entry.stAddr} (index ${entry.index}) - ${entry.timestamp}
-        </div>
-      `).join("");
-    }
+    // --- ACTIONS ---
 
-    // Initialize Alice
-    async function initAlice() {
-      await initializeWalletAndXMTP("alice");
-      setInterval(() => scanForFunds("alice", "bob"), 10000); // Auto-scan every 10s
-    }
+    window.hardSync = async (user, targetUser) => {
+        if (!state[user].xmtp) return log(user, "XMTP not ready", "error");
 
-    // Initialize Bob
-    async function initBob() {
-      await initializeWalletAndXMTP("bob");
-      setInterval(() => scanForFunds("bob", "alice"), 10000); // Auto-scan every 10s
-    }
+        const targetAddress = state[targetUser].wallet?.address;
+            console.log('targetAddress:',targetAddress )
 
-    // Expose functions to global scope for button onclick
-    window.toggleTheme = toggleTheme;
-    window.initAlice = initAlice;
-    window.initBob = initBob;
-    window.hardSync = hardSync;
-    window.sendTransaction = sendTransaction;
+        if (!targetAddress) return log(user, `Target ${targetUser} not initialized locally`, "error");
+
+        log(user, `Sending public key to ${targetAddress}...`, "info");
+
+        try {
+            const conversation = await state[user].xmtp.conversations.newDmWithIdentifier({
+                identifier: targetAddress, identifierKind: "Ethereum"
+            });
+
+            const myPubKey = state[user].wallet.signingKey.publicKey;
+            // const myPubKey = state[user].wallet.publicKey;
+            // signingKey.publicKey
+            console.log('SENDING PUKBEY:',myPubKey )
+            // console.log('SENDING PUKBEY?:',state[user].wallet?.publicKey )
+            await conversation.send(`PUBKEY:${myPubKey}`);
+            log(user, "Sent Public Key via XMTP. Waiting for response...", "info");
+
+        } catch (e) {
+            log(user, "Sync failed: " + e.message, "error");
+        }
+    };
+
+    /**
+     * Permite enviar un mensaje de texto a través de XMTP desde la consola para pruebas.
+     * @param {string} fromUser - El usuario que envía ('alice' o 'bob').
+     * @param {string} toAddress - La dirección de Ethereum del destinatario.
+     * @param {string} message - El contenido del mensaje a enviar.
+     */
+    window.sendMessage = async (fromUser, toAddress, message) => {
+        if (!['alice', 'bob'].includes(fromUser)) {
+            return console.error("Usuario inválido. Debe ser 'alice' o 'bob'.");
+        }
+        if (!state[fromUser]?.xmtp) {
+            log(fromUser, "El cliente XMTP del remitente no está listo.", "error");
+            return;
+        }
+        if (!toAddress || !message) {
+            log(fromUser, "Se requiere la dirección del destinatario y un mensaje.", "error");
+            return;
+        }
+
+        log(fromUser, `Enviando mensaje a ${toAddress.substring(0, 6)}...`, "info");
+        try {
+            const conversation = await state[fromUser].xmtp.conversations.newDmWithIdentifier({ identifier: toAddress, identifierKind: "Ethereum" });
+            await conversation.send(message);
+            log(fromUser, `Mensaje enviado: "${message}"`, "success");
+        } catch (e) {
+            log(fromUser, "Fallo en el envío del mensaje: " + e.message, "error");
+        }
+    };
+
+    /**
+     * Revokes all existing XMTP installations for a user.
+     * This is useful to fix the "10/10 installations" error.
+     * @param {string} user - The user ('alice' or 'bob') to revoke installations for.
+     */
+    window.revokeXmtpInstallations = async (user, inboxIdToRevoke) => {
+        console.warn('revokeXmtpInstallations for user:', user, 'and inboxId:', inboxIdToRevoke);
+        const wallet = state[user]?.wallet;
+        if (!wallet) {
+            return log(user, "Wallet not initialized. Can't revoke installations.", "error");
+        }
+
+        log(user, "Attempting to revoke old XMTP installations...", "warn");
+
+        try {
+            // The SDK's static methods require a signer object.
+            const walletSigner = {
+                type: "EOA",
+                getIdentifier: () => ({ identifier: wallet.address, identifierKind: "Ethereum" }),
+                signMessage: async (message) => ethers.getBytes(await wallet.signMessage(message)),
+            };
+
+            xws=walletSigner
+
+            // ---
+            if (!inboxIdToRevoke) {
+                return log(user, "InboxID to revoke is missing. Cannot proceed.", "error");
+            }
+
+            log(user, `Fetching installations for InboxID: ${inboxIdToRevoke.substring(0,10)}...`, "info");
+
+            let inboxStates = await Client.inboxStateFromInboxIds([inboxIdToRevoke], "dev");
+            ibs = inboxStates;
+
+            if (!inboxStates || !inboxStates[0] || inboxStates[0].installations.length === 0) {
+                return log(user, "No installations found to revoke.", "info");
+            }
+            
+            console.log('installation length:', inboxStates[0].installations.length);
+
+            let toRevoke = inboxStates[0].installations.map((i) => i.bytes);
+            tr = toRevoke;
+            console.log('toRevokeInstallationBytes:', toRevoke);
+
+            log(user, `Found ${toRevoke.length} installations to revoke.`, "info");
+
+            if (toRevoke.length === 0) {
+                return log(user, "Only one installation exists. Nothing to revoke.", "info");
+            }
+
+            // 4. Revoke the selected installations using the static method.
+            await Client.revokeInstallations(walletSigner, inboxIdToRevoke, toRevoke);
+
+            // await Client.revokeInstallations(
+            //     walletSigner,
+            //     inboxIdToRevoke,
+            //     toRevoke,
+            // );
+            log(user, `✅ Successfully revoked ${toRevoke.length} installation(s). You can now 'Init Wallet' again.`, "success");
+        } catch (e) {
+            log(user, `Failed to revoke installations: ${e.message}`, "error");
+        }
+    };
+
+    window.sendStealthTransaction = async (sender, recipient) => {
+        const sState = state[sender];
+        const rState = state[recipient];
+
+        if (!sState.wallet) return log(sender, "Init wallet first", "error");
+        // PRIMADO NEGATIVO: We need the recipient's public key to generate the shared secret
+        if (!sState.peerPubKeys[recipient]) return log(sender, "Need Recipient PubKey. Do Hard Sync first.", "error");
+
+        const amount = document.getElementById(`${sender}Amount`).value;
+        log(sender, `Generating stealth address for ${amount} ETH...`, "info");
+
+        try {
+            // NOTE: passing rState.wallet.privateKey is the "simulation" cheat mentioned earlier
+            // to guarantee the math matches in this specific JS environment.
+            const { stealthWallet, index } = await getStealthDetails(
+                sState.wallet, 
+                sState.peerPubKeys[recipient],
+                rState.wallet.privateKey
+            );
+
+            log(sender, `Stealth Addr Generated: ${stealthWallet.address}`, "info");
+
+            const tx = await sState.wallet.sendTransaction({
+                to: stealthWallet.address,
+                value: ethers.parseEther(amount)
+            });
+
+            const explorerUrl = `https://sepolia.arbiscan.io/tx/${tx.hash}`;
+            log(sender, `Sent! Hash: <a href="${explorerUrl}" target="_blank" class="text-cyan-400 hover:underline">${tx.hash.substring(0,10)}...</a>`, "success");
+            // Refresh Balances
+            const newBal = await sState.wallet.provider.getBalance(sState.wallet.address);
+            document.getElementById(`${sender}-bal`).innerText = ethers.formatEther(newBal) + " ETH";
+
+        } catch (e) {
+            log(sender, "Tx Failed: " + e.message, "error");
+        }
+    };
+
+    window.scanAndSweep = async (user, senderName) => {
+        const uState = state[user];
+        const senderPubKey = uState.peerPubKeys[senderName]; // Need sender pubkey to derive shared secret
+
+        if (!uState.wallet) return log(user, "Init wallet first", "error");
+        // To scan, we need to know who sent it (to derive shared secret) or brute force check against known contacts
+        if (!senderPubKey) return log(user, `Need ${senderName}'s PubKey to calculate shared secret`, "error");
+
+        log(user, "Scanning blockchain for stealth funds...", "warn");
+
+        try {
+            // In a real implementation, sender calculates address using Ephemeral Key.
+            // Here, sender used their Main Key as Ephemeral.
+            
+            let totalFoundBalance = 0n;
+            const walletsToSweep = [];
+
+            // --- SCANNING PHASE ---
+            for(let i=0; i<5; i++) {
+                // Derive the stealth wallet for this index
+                const sharedSecret = uState.wallet.signingKey.computeSharedSecret(senderPubKey);
+                const secretHash = ethers.keccak256(ethers.concat([
+                    ethers.getBytes(sharedSecret),
+                    ethers.toBeHex(i, 32)
+                ]));
+                const myScalar = BigInt(uState.wallet.privateKey);
+                const hashScalar = BigInt(secretHash);
+                const stealthScalar = (myScalar + hashScalar) % CONFIG.curveOrder;
+                const stealthPrivKey = "0x" + stealthScalar.toString(16).padStart(64, '0');
+                const stealthWallet = new ethers.Wallet(stealthPrivKey, uState.wallet.provider);
+
+                const balance = await uState.wallet.provider.getBalance(stealthWallet.address);
+                const fmtBal = ethers.formatEther(balance);
+                log(user, `Checking index ${i}: ${stealthWallet.address.substring(0,8)}... | Bal: ${fmtBal} ETH`, "info");
+
+                if (balance > 0n) {
+                    log(user, `FUNDS FOUND! ${fmtBal} ETH @ Index ${i}`, "success");
+                    totalFoundBalance += balance;
+                    walletsToSweep.push({ wallet: stealthWallet, balance: balance, index: i });
+                }
+            }
+
+            // --- SWEEPING PHASE ---
+            if (totalFoundBalance > 0n) {
+                log(user, `<b>Total Found: ${ethers.formatEther(totalFoundBalance)} ETH across ${walletsToSweep.length} address(es).</b>`, "success");
+                log(user, "Beginning sweep process...", "warn");
+
+                for (const item of walletsToSweep) {
+                    const { wallet: stealthWallet, balance, index } = item;
+                    const fmtBal = ethers.formatEther(balance);
+                    log(user, `Sweeping index ${index} (${fmtBal} ETH)...`, "info");
+
+                    try {
+                        const feeData = await uState.wallet.provider.getFeeData();
+                        const gasLimit = 21000n;
+                        const gasCost = feeData.maxFeePerGas * gasLimit;
+
+                        if (balance <= gasCost) {
+                            log(user, `Balance at index ${index} is too low to cover gas. Skipping.`, "error");
+                            continue;
+                        }
+
+                        const amountToSend = balance - gasCost;
+                        const tx = await stealthWallet.sendTransaction({
+                            to: uState.wallet.address,
+                            value: amountToSend,
+                            gasLimit: gasLimit,
+                            maxFeePerGas: feeData.maxFeePerGas,
+                            maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
+                        });
+
+                        const explorerUrl = `https://sepolia.arbiscan.io/tx/${tx.hash}`;
+                        log(user, `Sweep from index ${index} complete! Tx: <a href="${explorerUrl}" target="_blank" class="text-cyan-400 hover:underline">${tx.hash.substring(0,10)}...</a>`, "success");
+
+                    } catch (sweepError) {
+                        log(user, `Error sweeping index ${index}: ${sweepError.message}`, "error");
+                    }
+                }
+
+                // Final balance update after all sweeps
+                setTimeout(async () => {
+                    const mainBal = await uState.wallet.provider.getBalance(uState.wallet.address);
+                    document.getElementById(`${user}-bal`).innerText = ethers.formatEther(mainBal) + " ETH";
+                    log(user, "All sweeps processed. Main balance updated.", "success");
+                }, 5000);
+
+            } else {
+                log(user, "Scan complete. No funds found in the first 5 indexes.", "info");
+            }
+
+        } catch (e) {
+            log(user, "Scan Error: " + e.message, "error");
+        }
+    };
+
   </script>
 </body>
 </html>

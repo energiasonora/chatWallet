@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manifiesto ChatWallet</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a2e;
+            color: #f0f0f0;
+        }
+
+        .major-mono {
+            font-family: 'Major Mono Display', monospace;
+        }
+        
+        .manifesto-card {
+            transition: all 0.3s ease;
+            transform-style: preserve-3d;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .manifesto-card:hover {
+            transform: scale(1.02) rotateX(2deg);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-100 antialiased">
+    <div class="min-h-screen flex flex-col items-center p-6 sm:p-12">
+        <header class="text-center mb-12">
+            <h1 class="major-mono text-4xl sm:text-6xl text-blue-400 mb-2">Manifiesto ChatWallet</h1>
+            <p class="text-lg sm:text-xl text-gray-400">Una dApp. Un manifiesto. Un futuro posible.</p>
+        </header>
+
+        <main class="w-full max-w-5xl space-y-16">
+
+            <!-- Manifiesto Item 1 -->
+            <section class="flex flex-col md:flex-row items-start space-x-0 md:space-x-8 space-y-4 md:space-y-0">
+                <div class="flex-shrink-0 w-full md:w-1/4">
+                    <h2 class="major-mono text-2xl text-blue-300">
+                        <span class="text-4xl mr-2">🧱</span>Producto antes que Pitch
+                    </h2>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg manifesto-card w-full md:w-3/4">
+                    <p class="text-lg text-gray-300">
+                        Mi primer inversor es el código. No busco capital para construir: construyo para atraer capital (y solo si lo necesito).
+                    </p>
+                </div>
+            </section>
+
+            <!-- Manifiesto Item 2 -->
+            <section class="flex flex-col md:flex-row items-start space-x-0 md:space-x-8 space-y-4 md:space-y-0">
+                <div class="flex-shrink-0 w-full md:w-1/4">
+                    <h2 class="major-mono text-2xl text-blue-300">
+                        <span class="text-4xl mr-2">🌱</span>Sostenibilidad antes que Escala
+                    </h2>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg manifesto-card w-full md:w-3/4">
+                    <p class="text-lg text-gray-300">
+                        No quiero 5,000 artistas que no usen la plataforma. Quiero 10 artistas ganando dinero real, de forma constante. La rentabilidad con una comunidad pequeña pero viva es éxito verdadero.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Manifiesto Item 3 -->
+            <section class="flex flex-col md:flex-row items-start space-x-0 md:space-x-8 space-y-4 md:space-y-0">
+                <div class="flex-shrink-0 w-full md:w-1/4">
+                    <h2 class="major-mono text-2xl text-blue-300">
+                        <span class="text-4xl mr-2">🤝</span>Comunidad antes que Marketing
+                    </h2>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg manifesto-card w-full md:w-3/4">
+                    <p class="text-lg text-gray-300">
+                        No pagaré por usuarios. Atraeré a los creyentes, los artistas reales. El producto habla. La comunidad escucha. La comunidad crece.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Manifiesto Item 4 -->
+            <section class="flex flex-col md:flex-row items-start space-x-0 md:space-x-8 space-y-4 md:space-y-0">
+                <div class="flex-shrink-0 w-full md:w-1/4">
+                    <h2 class="major-mono text-2xl text-blue-300">
+                        <span class="text-4xl mr-2">🎤</span>Autenticidad antes que Viralidad
+                    </h2>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg manifesto-card w-full md:w-3/4">
+                    <p class="text-lg text-gray-300">
+                        Soy mi primer usuario. Construyo las herramientas que yo necesito como artista independiente. Lo auténtico no necesita hacerse viral: atrae por afinidad.
+                    </p>
+                </div>
+            </section>
+
+            <div class="text-right text-xl italic text-gray-500 mt-12">
+                — xunorus
+            </div>
+        </main>
+    </div>
+</body>
+</html>

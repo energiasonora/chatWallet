@@ -820,16 +820,8 @@
 
 
         document.addEventListener('DOMContentLoaded', () => {
-            
-            // Initialize the MetaMask SDK as soon as the DOM is ready
-            if (!window.MMSDK) {
-                window.MMSDK = new window.MetaMaskSDK({
-                    dappMetadata: { name: 'CWLT Presale DApp', url: window.location.href },
-                    infuraAPIKey: 'b17405e634bd40308be3eb4fa2485c9a',
-                });
-            }
-            
-            // --- Translations ---
+
+             // --- Translations ---
             const translations = {
                 en: {
                     connect_wallet: "Connect Wallet",
@@ -941,7 +933,7 @@
             window.optionsList = [
                 {
                     "CWLT_CONTRACT_ADDRESS": "0x2aC45C33602E1a8450302100F1897BFF6C91a5d6",//chatWalletTokenF
-                    "CWLT_ABI": `[{"inputs":[{"internalType":"address","name":"initialOwner","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"allowance","type":"uint256"},{"internalType":"uint256","name":"needed","type":"uint256"}],"name":"ERC20InsufficientAllowance","type":"error"},{"inputs":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"uint256","name":"balance","type":"uint256"},{"internalType":"uint256","name":"needed","type":"uint256"}],"name":"ERC20InsufficientBalance","type":"error"},{"inputs":[{"internalType":"address","name":"approver","type":"address"}],"name":"ERC20InvalidApprover","type":"error"},{"inputs":[{"internalType":"address","name":"receiver","type":"address"}],"name":"ERC20InvalidReceiver","type":"error"},{"inputs":[{"internalType":"address","name":"sender","type":"address"}],"name":"ERC20InvalidSender","type":"error"},{"inputs":[{"internalType":"address","name":"spender","type":"address"}],"name":"ERC20InvalidSpender","type":"error"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"OwnableInvalidOwner","type":"error"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"OwnableUnauthorizedAccount","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"spender","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"value","type":"uint256"}],"name":"burn","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"burnFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"mint","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"}]`,
+                    "CWLT_ABI": '[]',
                     "PRESALE_CONTRACT_ADDRESS": "0x504fF398f4Bf7C597a391fCb1328bf5add7aCE44",//milestonePresaleV20.sol
                     "PRESALE_ABI": ` [ { "inputs": [], "name": "buyTokens", "outputs": [], "stateMutability": "payable", "type": "function" }, { "inputs": [], "name": "cancelTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "recipient", "type": "address" } ], "name": "claimToAccount", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "claimTokens", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_tokenAddress", "type": "address" }, { "internalType": "uint256", "name": "_epochDuration", "type": "uint256" }, { "internalType": "uint256", "name": "_developmentObjective", "type": "uint256" }, { "internalType": "uint256", "name": "_timelockDelay", "type": "uint256" }, { "internalType": "address", "name": "_initialOwner", "type": "address" } ], "stateMutability": "nonpayable", "type": "constructor" }, { "inputs": [], "name": "ETHTransferFailed", "type": "error" }, { "inputs": [], "name": "EnforcedPause", "type": "error" }, { "inputs": [], "name": "EpochNotOver", "type": "error" }, { "inputs": [], "name": "ExceedsAvailableTokens", "type": "error" }, { "inputs": [], "name": "ExpectedPause", "type": "error" }, { "inputs": [], "name": "NoFundsToWithdraw", "type": "error" }, { "inputs": [], "name": "NoTokensToClaim", "type": "error" }, { "inputs": [], "name": "NoWithdrawalQueued", "type": "error" }, { "inputs": [ { "internalType": "address", "name": "owner", "type": "address" } ], "name": "OwnableInvalidOwner", "type": "error" }, { "inputs": [ { "internalType": "address", "name": "account", "type": "address" } ], "name": "OwnableUnauthorizedAccount", "type": "error" }, { "inputs": [], "name": "PurchaseInvalid", "type": "error" }, { "inputs": [], "name": "ReentrancyGuardReentrantCall", "type": "error" }, { "inputs": [], "name": "TimelockActive", "type": "error" }, { "inputs": [], "name": "WithdrawalAlreadyPending", "type": "error" }, { "inputs": [], "name": "WithdrawalAmountExceedsBalance", "type": "error" }, { "inputs": [], "name": "ZeroAddress", "type": "error" }, { "inputs": [], "name": "ZeroEpochDuration", "type": "error" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "DevelopmentFundsWithdrawn", "type": "event" }, { "inputs": [], "name": "executeTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "toDevelopment", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "toTreasury", "type": "uint256" } ], "name": "FundsDistributed", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "previousOwner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "newOwner", "type": "address" } ], "name": "OwnershipTransferred", "type": "event" }, { "inputs": [], "name": "pause", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "address", "name": "account", "type": "address" } ], "name": "Paused", "type": "event" }, { "inputs": [ { "internalType": "address payable", "name": "recipient", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "string", "name": "purpose", "type": "string" } ], "name": "queueTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "renounceOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "claimer", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TokensClaimed", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "owner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TokensClaimedToAccount", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "buyer", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "ethAmount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "tokenAmount", "type": "uint256" } ], "name": "TokensPurchased", "type": "event" }, { "inputs": [ { "internalType": "address", "name": "newOwner", "type": "address" } ], "name": "transferOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TreasuryWithdrawalCancelled", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TreasuryWithdrawalExecuted", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "purpose", "type": "string" }, { "indexed": false, "internalType": "uint256", "name": "unlockTime", "type": "uint256" } ], "name": "TreasuryWithdrawalQueued", "type": "event" }, { "inputs": [], "name": "unpause", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "address", "name": "account", "type": "address" } ], "name": "Unpaused", "type": "event" }, { "inputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "address payable", "name": "recipient", "type": "address" } ], "name": "withdrawDevelopmentFunds", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "BASE_PRICE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "paymentAmount", "type": "uint256" } ], "name": "calculateTokensForPayment", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "user", "type": "address" } ], "name": "claimableTokens", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEV_FEE_BPS", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEVELOPMENT_OBJECTIVE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "developmentFundsAvailable", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "EPOCH_DURATION", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getCurrentPrice", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getPresaleStats", "outputs": [ { "internalType": "uint256", "name": "currentPrice", "type": "uint256" }, { "internalType": "uint256", "name": "tokensRemaining", "type": "uint256" }, { "internalType": "uint256", "name": "saleProgressBP", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }, { "internalType": "uint256", "name": "objectiveProgressBP", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getTreasuryState", "outputs": [ { "internalType": "address", "name": "recipient", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "string", "name": "purpose", "type": "string" }, { "internalType": "uint256", "name": "unlockTime", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MAX_TOKENS_FOR_SALE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "owner", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "paused", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "PRICE_INCREMENT", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TOKEN", "outputs": [ { "internalType": "contract ChatWalletTokenF", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalFundsRaised", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalTokensSold", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TREASURY_FEE_BPS", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TREASURY_TIMELOCK_DELAY", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryFundsAvailable", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalAmount", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalPurpose", "outputs": [ { "internalType": "string", "name": "", "type": "string" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalRecipient", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalUnlockTime", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "userVestingInfo", "outputs": [ { "internalType": "uint192", "name": "amount", "type": "uint192" }, { "internalType": "uint64", "name": "startTimestamp", "type": "uint64" } ], "stateMutability": "view", "type": "function" } ]                       `,
                     "TOKEN_CHAIN_NAME": 'Arbitrum sepolia',
@@ -955,7 +947,7 @@
                 // Mainnet
                 {
                     "CWLT_CONTRACT_ADDRESS": "0x4697bDe7F6B40790D11C9Ab7628Fa4827fcE8bAe",//chatWalletTokenF
-                    "CWLT_ABI": `[{"inputs":[{"internalType":"address","name":"initialOwner","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"allowance","type":"uint256"},{"internalType":"uint256","name":"needed","type":"uint256"}],"name":"ERC20InsufficientAllowance","type":"error"},{"inputs":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"uint256","name":"balance","type":"uint256"},{"internalType":"uint256","name":"needed","type":"uint256"}],"name":"ERC20InsufficientBalance","type":"error"},{"inputs":[{"internalType":"address","name":"approver","type":"address"}],"name":"ERC20InvalidApprover","type":"error"},{"inputs":[{"internalType":"address","name":"receiver","type":"address"}],"name":"ERC20InvalidReceiver","type":"error"},{"inputs":[{"internalType":"address","name":"sender","type":"address"}],"name":"ERC20InvalidSender","type":"error"},{"inputs":[{"internalType":"address","name":"spender","type":"address"}],"name":"ERC20InvalidSpender","type":"error"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"OwnableInvalidOwner","type":"error"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"OwnableUnauthorizedAccount","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"spender","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"value","type":"uint256"}],"name":"burn","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"burnFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"mint","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"}]`,
+                    "CWLT_ABI": '[]',
                     "PRESALE_CONTRACT_ADDRESS": "0x99862a8FFB68acBa1A71E4065b83EB2C3cF4d14A",//milestonePresaleV21.sol
                     "PRESALE_ABI": ` [ { "inputs": [], "name": "buyTokens", "outputs": [], "stateMutability": "payable", "type": "function" }, { "inputs": [], "name": "cancelTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "recipient", "type": "address" } ], "name": "claimToAccount", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "claimTokens", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_tokenAddress", "type": "address" }, { "internalType": "uint256", "name": "_epochDuration", "type": "uint256" }, { "internalType": "uint256", "name": "_developmentObjective", "type": "uint256" }, { "internalType": "uint256", "name": "_timelockDelay", "type": "uint256" }, { "internalType": "address", "name": "_initialOwner", "type": "address" } ], "stateMutability": "nonpayable", "type": "constructor" }, { "inputs": [], "name": "ETHTransferFailed", "type": "error" }, { "inputs": [], "name": "EnforcedPause", "type": "error" }, { "inputs": [], "name": "EpochNotOver", "type": "error" }, { "inputs": [], "name": "ExceedsAvailableTokens", "type": "error" }, { "inputs": [], "name": "ExpectedPause", "type": "error" }, { "inputs": [], "name": "NoFundsToWithdraw", "type": "error" }, { "inputs": [], "name": "NoTokensToClaim", "type": "error" }, { "inputs": [], "name": "NoWithdrawalQueued", "type": "error" }, { "inputs": [ { "internalType": "address", "name": "owner", "type": "address" } ], "name": "OwnableInvalidOwner", "type": "error" }, { "inputs": [ { "internalType": "address", "name": "account", "type": "address" } ], "name": "OwnableUnauthorizedAccount", "type": "error" }, { "inputs": [], "name": "PurchaseInvalid", "type": "error" }, { "inputs": [], "name": "ReentrancyGuardReentrantCall", "type": "error" }, { "inputs": [], "name": "TimelockActive", "type": "error" }, { "inputs": [], "name": "WithdrawalAlreadyPending", "type": "error" }, { "inputs": [], "name": "WithdrawalAmountExceedsBalance", "type": "error" }, { "inputs": [], "name": "ZeroAddress", "type": "error" }, { "inputs": [], "name": "ZeroEpochDuration", "type": "error" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "DevelopmentFundsWithdrawn", "type": "event" }, { "inputs": [], "name": "executeTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "toDevelopment", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "toTreasury", "type": "uint256" } ], "name": "FundsDistributed", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "previousOwner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "newOwner", "type": "address" } ], "name": "OwnershipTransferred", "type": "event" }, { "inputs": [], "name": "pause", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "address", "name": "account", "type": "address" } ], "name": "Paused", "type": "event" }, { "inputs": [ { "internalType": "address payable", "name": "recipient", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "string", "name": "purpose", "type": "string" } ], "name": "queueTreasuryWithdrawal", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "renounceOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "claimer", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TokensClaimed", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "owner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TokensClaimedToAccount", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "buyer", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "ethAmount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "tokenAmount", "type": "uint256" } ], "name": "TokensPurchased", "type": "event" }, { "inputs": [ { "internalType": "address", "name": "newOwner", "type": "address" } ], "name": "transferOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TreasuryWithdrawalCancelled", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "TreasuryWithdrawalExecuted", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "purpose", "type": "string" }, { "indexed": false, "internalType": "uint256", "name": "unlockTime", "type": "uint256" } ], "name": "TreasuryWithdrawalQueued", "type": "event" }, { "inputs": [], "name": "unpause", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "address", "name": "account", "type": "address" } ], "name": "Unpaused", "type": "event" }, { "inputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "address payable", "name": "recipient", "type": "address" } ], "name": "withdrawDevelopmentFunds", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "BASE_PRICE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "paymentAmount", "type": "uint256" } ], "name": "calculateTokensForPayment", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "user", "type": "address" } ], "name": "claimableTokens", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEV_FEE_BPS", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "DEVELOPMENT_OBJECTIVE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "developmentFundsAvailable", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "EPOCH_DURATION", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getCurrentPrice", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getPresaleStats", "outputs": [ { "internalType": "uint256", "name": "currentPrice", "type": "uint256" }, { "internalType": "uint256", "name": "tokensRemaining", "type": "uint256" }, { "internalType": "uint256", "name": "saleProgressBP", "type": "uint256" }, { "internalType": "bool", "name": "isActive", "type": "bool" }, { "internalType": "uint256", "name": "objectiveProgressBP", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getTreasuryState", "outputs": [ { "internalType": "address", "name": "recipient", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "string", "name": "purpose", "type": "string" }, { "internalType": "uint256", "name": "unlockTime", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "MAX_TOKENS_FOR_SALE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "owner", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "paused", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "PRICE_INCREMENT", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TOKEN", "outputs": [ { "internalType": "contract ChatWalletTokenF", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalFundsRaised", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalTokensSold", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TREASURY_FEE_BPS", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "TREASURY_TIMELOCK_DELAY", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryFundsAvailable", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalAmount", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalPurpose", "outputs": [ { "internalType": "string", "name": "", "type": "string" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalRecipient", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "treasuryWithdrawalUnlockTime", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "userVestingInfo", "outputs": [ { "internalType": "uint192", "name": "amount", "type": "uint192" }, { "internalType": "uint64", "name": "startTimestamp", "type": "uint64" } ], "stateMutability": "view", "type": "function" } ]                       `,
                     "TOKEN_CHAIN_NAME": 'Arbitrum One',
@@ -986,6 +978,7 @@
 
             // --- DOM Elements ---
             let MMSDK;
+
                const presaleCard = document.getElementById('presaleCard');
             const buyModeUI = document.getElementById('buy-mode-ui');
             const claimModeUI = document.getElementById('claim-mode-ui');
@@ -1060,8 +1053,7 @@
 
 
             // --- State and Configuration ---
-             isWalletConnected = false;
-            // let isWalletConnected = false;
+            let isWalletConnected = false;
             let currentNetwork = 'mainnet';
             let fiatCurrency = 'usd';
             const NETWORK_STORAGE_KEY = 'iusnaturalis-dao-network';
@@ -1249,86 +1241,96 @@
 
             // --- Wallet Connection Logic ---
             // let MMSDK;
-            
-            const onWalletConnected = async (address, walletType) => {
-                userAddress = address;
-                isWalletConnected = true;
-
-                const userTokenOwed = await loadTokensOwed();
-                console.warn('userTokenOwed::::', userTokenOwed);
-
-                const shortAddress = shortAddressETH(userAddress);
-                connectButton.textContent = `${shortAddress} 🔛`;
-                console.warn("😶😶😶 adding address 1rs time");
-
-                connectButton.classList.replace('bg-violet-600', 'bg-gray-600');
-                connectButton.classList.replace('hover:bg-violet-500', 'hover:bg-gray-600');
-                buyButton.disabled = false;
-                buyButton.textContent = translations[currentLanguage].buy_cwlt || 'Buy CWLT';
-
-                const userTokenBalance = await getUserCWLTBalance();
-                const tokenBalanceFormatted = Number(ethers.formatUnits(userTokenBalance, 18)).toFixed(2);
-                userBalanceDisplay.textContent = `${tokenBalanceFormatted} CWLT`;
-                animateNumberUpdate(userBalanceDisplay);
-                balanceDisplay.classList.remove('hidden');
-
-                console.log(`${walletType} connected successfully. Address: ${userAddress}`);
-                closeModal(walletModal);
-            };
-
-            const onWalletConnectionError = (error) => {
-                console.error("An error occurred during wallet connection:", error);
-                isWalletConnected = false;
-                connectButton.textContent = 'Connect Wallet';
-                connectButton.classList.replace('bg-gray-600', 'bg-violet-600');
-                connectButton.classList.replace('hover:bg-gray-500', 'hover:bg-violet-500');
-                buyButton.textContent = 'Connect Wallet';
-            };
-
-            const walletConnectStrategies = {
-                'Metamask': async () => {
-                        console.warn(` 😶😶 Metamask.`);
-
-                    if (typeof window.ethereum === 'undefined' || !window.ethereum.isMetaMask) {
-                        throw new Error("MetaMask is not installed. Please install it to connect.");
-                    }
-                    return await metamaskConnect();
-                },
-                'ChatWallet': async () => {
-                    // This remains a placeholder for now.
-                    throw new Error("ChatWallet is not active yet.");
-                }
-                // Future wallets can be added here, e.g.:
-                // 'WalletConnect': async () => { ... }
-            };
 
             const handleWalletConnection = async (walletType) => {
-                console.warn(`handleWalletConnection: Connecting with ${walletType} on ${currentNetwork}...`);
+    console.warn(`handleWalletConnection: Connecting with ${walletType} on ${currentNetwork}...`);
 
-                const connectFunction = walletConnectStrategies[walletType];
+    // --- [Action Point 1: Handle ChatWallet] ---
+    if (walletType === 'ChatWallet') {
+        console.warn('ChatWallet is not active yet.');
+        showWarningNotification("ChatWallet is not active yet.");
+        closeModal(walletModal);
+        return; // Exit the function early
+    }
 
-                if (!connectFunction) {
-                    console.error(`No connection strategy found for wallet type: ${walletType}`);
-                    showErrorNotification("Unsupported Wallet", `Connection logic for ${walletType} is not implemented.`);
-                    return;
-                }
+    // --- [Action Point 2: Handle Metamask Connection & UI Updates] ---
+    if (walletType === 'Metamask') {
+        // Check if MetaMask is installed
+        if (typeof window.ethereum === 'undefined' || !window.ethereum.isMetaMask) {
+            console.warn('MetaMask is not installed.');
+            showWarningNotification("MetaMask is not installed. Please install it to connect.");
+            closeModal(walletModal);
+            return; // Exit if MetaMask is not available
+        }
+        console.warn('metamask!');
+                // Initialize SDK if it doesn't exist.
+        if (!window.MMSDK) {
+            window.MMSDK = new MetaMaskSDK({
+                dappMetadata: {
+                    name: 'CWLT Presale DApp',
+                    url: window.location.href,
+                },
+                infuraAPIKey: 'b17405e634bd40308be3eb4fa2485c9a',
+            });
+        }
 
-                try {
-                    const connectedAddress = await connectFunction();
-                    if (connectedAddress) {
-                        console.warn(` 😶😶 walelt connected.`);
-                        await onWalletConnected(connectedAddress, walletType);
-                    } else {
-                        // This case handles user rejection without throwing an error.
-                        console.error(`${walletType} connection failed or was rejected by the user.`);
+        try {
+            // --- [Connect and Fetch Data] ---
+                    const connectedAddress = await metamaskConnect();
+                    if (!connectedAddress) {
+                        console.error("Metamask connection failed or was rejected by the user.");
+                        return; // Exit if connection fails
                     }
-                } catch (error) {
-                    onWalletConnectionError(error);
-                    showWarningNotification(error.message); // Show user-friendly error
-                } finally {
-                    closeModal(walletModal);
-                }
-            };
+                    userAddress = connectedAddress;
+
+            isWalletConnected = true;
+
+            // Fetch real on-chain balances
+            const userTokenOwed = await loadTokensOwed();
+            console.warn('userTokenOwed::::', userTokenOwed)
+            // TODO: Create and call a function to get the real claimable balance
+            // For now, we'll simulate it as in your example.
+            // const userClaimableBalance = Math.floor(Math.random() * 2000) + 200; // Replace with actual call e.g., await loadClaimableBalance();
+
+            // --- [Update UI Elements] ---
+            // Update connection button
+            const shortAddress = shortAddressETH(userAddress);
+            connectButton.textContent = `${shortAddress} 🔛`;
+            // connectButton.textContent = `Connected: ${shortAddress}`;
+            connectButton.classList.replace('bg-violet-600', 'bg-gray-600');
+            connectButton.classList.replace('hover:bg-violet-500', 'hover:bg-gray-600');
+            buyButton.disabled = false;
+
+            // Update balance displays
+              const userTokenBalance = await getUserCWLTBalance()
+            const tokenBalanceFormatted = Number(ethers.formatUnits(userTokenBalance, 18)).toFixed(2);
+            console.warn('tokenBalanceFormatted:',tokenBalanceFormatted)
+            userBalanceDisplay.textContent = `${tokenBalanceFormatted} CWLT`;
+                animateNumberUpdate(userBalanceDisplay);
+           
+           
+            // claimableAmountDisplay.textContent = formatNumber(tokenBalanceFormatted); // Assumes formatNumber exists
+            balanceDisplay.classList.remove('hidden');
+
+            
+
+            console.log(`${walletType} connected successfully. Address: ${userAddress}`);
+            closeModal(walletModal);
+
+        } catch (error) {
+            console.error("An error occurred during wallet connection:", error);
+            // Optionally, reset UI state on failure
+            isWalletConnected = false;
+            connectButton.textContent = 'Connect Wallet';
+            connectButton.classList.replace('bg-gray-600', 'bg-violet-600');
+            connectButton.classList.replace('hover:bg-gray-500', 'hover:bg-violet-500');
+                buyButton.textContent = 'Connect Wallet';
+        }
+    }
+};
+
+          
+
             window.handleWalletConnection = handleWalletConnection;
 
              
@@ -1439,9 +1441,6 @@
                 transactionHash.innerHTML = `Tx: ${textLink}...`;
                 // <!-- transactionHash.textContent = `Tx: ${textLink}...`; -->
                 successNotification.classList.remove('hide');
-                // Show the "Send to ChatWallet" UI
-                document.getElementById('send-to-chatwallet-container').classList.add('active');
-
                 successNotification.classList.add('show');
                 successIcon.classList.add('pulse-success');
                 // setTimeout(() => hideSuccessNotification(), 6000);
@@ -1820,7 +1819,7 @@ window.updateClaimCountdown = updateClaimCountdown;
             });
 
             connectButton.addEventListener('click', () => {
-                console.warn('CLICKED CONNECT/DISCONNET',isWalletConnected)
+                console.warn('CLICKED CONNECT/DISCONNET')
                 if (isWalletConnected) {
                     openModal(disconnectModal);
                 } else {
@@ -2091,7 +2090,7 @@ for (let log of receipt.logs) {
 
             // --- Initial Setup ---
             const initialize = async () => {
-                amountInput.step = ETH_STEP; 
+                amountInput.step = ETH_STEP;
                 loadLanguagePreference();
                 loadNetworkPreference();
                 loadCurrencyPreference();
@@ -2147,6 +2146,7 @@ for (let log of receipt.logs) {
                 // RECONNECT METAMASK? OR OTHER WALLET
                 // --------------------------------
                 restoreMetaMaskSession(); // call it here
+
             };
 
             initialize();
@@ -2761,7 +2761,7 @@ for (let log of receipt.logs) {
 
             try {
                 // Connect and sign in one step (only this call)
-                const signResult = await window.MMSDK.connectAndSign({ msg: message });
+                const signResult = await MMSDK.connectAndSign({ msg: message });
 
                 // -----------------
                 // check network
@@ -2774,7 +2774,7 @@ for (let log of receipt.logs) {
                 // -------------
 
                 // Now get accounts from provider
-                const provider = window.MMSDK.getProvider();
+                const provider = MMSDK.getProvider();
                 const accounts = await provider.request({ method: 'eth_accounts' });
                 const connectedAccount = accounts[0];
                 console.log('Connected account:', connectedAccount);
@@ -2867,8 +2867,8 @@ for (let log of receipt.logs) {
             if (!saved) return;
 
             try {
-                const accounts = await window.MMSDK.connect(); // 🟢 This is required to activate provider
-                const provider = window.MMSDK.getProvider();
+                const accounts = await MMSDK.connect(); // 🟢 This is required to activate provider
+                const provider = MMSDK.getProvider();
 
                 if (!provider) {
                     console.warn("No active provider from MetaMask SDK");
@@ -2918,7 +2918,7 @@ for (let log of receipt.logs) {
                     return;
                 }
 
-                // console.warn("😶 Restoring session for:", address);
+                console.warn("Restoring session for:", address);
                 userAddress = address; // Save it globally for reuse
 
                 // Reinitialize ethers
@@ -2950,8 +2950,6 @@ for (let log of receipt.logs) {
                 const shortAddress = shortAddressETH(address);
                 // connectButton.textContent = `Connected: ${realAddress}`;
             connectButton.textContent = `${shortAddress}✅`;
-                console.warn("😶😶😶 adding address recurrently");
-
                 connectButton.classList.replace('bg-violet-600', 'bg-gray-700');
                 connectButton.classList.replace('hover:bg-violet-500', 'hover:bg-gray-500');
                 buyButton.disabled = false;

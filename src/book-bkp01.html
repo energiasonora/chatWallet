@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto para Principiantes - Mint Page</title>
+    
+    <!-- Google Font: Major Mono Display -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Confetti.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+    <style>
+        /* --- General Styling --- */
+        :root {
+            --primary-blue: #0077c2;
+            --background-color: #ffffff;
+            --text-dark: #212529;
+            --text-light: #495057;
+            --white: #ffffff;
+            --border-color: #dee2e6;
+            --success-green: #28a745;
+            --info-bg: #f8f9fa;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-dark);
+            margin: 0;
+            box-sizing: border-box;
+        }
+        
+        /* --- Layout Structure --- */
+        .page-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .image-pane {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+            box-sizing: border-box;
+        }
+        
+        .content-pane {
+            width: 100%;
+            text-align: center;
+            padding: 0 20px 40px 20px;
+            box-sizing: border-box;
+        }
+
+        .content-inner {
+            max-width: 450px;
+            margin: 0 auto;
+        }
+
+        /* --- Desktop Layout (Split Screen) --- */
+        @media (min-width: 992px) {
+            .page-wrapper {
+                flex-direction: row;
+                min-height: 100vh;
+            }
+            .image-pane {
+                width: 50%;
+                height: 100vh;
+                position: sticky;
+                top: 0;
+                padding: 40px;
+            }
+            .content-pane {
+                width: 50%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                padding: 40px;
+            }
+        }
+
+        /* --- Artwork (Image & Video) --- */
+        .artwork-container {
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+        }
+
+        .artwork-container img,
+        .artwork-container video {
+            width: 100%;
+            height: auto;
+            border-radius: 16px;
+            object-fit: cover;
+        }
+
+        #animated-video {
+            display: none; /* Hidden by default */
+        }
+        
+        @media (min-width: 992px) {
+            .artwork-container {
+                max-width: none;
+                width: 100%;
+                height: 100%;
+            }
+            .artwork-container img,
+            .artwork-container video {
+                object-fit: cover; 
+                width: 100%;
+                height: 100%;
+            }
+        }
+
+        /* --- Typography --- */
+        h1.major-mono-display {
+            font-family: 'Major Mono Display', monospace;
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            color: var(--text-dark);
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-light);
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+        
+        /* --- Price Info Section --- */
+        .price-info {
+            background-color: var(--info-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 0 auto 30px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px 15px;
+        }
+        
+        .price-info span {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+        
+        .price-info .separator {
+            color: var(--border-color);
+            display: inline-block;
+        }
+
+        /* --- Mint Button --- */
+        #mint-button {
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 1rem;
+            background-color: var(--primary-blue);
+            color: var(--white);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #mint-button:hover:not(:disabled) {
+            background-color: #005f9a;
+            transform: translateY(-3px);
+        }
+
+        #mint-button:disabled {
+            background-color: #a9a9a9;
+            cursor: not-allowed;
+        }
+        
+        /* --- Result Section (Hidden by default) --- */
+        #result-section {
+            display: none;
+            margin-top: 30px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 30px;
+        }
+
+        #result-section h2 {
+            font-size: 1.8rem;
+            color: var(--success-green);
+            margin-bottom: 20px;
+        }
+
+        .download-button {
+            display: inline-block;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 1rem;
+            background-color: var(--success-green);
+            color: var(--white);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+            margin-bottom: 30px;
+        }
+        
+        .download-button:hover {
+            background-color: #218838;
+        }
+
+        /* --- Transaction Receipt --- */
+        .receipt {
+            background-color: var(--info-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: left;
+        }
+        
+        .receipt h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            font-size: 1rem;
+            color: var(--text-dark);
+        }
+
+        .receipt p {
+            margin: 8px 0;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .receipt p strong {
+            color: var(--text-dark);
+            white-space: nowrap;
+        }
+
+        .receipt p span {
+            font-family: monospace;
+            word-break: break-all;
+            margin-left: 15px;
+            text-align: right;
+            color: var(--primary-blue);
+        }
+
+        #status-value {
+            font-weight: bold;
+            color: var(--success-green);
+        }
+
+        /* --- Responsive Typography & Spacing --- */
+        @media (max-width: 991px) {
+            h1.major-mono-display {
+                font-size: 1.8rem;
+            }
+            .subtitle {
+                font-size: 1rem;
+            }
+        }
+        
+        @media (max-width: 420px) {
+            .price-info .separator {
+                display: none;
+            }
+            .price-info {
+                gap: 5px 10px;
+            }
+            .price-info span {
+                font-size: 0.9rem;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="page-wrapper">
+        <div class="image-pane">
+            <div class="artwork-container">
+                <img id="static-image" src="./img/ninja.jpg" alt="Ninja Cat with Swords">
+                <!-- <img id="static-image" src="http://googleusercontent.com/file_content/1" alt="Ninja Cat with Swords"> -->
+                <video id="animated-video" muted playsinline>
+                    <!-- Make sure to replace this with your actual video file -->
+                    <source src="./vid/animatedChatWallet.mp4" type="video/mp4">
+                    <!-- <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4"> -->
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+
+        <div class="content-pane">
+            <div class="content-inner">
+                <h1 class="major-mono-display">Crypto para Principiantes</h1>
+                <p class="subtitle">Minta tu copia exclusiva del libro y comienza tu viaje en el mundo de las criptomonedas.</p>
+
+                <div class="price-info">
+                    <span>10 USD</span>
+                    <span class="separator">|</span>
+                    <span>10 CWLT</span>
+                    <span class="separator">|</span>
+                    <span>10 EURO</span>
+                    <span class="separator">|</span>
+                    <span>10000 ARS</span>
+                </div>
+
+                <button id="mint-button">MINT AHORA</button>
+
+                <div id="result-section">
+                    <h2>¡Mint Exitoso!</h2>
+                    
+                    <a href="#" id="download-link" class="download-button" download="Crypto-para-Principiantes.pdf">Descargar Libro</a>
+                    
+                    <div class="receipt">
+                        <h3>Transaction Receipt</h3>
+                        <p><strong>Status:</strong> <span id="status-value"></span></p>
+                        <p><strong>Tx Hash:</strong> <span id="tx-hash"></span></p>
+                        <p><strong>Block:</strong> <span id="block-number"></span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Element Selection ---
+        const mintButton = document.getElementById('mint-button');
+        const staticImage = document.getElementById('static-image');
+        const animatedVideo = document.getElementById('animated-video');
+        const resultSection = document.getElementById('result-section');
+        const txHashSpan = document.getElementById('tx-hash');
+        const blockNumberSpan = document.getElementById('block-number');
+        const statusSpan = document.getElementById('status-value');
+
+        // --- Confetti Function ---
+        function launchConfetti() {
+            const duration = 2 * 1000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };
+
+            function randomInRange(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+
+            const interval = setInterval(function() {
+                const timeLeft = animationEnd - Date.now();
+                if (timeLeft <= 0) return clearInterval(interval);
+                const particleCount = 50 * (timeLeft / duration);
+                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+            }, 250);
+        }
+        
+        // --- SEGMENTED VIDEO ANIMATION ---
+        
+        // 1. Define your animation sequence here.
+        // Each object is a segment with a start and end time in seconds.
+        // You can add `slowMotion: true` or `loop: true`.
+        const animationSegments = [
+            // { start: 0,   end: 1.5 },
+            // { start: 1.5, end: 2.5 },
+            { start: 0, end: 2.7 }, // 3rd segment in slow motion
+            // { start: 0, end: 2.7, slowMotion: true }, // 3rd segment in slow motion
+            // { start: 2.5, end: 2.7, slowMotion: true }, // 3rd segment in slow motion
+            // { start: 2.7, end: 2.9, loop: true }       // 4th segment loops
+            { start: 2.8, end: 3, loop: true ,slowMotion: true }       // 4th segment loops
+        ];
+
+        let currentSegmentIndex = 0;
+
+        function playCurrentSegment() {
+            // console.log('animationSegments.length:',animationSegments.length)
+            console.log("currentSegmentIndex:",currentSegmentIndex)
+            if (currentSegmentIndex >= animationSegments.length) {
+                // We've played all segments, so we can stop.
+                animatedVideo.pause();
+                return;
+            }
+            
+            const segment = animationSegments[currentSegmentIndex];
+            
+            // Set playback speed
+            animatedVideo.playbackRate = segment.slowMotion ? 0.5 : 1.0;
+            
+            // Set the start time and play
+            animatedVideo.currentTime = segment.start;
+            animatedVideo.play();
+        }
+
+        animatedVideo.addEventListener('timeupdate', function() {
+            if (currentSegmentIndex >= animationSegments.length) return;
+
+            const segment = animationSegments[currentSegmentIndex];
+            
+            // Check if the current time has passed the segment's end time
+            if (this.currentTime >= segment.end) {
+                if (segment.loop) {
+                    // If this segment should loop, jump back to its start time
+                    this.currentTime = segment.start;
+                } else {
+                    // Otherwise, move to the next segment
+                    currentSegmentIndex++;
+                    playCurrentSegment();
+                }
+            }
+        });
+
+        // --- Minting Logic ---
+        mintButton.addEventListener('click', () => {
+            mintButton.disabled = true;
+            mintButton.textContent = 'Minteando en la Blockchain...';
+
+            setTimeout(() => {
+                staticImage.style.display = 'none';
+                animatedVideo.style.display = 'block';
+                
+                // Start the segmented animation
+                currentSegmentIndex = 0;
+                playCurrentSegment();
+                
+                launchConfetti();
+                
+                const fakeTxHash = '0x' + [...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+                const fakeBlock = Math.floor(Math.random() * 100000) + 18500000;
+                
+                statusSpan.textContent = 'Success';
+                txHashSpan.textContent = fakeTxHash.substring(0, 10) + '...' + fakeTxHash.substring(54);
+                blockNumberSpan.textContent = `#${fakeBlock}`;
+                
+                resultSection.style.display = 'block';
+                mintButton.textContent = 'Minteado Exitosamente';
+                
+            }, 3000); 
+        });
+
+    </script>
+</body>
+</html>
