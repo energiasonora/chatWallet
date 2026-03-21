@@ -1,21 +1,27 @@
 {
-  "name": "ChatWallet",
   "short_name": "ChatWallet",
+  "name": "ChatWallet: Crypto Wallet & web3 Chat",
   "icons": [
     {
-      "src": "./web-app-manifest-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
     },
     {
-      "src": "./web-app-manifest-512x512.png",
-      "sizes": "512x512",
+      "src": "web-app-manifest-192x192.png",
       "type": "image/png",
-      "purpose": "maskable"
+      "sizes": "192x192"
+    },
+    {
+      "src": "web-app-manifest-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
   ],
-  "theme_color": "#ffffff",
-  "background_color": "#3f29e5",
-  "display": "standalone"
+  "start_url": "/dapp.html", 
+  "id": "/dapp.html",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#111827",
+  "background_color": "#111827"
 }

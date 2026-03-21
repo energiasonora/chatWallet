@@ -1,478 +1,1424 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto para Principiantes - Capítulo 1</title>
-    
+    <title>Crypto para Soberanos — Libro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
+        rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-    <script src="js/ethers-6.13.2.umd.min.js"></script>
-    <script src="js/qr-code-styling.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
 
     <style>
-        /* --- General Styling --- */
         :root {
-            --primary-blue: #0077c2;
-            --background-color: #ffffff;
-            --text-dark: #212529;
-            --text-light: #495057;
+            --ink: #0d0d0d;
+            --paper: #f5f0e8;
+            --cream: #ede8dc;
+            --gold: #c9a84c;
+            --gold-light: #e8c96a;
+            --rust: #b85c2a;
+            --muted: #7a7469;
             --white: #ffffff;
-            --border-color: #dee2e6;
-            --success-green: #28a745;
-            --info-bg: #f8f9fa;
-            --modal-backdrop: rgba(0, 0, 0, 0.6);
+            --success: #2d6a4f;
+            --border: rgba(13, 13, 13, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--background-color);
-            color: var(--text-dark);
-            margin: 0;
-            box-sizing: border-box;
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--paper);
+            color: var(--ink);
+            min-height: 100vh;
         }
-        
-        /* --- Layout Structure --- */
-        .page-wrapper {
+
+        /* ── Layout ── */
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: 100vh;
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── Left Pane ── */
+        .left-pane {
+            background-color: var(--ink);
             display: flex;
             flex-direction: column;
-            width: 100%;
-        }
-
-        .image-pane {
-            width: 100%;
-            display: flex;
-            justify-content: center;
             align-items: center;
-            padding: 40px 20px;
-            box-sizing: border-box;
-        }
-        
-        .content-pane {
-            width: 100%;
-            text-align: center;
-            padding: 0 20px 40px 20px;
-            box-sizing: border-box;
+            justify-content: center;
+            padding: 60px 40px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow: hidden;
         }
 
-        .content-inner {
-            max-width: 450px;
-            margin: 0 auto;
-        }
-
-        @media (min-width: 992px) {
-            .page-wrapper {
-                flex-direction: row;
-                min-height: 100vh;
-            }
-            .image-pane {
-                width: 50%;
-                height: 100vh;
-                position: sticky;
-                top: 0;
-                padding: 40px;
-            }
-            .content-pane {
-                width: 50%;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                padding: 40px;
+        @media (max-width: 900px) {
+            .left-pane {
+                position: relative;
+                height: auto;
+                padding: 48px 24px;
             }
         }
 
-        .artwork-container {
-            width: 100%;
-            max-width: 400px;
+        .left-pane::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 60% 50% at 20% 80%, rgba(201, 168, 76, 0.15) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 60% at 80% 20%, rgba(184, 92, 42, 0.1) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .book-frame {
             position: relative;
+            width: 100%;
+            max-width: 320px;
         }
 
-        .artwork-container img,
-        .artwork-container video {
+        .book-frame::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--rust) 50%, var(--gold-light) 100%);
+            border-radius: 6px;
+            z-index: 0;
+        }
+
+        .book-frame img {
+            display: block;
             width: 100%;
             height: auto;
-            border-radius: 16px;
-            object-fit: cover;
+            border-radius: 4px;
+            position: relative;
+            z-index: 1;
+            filter: contrast(1.02);
         }
 
-        #animated-video { display: none; }
-        
-        @media (min-width: 992px) {
-            .artwork-container {
-                max-width: none;
-                width: 100%;
-                height: 100%;
-            }
-            .artwork-container img,
-            .artwork-container video {
-                object-fit: cover; 
-                width: 100%;
-                height: 100%;
+        .book-shadow {
+            position: absolute;
+            bottom: -20px;
+            left: 10%;
+            width: 80%;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            filter: blur(18px);
+            border-radius: 50%;
+            z-index: 0;
+        }
+
+        .badge-strip {
+            margin-top: 32px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            z-index: 1;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .badge {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.65rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--gold);
+            border: 1px solid rgba(201, 168, 76, 0.4);
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+
+        /* ── Right Pane ── */
+        .right-pane {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px 56px;
+        }
+
+        @media (max-width: 1100px) {
+            .right-pane {
+                padding: 48px 36px;
             }
         }
 
-        h1.major-mono-display {
-            font-family: 'Major Mono Display', monospace;
-            font-size: 2.2rem;
+        @media (max-width: 900px) {
+            .right-pane {
+                padding: 40px 24px;
+            }
+        }
+
+        .inner {
+            max-width: 460px;
+        }
+
+        .eyebrow {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            margin-bottom: 20px;
+            color: var(--ink);
+        }
+
+        h1 span {
+            display: block;
+            color: var(--rust);
+        }
+
+        .description {
+            font-size: 1rem;
+            color: var(--muted);
+            line-height: 1.7;
+            margin-bottom: 28px;
+            font-weight: 300;
+        }
+
+        /* ── Format Selector ── */
+        .format-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
             margin-bottom: 10px;
         }
 
-        .subtitle {
-            font-size: 1.1rem;
-            color: var(--text-light);
-            margin-bottom: 25px;
-            line-height: 1.6;
-        }
-        
-        .price-info {
-            background-color: var(--info-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 15px;
-            margin: 0 auto 30px auto;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px 15px;
-        }
-        
-        .price-info span {
-            font-size: 1rem;
-            font-weight: 500;
-        }
-        
-        .price-info .separator {
-            color: var(--border-color);
-            display: inline-block;
+        .format-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 24px;
         }
 
-        #mint-button {
-            font-weight: 500;
-            font-size: 1rem;
-            background-color: var(--primary-blue);
-            color: var(--white);
-            border: none;
-            padding: 15px 30px;
-            border-radius: 8px;
+        @media (max-width: 600px) {
+            .format-options {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .format-option {
+            position: relative;
             cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.2s ease;
-            width: 100%;
-            box-sizing: border-box;
         }
 
-        #mint-button:hover:not(:disabled) {
-            background-color: #005f9a;
-            transform: translateY(-3px);
+        .format-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
         }
 
-        #mint-button:disabled {
-            background-color: #a9a9a9;
-            cursor: not-allowed;
+        .format-card {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 14px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            background: var(--cream);
+            transition: all 0.2s ease;
+            cursor: pointer;
         }
-        
-        #result-section {
+
+        .format-option input:checked+.format-card {
+            border-color: var(--ink);
+            background: white;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .format-card:hover {
+            border-color: rgba(13, 13, 13, 0.3);
+        }
+
+        .format-icon {
+            font-size: 1.2rem;
+            margin-bottom: 2px;
+        }
+
+        .format-name {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--ink);
+        }
+
+        .format-price {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .format-badge {
+            display: inline-block;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            background: var(--gold);
+            color: var(--ink);
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-top: 2px;
+            width: fit-content;
+        }
+
+        .format-badge.new {
+            background: var(--rust);
+            color: white;
+        }
+
+        /* ── Shipping note (visible solo con físico) ── */
+        .shipping-note {
             display: none;
-            margin-top: 30px;
-            border-top: 1px solid var(--border-color);
-            padding-top: 30px;
+            align-items: flex-start;
+            gap: 10px;
+            background: #fdf6ec;
+            border: 1px solid rgba(201, 168, 76, 0.3);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 20px;
+            font-size: 0.82rem;
+            color: var(--muted);
+            line-height: 1.5;
         }
 
-        #result-section h2 {
-            font-size: 1.8rem;
-            color: var(--success-green);
+        .shipping-note.visible {
+            display: flex;
+        }
+
+        .shipping-note-icon {
+            font-size: 1rem;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        /* ── Price Card ── */
+        .price-card {
+            background: var(--cream);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px 22px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .price-usd {
+            font-family: 'Syne', sans-serif;
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--ink);
+            line-height: 1;
+            transition: all 0.3s ease;
+        }
+
+        .price-usd sub {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: var(--muted);
+            vertical-align: baseline;
+            margin-right: 2px;
+        }
+
+        .price-breakdown {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.68rem;
+            color: var(--muted);
+            margin-top: 4px;
+            line-height: 1.5;
+            display: none;
+        }
+
+        .price-breakdown.visible {
+            display: block;
+        }
+
+        .price-divider {
+            width: 1px;
+            height: 36px;
+            background: var(--border);
+            flex-shrink: 0;
+        }
+
+        .price-eth-wrap {
+            text-align: right;
+        }
+
+        .price-eth {
+            font-family: 'DM Mono', monospace;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--ink);
+            display: block;
+        }
+
+        .price-eth-label {
+            font-size: 0.72rem;
+            color: var(--muted);
+            font-family: 'DM Mono', monospace;
+            letter-spacing: 0.05em;
+        }
+
+        .price-loading {
+            font-size: 0.75rem;
+            color: var(--muted);
+            font-family: 'DM Mono', monospace;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dot-pulse {
+            display: inline-flex;
+            gap: 3px;
+        }
+
+        .dot-pulse span {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--gold);
+            animation: pulse 1.2s infinite ease-in-out;
+        }
+
+        .dot-pulse span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot-pulse span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            80%,
+            100% {
+                opacity: 0.2;
+                transform: scale(0.8);
+            }
+
+            40% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* ── Network Badge ── */
+        .network-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             margin-bottom: 20px;
         }
 
-        .download-button {
-            display: inline-block;
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 1rem;
-            background-color: var(--success-green);
-            color: var(--white);
+        .network-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28a745;
+            box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+            animation: glow 2s infinite;
+        }
+
+        @keyframes glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+            }
+
+            50% {
+                box-shadow: 0 0 0 5px rgba(40, 167, 69, 0.1);
+            }
+        }
+
+        .network-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--muted);
+            letter-spacing: 0.06em;
+        }
+
+        /* ── Button ── */
+        #mint-button {
+            width: 100%;
+            padding: 17px 24px;
+            background: var(--ink);
+            color: var(--paper);
             border: none;
-            padding: 15px 30px;
             border-radius: 8px;
-            transition: background-color 0.3s ease;
-            margin-bottom: 30px;
-        }
-        
-        .download-button:hover {
-            background-color: #218838;
+            font-family: 'Syne', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
         }
 
-        .receipt {
-            background-color: var(--info-bg);
-            border: 1px solid var(--border-color);
+        #mint-button::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(201, 168, 76, 0.15) 50%, transparent 100%);
+            transform: translateX(-100%);
+            transition: transform 0.5s ease;
+        }
+
+        #mint-button:hover:not(:disabled)::after {
+            transform: translateX(100%);
+        }
+
+        #mint-button:hover:not(:disabled) {
+            background: #1a1a1a;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        #mint-button:disabled {
+            background: #c0bdb7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-sub {
+            font-size: 0.72rem;
+            color: var(--muted);
+            text-align: center;
+            margin-top: 10px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* ── Status Messages ── */
+        #status-box {
+            display: none;
+            margin-top: 20px;
+            padding: 14px 18px;
             border-radius: 8px;
+            background: var(--cream);
+            border: 1px solid var(--border);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.82rem;
+            color: var(--ink);
+            line-height: 1.5;
+        }
+
+        #status-box.error {
+            background: #fdf0eb;
+            border-color: rgba(184, 92, 42, 0.3);
+            color: var(--rust);
+        }
+
+        /* ── Result Section ── */
+        #result-section {
+            display: none;
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+        }
+
+        .success-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .success-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--success);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .success-icon svg {
+            width: 20px;
+            height: 20px;
+            stroke: white;
+            fill: none;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .success-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--success);
+        }
+
+        .download-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 16px 24px;
+            background: var(--success);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .download-btn:hover {
+            background: #235a41;
+            transform: translateY(-2px);
+        }
+
+        /* ── Shipping Form (post-pago) ── */
+        #shipping-form-section {
+            display: none;
+            margin-bottom: 20px;
             padding: 20px;
-            text-align: left;
-        }
-        
-        .receipt h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
+            background: #fdf6ec;
+            border: 1px solid rgba(201, 168, 76, 0.3);
+            border-radius: 10px;
         }
 
-        .receipt p {
-            margin: 8px 0;
+        #shipping-form-section.visible {
+            display: block;
+        }
+
+        .shipping-form-title {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 4px;
+            color: var(--ink);
+        }
+
+        .shipping-form-sub {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 16px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .field-group input,
+        .field-group textarea {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 6px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.88rem;
+            background: white;
+            color: var(--ink);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .field-group input:focus,
+        .field-group textarea:focus {
+            border-color: var(--ink);
+        }
+
+        .field-group textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+
+        .shipping-submit-btn {
+            width: 100%;
+            padding: 13px 20px;
+            background: var(--rust);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
             font-size: 0.9rem;
-            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .shipping-submit-btn:hover {
+            background: #9e4e23;
+            transform: translateY(-1px);
+        }
+
+        .shipping-submit-btn:disabled {
+            background: #c0bdb7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #shipping-sent-msg {
+            display: none;
+            text-align: center;
+            padding: 12px;
+            background: rgba(45, 106, 79, 0.1);
+            border-radius: 6px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--success);
+        }
+
+        /* ── Receipt ── */
+        .receipt {
+            background: var(--cream);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .receipt-header {
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--border);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .receipt-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 10px 18px;
+            border-bottom: 1px solid var(--border);
+            gap: 12px;
         }
 
-        .receipt p strong {
-            color: var(--text-dark);
+        .receipt-row:last-child {
+            border-bottom: none;
+        }
+
+        .receipt-key {
+            font-size: 0.8rem;
+            color: var(--muted);
+            font-weight: 400;
             white-space: nowrap;
         }
 
-        .receipt p span {
-            font-family: monospace;
+        .receipt-val {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.78rem;
+            color: var(--ink);
             word-break: break-all;
-            margin-left: 15px;
             text-align: right;
-            color: var(--primary-blue);
         }
 
-        #status-value {
-            font-weight: bold;
-            color: var(--success-green);
+        .receipt-val a {
+            color: var(--rust);
+            text-decoration: none;
         }
 
-        /* QR Modal Styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: var(--modal-backdrop);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+        .receipt-val a:hover {
+            text-decoration: underline;
         }
-        .modal-overlay.visible {
-            opacity: 1;
-            visibility: visible;
-        }
-        .modal-content {
-            background-color: var(--white);
-            padding: 30px;
-            border-radius: 12px;
-            text-align: center;
-            max-width: 90%;
-            width: 400px;
-            transform: scale(0.95);
-            transition: transform 0.3s ease;
-        }
-        .modal-overlay.visible .modal-content {
-            transform: scale(1);
-        }
-        #qr-code-container {
-            margin: 20px auto;
-            padding: 10px;
-            background: white;
-            border-radius: 8px;
-            display: inline-block;
-        }
-        #payment-status {
-            margin-top: 15px;
+
+        .status-success {
+            color: var(--success);
             font-weight: 500;
-            color: var(--text-light);
         }
 
-        @media (max-width: 991px) {
-            h1.major-mono-display { font-size: 1.8rem; }
-            .subtitle { font-size: 1rem; }
+        .badge a {
+            text-decoration: none;
+            color: inherit;
+            cursor: default;
         }
-        
-        @media (max-width: 420px) {
-            .price-info .separator { display: none; }
-            .price-info { gap: 5px 10px; }
-            .price-info span { font-size: 0.9rem; }
+
+        .badge a:hover {
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        /* ── Page Nav ── */
+        .page-nav {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .page-nav-link {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-decoration: none;
+            color: var(--muted);
+            transition: color 0.15s;
+        }
+
+        .page-nav-link:hover {
+            color: var(--ink);
+        }
+
+        .page-nav-link.active {
+            color: var(--ink);
+            font-weight: 500;
         }
     </style>
 </head>
+
 <body>
 
-    <div class="page-wrapper">
-        <div class="image-pane">
-            <div class="artwork-container">
-                <img id="static-image" src="./img/LIBROES.jpg" alt="Portada del libro 'Crypto para Principiantes'">
-                <video id="animated-video" muted playsinline>
-                    <source src="./vid/animatedChatWallet.mp4" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
+    <div class="layout">
+        <!-- LEFT -->
+        <div class="left-pane">
+            <div class="book-frame">
+                <img id="book-cover" src="./img/tapacpsES.jpg" alt="Crypto para Soberanos">
+                <div class="book-shadow"></div>
+            </div>
+            <div class="badge-strip">
+                <div class="badge">Edición Digital</div>
+                <div class="badge">Arbitrum</div>
+                <div class="badge">
+                    <a href="https://musiclog.org/?q=mlog0xd44c2390f2adb79b" target="_blank" rel="noopener noreferrer">
+                        Verificación pública<br>mlog0xd44c2390f2adb79b
+                    </a>
+                </div>
             </div>
         </div>
 
-        <div class="content-pane">
-            <div class="content-inner">
-                <h1 class="major-mono-display">Crypto para Principiantes</h1>
-                <p class="subtitle">Obtén acceso exclusivo al Capítulo 1 minteando el NFT de acceso. Una guía para iniciar tu viaje en cripto.</p>
-
-                <div class="price-info">
-                    <span id="price-eth">0.005 ETH</span>
-                    <span class="separator">|</span>
-                    <span id="price-usd">~15 USD</span>
+        <!-- RIGHT -->
+        <div class="right-pane">
+            <div class="inner">
+                <div class="page-nav">
+                    <a href="./index.html" class="page-nav-link active">← Inicio</a>
+                    <a href="./dapp.html" class="page-nav-link">ChatWallet →</a>
                 </div>
 
-                <button id="mint-button">Comprar con Crypto</button>
+                <p class="eyebrow">Acceso exclusivo · Pago en crypto</p>
+                <h1>Crypto para<span>Soberanos</span></h1>
+                <p class="description">Una guía práctica para entender las criptomonedas desde cero, pero desde la
+                    perspectiva filosófica de la soberanía. Paga directamente con tu wallet, sin intermediarios.</p>
 
+                <!-- FORMAT SELECTOR -->
+                <p class="format-label">Elegí tu formato</p>
+                <div class="format-options">
+                    <label class="format-option">
+                        <input type="radio" name="format" value="digital" checked onchange="onFormatChange()">
+                        <div class="format-card">
+                            <div class="format-icon">📱</div>
+                            <div class="format-name">Digital</div>
+                            <div class="format-price">$10 USD</div>
+                            <div class="format-badge">Descarga inmediata</div>
+                        </div>
+                    </label>
+                    <label class="format-option">
+                        <input type="radio" name="format" value="physical" onchange="onFormatChange()">
+                        <div class="format-card">
+                            <div class="format-icon">📚</div>
+                            <div class="format-name">Digital + Físico</div>
+                            <div class="format-price">$35 USD</div>
+                            <div class="format-badge new">Envío · Argentina</div>
+                        </div>
+                    </label>
+                    <label class="format-option">
+                        <input type="radio" name="format" value="pickup" onchange="onFormatChange()">
+                        <div class="format-card">
+                            <div class="format-icon">🤝</div>
+                            <div class="format-name">Digital + Retiro</div>
+                            <div class="format-price">$25 USD</div>
+                            <div class="format-badge" style="background:var(--ink);color:white;">En persona · CABA</div>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- SHIPPING / PICKUP NOTE -->
+                <div class="shipping-note" id="shipping-note-physical">
+                    <span class="shipping-note-icon">📦</span>
+                    <span>El libro físico se envía por correo dentro de Argentina. Después de confirmar el pago te
+                        pediremos tu nombre y dirección. Tiempo estimado: 7–15 días hábiles.</span>
+                </div>
+                <div class="shipping-note" id="shipping-note-pickup">
+                    <span class="shipping-note-icon">📍</span>
+                    <span>Retirás el libro en persona en el <strong>Cowork de Crecimiento</strong>, CABA. Coordinamos
+                        día y horario por WhatsApp después de confirmar el pago.</span>
+                </div>
+
+                <!-- PRICE CARD -->
+                <div class="price-card">
+                    <div>
+                        <div class="price-usd" id="price-usd-display"><sub>$</sub><span id="price-usd-amount">10</span>
+                            <span style="font-size:0.85rem;font-weight:400;color:var(--muted)">USD</span>
+                        </div>
+                        <div class="price-breakdown" id="price-breakdown"></div>
+                    </div>
+                    <div class="price-divider"></div>
+                    <div class="price-eth-wrap">
+                        <span class="price-eth" id="price-eth-display">
+                            <span class="price-loading">
+                                <span class="dot-pulse"><span></span><span></span><span></span></span>
+                                cargando
+                            </span>
+                        </span>
+                        <span class="price-eth-label">ETH · precio en tiempo real</span>
+                    </div>
+                </div>
+
+                <div class="network-row">
+                    <div class="network-dot"></div>
+                    <span class="network-label">Arbitrum One · Mainnet · Chainlink ETH/USD</span>
+                </div>
+
+                <button id="mint-button">Conectar Wallet y Comprar</button>
+                <p class="btn-sub">MetaMask, Coinbase Wallet, WalletConnect y más</p>
+
+                <div id="status-box"></div>
+
+                <!-- RESULT SECTION -->
                 <div id="result-section">
-                    <h2>¡Acceso Concedido!</h2>
-                    <a href="#" id="download-link" class="download-button" download="Crypto-para-Principiantes-Cap1.pdf">Descargar Capítulo 1</a>
+                    <div class="success-header">
+                        <div class="success-icon">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="success-title">¡Pago Confirmado!</div>
+                    </div>
+
+                    <a href="#" id="download-link" class="download-btn" target="_blank" rel="noopener">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Descargar Libro (PDF)
+                    </a>
+
+                    <!-- CONTACT/SHIPPING FORM (solo si compró físico o retiro) -->
+                    <div id="shipping-form-section">
+                        <!-- Título dinámico según formato -->
+                        <div class="shipping-form-title" id="shipping-form-title">📦 Completá tus datos de envío</div>
+                        <div class="shipping-form-sub" id="shipping-form-sub">Para coordinar el envío del libro físico
+                        </div>
+                        <div class="field-group">
+                            <input type="text" id="sh-name" placeholder="Nombre completo" required>
+                            <input type="email" id="sh-email" placeholder="Email de contacto" required>
+                            <input type="tel" id="sh-phone" placeholder="WhatsApp / teléfono">
+                            <!-- Campos solo para envío postal -->
+                            <div id="sh-postal-fields">
+                                <div class="field-group" style="margin-bottom:0">
+                                    <input type="text" id="sh-address"
+                                        placeholder="Dirección (calle, número, piso/depto)">
+                                    <input type="text" id="sh-city" placeholder="Ciudad y provincia">
+                                    <input type="text" id="sh-cp" placeholder="Código postal">
+                                </div>
+                            </div>
+                            <textarea id="sh-notes" placeholder="Notas adicionales (opcional)"></textarea>
+                        </div>
+                        <button class="shipping-submit-btn" id="shipping-submit-btn" onclick="submitShipping()">
+                            Enviar datos
+                        </button>
+                        <div id="shipping-sent-msg">✓ Datos recibidos. Te contactaremos pronto para coordinar.</div>
+                    </div>
+
                     <div class="receipt">
-                        <h3>Recibo de Transacción</h3>
-                        <p><strong>Status:</strong> <span id="status-value"></span></p>
-                        <p><strong>Tx Hash:</strong> <span id="tx-hash"></span></p>
-                        <p><strong>Block:</strong> <span id="block-number"></span></p>
+                        <div class="receipt-header">Recibo de transacción</div>
+                        <div class="receipt-row">
+                            <span class="receipt-key">Estado</span>
+                            <span class="receipt-val status-success" id="r-status">—</span>
+                        </div>
+                        <div class="receipt-row">
+                            <span class="receipt-key">Formato</span>
+                            <span class="receipt-val" id="r-format">—</span>
+                        </div>
+                        <div class="receipt-row">
+                            <span class="receipt-key">Red</span>
+                            <span class="receipt-val" id="r-network">—</span>
+                        </div>
+                        <div class="receipt-row">
+                            <span class="receipt-key">Monto</span>
+                            <span class="receipt-val" id="r-amount">—</span>
+                        </div>
+                        <div class="receipt-row">
+                            <span class="receipt-key">Bloque</span>
+                            <span class="receipt-val" id="r-block">—</span>
+                        </div>
+                        <div class="receipt-row">
+                            <span class="receipt-key">Tx Hash</span>
+                            <span class="receipt-val" id="r-hash">—</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- QR Code Modal -->
-    <div id="qr-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h2>Escanear para Pagar</h2>
-            <p>Usa tu wallet móvil para escanear el código y completar la compra.</p>
-            <div id="qr-code-container"></div>
-            <p id="payment-status">Esperando el pago en la blockchain...</p>
-            <button id="close-modal-btn">Cancelar</button>
-        </div>
-    </div>
-
     <script>
-        // --- CONFIGURACIÓN ---
-        const PAYMENT_ADDRESS = "0x9d51a3e880fcb01e5b71658fb8f3cef8d32900eb"; // Reemplazar con tu dirección
-        const CHAIN_ID = 421614; // Arbitrum Sepolia
-        const PRICE_IN_ETH = "0.005";
-        const CHAPTER_FILE_URL = "./assets/chapter1.pdf"; // Reemplazar con la URL real del archivo
+        // ════════════════════════════════════════════════
+        //  ⚙️  CONFIGURACIÓN
+        // ════════════════════════════════════════════════
+        const CONFIG = {
+            PAYMENT_ADDRESS: "0x1c87FDF8844cbEe5DC7f0F1681C44bF3c99A0e3d",
+            PRICE_USD_DIGITAL: 10,
+            PRICE_USD_PHYSICAL: 35,
+            PRICE_USD_PICKUP: 25,
+            CHAIN_ID: 42161,
+            CHAIN_NAME: "Arbitrum One",
+            RPC_URL: "https://arb1.arbitrum.io/rpc",
+            EXPLORER: "https://arbiscan.io",
+            CHAINLINK_FEED: "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",
+            SLIPPAGE: 0.03,
+            API_BASE: "https://us-central1-chatwallet-demo.cloudfunctions.net/api",
+            // Para recibir datos de envío: podés usar Formspree, EmailJS, o tu propio endpoint
+            // Reemplazá con tu endpoint real:
+            SHIPPING_ENDPOINT: "https://formspree.io/f/mkoqkgrn",
+        };
 
-        // --- DOM Elements ---
-        const mintButton = document.getElementById('mint-button');
-        const staticImage = document.getElementById('static-image');
-        const animatedVideo = document.getElementById('animated-video');
+        const CHAINLINK_ABI = [
+            { inputs: [], name: "latestRoundData", outputs: [{ name: "roundId", type: "uint80" }, { name: "answer", type: "int256" }, { name: "startedAt", type: "uint256" }, { name: "updatedAt", type: "uint256" }, { name: "answeredInRound", type: "uint80" }], stateMutability: "view", type: "function" },
+            { inputs: [], name: "decimals", outputs: [{ name: "", type: "uint8" }], stateMutability: "view", type: "function" }
+        ];
+
+        // ── Estado ──
+        let ethAmountWei = null;
+        let provider = null;
+        let signer = null;
+        let selectedFormat = 'digital';
+        let completedTxHash = null;
+        let completedAddress = null;
+
+        // ── DOM ──
+        const mintBtn = document.getElementById('mint-button');
+        const statusBox = document.getElementById('status-box');
         const resultSection = document.getElementById('result-section');
+        const priceEthDisplay = document.getElementById('price-eth-display');
         const downloadLink = document.getElementById('download-link');
-        const txHashSpan = document.getElementById('tx-hash');
-        const blockNumberSpan = document.getElementById('block-number');
-        const statusSpan = document.getElementById('status-value');
-        const qrModal = document.getElementById('qr-modal');
-        const qrCodeContainer = document.getElementById('qr-code-container');
-        const closeModalBtn = document.getElementById('close-modal-btn');
-        const paymentStatus = document.getElementById('payment-status');
 
-        // --- Funciones ---
+        // ── Format change handler ──
+        function onFormatChange() {
+            selectedFormat = document.querySelector('input[name="format"]:checked').value;
+            const priceUSD = getCurrentPriceUSD();
+
+            document.getElementById('price-usd-amount').textContent = priceUSD;
+
+            // Notas contextuales
+            document.getElementById('shipping-note-physical').classList.toggle('visible', selectedFormat === 'physical');
+            document.getElementById('shipping-note-pickup').classList.toggle('visible', selectedFormat === 'pickup');
+
+            // Desglose de precio
+            const breakdown = document.getElementById('price-breakdown');
+            if (selectedFormat === 'physical') {
+                breakdown.textContent = '$10 digital + $25 envío por correo';
+                breakdown.classList.add('visible');
+            } else if (selectedFormat === 'pickup') {
+                breakdown.textContent = '$10 digital + $15 retiro en persona';
+                breakdown.classList.add('visible');
+            } else {
+                breakdown.classList.remove('visible');
+            }
+
+            fetchEthPrice();
+        }
+
+        function getCurrentPriceUSD() {
+            if (selectedFormat === 'physical') return CONFIG.PRICE_USD_PHYSICAL;
+            if (selectedFormat === 'pickup') return CONFIG.PRICE_USD_PICKUP;
+            return CONFIG.PRICE_USD_DIGITAL;
+        }
+
+        // ── UI helpers ──
+        function setStatus(html, isError = false) {
+            statusBox.style.display = 'block';
+            statusBox.className = isError ? 'error' : '';
+            statusBox.innerHTML = html;
+        }
+        function clearStatus() {
+            statusBox.style.display = 'none';
+            statusBox.innerHTML = '';
+        }
         function launchConfetti() {
-            const duration = 2 * 1000;
-            const animationEnd = Date.now() + duration;
-            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
+            const end = Date.now() + 2500;
+            (function frame() {
+                confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } });
+                confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } });
+                if (Date.now() < end) requestAnimationFrame(frame);
+            })();
+        }
 
-            function randomInRange(min, max) {
-                return Math.random() * (max - min) + min;
+        // ── Precio Chainlink ──
+        async function fetchEthPrice() {
+            try {
+                const readProvider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
+                const feed = new ethers.Contract(CONFIG.CHAINLINK_FEED, CHAINLINK_ABI, readProvider);
+                const [decimals, roundData] = await Promise.all([feed.decimals(), feed.latestRoundData()]);
+                const price = Number(roundData.answer) / Math.pow(10, Number(decimals));
+                const priceUSD = getCurrentPriceUSD();
+                const ethNeeded = priceUSD / price;
+                ethAmountWei = ethers.parseEther((ethNeeded * (1 + CONFIG.SLIPPAGE)).toFixed(8));
+                priceEthDisplay.innerHTML = `<strong>${ethNeeded.toFixed(5)}</strong> ETH`;
+                return true;
+            } catch (err) {
+                console.error("Chainlink error:", err);
+                priceEthDisplay.innerHTML = `<span style="color:var(--rust);font-size:0.8rem">Error al cargar precio</span>`;
+                return false;
+            }
+        }
+
+        // ── Conectar wallet ──
+        async function connectWallet() {
+            try {
+                let modal = window.__web3modal;
+                if (!modal) {
+                    await new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => reject(new Error('timeout')), 5000);
+                        const interval = setInterval(() => {
+                            if (window.__web3modal) {
+                                clearTimeout(timeout);
+                                clearInterval(interval);
+                                resolve();
+                            }
+                        }, 100);
+                    });
+                    modal = window.__web3modal;
+                }
+
+                await modal.open();
+                if (!modal) { setStatus('Error iniciando Web3Modal.', true); return false; }
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Timeout')), 120_000);
+                    modal.subscribeProvider(({ provider: p, isConnected }) => {
+                        if (isConnected && p) { clearTimeout(timeout); resolve(); }
+                    });
+                });
+
+                const walletProvider = modal.getWalletProvider();
+                provider = new ethers.BrowserProvider(walletProvider);
+                signer = await provider.getSigner();
+
+                const network = await provider.getNetwork();
+                if (Number(network.chainId) !== CONFIG.CHAIN_ID) {
+                    try {
+                        await walletProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x' + CONFIG.CHAIN_ID.toString(16) }] });
+                        provider = new ethers.BrowserProvider(modal.getWalletProvider());
+                        signer = await provider.getSigner();
+                    } catch (switchErr) {
+                        if (switchErr.code === 4902) {
+                            await walletProvider.request({ method: 'wallet_addEthereumChain', params: [{ chainId: '0x' + CONFIG.CHAIN_ID.toString(16), chainName: CONFIG.CHAIN_NAME, rpcUrls: [CONFIG.RPC_URL], nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, blockExplorerUrls: [CONFIG.EXPLORER] }] });
+                        } else throw switchErr;
+                    }
+                }
+                return true;
+            } catch (err) {
+                if (err.message === 'Timeout') setStatus('Tiempo agotado. Intentá de nuevo.', true);
+                else if (err.code === 4001) setStatus('Conexión cancelada.', true);
+                else setStatus(`Error conectando wallet: ${err.message}`, true);
+                return false;
+            }
+        }
+
+        // ── Flujo principal ──
+        async function handlePurchase() {
+            mintBtn.disabled = true;
+            mintBtn.textContent = 'Conectando...';
+            clearStatus();
+
+            // 1. Precio fresco
+            setStatus('🔄 Consultando precio en Chainlink...');
+            if (!(await fetchEthPrice())) {
+                setStatus('No se pudo obtener el precio. Recargá la página.', true);
+                mintBtn.disabled = false; mintBtn.textContent = 'Conectar Wallet y Comprar';
+                return;
             }
 
-            const interval = setInterval(function() {
-                const timeLeft = animationEnd - Date.now();
-                if (timeLeft <= 0) return clearInterval(interval);
-                const particleCount = 50 * (timeLeft / duration);
-                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
-                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
-            }, 250);
-        }
-        
-        function showQrModal() {
-            const amountInWei = ethers.parseEther(PRICE_IN_ETH).toString();
-            const paymentUri = `ethereum:${PAYMENT_ADDRESS}@${CHAIN_ID}?value=${amountInWei}`;
-            
-            qrCodeContainer.innerHTML = ''; // Limpiar QR anterior
-            const qrCode = new QRCodeStyling({
-                width: 250,
-                height: 250,
-                data: paymentUri,
-                dotsOptions: { color: "#0077c2", type: "rounded" },
-                backgroundOptions: { color: "#ffffff" },
-                cornersSquareOptions: { type: "extra-rounded", color: "#005f9a" },
-            });
-            qrCode.append(qrCodeContainer);
-            
-            qrModal.classList.add('visible');
-        }
+            // 2. Wallet
+            clearStatus();
+            if (!(await connectWallet())) {
+                mintBtn.disabled = false; mintBtn.textContent = 'Conectar Wallet y Comprar';
+                return;
+            }
 
-        function hideQrModal() {
-            qrModal.classList.remove('visible');
-        }
+            const address = await signer.getAddress();
+            completedAddress = address;
+            setStatus(`✅ Wallet: <code>${address.slice(0, 6)}...${address.slice(-4)}</code><br>📤 Confirmá la transacción en tu wallet...`);
+            mintBtn.textContent = 'Esperando firma...';
 
-        function simulatePayment() {
-            paymentStatus.textContent = "Detectando pago en la blockchain...";
-            
-            // Simulación de espera de la transacción
-            setTimeout(() => {
-                hideQrModal();
-                mintButton.textContent = 'Pago Confirmado!';
-                
-                // Simular éxito final
-                setTimeout(showSuccess, 1500);
-            }, 4000);
-        }
+            // 3. Enviar tx
+            let tx;
+            try {
+                tx = await signer.sendTransaction({ to: CONFIG.PAYMENT_ADDRESS, value: ethAmountWei, gasLimit: 30000n });
+            } catch (err) {
+                if (err.code === 4001 || err.code === 'ACTION_REJECTED') setStatus('Transacción cancelada.', true);
+                else if (err.code === 'INSUFFICIENT_FUNDS') setStatus('Saldo insuficiente para el pago + gas.', true);
+                else setStatus(`Error: ${err.message}`, true);
+                mintBtn.disabled = false; mintBtn.textContent = 'Conectar Wallet y Comprar';
+                return;
+            }
 
-        function showSuccess() {
-            staticImage.style.display = 'none';
-            animatedVideo.style.display = 'block';
-            animatedVideo.play();
-            
+            // 4. Esperar confirmación
+            completedTxHash = tx.hash;
+            setStatus(`⏳ Esperando confirmación...<br><code style="font-size:0.75rem">${tx.hash}</code>`);
+            mintBtn.textContent = 'Confirmando en blockchain...';
+
+            let receipt;
+            try {
+                receipt = await tx.wait(1);
+            } catch (err) {
+                setStatus('La transacción falló en la blockchain.', true);
+                mintBtn.disabled = false; mintBtn.textContent = 'Intentar de nuevo';
+                return;
+            }
+
+            if (!receipt || receipt.status !== 1) {
+                setStatus('La transacción fue rechazada.', true);
+                mintBtn.disabled = false; mintBtn.textContent = 'Intentar de nuevo';
+                return;
+            }
+
+            // 5. Verificar con Firebase Function
+            setStatus('🔐 Verificando pago...');
+            mintBtn.textContent = 'Verificando...';
+
+            let token;
+            try {
+                const resp = await fetch(`${CONFIG.API_BASE}/verifyPayment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ txHash: tx.hash, address, format: selectedFormat }),
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data.token) {
+                    setStatus(`Error del servidor: ${data.error || 'Respuesta inesperada'}`, true);
+                    mintBtn.disabled = false; mintBtn.textContent = 'Intentar de nuevo';
+                    return;
+                }
+                token = data.token;
+            } catch (err) {
+                setStatus(`Tu pago fue enviado pero hubo un error al verificar. Guardá este Tx Hash y contactanos:<br><code>${tx.hash}</code>`, true);
+                mintBtn.disabled = false; mintBtn.textContent = 'Error — contactar soporte';
+                return;
+            }
+
+            // 6. ¡Éxito!
+            clearStatus();
             launchConfetti();
-            
-            const fakeTxHash = '0x' + [...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-            const fakeBlock = Math.floor(Math.random() * 100000) + 18500000;
-            
-            statusSpan.textContent = 'Success';
-            txHashSpan.innerHTML = `<a href="https://sepolia.arbiscan.io/tx/${fakeTxHash}" target="_blank">${fakeTxHash.substring(0, 10)}...</a>`;
-            blockNumberSpan.textContent = `#${fakeBlock}`;
-            downloadLink.href = CHAPTER_FILE_URL;
-            
+
+            downloadLink.href = `${CONFIG.API_BASE}/download?token=${token}`;
+
+            const formatLabels = { digital: 'Digital 📱', physical: 'Digital + Físico 📚', pickup: 'Digital + Retiro en persona 🤝' };
+            document.getElementById('r-status').textContent = '✓ Confirmado on-chain';
+            document.getElementById('r-format').textContent = formatLabels[selectedFormat] || selectedFormat;
+            document.getElementById('r-network').textContent = CONFIG.CHAIN_NAME;
+            document.getElementById('r-amount').textContent = `${parseFloat(ethers.formatEther(ethAmountWei)).toFixed(6)} ETH ≈ $${getCurrentPriceUSD()}`;
+            document.getElementById('r-block').textContent = `#${receipt.blockNumber}`;
+            document.getElementById('r-hash').innerHTML = `<a href="${CONFIG.EXPLORER}/tx/${tx.hash}" target="_blank">${tx.hash.slice(0, 12)}...${tx.hash.slice(-6)}</a>`;
+
+            mintBtn.textContent = '¡Acceso concedido!';
+            mintBtn.style.background = 'var(--success)';
             resultSection.style.display = 'block';
-            mintButton.textContent = 'Minteado Exitosamente';
+
+            // Mostrar form post-pago si compró físico o retiro
+            if (selectedFormat === 'physical') {
+                document.getElementById('shipping-form-title').textContent = '📦 Completá tus datos de envío';
+                document.getElementById('shipping-form-sub').textContent = 'Para coordinar el envío postal del libro físico';
+                document.getElementById('sh-postal-fields').style.display = 'block';
+                document.getElementById('sh-phone').placeholder = 'WhatsApp / teléfono (opcional)';
+                document.getElementById('sh-notes').placeholder = 'Notas adicionales para el envío (opcional)';
+                document.getElementById('shipping-form-section').classList.add('visible');
+            } else if (selectedFormat === 'pickup') {
+                document.getElementById('shipping-form-title').textContent = '🤝 Coordiná tu retiro en persona';
+                document.getElementById('shipping-form-sub').textContent = 'Cowork de Crecimiento · CABA · Te contactamos por WhatsApp';
+                document.getElementById('sh-postal-fields').style.display = 'none';
+                document.getElementById('sh-phone').placeholder = 'WhatsApp (para coordinar día y horario)';
+                document.getElementById('sh-notes').placeholder = 'Días/horarios de preferencia (opcional)';
+                document.getElementById('shipping-form-section').classList.add('visible');
+            }
+
+            resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
-        // --- Event Listeners ---
-        mintButton.addEventListener('click', () => {
-            mintButton.disabled = true;
-            mintButton.textContent = 'Preparando QR...';
-            
-            showQrModal();
-            simulatePayment();
-        });
+        // ── Envío de datos de contacto/envío ──
+        async function submitShipping() {
+            const btn = document.getElementById('shipping-submit-btn');
+            const name = document.getElementById('sh-name').value.trim();
+            const email = document.getElementById('sh-email').value.trim();
+            const phone = document.getElementById('sh-phone').value.trim();
 
-        closeModalBtn.addEventListener('click', () => {
-            hideQrModal();
-            mintButton.disabled = false;
-            mintButton.textContent = 'Comprar con Crypto';
-        });
-        
-        // Cierra el modal si se hace clic fuera del contenido
-        qrModal.addEventListener('click', (e) => {
-            if (e.target === qrModal) {
-                closeModalBtn.click();
+            if (!name || !email) {
+                alert('Por favor completá nombre y email.');
+                return;
             }
+
+            // Para envío postal, también requerimos dirección
+            if (selectedFormat === 'physical') {
+                const addr = document.getElementById('sh-address').value.trim();
+                const city = document.getElementById('sh-city').value.trim();
+                if (!addr || !city) {
+                    alert('Por favor completá la dirección y ciudad para el envío.');
+                    return;
+                }
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+
+            const payload = {
+                delivery_type: selectedFormat,
+                name,
+                email,
+                phone,
+                address: document.getElementById('sh-address')?.value.trim() || '',
+                city: document.getElementById('sh-city')?.value.trim() || '',
+                cp: document.getElementById('sh-cp')?.value.trim() || '',
+                notes: document.getElementById('sh-notes').value.trim(),
+                txHash: completedTxHash,
+                walletAddress: completedAddress,
+            };
+
+            try {
+                const resp = await fetch(CONFIG.SHIPPING_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                if (resp.ok) {
+                    btn.style.display = 'none';
+                    document.getElementById('shipping-sent-msg').style.display = 'block';
+                } else {
+                    throw new Error('Server error');
+                }
+            } catch (err) {
+                console.warn('Shipping endpoint error, logging locally:', payload);
+                btn.style.display = 'none';
+                document.getElementById('shipping-sent-msg').style.display = 'block';
+                document.getElementById('shipping-sent-msg').textContent = `✓ Datos guardados. Si no recibís confirmación en 48hs, contactanos con tu Tx Hash: ${completedTxHash?.slice(0, 12)}...`;
+            }
+        }
+
+        // ── Verificar compra previa al cargar ──
+        async function checkExistingPurchase() {
+            try {
+                let address = null;
+                if (window.ethereum) {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts && accounts.length > 0) address = accounts[0];
+                }
+                if (!address) {
+                    const modal = window.__web3modal;
+                    if (modal && modal.getIsConnected()) {
+                        const walletProvider = modal.getWalletProvider();
+                        if (walletProvider) {
+                            const p = new ethers.BrowserProvider(walletProvider);
+                            const s = await p.getSigner();
+                            address = await s.getAddress();
+                        }
+                    }
+                }
+                if (!address) return;
+
+                const resp = await fetch(`${CONFIG.API_BASE}/purchases?address=${address}`);
+                const data = await resp.json();
+                if (data.purchases && data.purchases.length > 0) {
+                    const latest = data.purchases[0];
+                    downloadLink.href = `${CONFIG.API_BASE}/download?token=${latest.id}`;
+                    document.getElementById('r-status').textContent = '✓ Confirmado on-chain';
+                    document.getElementById('r-format').textContent = latest.format === 'physical' ? 'Digital + Físico 📚' : latest.format === 'pickup' ? 'Digital + Retiro 🤝' : 'Digital 📱';
+                    document.getElementById('r-network').textContent = latest.network;
+                    document.getElementById('r-amount').textContent = `${parseFloat(latest.amountEth).toFixed(6)} ETH`;
+                    document.getElementById('r-block').textContent = `#${latest.blockNumber}`;
+                    document.getElementById('r-hash').innerHTML = `<a href="${CONFIG.EXPLORER}/tx/${latest.txHash}" target="_blank">${latest.txHash.slice(0, 12)}...${latest.txHash.slice(-6)}</a>`;
+                    mintBtn.textContent = '✓ Ya compraste este libro';
+                    mintBtn.style.background = 'var(--success)';
+                    mintBtn.disabled = true;
+                    resultSection.style.display = 'block';
+                    setStatus('👋 Bienvenido de nuevo. Tu descarga está lista.');
+                }
+            } catch (err) {
+                console.error("checkExistingPurchase error:", err);
+            }
+        }
+
+        // ── Init ──
+        mintBtn.addEventListener('click', handlePurchase);
+        fetchEthPrice();
+        setInterval(fetchEthPrice, 60_000);
+
+        const modal = window.__web3modal;
+        if (modal) {
+            modal.subscribeState(state => {
+                if (state.initialized) checkExistingPurchase();
+            });
+            setTimeout(checkExistingPurchase, 2000);
+        } else {
+            setTimeout(checkExistingPurchase, 500);
+        }
+    </script>
+
+    <script type="module">
+        import { createWeb3Modal, defaultConfig } from '@web3modal/ethers';
+
+        const arbitrumOne = {
+            chainId: 42161,
+            name: 'Arbitrum One',
+            currency: 'ETH',
+            explorerUrl: 'https://arbiscan.io',
+            rpcUrl: 'https://arb1.arbitrum.io/rpc'
+        };
+
+        const modal = createWeb3Modal({
+            ethersConfig: defaultConfig({
+                metadata: {
+                    name: 'Crypto para Soberanos',
+                    description: 'Compra el libro con crypto',
+                    url: window.location.origin,
+                    icons: ['https://avatars.githubusercontent.com/u/37784886']
+                }
+            }),
+            chains: [arbitrumOne],
+            projectId: 'd8de87632daad1b785acafc4b63ea717',
+            themeMode: 'light',
         });
 
+        window.__web3modal = modal;
     </script>
+
 </body>
+
 </html>

@@ -1,6 +1,7 @@
-const CACHE_NAME = 'chatwallet-cache-v1';
+const CACHE_NAME = 'chatwallet-cache-v3b';
 const urlsToCache = [
   '/',
+  '/dapp.html',
   '/index.html',
   '/js/ethers-6.13.2.umd.min.js',
   '/js/Tone.min.js',

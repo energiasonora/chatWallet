@@ -1,6 +1,6 @@
 {
   "short_name": "ChatWallet",
-  "name": "ChatWallet: Crypto Wallet & Chat",
+  "name": "ChatWallet: Crypto Wallet & web3 Chat",
   "icons": [
     {
       "src": "favicon.ico",
@@ -19,6 +19,7 @@
     }
   ],
   "start_url": "/dapp/", 
+  "id": "/dapp/",
   "scope": "/dapp/",
   "display": "standalone",
   "theme_color": "#111827",

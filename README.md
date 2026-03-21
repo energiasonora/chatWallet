@@ -1,6 +1,34 @@
+stealthwallet sepolia contract 
+0xA1274c2c80563BF3c483610d4e9F9e64Da8bf4B8
+
+0xB42D507DB88B22C9ad19B9B3817823dBACa62537
+
 
 ## test
-yarn parcel src/index.html src/82.html src/stealthAB.html src/dapp.html src/atestations.html src/stealthAB.html src/presale.html src/helia.html --port 7777 --https
+yarn parcel src/index.html src/book.html src/dapp.html  src/stealthwallet.html src/stealthpay.html src/storage.html  src/uploader.html src/wallet.html --port 7777 --https
+
+yarn parcel src/index.html src/book.html src/dapp.html  src/stealthwallet.html src/stealthpay.html src/storage.html  src/uploader.html src/wallet.html --port 7777 --https
+
+<!-- yarn parcel src/index.html src/book.html src/dapp.html  src/stealthwallet.html src/stealthpay.html src/storage.html  --port 7777 --https -->
+
+### en otra terminal 
+node server.js
+
+yarn parcel src/dapp.html  src/stealthwallet.html src/phantom.html src/phantom_hybrid.html src/stealthpay.html src/storage.html  --port 7777 --https
+
+yarn parcel src/dapp.html  src/stealthwallet.html src/phantom.html src/phantom_hybrid.html src/stealthpay.html  --port 7777 --https
+
+yarn parcel src/dapp.html  src/stealthwallet.html src/phantom.html src/phantom_hybrid.html  --port 7777 --https
+
+yarn parcel src/dapp.html  src/stealthwallet.html src/phantom.html src/phantom_hybrid.html  --port 7777 --https        
+
+<!-- yarn parcel src/dapp.html  src/stealthwallet.html src/phantom.html --port 7777 --https        
+yarn parcel src/index.html src/dapp.html src/presale.html src/book.html  --port 7777 --https 
+yarn parcel src/index.html src/dapp.html src/presale.html  --port 7777 --https 
+yarn parcel src/dapp.html  --port 7777 --https 
+
+yarn parcel src/index.html src/82.html src/stealthAB.html src/dapp.html src/atestations.html src/stealthAB.html src/presale.html  --port 7777 --https -->
+<!-- yarn parcel src/index.html src/82.html src/stealthAB.html src/dapp.html src/atestations.html src/stealthAB.html src/presale.html src/helia.html --port 7777 --https -->
 <!-- yarn parcel src/index.html src/82.html src/stealthAB.html src/dapp.html src/atestations.html src/stealthAB.html src/presale.html --port 7777 --https -->
 
 ### eas
@@ -11,12 +39,41 @@ yarn parcel src/81.html   --port 7777 --https
 yarn parcel src/index.html --port 7777 --https
 yarn parcel src/wallet.html --port 7777 --https
 
+
 # DEPLOY
+yarn parcel src/index.html src/book.html src/dapp.html  --dist-dir public  --public-url ./
+
+
+
+yarn parcel src/index.html src/book.html src/dapp.html  src/stealthwallet.html src/stealthpay.html src/storage.html  src/uploader.html src/wallet.html --dist-dir public  --public-url ./
+
+yarn parcel  src/index.html src/book.html src/dapp.html src/presale.html  src/stealthwallet.html  src/stealthpay.html --dist-dir public  --public-url ./
+
+
+yarn parcel  src/index.html  src/dapp.html src/presale.html  src/stealthwallet.html  src/stealthpay.html --dist-dir public  --public-url ./
+
+yarn parcel  src/index.html  src/dapp.html src/presale.html  --dist-dir public  --public-url ./
+
+firebase deploy
+
+---
+✅ Deploy exitoso. Tu Function está viva en:
+https://us-central1-chatwallet-demo.cloudfunctions.net/api
+
+
+## old deploy
 ```
 rm -rf .parce-cache
+yarn parcel  src/dapp.html  --dist-dir public  --public-url ./
+yarn parcel  src/index.html  src/dapp.html  --dist-dir public  --public-url ./
+yarn parcel  src/index.html  src/dapp.html src/presale.html  --dist-dir public  --public-url ./
+
+yarn parcel src/index.html src/presale.html  src/book.html src/demo.html src/manifiesto.html src/roadmap.html  src/atestations.html src/stealthAB.html src/dapp.html --dist-dir public  --public-url ./
+
 yarn parcel src/index.html src/presale.html  src/book.html src/demo.html src/manifiesto.html src/roadmap.html src/dapp.html src/atestations.html src/stealthAB.html --dist-dir public  --public-url ./
 yarn parcel src/index.html src/presale.html  src/book.html src/demo.html src/manifiesto.html src/roadmap.html src/dapp.html --dist-dir public  --public-url ./
 yarn parcel src/index.html --dist-dir public  --public-url ./
+
 firebase deploy
 ```
 
@@ -189,3 +246,17 @@ When someone wants to message you, their client fetches this public bundle from 
 # monad testnet
 cwlt 0x650C744D281ADeCC7808B7f0D377c07240e13a85
 smartwallet 0x6C10f399f7131c149c8a82602F8e4bD0F474E58B
+
+
+# logs
+- v0.94 stealth payments!
+- v93 intentando Detener la hemorragia (Persistencia), dejar de generar IDs nuevos.
+
+- v88 sound when scan
+oculta priv key cuando abre cunfiguracion(la privera vez)
+notificacion en vez de alert al olvidar bileltera
+evita que traduzca la frase mnemonica automaticamente si el usuario tiene una extension de traduccion automatica
+
+v86 added xmtp_db_key para dar persistencia al installationID
+-v85, solved 10 installation reset bug
+- 19122025 cambiado origin a chatWalletIusNaturalis

@@ -14,6 +14,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="ChatWallet" />
     <link rel="manifest" href="./site.webmanifest" />
+    <!-- <link rel="manifest" href="./manifest.json" /> -->
 
     <meta name="description" lang="en"
         content="ChatWallet is an open-source, multi-token crypto wallet with built-in social chat. Send tokens, chat securely, and own your identity on-chain. Built for the streets.">
@@ -241,7 +242,7 @@
             line-height: 1.6;
         }
 
-        .hero__cta-group {
+        .hero__cta-group, .hero__cta-group-static {
             /* Kept as is, no direct intro equivalent */
             display: flex;
             justify-content: center;
@@ -320,7 +321,7 @@
 
         @media all and (max-width: 768px) {
             .col__content {
-                width: 90%;
+                width: 100%;
             }
         }
 
@@ -1342,6 +1343,14 @@
         .headerpresale .btn:hover {
             background-color: #6c63ff;
         }
+
+        @media (max-width: 991px) {
+            .slide--9 {
+                height: auto;
+                overflow-y: auto;
+                padding-top: 5rem; /* Add some padding to avoid content being under the header */
+            }
+        }
     </style>
 </head>
 
@@ -1380,8 +1389,7 @@
                    
          
 
-
-                    <div class="hero__cta-group">
+                    <div class="hero__cta-group-static" style="opacity: 1 !important; visibility: visible !important; transform: none !important;">
                         <div class="headerpresale">
                             <a href="/dapp" class="btn btn--primary">
                                 <span lang="en">Try it!</span>
@@ -1680,9 +1688,10 @@
                     <div class="image-pane">
                         <div class="artwork-container" data-tilt data-tilt-max="5" data-tilt-speed="400"
                             data-tilt-perspective="1000">
-                            <img lang="en" src="./img/LIBROEN.jpg" alt="Book cover for 'Crypto for Beginners'">
-                            <img lang="es" src="./img/LIBROES.jpg" alt="Portada del libro 'Cripto para Principiantes'">
-                            <img lang="fr" src="./img/LIBROFR.jpg" alt="Couverture du livre 'Crypto pour Débutants'">
+                            <!-- <img lang="en" src="./img/LIBROEN.jpg" alt="Book cover for 'Crypto for Beginners'"> -->
+                            <img lang="en" src="./img/tapacpsEN.jpg" alt="Book cover for 'Crypto for Sovereigns'">
+                            <img lang="es" src="./img/tapacpsES.jpg" alt="Portada del libro 'Cripto para Soberanos'">
+                            <img lang="fr" src="./img/tapacpsFR.jpg" alt="Couverture du livre 'Crypto for Sovereigns'">
                             <video id="animated-video-mint" muted playsinline style="display: none;">
                                 <source src="./vid/animatedChatWallet.mp4" type="video/mp4">
                                 Your browser does not support the video tag.
@@ -1693,20 +1702,20 @@
                     <div class="content-pane">
                         <div class="content-inner">
                             <h1 class="major-mono-display-mint">
-                                <span lang="en">Chapter 1 Pre-Launch</span>
-                                <span lang="es">Pre-Lanzamiento Capítulo 1</span>
-                                <span lang="fr">Pré-lancement Chapitre 1</span>
+                                <span lang="en">Launch</span>
+                                <span lang="es">Lanzamiento </span>
+                                <span lang="fr">Lancement</span>
                             </h1>
                             <p class="subtitle-mint">
-                                <span lang="en">Mint the NFT for "Crypto for Beginners: Chapter 1" and get exclusive access.</span>
-                                <span lang="es">Mintea el NFT de "Cripto para Principiantes: Capítulo 1" y obtén acceso exclusivo.</span>
-                                <span lang="fr">Minez le NFT de "Crypto pour Débutants : Chapitre 1" et obtenez un accès exclusif.</span>
+                                <span lang="en">Buy the book for "Crypto for Sovereigns".</span>
+                                <span lang="es">Adquiere el libro "Cripto para Soberanos".</span>
+                                <span lang="fr">Achetez le livre "Crypto for Sovereigns".</span>
                             </p>
 
                             <a href="book.html" id="mint-button" role="button" style="text-decoration: none;">
-                                <span lang="en">Mint Chapter 1</span>
-                                <span lang="es">Mintear Capítulo 1</span>
-                                <span lang="fr">Miner le Chapitre 1</span>
+                                <span lang="en">Buy</span>
+                                <span lang="es">Comprar</span>
+                                <span lang="fr">Acheter</span>
                             </a>
 
                         </div>
@@ -1731,7 +1740,7 @@
                             <span lang="fr">Projet</span>
                         </h4>
                         <ul>
-                            <li><a href="/dapp"><span lang="en">Try it!</span><span lang="es">Demo</span><span lang="fr">Démo</span></a></li>
+                            <li><a href="/dapp"><span lang="en">Try it!</span><span lang="es">DApp</span><span lang="fr">DApp</span></a></li>
                             <!-- <li><a href="/demo"><span lang="en">UI Demo</span><span lang="es">UI Demo</span><span lang="fr">Démo UI</span></a></li> -->
                             <li><a href="/roadmap"><span lang="en">Roadmap</span><span lang="es">Hoja de Ruta</span><span lang="fr">Feuille de Route</span></a></li>
 
@@ -1755,15 +1764,15 @@
                             <li id="whitepaper-link-container">
                                 <span lang="en">
                                     <a href="https://chatwallet.org/chatWallet_Angel-Investors_EN.pdf"
-                                        target="_blank">ChatWallet White Paper for Investors</a>
+                                        target="_blank">  Angel Investors</a>
                                 </span>
                                 <span lang="es">
                                     <a href="https://chatwallet.org/chatWallet_Angel-Investors_ES.pdf"
-                                        target="_blank">Whitepaper de ChatWallet para Angel Investors</a>
+                                        target="_blank"> Angel Investors</a>
                                 </span>
                                 <span lang="fr">
                                     <a href="https://chatwallet.org/chatWallet_Angel-Investors_FR.pdf"
-                                        target="_blank">Livre Blanc ChatWallet pour Investisseurs</a>
+                                        target="_blank"> Investisseurs Angel</a>
                                 </span>
                             </li>
                             <li>
