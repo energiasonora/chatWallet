@@ -69,6 +69,13 @@
     <div class="go" data-i18n="open"></div>
   </a>
 
+  <a class="card" href="bip39.html">
+    <span class="tag" data-i18n="tagWallet"></span>
+    <h2 data-i18n="bip39Title"></h2>
+    <p data-i18n="bip39Desc"></p>
+    <div class="go" data-i18n="open"></div>
+  </a>
+
   <!-- Para sumar una herramienta nueva, copiá un bloque <a class="card">,
        apuntá el href a su archivo y agregá las claves al objeto I18N. -->
 
@@ -87,6 +94,9 @@ const I18N = {
     tagCrypto: 'CRIPTOGRAFÍA',
     signTitle: 'Firma ECDSA',
     signDesc: 'Generá una clave, firmá un mensaje y mirá cómo se recupera la clave pública del firmante usando solo el hash y la firma.',
+    tagWallet: 'WALLETS HD',
+    bip39Title: 'BIP39 → dirección',
+    bip39Desc: 'Seguí el viaje completo: palabras → seed → clave maestra → derivación por ruta → dirección. La misma semilla genera Ethereum y Bitcoin.',
     open: 'Abrir',
     footer: 'Todo corre localmente en tu navegador. Las claves que generes acá son de juguete: no las uses con fondos reales.'
   },
@@ -97,6 +107,9 @@ const I18N = {
     tagCrypto: 'CRYPTOGRAPHY',
     signTitle: 'ECDSA Signature',
     signDesc: 'Generate a key, sign a message, and watch the signer’s public key get recovered using only the hash and the signature.',
+    tagWallet: 'HD WALLETS',
+    bip39Title: 'BIP39 → address',
+    bip39Desc: 'Follow the full journey: words → seed → master key → path derivation → address. The same seed yields both Ethereum and Bitcoin.',
     open: 'Open',
     footer: 'Everything runs locally in your browser. The keys you generate here are toys: don’t use them with real funds.'
   },
@@ -107,6 +120,9 @@ const I18N = {
     tagCrypto: 'CRYPTOGRAPHIE',
     signTitle: 'Signature ECDSA',
     signDesc: 'Générez une clé, signez un message et observez comment la clé publique du signataire est retrouvée à partir du seul hash et de la signature.',
+    tagWallet: 'WALLETS HD',
+    bip39Title: 'BIP39 → adresse',
+    bip39Desc: 'Suivez le parcours complet : mots → seed → clé maîtresse → dérivation par chemin → adresse. La même graine produit Ethereum et Bitcoin.',
     open: 'Ouvrir',
     footer: 'Tout s’exécute localement dans votre navigateur. Les clés générées ici sont des jouets : ne les utilisez pas avec de vrais fonds.'
   }
