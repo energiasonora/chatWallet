@@ -4,11 +4,48 @@ import { parse } from '@storacha/client/proof';
 let client;
 
 self.onmessage = async (e) => {
-  const { file } = e.data;
+  const { file, isPrivate, encryptionKey } = e.data;
+  let uploadFile = file;
   let fakeProgressInterval; 
 
   try {
-    self.postMessage({ type: 'progress', percent: 10, text: `Iniciando subida: ${file.name}` });
+    if (isPrivate && encryptionKey) {
+        self.postMessage({ type: 'progress', percent: 5, text: '🔒 Encriptando archivo...' });
+        
+        // ── ENCRIPTACIÓN WEB CRYPTO ──────────────────────────────────────
+        const encoder = new TextEncoder();
+        const keyData = encoder.encode(encryptionKey);
+        
+        // Hash the key to ensure 256 bits
+        const keyHash = await crypto.subtle.digest('SHA-256', keyData);
+        const cryptoKey = await crypto.subtle.importKey(
+            'raw', 
+            keyHash, 
+            { name: 'AES-GCM' }, 
+            false, 
+            ['encrypt']
+        );
+        
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const fileData = await file.arrayBuffer();
+        
+        const ciphertext = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv },
+            cryptoKey,
+            fileData
+        );
+        
+        // Combine IV + Ciphertext into a single Blob
+        const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+        combined.set(iv, 0);
+        combined.set(new Uint8Array(ciphertext), iv.length);
+        
+        // We preserve the name but it's now an encrypted blob
+        uploadFile = new File([combined], file.name + '.enc', { type: 'application/octet-stream' });
+        // ────────────────────────────────────────────────────────────────
+    }
+
+    self.postMessage({ type: 'progress', percent: 10, text: `Iniciando subida: ${uploadFile.name}` });
 
     if (!client) {
       client = await create();
@@ -19,13 +56,14 @@ self.onmessage = async (e) => {
     
     const agentDid = client.agent.did();
 
-    const response = await fetch('/api/delegate', {
+    const apiBase = e.data.apiBase || '';
+    const response = await fetch(`${apiBase}/api/delegate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({
         agentDid,
-        size: file.size,
-        filename: file.name,
+        size: uploadFile.size,
+        filename: uploadFile.name,
         walletAddress: e.data.walletAddress
       })
     });
@@ -64,7 +102,7 @@ self.onmessage = async (e) => {
     // ────────────────────────────────────────────────────────────────
 
     // 3. Subimos directamente con Storacha
-    const uploadedCid = await client.uploadFile(file);
+    const uploadedCid = await client.uploadFile(uploadFile);
 
     clearInterval(fakeProgressInterval);
     self.postMessage({ type: 'progress', percent: 100, text: '¡Archivo asegurado en IPFS!' });

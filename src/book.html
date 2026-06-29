@@ -15,16 +15,16 @@
 
     <style>
         :root {
-            --ink: #0d0d0d;
-            --paper: #f5f0e8;
-            --cream: #ede8dc;
-            --gold: #c9a84c;
+            --ink: #1a1a1a;
+            --paper: #ffffff;
+            --cream: #f6f4f0;
+            --gold: #b8902f;
             --gold-light: #e8c96a;
             --rust: #b85c2a;
-            --muted: #7a7469;
+            --muted: #6b6b6b;
             --white: #ffffff;
             --success: #2d6a4f;
-            --border: rgba(13, 13, 13, 0.12);
+            --border: rgba(26, 26, 26, 0.12);
         }
 
         * {
@@ -55,7 +55,8 @@
 
         /* ── Left Pane ── */
         .left-pane {
-            background-color: var(--ink);
+            background-color: var(--white);
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -80,8 +81,8 @@
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(ellipse 60% 50% at 20% 80%, rgba(201, 168, 76, 0.15) 0%, transparent 60%),
-                radial-gradient(ellipse 40% 60% at 80% 20%, rgba(184, 92, 42, 0.1) 0%, transparent 60%);
+                radial-gradient(ellipse 60% 50% at 20% 80%, rgba(184, 144, 47, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 60% at 80% 20%, rgba(184, 92, 42, 0.06) 0%, transparent 60%);
             pointer-events: none;
         }
 
@@ -116,7 +117,7 @@
             left: 10%;
             width: 80%;
             height: 30px;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.22);
             filter: blur(18px);
             border-radius: 50%;
             z-index: 0;
@@ -138,7 +139,7 @@
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: var(--gold);
-            border: 1px solid rgba(201, 168, 76, 0.4);
+            border: 1px solid rgba(184, 144, 47, 0.45);
             padding: 5px 10px;
             border-radius: 3px;
         }
@@ -520,6 +521,41 @@
             font-family: 'DM Mono', monospace;
         }
 
+        /* ── No-wallet onboarding CTA ── */
+        .no-wallet-cta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 14px;
+            padding: 11px 14px;
+            border: 1px dashed rgba(184, 144, 47, 0.5);
+            border-radius: 8px;
+            background: #fdf9f0;
+            text-decoration: none;
+            font-size: 0.82rem;
+            color: var(--muted);
+            line-height: 1.4;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .no-wallet-cta:hover {
+            border-color: var(--gold);
+            background: #fbf3e2;
+            transform: translateY(-1px);
+        }
+
+        .no-wallet-cta strong {
+            color: var(--gold);
+            font-weight: 700;
+        }
+
+        .no-wallet-icon {
+            font-size: 0.95rem;
+            flex-shrink: 0;
+        }
+
         /* ── Status Messages ── */
         #status-box {
             display: none;
@@ -799,6 +835,183 @@
             color: var(--ink);
             font-weight: 500;
         }
+
+        /* ── Funding Goal (2 ETH soberano) ── */
+        .funding {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 18px;
+            margin-bottom: 24px;
+        }
+
+        .funding-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .funding-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .funding-amount {
+            font-family: 'Syne', sans-serif;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .funding-amount .raised {
+            color: var(--gold);
+        }
+
+        .funding-bar {
+            position: relative;
+            height: 9px;
+            background: var(--cream);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+
+        .funding-fill {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 0%;
+            background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 100%);
+            border-radius: 100px;
+            transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .funding-note {
+            margin-top: 9px;
+            font-size: 0.72rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .funding-note strong {
+            color: var(--ink);
+            font-weight: 500;
+        }
+
+        /* ── Print-on-Demand (físico internacional) ── */
+        .pod-section {
+            margin-top: 40px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+        }
+
+        .pod-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 6px;
+        }
+
+        .pod-sub {
+            font-size: 0.88rem;
+            color: var(--muted);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .pod-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        @media (max-width: 600px) {
+            .pod-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pod-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            background: var(--white);
+            transition: all 0.2s ease;
+        }
+
+        .pod-card:hover {
+            border-color: rgba(184, 144, 47, 0.5);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+            transform: translateY(-2px);
+        }
+
+        .pod-card img {
+            width: 64px;
+            height: auto;
+            border-radius: 3px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .pod-lang {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.74rem;
+            letter-spacing: 0.05em;
+            color: var(--ink);
+            font-weight: 500;
+        }
+
+        .pod-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            justify-content: center;
+            padding: 9px 12px;
+            background: var(--ink);
+            color: var(--paper);
+            text-decoration: none;
+            border-radius: 6px;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 0.78rem;
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .pod-btn:hover {
+            background: var(--rust);
+            transform: translateY(-1px);
+        }
+
+        .pod-btn[aria-disabled="true"] {
+            background: var(--cream);
+            color: var(--muted);
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .pod-foot {
+            margin-top: 16px;
+            font-size: 0.74rem;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .pod-foot a {
+            color: var(--rust);
+            text-decoration: none;
+        }
+
+        .pod-foot a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 
@@ -815,8 +1028,8 @@
                 <div class="badge">Edición Digital</div>
                 <div class="badge">Arbitrum</div>
                 <div class="badge">
-                    <a href="https://musiclog.org/?q=mlog0xd44c2390f2adb79b" target="_blank" rel="noopener noreferrer">
-                        Verificación pública<br>mlog0xd44c2390f2adb79b
+                    <a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank" rel="noopener noreferrer">
+                        Verificación pública<br>mlog0x9575469ab5017cf0
                     </a>
                 </div>
             </div>
@@ -834,6 +1047,19 @@
                 <h1>Crypto para<span>Soberanos</span></h1>
                 <p class="description">Una guía práctica para entender las criptomonedas desde cero, pero desde la
                     perspectiva filosófica de la soberanía. Paga directamente con tu wallet, sin intermediarios.</p>
+
+                <!-- FUNDING GOAL (soberano · on-chain) -->
+                <div class="funding">
+                    <div class="funding-top">
+                        <span class="funding-label">Meta soberana de financiamiento</span>
+                        <span class="funding-amount"><span class="raised" id="funding-raised">—</span> / 2 ETH</span>
+                    </div>
+                    <div class="funding-bar">
+                        <div class="funding-fill" id="funding-fill"></div>
+                    </div>
+                    <p class="funding-note">Cada copia digital financia el libro. Al alcanzar las <strong>2 ETH</strong>,
+                        el PDF se libera <strong>gratis para todos</strong>. Recaudación leída on-chain en Arbitrum One.</p>
+                </div>
 
                 <!-- FORMAT SELECTOR -->
                 <p class="format-label">Elegí tu formato</p>
@@ -906,6 +1132,10 @@
 
                 <button id="mint-button">Conectar Wallet y Comprar</button>
                 <p class="btn-sub">MetaMask, Coinbase Wallet, WalletConnect y más</p>
+                <a href="./dapp.html" class="no-wallet-cta">
+                    <span class="no-wallet-icon">✨</span>
+                    <span>¿No tenés wallet? Creá la tuya <strong>gratis</strong> con ChatWallet →</span>
+                </a>
 
                 <div id="status-box"></div>
 
@@ -985,6 +1215,40 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- PRINT-ON-DEMAND (físico internacional · Amazon) -->
+                <div class="pod-section">
+                    <h2 class="pod-title">📚 ¿Preferís el libro físico?</h2>
+                    <p class="pod-sub">Edición impresa bajo demanda, disponible en tres idiomas vía Amazon.
+                        En Argentina también hago tiradas artesanales que entrego en mano (elegí "Digital + Físico"
+                        o "Retiro" arriba y pagá con crypto).</p>
+
+                    <div class="pod-grid">
+                        <!-- TODO: reemplazar href="#" por la URL real de Amazon -->
+                        <div class="pod-card">
+                            <img src="./img/tapacpsES.jpg" alt="Cripto para Soberanos — Español">
+                            <span class="pod-lang">🇪🇸 Español</span>
+                            <a class="pod-btn" href="#" target="_blank" rel="noopener"
+                                data-amazon="es">Amazon</a>
+                        </div>
+                        <div class="pod-card">
+                            <img src="./img/tapacpsEN.jpg" alt="Crypto for Sovereigns — English">
+                            <span class="pod-lang">🇬🇧 English</span>
+                            <a class="pod-btn" href="#" target="_blank" rel="noopener"
+                                data-amazon="en">Amazon</a>
+                        </div>
+                        <div class="pod-card">
+                            <img src="./img/tapacpsFR.jpg" alt="Crypto pour les Souverains — Français">
+                            <span class="pod-lang">🇫🇷 Français</span>
+                            <a class="pod-btn" href="#" target="_blank" rel="noopener"
+                                data-amazon="fr">Amazon</a>
+                        </div>
+                    </div>
+
+                    <p class="pod-foot">Próximamente en otras plataformas (Mercado Libre y más). El contenido del libro
+                        está registrado con su hash y timestamp en
+                        <a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank" rel="noopener">musiclog.org</a>.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -1001,10 +1265,11 @@
             CHAIN_ID: 42161,
             CHAIN_NAME: "Arbitrum One",
             RPC_URL: "https://arb1.arbitrum.io/rpc",
+            FUNDING_GOAL_ETH: 2,                                 // meta soberana: al llegar, el PDF se libera
             EXPLORER: "https://arbiscan.io",
             CHAINLINK_FEED: "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",
             SLIPPAGE: 0.03,
-            API_BASE: "https://us-central1-chatwallet-demo.cloudfunctions.net/api",
+            API_BASE: "https://api.chatwallet.org",   // Cloudflare Worker (book-api). Antes: cloudfunctions.net/api
             // Para recibir datos de envío: podés usar Formspree, EmailJS, o tu propio endpoint
             // Reemplazá con tu endpoint real:
             SHIPPING_ENDPOINT: "https://formspree.io/f/mkoqkgrn",
@@ -1097,6 +1362,32 @@
                 console.error("Chainlink error:", err);
                 priceEthDisplay.innerHTML = `<span style="color:var(--rust);font-size:0.8rem">Error al cargar precio</span>`;
                 return false;
+            }
+        }
+
+        // ── Financiamiento soberano (lee balance on-chain de la wallet de pago) ──
+        async function fetchFunding() {
+            const raisedEl = document.getElementById('funding-raised');
+            const fillEl = document.getElementById('funding-fill');
+            if (!raisedEl || !fillEl) return;
+            try {
+                const readProvider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
+                const balanceWei = await readProvider.getBalance(CONFIG.PAYMENT_ADDRESS);
+                const raisedEth = parseFloat(ethers.formatEther(balanceWei));
+                const goal = CONFIG.FUNDING_GOAL_ETH;
+                const pct = Math.min(100, (raisedEth / goal) * 100);
+
+                raisedEl.textContent = `${raisedEth.toFixed(4)} ETH`;
+                fillEl.style.width = `${pct}%`;
+
+                // Al alcanzar la meta: el PDF es libre
+                if (raisedEth >= goal) {
+                    const note = document.querySelector('.funding-note');
+                    if (note) note.innerHTML = '🎉 <strong>¡Meta alcanzada!</strong> El PDF ahora es <strong>libre y gratuito</strong> para todos.';
+                }
+            } catch (err) {
+                console.error('Funding error:', err);
+                raisedEl.textContent = '· · ·';
             }
         }
 
@@ -1379,6 +1670,8 @@
         mintBtn.addEventListener('click', handlePurchase);
         fetchEthPrice();
         setInterval(fetchEthPrice, 60_000);
+        fetchFunding();
+        setInterval(fetchFunding, 60_000);
 
         const modal = window.__web3modal;
         if (modal) {
@@ -1419,6 +1712,45 @@
         window.__web3modal = modal;
     </script>
 
+    <!-- PWA Install Banner -->
+    <div id="pwaInstallBanner" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); width:90%; max-width:400px; background:var(--ink); color:var(--cream); padding:15px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.3); z-index:9999; display:flex; align-items:center; justify-content:space-between; display:none; font-family:'Syne', sans-serif;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span style="font-weight:bold; font-size:14px;">Instalar ChatWallet</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button id="pwaInstallBtn" style="background:var(--rust); color:white; border:none; padding:6px 12px; border-radius:5px; font-weight:bold; cursor:pointer;">Instalar</button>
+            <button id="pwaDismissBtn" style="background:none; border:none; color:var(--muted); font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+    </div>
+
+    <script>
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('pwaInstallBanner').style.display = 'flex';
+        });
+
+        document.getElementById('pwaInstallBtn').addEventListener('click', async () => {
+            document.getElementById('pwaInstallBanner').style.display = 'none';
+            if(deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response to the install prompt: ${outcome}`);
+                deferredPrompt = null;
+            }
+        });
+
+        document.getElementById('pwaDismissBtn').addEventListener('click', () => {
+            document.getElementById('pwaInstallBanner').style.display = 'none';
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            console.log('PWA was installed');
+        });
+    </script>
 </body>
 
 </html>

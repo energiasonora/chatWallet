@@ -12,8 +12,23 @@ import * as CAR from '@ucanto/transport/car';
 import { identity } from 'multiformats/hashes/identity';
 import { base64 } from 'multiformats/bases/base64';
 import { Buffer } from 'buffer';
+import { ethers } from 'ethers';
 
 const QUOTA_FILE = path.join(process.cwd(), 'quotas.json');
+const CONFIG_FILE = path.join(process.cwd(), 'server_config.json');
+
+// ABIs para Smart Account
+const SMART_ACCOUNT_ABI = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'smartContracts', 'ChatSmartAccount.abi.json'), 'utf8'));
+const FACTORY_ABI = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'smartContracts', 'ChatSmartAccountFactory.abi.json'), 'utf8'));
+const FACTORY_BYTECODE = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'smartContracts', 'ChatSmartAccountFactory.bytecode.json'), 'utf8'));
+
+function readConfig() {
+  if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  return {};
+}
+function saveConfig(config) {
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+}
 
 // Función para leer cuotas
 function readQuotas() {
@@ -51,6 +66,66 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// --- Inicializar Proveedor de Blockchain para AA ---
+const rpcUrl = process.env.CHATWALLET_RPC || 'https://sepolia-rollup.arbitrum.io/rpc';
+const provider = new ethers.JsonRpcProvider(rpcUrl);
+// El servidor usa su llave privada para pagar el gas de los usuarios
+const serverSigner = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY, provider);
+
+let factoryAddress = readConfig().factoryAddress;
+
+async function ensureFactory() {
+  if (factoryAddress) return;
+  console.log('Desplegando ChatSmartAccountFactory desde el servidor...');
+  const factory = new ethers.ContractFactory(FACTORY_ABI, FACTORY_BYTECODE, serverSigner);
+  const contract = await factory.deploy();
+  await contract.waitForDeployment();
+  factoryAddress = await contract.getAddress();
+  saveConfig({ factoryAddress });
+  console.log('Factory desplegada en:', factoryAddress);
+}
+
+// Endpoint para obtener la dirección de la Smart Account de un usuario
+app.get('/api/smart/account/:owner', async (req, res) => {
+  try {
+    await ensureFactory();
+    const factory = new ethers.Contract(factoryAddress, FACTORY_ABI, provider);
+    const owner = req.params.owner;
+    const smartAddr = await factory.getAddress(owner, 0);
+    res.json({ address: smartAddr });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint RELAYER: El servidor paga el gas para ejecutar una acción de la Smart Account
+app.post('/api/smart/relay', async (req, res) => {
+  const { owner, target, value, data, signature } = req.body;
+  
+  try {
+    await ensureFactory();
+    const factory = new ethers.Contract(factoryAddress, FACTORY_ABI, serverSigner);
+    
+    // 1. Asegurar que la Smart Account está desplegada
+    console.log(`Asegurando despliegue para Smart Account de ${owner}...`);
+    const deployTx = await factory.deploy(owner, 0);
+    await deployTx.wait();
+    
+    const smartAddr = await factory.getAddress(owner, 0);
+    const smartAccount = new ethers.Contract(smartAddr, SMART_ACCOUNT_ABI, serverSigner);
+    
+    // 2. Ejecutar la operación (el servidor paga el gas)
+    console.log(`Relaying tx de ${owner} hacia ${target}...`);
+    const tx = await smartAccount.execute(target, value || 0, data, signature);
+    const receipt = await tx.wait();
+    
+    res.json({ success: true, txHash: receipt.hash });
+  } catch (err) {
+    console.error('Relay error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Endpoint para obtener cuota actual
 app.get('/api/quota/:address', (req, res) => {
   const quotas = readQuotas();
@@ -60,16 +135,22 @@ app.get('/api/quota/:address', (req, res) => {
 
 // Endpoint para registrar compra de cuota
 app.post('/api/buy-quota', async (req, res) => {
-  const { address, txHash, amountMb } = req.body;
-  if (!address || !txHash || !amountMb) {
+  const { address, signature, message, amountMb } = req.body;
+  if (!address || !signature || !message || !amountMb) {
     return res.status(400).json({ error: 'Faltan datos' });
   }
 
   try {
-    // En un entorno real, aquí verificaríamos la txHash en la blockchain
-    // para asegurar que el pago ocurrió realmente al DID del proyecto.
-    console.log(`Registrando ${amountMb}MB para ${address} (tx: ${txHash})`);
+    // 1. Verificar firma criptográfica del mensaje
+    // Esto es GASLESS para el usuario: solo firma una intención.
+    const recoveredAddress = ethers.verifyMessage(message, signature);
+    if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
+      return res.status(401).json({ error: 'Firma inválida' });
+    }
+
+    console.log(`[GASLESS] Registro ${amountMb}MB para ${address} (Firma validada)`);
     
+    // 2. Actualizar cuota
     const quotas = readQuotas();
     const addr = address.toLowerCase();
     const bytesToAdd = amountMb * 1024 * 1024;
@@ -79,6 +160,7 @@ app.post('/api/buy-quota', async (req, res) => {
     
     res.json({ success: true, newQuota: quotas[addr] });
   } catch (error) {
+    console.error('Error en buy-quota:', error);
     res.status(500).json({ error: error.message });
   }
 });

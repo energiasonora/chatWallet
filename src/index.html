@@ -1539,7 +1539,7 @@
                     </div>
                 </div>
                 <div class="col col--2">
-                    <div class="col__image-wrap"><img class="img img--1" src="2.jpeg"
+                    <div class="col__image-wrap"><img class="img img--1" src="img/2.jpeg"
                             alt="Abstract image representing financial privacy" loading="lazy" /></div>
                 </div>
             </section>
@@ -1564,7 +1564,7 @@
                     </div>
                 </div>
                 <div class="col col--2">
-                    <div class="col__image-wrap"><img class="img img--1" src="chatfriends.webp"
+                    <div class="col__image-wrap"><img class="img img--1" src="img/chatfriends.webp"
                             alt="Abstract image representing financial privacy" loading="lazy" /></div>
                 </div>
             </section> -->
@@ -1591,7 +1591,7 @@
                 </div>
 
                 <div class="col col--2">
-                    <div class="col__image-wrap"><img class="img img--1" src="smartGovernance.jpg"
+                    <div class="col__image-wrap"><img class="img img--1" src="old/smartGovernance.jpg"
                             alt="Illustration representing digital attestations" loading="lazy" /></div>
                 </div>
             </section>
@@ -1644,7 +1644,7 @@
                 </div>
 
                 <div class="col col--2">
-                    <div class="col__image-wrap"><img class="img img--1" src="meditating.webp"
+                    <div class="col__image-wrap"><img class="img img--1" src="img/meditating.webp"
                             alt="Person meditating, representing open source transparency" loading="lazy" /></div>
                 </div>
             </section>
@@ -1890,6 +1890,46 @@
             });
         });
 
+    </script>
+
+    <!-- PWA Install Banner -->
+    <div id="pwaInstallBanner" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); width:90%; max-width:400px; background:#6c63ff; color:white; padding:15px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.3); z-index:9999; display:flex; align-items:center; justify-content:space-between; display:none;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span style="font-weight:bold; font-size:14px;">Install ChatWallet App</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button id="pwaInstallBtn" style="background:white; color:#6c63ff; border:none; padding:5px 10px; border-radius:5px; font-weight:bold; cursor:pointer;">Install</button>
+            <button id="pwaDismissBtn" style="background:none; border:none; color:white; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+    </div>
+
+    <script>
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('pwaInstallBanner').style.display = 'flex';
+        });
+
+        document.getElementById('pwaInstallBtn').addEventListener('click', async () => {
+            document.getElementById('pwaInstallBanner').style.display = 'none';
+            if(deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response to the install prompt: ${outcome}`);
+                deferredPrompt = null;
+            }
+        });
+
+        document.getElementById('pwaDismissBtn').addEventListener('click', () => {
+            document.getElementById('pwaInstallBanner').style.display = 'none';
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            console.log('PWA was installed');
+        });
     </script>
 </body>
 

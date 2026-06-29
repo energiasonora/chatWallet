@@ -18,10 +18,10 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": "/dapp/", 
-  "id": "/dapp/",
-  "scope": "/dapp/",
-  "display": "standalone",
+  "start_url": "/dapp.html",
+  "id": "/chatwallet-dapp",
+  "scope": "/",
+  "display": "fullscreen",
   "theme_color": "#111827",
   "background_color": "#111827"
 }

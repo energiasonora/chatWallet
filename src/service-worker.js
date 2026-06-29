@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chatwallet-cache-v3b';
+const CACHE_NAME = 'chatwallet-cache-1.28';
 const urlsToCache = [
   '/',
   '/dapp.html',
@@ -21,19 +21,33 @@ self.addEventListener('install', event => {
         console.log('Opened cache');
         return cache.addAll(urlsToCache.map(url => new Request(url, {cache: 'reload'})));
       })
+      // El SW nuevo se activa al toque, sin esperar a que se cierren las pestañas
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
+  const req = event.request;
+  // El HTML (navegaciones) va network-first: siempre fresco, con fallback a cache offline.
+  const isHTML = req.mode === 'navigate' ||
+    (req.headers.get('accept') || '').includes('text/html');
+
+  if (isHTML) {
+    event.respondWith(
+      fetch(req)
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
           return response;
-        }
-        return fetch(event.request);
-      }
-    )
+        })
+        .catch(() => caches.match(req).then(r => r || caches.match('/dapp.html')))
+    );
+    return;
+  }
+
+  // Assets (con hash de Parcel → inmutables): cache-first.
+  event.respondWith(
+    caches.match(req).then(response => response || fetch(req))
   );
 });
 
@@ -48,7 +62,7 @@ self.addEventListener('activate', event => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim()) // toma control de las pestañas abiertas ya mismo
   );
 });
 
