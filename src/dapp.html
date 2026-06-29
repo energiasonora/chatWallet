@@ -766,7 +766,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.28 alpha</p>
+            <p class="text-sm text-gray-400">v 1.34 alpha</p>
             <div class="space-y-2 pt-2">
                 <!-- <a href="https://chatwallet.org/presale" target="_blank" rel="noopener noreferrer"
                     class="inline-block w-full px-4 py-2 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors duration-200">
@@ -2138,9 +2138,20 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p>Versión 1.28</p>
-                    <a href="https://github.com/tu-usuario/tu-repositorio" target="_blank" rel="noopener noreferrer"
-                        class="text-indigo-400 hover:underline">
+                    <p id="settingsVersionText">Versión 1.34</p>
+                    <button id="checkUpdatesBtn"
+                        class="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
+                        <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="23 4 23 10 17 10" />
+                            <polyline points="1 20 1 14 7 14" />
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                        </svg>
+                        <span id="checkUpdatesLabel">Buscar actualizaciones</span>
+                    </button>
+                    <p id="updateStatus" class="mt-2 min-h-[1rem]"></p>
+                    <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
+                        class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
                     </a>
                 </div>
@@ -3196,16 +3207,23 @@
                 userAddress = wallet.address;
 
                 localStorage.setItem('currentWallet', JSON.stringify(currentWallet));
-                
-                // Obtener dirección de Smart Account vinculada
-                try {
-                   const sRes = await fetch(`${API_BASE}/api/smart/account/${currentWallet.address}`);
-                   const sData = await sRes.json();
-                   currentWallet.smartAddress = sData.address;
-                   console.log("[SmartAccount] Address vinculada:", currentWallet.smartAddress);
-                } catch(e) {
-                   console.warn("No se pudo obtener Smart Account:", e);
-                }
+
+                // Obtener dirección de Smart Account vinculada — NO bloqueante y con timeout.
+                // Antes era `await` antes de mostrar la wallet: si API_BASE (localhost:3000) no
+                // respondía, la carga/restauración quedaba colgada. La wallet no debe depender de esto.
+                (async () => {
+                    try {
+                        const ctrl = new AbortController();
+                        const to = setTimeout(() => ctrl.abort(), 4000);
+                        const sRes = await fetch(`${API_BASE}/api/smart/account/${currentWallet.address}`, { signal: ctrl.signal });
+                        clearTimeout(to);
+                        const sData = await sRes.json();
+                        currentWallet.smartAddress = sData.address;
+                        console.log("[SmartAccount] Address vinculada:", currentWallet.smartAddress);
+                    } catch (e) {
+                        console.warn("No se pudo obtener Smart Account:", e);
+                    }
+                })();
 
                 // await initEAS(); // FIXME: Función no definida
 
@@ -3870,26 +3888,33 @@
 
             async function handleRestoreWallet(e) {
                 e.preventDefault();
-                const inputValue = restoreInput.value.trim();
-                restoreError.textContent = '';
-                const submitButton = e.target.querySelector('button[type="submit"]');
-                submitButton.disabled = true;
-                submitButton.textContent = 'Restaurando...';
+                // Referencia null-safe al botón: antes se usaba e.target.querySelector y, si no lo
+                // encontraba (DOM viejo cacheado), reventaba con "null is not an object (n.disabled)".
+                const submitButton = restoreWalletForm.querySelector('button[type="submit"]')
+                    || (e.target && e.target.querySelector && e.target.querySelector('button[type="submit"]'));
+                const setBusy = (busy) => {
+                    if (!submitButton) return;
+                    submitButton.disabled = busy;
+                    submitButton.textContent = busy ? 'Restaurando...' : 'Restaurar';
+                };
 
-                if (!inputValue) {
+                const raw = restoreInput.value.trim();
+                restoreError.textContent = '';
+                if (!raw) {
                     restoreError.textContent = 'El campo no puede estar vacío.';
-                    submitButton.disabled = false;
-                    submitButton.textContent = 'Restaurar';
                     return;
                 }
+                setBusy(true);
 
                 let restoredWallet = null;
-
                 try {
-                    if (currentRestoreMode === 'privateKey') {
-                        restoredWallet = new ethers.Wallet(inputValue);
+                    // Auto-detección: una clave privada nunca tiene espacios; una frase siempre.
+                    // Así no depende de que el usuario haya elegido el modo correcto en el toggle.
+                    if (/\s/.test(raw)) {
+                        restoredWallet = ethers.Wallet.fromPhrase(raw.replace(/\s+/g, ' '));
                     } else {
-                        restoredWallet = ethers.Wallet.fromPhrase(inputValue);
+                        const pk = raw.startsWith('0x') ? raw : '0x' + raw; // tolerar clave sin prefijo 0x
+                        restoredWallet = new ethers.Wallet(pk);
                     }
 
                     localStorage.setItem(WALLET_STORAGE_KEY, restoredWallet.privateKey);
@@ -3902,8 +3927,7 @@
                     console.error("Error al restaurar billetera:", error);
                     restoreError.textContent = 'Clave o frase inválida. Por favor, verifica.';
                 } finally {
-                    submitButton.disabled = false;
-                    submitButton.textContent = 'Restaurar';
+                    setBusy(false);
                 }
             }
 
@@ -4583,7 +4607,8 @@
                 try {
                     console.log("Sincronizando mensajes para conversación...", conv.id);
                     await conv.sync();
-                    const existingMessages = await conv.messages();
+                    // limit alto: sin él, messages() trunca al default del SDK y se "pierde" historial viejo.
+                    const existingMessages = await conv.messages({ limit: 1000n });
                     console.log(`✅ ${existingMessages.length} mensajes recuperados de la base de datos local.`);
                     messagesContainer.innerHTML = '';
 
@@ -4630,7 +4655,7 @@
                     if (currentConversation && chatView.classList.contains('active')) {
                         const before = processedMessages.size;
                         await currentConversation.sync();
-                        const msgs = await currentConversation.messages();
+                        const msgs = await currentConversation.messages({ limit: 1000n });
                         for (const message of msgs) {
                             const typeId = message.contentType.typeId;
                             if (typeId === 'readReceipt' || typeId === 'read-receipt' || typeId === 'presence' || typeId === 'profile') continue;
@@ -4641,8 +4666,9 @@
                         if (added > 0) console.log(`🔄 Resync: ${added} mensaje(s) nuevo(s) recuperado(s).`);
                     }
 
-                    // Refrescar lista de contactos (último mensaje / no leídos).
-                    await chatwalletxmtp.conversations.sync().catch(() => {});
+                    // Refrescar lista de contactos. syncAll() es más fuerte que sync(): además de la
+                    // lista, baja welcomes/mensajes nuevos de todas las conversaciones.
+                    await chatwalletxmtp.conversations.syncAll().catch(() => chatwalletxmtp.conversations.sync().catch(() => {}));
                     renderContacts();
                 } catch (e) {
                     console.warn('resyncMessages:', e);
@@ -4916,6 +4942,95 @@
             const IS_NATIVE = !!(_Cap && _Cap.isNativePlatform && _Cap.isNativePlatform());
             const NativeLocalNotif = IS_NATIVE && _Cap.Plugins ? _Cap.Plugins.LocalNotifications : null;
             const NativeKeepAlive = IS_NATIVE && _Cap.Plugins ? _Cap.Plugins.KeepAlive : null;
+            const NativeUpdater = IS_NATIVE && _Cap.Plugins ? _Cap.Plugins.Updater : null;
+
+            // ===== Auto-updater (chequea el último release de GitHub y, en APK, descarga+instala) =====
+            const GITHUB_REPO = 'energiasonora/chatWallet';
+            const APK_DOWNLOAD_URL = `https://github.com/${GITHUB_REPO}/releases/latest/download/chatwallet.apk`;
+
+            // Versión actual: se lee del texto "Versión X.YY" del panel (lo bumpea deploy.sh, queda siempre en sync).
+            function getCurrentVersion() {
+                const el = document.getElementById('settingsVersionText');
+                const m = el && el.textContent.match(/(\d+)\.(\d+)/);
+                return m ? [parseInt(m[1], 10), parseInt(m[2], 10)] : [0, 0];
+            }
+            // Compara "X.YY" por componente (NO como float: 1.32 > 1.4 porque minor 32 > 4).
+            function isNewerVersion(latest, current) {
+                if (latest[0] !== current[0]) return latest[0] > current[0];
+                return latest[1] > current[1];
+            }
+
+            async function checkForUpdates() {
+                const btn = document.getElementById('checkUpdatesBtn');
+                const icon = document.getElementById('checkUpdatesIcon');
+                const status = document.getElementById('updateStatus');
+                if (!status) return;
+                if (btn) btn.disabled = true;
+                if (icon) icon.classList.add('animate-spin');
+                status.className = 'mt-2 min-h-[1rem] text-gray-400';
+                status.textContent = 'Buscando…';
+                try {
+                    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+                        headers: { 'Accept': 'application/vnd.github+json' }
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const data = await res.json();
+                    const tag = (data.tag_name || '').match(/(\d+)\.(\d+)/);
+                    const latest = tag ? [parseInt(tag[1], 10), parseInt(tag[2], 10)] : null;
+                    const current = getCurrentVersion();
+                    if (!latest) throw new Error('release sin versión');
+
+                    if (isNewerVersion(latest, current)) {
+                        const vStr = `v${latest[0]}.${latest[1]}`;
+                        status.className = 'mt-2 min-h-[1rem] text-green-400';
+                        if (NativeUpdater) {
+                            // APK: ofrecer descargar + instalar directamente.
+                            status.innerHTML = `Actualización <b>${vStr}</b> disponible. `;
+                            const go = document.createElement('button');
+                            go.className = 'mt-1 inline-block px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold';
+                            go.textContent = 'Descargar e instalar';
+                            go.onclick = () => downloadAndInstallUpdate(vStr);
+                            status.appendChild(document.createElement('br'));
+                            status.appendChild(go);
+                        } else {
+                            // PWA: con recargar alcanza (el SW trae la versión nueva).
+                            status.innerHTML = `Hay una versión nueva (<b>${vStr}</b>). Recargá la página para actualizar.`;
+                        }
+                    } else {
+                        status.className = 'mt-2 min-h-[1rem] text-gray-400';
+                        status.textContent = `Estás al día (v${current[0]}.${current[1]}).`;
+                    }
+                } catch (e) {
+                    console.warn('checkForUpdates:', e);
+                    status.className = 'mt-2 min-h-[1rem] text-red-400';
+                    status.textContent = 'No se pudo verificar. Probá de nuevo.';
+                } finally {
+                    if (btn) btn.disabled = false;
+                    if (icon) icon.classList.remove('animate-spin');
+                }
+            }
+
+            async function downloadAndInstallUpdate(vStr) {
+                const status = document.getElementById('updateStatus');
+                try {
+                    // Si Android no tiene habilitado "instalar apps desconocidas", avisamos.
+                    if (NativeUpdater.canInstall) {
+                        const { canInstall } = await NativeUpdater.canInstall();
+                        if (!canInstall) {
+                            status.className = 'mt-2 min-h-[1rem] text-yellow-400';
+                            status.textContent = 'Activá "Instalar apps desconocidas" para ChatWallet y reintentá.';
+                        }
+                    }
+                    status.className = 'mt-2 min-h-[1rem] text-gray-400';
+                    status.textContent = `Descargando ${vStr}…`;
+                    await NativeUpdater.downloadAndInstall({ url: APK_DOWNLOAD_URL });
+                    status.textContent = 'Abriendo el instalador…';
+                } catch (e) {
+                    console.warn('downloadAndInstallUpdate:', e);
+                    status.className = 'mt-2 min-h-[1rem] text-red-400';
+                    status.textContent = 'Falló la descarga/instalación. Probá desde la web.';
+                }
+            }
             let _nativeNotifId = 1;
 
             async function initNativeNotifications() {
@@ -6423,7 +6538,12 @@
                     listInstallations();
                 });
             }
-            if (closeSettingsModal) closeSettingsModal.addEventListener('click', () => settingsModal.classList.add('hidden'));
+            const hideSettingsModal = () => { settingsModal.classList.add('hidden'); settingsModal.classList.remove('flex'); };
+            if (closeSettingsModal) closeSettingsModal.addEventListener('click', hideSettingsModal);
+            const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+            if (checkUpdatesBtn) checkUpdatesBtn.addEventListener('click', checkForUpdates);
+            // Cerrar al clickear fuera de la card (en el backdrop).
+            settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) hideSettingsModal(); });
 
             if (backupWalletSettingsBtn) {
                 backupWalletSettingsBtn.addEventListener('click', () => {

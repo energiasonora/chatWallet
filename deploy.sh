@@ -9,6 +9,7 @@ cd "$(dirname "$0")"
 
 DAPP="src/dapp.html"
 SW="src/service-worker.js"
+GRADLE="android/app/build.gradle"
 
 export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh"
@@ -25,6 +26,18 @@ echo "✦ Versión app: $CUR_NUM -> $NEW_NUM"
 # ── 2. Sincronizar cache del service worker con la versión ──
 sed -i '' -E "s/(const CACHE_NAME = ')[^']+(';)/\1chatwallet-cache-${NEW_NUM}\2/" "$SW"
 echo "✦ Service worker cache: chatwallet-cache-${NEW_NUM}"
+
+# ── 2b. Mantener TODO junto en la misma versión (PWA + APK) ──
+# Línea "Versión X.YY" del panel de ajustes
+sed -i '' -E "s/(Versión )${CUR_NUM}/\1${NEW_NUM}/" "$DAPP"
+# APK: versionName = misma versión; versionCode se incrementa (Android lo exige creciente)
+if [ -f "$GRADLE" ]; then
+  sed -i '' -E "s/(versionName )\"[0-9]+\.[0-9]+\"/\1\"${NEW_NUM}\"/" "$GRADLE"
+  CUR_CODE=$(grep -oE 'versionCode [0-9]+' "$GRADLE" | grep -oE '[0-9]+')
+  NEW_CODE=$((CUR_CODE + 1))
+  sed -i '' -E "s/versionCode [0-9]+/versionCode ${NEW_CODE}/" "$GRADLE"
+  echo "✦ APK build.gradle: versionName ${NEW_NUM} / versionCode ${NEW_CODE} (rebuildeá el APK para que tome la versión)"
+fi
 
 # ── 3. Build (Node 22) ──
 nvm use 22.22.3 >/dev/null
