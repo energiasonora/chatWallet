@@ -766,7 +766,18 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.35 alpha</p>
+            <p class="text-sm text-gray-400">v 1.38 alpha</p>
+            <button id="checkUpdatesBtn"
+                class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
+                <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10" />
+                    <polyline points="1 20 1 14 7 14" />
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                <span id="checkUpdatesLabel">Buscar actualizaciones</span>
+            </button>
+            <p id="updateStatus" class="text-xs text-gray-400 min-h-[1rem]"></p>
             <div class="space-y-2 pt-2">
                 <!-- <a href="https://chatwallet.org/presale" target="_blank" rel="noopener noreferrer"
                     class="inline-block w-full px-4 py-2 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors duration-200">
@@ -1168,20 +1179,8 @@
                         class="flex-grow overflow-y-auto bg-gray-900/50 p-4 rounded-lg flex flex-col space-y-4 w-full mb-4">
                     </div>
 
-                    <!-- Píldora flotante: aparece al escrolear al fondo del chat; trae los mensajes pendientes
-                         que no llegaron por el stream (p.ej. tras volver del background). -->
-                    <button id="refreshMessagesBtn" type="button"
-                        class="hidden absolute left-1/2 -translate-x-1/2 z-20 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-full shadow-lg flex items-center gap-2 transition"
-                        style="bottom: 5.5rem;" title="Traer mensajes pendientes">
-                        <svg id="refreshMessagesIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="23 4 23 10 17 10" />
-                            <polyline points="1 20 1 14 7 14" />
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                        </svg>
-                        <span id="refreshMessagesLabel">Actualizar mensajes</span>
-                    </button>
+                    <!-- (Se eliminó la píldora flotante "Actualizar mensajes": ahora el resync es
+                         silencioso y automático al llegar al fondo del chat / al abrir / al volver al foco.) -->
 
                     <!-- INICIO: ÁREA DE ACCIONES Y FORMULARIO DE MENSAJE MODIFICADA -->
                     <div class="flex items-center space-x-2">
@@ -2138,18 +2137,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.35</p>
-                    <button id="checkUpdatesBtn"
-                        class="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
-                        <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                            fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="23 4 23 10 17 10" />
-                            <polyline points="1 20 1 14 7 14" />
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                        </svg>
-                        <span id="checkUpdatesLabel">Buscar actualizaciones</span>
-                    </button>
-                    <p id="updateStatus" class="mt-2 min-h-[1rem]"></p>
+                    <p id="settingsVersionText">Versión 1.38</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -2213,6 +2201,30 @@
                         class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 flex-shrink-0 mt-4">Guardar
                         Red</button>
                 </form>
+            </div>
+        </div>
+
+        <!-- Modal Confirmar Red Compartida (recibida por chat) -->
+        <div id="confirmSharedNetworkModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-[60]">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm flex flex-col max-h-[90vh]">
+                <div class="flex justify-between items-center flex-shrink-0 mb-4">
+                    <h3 class="text-lg font-bold">Añadir red recibida</h3>
+                    <button type="button" id="closeConfirmSharedNetworkBtn"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                <div class="flex items-start space-x-2 bg-yellow-900/30 border border-yellow-700/50 rounded-lg p-3 mb-3 flex-shrink-0">
+                    <span class="text-yellow-400 text-lg leading-none">⚠️</span>
+                    <p class="text-xs text-yellow-200/90">Esta red llegó en un mensaje de chat. Verificá el RPC y el contrato del token antes de añadirla: un remitente malicioso podría inyectar datos falsos.</p>
+                </div>
+                <div id="confirmSharedNetworkDetails" class="overflow-y-auto p-1 space-y-2 flex-grow text-sm">
+                    <!-- detalles inyectados por JS -->
+                </div>
+                <div class="flex space-x-2 flex-shrink-0 mt-4">
+                    <button type="button" id="cancelConfirmSharedNetworkBtn"
+                        class="flex-1 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600">Cancelar</button>
+                    <button type="button" id="acceptConfirmSharedNetworkBtn"
+                        class="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold">Confirmar y añadir</button>
+                </div>
             </div>
         </div>
 
@@ -3101,11 +3113,6 @@
                     });
                 }
 
-                // Ocultar el botón flotante de actualizar al salir del chat.
-                if (viewId !== 'chatView') {
-                    const rb = document.getElementById('refreshMessagesBtn');
-                    if (rb) rb.classList.add('hidden');
-                }
 
                 // Ocultar navegación en la vista de chat para evitar superposición
                 if (viewId === 'chatView') {
@@ -3277,6 +3284,11 @@
 
                     console.log("Sincronizando todas las conversaciones XMTP...");
                     await chatwalletxmtp.conversations.syncAll();
+                    // Sincronizar el "sync group" (device/history sync): trae historial que tienen
+                    // OTRAS instalaciones de este inbox (p.ej. el celu) y que esta instalación (navegador),
+                    // por ser más nueva, no puede descifrar por sí sola. Es best-effort y bidireccional:
+                    // en el celu sirve el historial, en el navegador lo recibe. Sin esto, el backfill "a veces" no llega.
+                    await chatwalletxmtp.preferences.sync().catch(e => console.warn('preferences.sync (history):', e));
                     console.log("✅ XMTP sincronizado.");
 
                     listenForIncomingMessages();
@@ -4669,6 +4681,8 @@
                     // Refrescar lista de contactos. syncAll() es más fuerte que sync(): además de la
                     // lista, baja welcomes/mensajes nuevos de todas las conversaciones.
                     await chatwalletxmtp.conversations.syncAll().catch(() => chatwalletxmtp.conversations.sync().catch(() => {}));
+                    // Device/history sync: recuperar historial servido por otras instalaciones (ver arranque).
+                    await chatwalletxmtp.preferences.sync().catch(() => {});
                     renderContacts();
                 } catch (e) {
                     console.warn('resyncMessages:', e);
@@ -4681,19 +4695,26 @@
                 }
             }
 
-            // El botón flotante aparece cuando el usuario está al fondo del chat (escroleó para abajo).
+            // Antes había una píldora flotante "Actualizar mensajes" que se interponía en el chat.
+            // Se reemplazó por un resync SILENCIOSO automático al llegar al fondo del chat (debounced),
+            // sin ninguna UI que estorbe. El resync también corre al abrir el chat / volver al foco.
             (function wireRefreshMessages() {
-                const btn = document.getElementById('refreshMessagesBtn');
-                if (!btn || !messagesContainer) return;
+                if (!messagesContainer) return;
+                // Sacar del DOM el botón viejo por si quedó en el markup.
+                document.getElementById('refreshMessagesBtn')?.remove();
                 const atBottom = () => (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) < 60;
-                const updateBtn = () => {
-                    if (chatView.classList.contains('active') && atBottom()) btn.classList.remove('hidden');
-                    else btn.classList.add('hidden');
+                let scrollTimer = null;
+                const onScroll = () => {
+                    if (!chatView.classList.contains('active') || !atBottom()) return;
+                    if (scrollTimer) return; // ya hay un resync programado; no encolar más
+                    scrollTimer = setTimeout(() => {
+                        scrollTimer = null;
+                        if (chatView.classList.contains('active') && atBottom()) resyncMessages();
+                    }, 800);
                 };
-                messagesContainer.addEventListener('scroll', updateBtn, { passive: true });
-                btn.addEventListener('click', () => resyncMessages({ manual: true }));
-                // exponer para llamarlo al abrir un chat / volver al foreground
-                window.__updateRefreshBtn = updateBtn;
+                messagesContainer.addEventListener('scroll', onScroll, { passive: true });
+                // no-op para compatibilidad con las llamadas existentes.
+                window.__updateRefreshBtn = () => { };
             })();
 
             function isHandshakeMessage(content) {
@@ -5486,8 +5507,18 @@
                             return net.TOKEN_CHAINID === txData.network.TOKEN_CHAINID && !net.TOKEN_ADDRESS;
                         });
 
-                        const shouldShowButton = existingNetIndex === -1 || (!optionsList[existingNetIndex].isFavorite && optionsList.some(n => n.isFavorite));
-                        return shouldShowButton ? `<button onclick='addSharedNetwork(${JSON.stringify(txData.network).replace(/"/g, '&quot;')})' class="mt-3 w-full text-sm bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center justify-center space-x-2"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg> <span>Añadir ${txData.network.TOKEN_CHAIN_NAME} a la lista</span> </button>` : '';
+                        const netLabel = txData.network.TOKEN_CHAIN_NAME || 'esta red';
+
+                        // No la tiene configurada → ofrecer agregarla (pasa por el modal de confirmación).
+                        if (existingNetIndex === -1) {
+                            return `<button onclick='addSharedNetwork(${JSON.stringify(txData.network).replace(/"/g, '&quot;')})' class="mt-3 w-full text-sm bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center justify-center space-x-2"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg> <span>Añadir ${netLabel} a la lista</span> </button>`;
+                        }
+
+                        // Ya la tiene y es la red activa → no hace falta botón.
+                        if (existingNetIndex === currentTokenIndex) return '';
+
+                        // Ya la tiene pero no está activa → ofrecer cambiar a ella para ver el saldo.
+                        return `<button onclick='viewBalanceOnNetwork(${existingNetIndex})' class="mt-3 w-full text-sm bg-indigo-600/80 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center justify-center space-x-2"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> <span>Ver mi saldo en ${netLabel}</span> </button>`;
                     })()}
                     ${actionButtonHTML}
                 </div>
@@ -5947,6 +5978,15 @@
                 addNewNetworkModal.classList.add('flex');
             }
 
+            let pendingSharedNetwork = null;
+
+            // Cambia a una red ya configurada para ver el saldo del usuario en ella (caso "ya la tengo").
+            function viewBalanceOnNetwork(index) {
+                if (typeof index !== 'number' || index < 0 || index >= optionsList.length) return;
+                switchNetwork(index);
+                showToast(`Mostrando tu saldo en "${optionsList[index].TOKEN_CHAIN_NAME}".`, 'success');
+            }
+
             function addSharedNetwork(networkData) {
                 if (!networkData || !networkData.TOKEN_CHAINID) return;
 
@@ -5956,20 +5996,96 @@
                 );
 
                 if (existingNetIndex !== -1) {
-                    // La red ya existe, así que la marcamos como favorita y la seleccionamos.
+                    // La red ya existe (es de confianza): la marcamos como favorita y la seleccionamos sin pedir confirmación.
                     optionsList[existingNetIndex].isFavorite = true;
                     saveNetworks();
                     switchNetwork(existingNetIndex);
                     showToast(`"${networkData.TOKEN_CHAIN_NAME}" añadido a la lista.`, 'success');
+                    return;
+                }
+
+                // Red nueva proveniente de un mensaje de chat: validar y pedir confirmación explícita antes de agregar.
+                const validationError = validateSharedNetwork(networkData);
+                if (validationError) {
+                    showToast(validationError, 'error');
+                    return;
+                }
+                openConfirmSharedNetworkModal(networkData);
+            }
+
+            // Valida los datos de una red recibida por chat antes de ofrecer agregarla.
+            function validateSharedNetwork(net) {
+                if (!net || !net.TOKEN_CHAINID) return 'Datos de red incompletos.';
+                if (!/^\d+$/.test(String(net.TOKEN_CHAINID))) return 'Chain ID inválido.';
+                const rpc = net.API || net.TOKEN_RPC_URL || '';
+                try {
+                    const u = new URL(rpc);
+                    if (u.protocol !== 'https:') return 'El RPC debe usar HTTPS.';
+                } catch (e) {
+                    return 'URL de RPC inválida.';
+                }
+                if (net.EXPLORER) {
+                    try { new URL(net.EXPLORER); } catch (e) { return 'URL del explorador inválida.'; }
+                }
+                if (net.TOKEN_ADDRESS && !window.ethers.isAddress(net.TOKEN_ADDRESS)) {
+                    return 'Dirección del contrato del token inválida.';
+                }
+                return null;
+            }
+
+            function openConfirmSharedNetworkModal(networkData) {
+                pendingSharedNetwork = networkData;
+                const rpc = networkData.API || networkData.TOKEN_RPC_URL || '';
+                const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const row = (label, value, mono) => `
+                    <div class="bg-gray-900/50 rounded-lg p-2">
+                        <p class="text-xs text-gray-400">${label}</p>
+                        <p class="${mono ? 'font-mono break-all' : ''} text-gray-100">${esc(value)}</p>
+                    </div>`;
+                let html = '';
+                html += row('Nombre de la red', networkData.TOKEN_CHAIN_NAME || '—');
+                html += row('Chain ID', networkData.TOKEN_CHAINID);
+                html += row('Moneda nativa', networkData.NATIVE_SYMBOL || '—');
+                html += row('RPC', rpc, true);
+                if (networkData.EXPLORER) html += row('Explorador', networkData.EXPLORER, true);
+                if (networkData.TOKEN_ADDRESS) {
+                    html += row('Contrato del token', networkData.TOKEN_ADDRESS, true);
+                    html += row('Símbolo del token', networkData.TOKEN_SYMBOL || '—');
+                }
+                document.getElementById('confirmSharedNetworkDetails').innerHTML = html;
+                const modal = document.getElementById('confirmSharedNetworkModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            function closeConfirmSharedNetworkModal() {
+                pendingSharedNetwork = null;
+                const modal = document.getElementById('confirmSharedNetworkModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            function confirmAddSharedNetwork() {
+                if (!pendingSharedNetwork) return closeConfirmSharedNetworkModal();
+                const networkData = pendingSharedNetwork;
+
+                // Re-chequeo por si ya existe (evita duplicar si se agregó mientras el modal estaba abierto).
+                const existingNetIndex = optionsList.findIndex(net =>
+                    net.TOKEN_CHAINID === networkData.TOKEN_CHAINID &&
+                    (net.TOKEN_ADDRESS || null) === (networkData.TOKEN_ADDRESS || null)
+                );
+                if (existingNetIndex !== -1) {
+                    optionsList[existingNetIndex].isFavorite = true;
+                    saveNetworks();
+                    switchNetwork(existingNetIndex);
                 } else {
-                    // La red es nueva, la añadimos y la marcamos como favorita.
                     const newNetwork = { ...networkData, isFavorite: true };
                     optionsList.push(newNetwork);
                     saveNetworks();
-                    const newIndex = optionsList.length - 1;
-                    switchNetwork(newIndex);
-                    showToast(`¡La red "${networkData.TOKEN_CHAIN_NAME}" añadida y seleccionada!`, 'success');
+                    switchNetwork(optionsList.length - 1);
                 }
+                showToast(`¡La red "${networkData.TOKEN_CHAIN_NAME}" añadida y seleccionada!`, 'success');
+                closeConfirmSharedNetworkModal();
             }
             function openManageNetworksModal() {
                 loadAllChainsData();
@@ -6726,6 +6842,12 @@
             if (openAddNetworkModalBtn) openAddNetworkModalBtn.addEventListener('click', openAddNetworkModal);
             if (closeAddNetworkModalBtn) closeAddNetworkModalBtn.addEventListener('click', closeAddNetworkModal);
             if (addNetworkForm) addNetworkForm.addEventListener('submit', handleAddNewNetwork);
+            const closeConfirmSharedNetworkBtn = document.getElementById('closeConfirmSharedNetworkBtn');
+            const cancelConfirmSharedNetworkBtn = document.getElementById('cancelConfirmSharedNetworkBtn');
+            const acceptConfirmSharedNetworkBtn = document.getElementById('acceptConfirmSharedNetworkBtn');
+            if (closeConfirmSharedNetworkBtn) closeConfirmSharedNetworkBtn.addEventListener('click', closeConfirmSharedNetworkModal);
+            if (cancelConfirmSharedNetworkBtn) cancelConfirmSharedNetworkBtn.addEventListener('click', closeConfirmSharedNetworkModal);
+            if (acceptConfirmSharedNetworkBtn) acceptConfirmSharedNetworkBtn.addEventListener('click', confirmAddSharedNetwork);
             if (networkChainIdInput) networkChainIdInput.addEventListener('input', handleAutocomplete);
             if (networkNameInput) networkNameInput.addEventListener('input', handleAutocomplete);
 
@@ -7299,12 +7421,18 @@
             const cancelOfflineModeBtn = document.getElementById('cancelOfflineModeBtn');
             const confirmOfflineModeBtn = document.getElementById('confirmOfflineModeBtn');
 
+            const hideBrandModal = () => {
+                brandModal.classList.add('hidden');
+                brandModal.classList.remove('flex');
+            };
             brandTag.addEventListener('click', (e) => {
                 e.preventDefault();
                 brandModal.classList.remove('hidden');
                 brandModal.classList.add('flex');
             });
-            closeBrandModal.addEventListener('click', () => brandModal.classList.add('hidden'));
+            closeBrandModal.addEventListener('click', hideBrandModal);
+            // Cerrar al clickear fuera del contenido (en el backdrop del modal).
+            brandModal.addEventListener('click', (e) => { if (e.target === brandModal) hideBrandModal(); });
 
             // --- MODO OFFLINE ---
             modeToggleBtn.addEventListener('click', () => {
