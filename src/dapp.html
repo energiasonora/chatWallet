@@ -766,7 +766,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.39 alpha</p>
+            <p class="text-sm text-gray-400">v 1.40 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2137,7 +2137,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.39</p>
+                    <p id="settingsVersionText">Versión 1.40</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -2520,6 +2520,9 @@
             var contacts = [];
             var provider = null; // Ethers provider
             const processedMessages = new Set();
+            // En un DM 1:1 XMTP puede haber más de un evento de sistema "Contacto iniciado" (grupos MLS
+            // subyacentes stitcheados). Mostramos solo el primero por chat; este flag se resetea al abrir.
+            let handshakeShownInChat = false;
             let currentRpcIndex = 0;
             let html5QrCodeScanner = null;
             let notificationTimeout = null;
@@ -4006,7 +4009,7 @@
                 let convs = [];
                 try { convs = await chatwalletxmtp.conversations.list(); } catch (e) { return summary; }
 
-                const SKIP = new Set(['readReceipt', 'read-receipt', 'presence', 'profile']);
+                const SKIP = new Set(['readReceipt', 'read-receipt', 'presence', 'profile', 'group_updated']);
                 for (const conv of convs) {
                     try {
                         let addr = null;
@@ -4026,10 +4029,14 @@
                         let newest = 0, newestText = null, unread = 0;
                         for (const m of msgs) {
                             if (SKIP.has(m.contentType?.typeId)) continue;
+                            const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+                            // Los mensajes de sistema (creación del DM / "Contacto iniciado por…") no cuentan
+                            // como no-leídos ni sirven de preview en la lista.
+                            if (isHandshakeMessage(content)) continue;
                             const ts = m.sentAt ? m.sentAt.getTime() : 0;
                             if (ts > newest) {
                                 newest = ts;
-                                newestText = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+                                newestText = content;
                             }
                             const inbound = m.senderInboxId !== chatwalletxmtp.inboxId;
                             if (inbound && ts > watermark) unread++;
@@ -4701,6 +4708,7 @@
                     <p class="text-gray-400 text-sm">Sincronizando...</p>
                 </div>`;
                 processedMessages.clear();
+                handshakeShownInChat = false;
 
                 try {
                     console.log("Sincronizando mensajes para conversación...", conv.id);
@@ -4840,8 +4848,10 @@
                         // Auto-verify on-chain if there's a txHash
                         if (txData.txHash && txData.type === 'send') {
                             const network = txData.network || optionsList.find(opt => opt.TOKEN_CHAINID == txData.chainId) || optionsList[0];
-                            if (network && network.TOKEN_RPC_URL) {
-                                verifyPaymentTx(txData.txHash, network.TOKEN_RPC_URL, network.EXPLORER || '');
+                            // El RPC de las redes vive en `API` (no en TOKEN_RPC_URL); por eso antes no verificaba nunca.
+                            const rpc = network && (network.API || network.TOKEN_RPC_URL || network.CHATWALLET_RPC);
+                            if (rpc) {
+                                verifyPaymentTx(txData.txHash, rpc, network.EXPLORER || '');
                             }
                         }
                         return;
@@ -4849,6 +4859,13 @@
                         console.error("No se pudo parsear el mensaje de transacción", error);
                     }
                 } else if (isHandshakeMessage(messageContent)) {
+                    // Solo el primer evento de sistema por chat. Los demás (stitching de grupos MLS) no se
+                    // muestran para no ensuciar el UX, pero se loguean con su id+contenido por si sirve para debug.
+                    if (handshakeShownInChat) {
+                        console.debug('[handshake omitido]', message.id, messageContent);
+                        return;
+                    }
+                    handshakeShownInChat = true;
                     messageRow.className = 'handshake-message';
                     const handshakeData = JSON.parse(messageContent);
                     const initiatorInbox = handshakeData.initiatedByInboxId;
