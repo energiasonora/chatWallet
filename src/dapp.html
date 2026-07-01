@@ -766,7 +766,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.38 alpha</p>
+            <p class="text-sm text-gray-400">v 1.39 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2137,7 +2137,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.38</p>
+                    <p id="settingsVersionText">Versión 1.39</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -3293,6 +3293,17 @@
 
                     listenForIncomingMessages();
                     await loadContacts();
+                    // Detectar y contar los mensajes que llegaron mientras la app estuvo cerrada/offline.
+                    try {
+                        const missed = await reconcileUnreadFromStore();
+                        if (missed.totalNew > 0) {
+                            await saveContacts(); // persiste unread + lastMessage y re-renderiza los badges
+                            const quien = missed.senders.length === 1
+                                ? `de ${missed.senders[0].name}`
+                                : `de ${missed.senders.length} chats`;
+                            showToast(`📨 Tenés ${missed.totalNew} mensaje${missed.totalNew > 1 ? 's' : ''} nuevo${missed.totalNew > 1 ? 's' : ''} ${quien}.`, 'info', 5000);
+                        }
+                    } catch (e) { console.warn('reconcile al arrancar:', e); }
                     await handleUrlParameters();
                 } catch (e) {
                     console.error("Background XMTP Error:", e);
@@ -3983,6 +3994,73 @@
                 renderContacts();
             }
 
+            // Reconciliación de "no leídos" desde el store local de XMTP.
+            // El contador de no-leídos solo se incrementa en el stream en vivo (mensaje con la app abierta).
+            // Si el usuario estuvo offline/cerrado, los mensajes se bajan con syncAll() pero nadie los cuenta.
+            // Esta pasada recorre las conversaciones y, comparando contra contact.lastReadTimestamp,
+            // recalcula unreadCount + lastMessage/lastMessageTimestamp para lo que llegó mientras no estaba.
+            // Devuelve un resumen { totalNew, senders } para avisar in-app al abrir.
+            async function reconcileUnreadFromStore() {
+                const summary = { totalNew: 0, senders: [] };
+                if (!chatwalletxmtp) return summary;
+                let convs = [];
+                try { convs = await chatwalletxmtp.conversations.list(); } catch (e) { return summary; }
+
+                const SKIP = new Set(['readReceipt', 'read-receipt', 'presence', 'profile']);
+                for (const conv of convs) {
+                    try {
+                        let addr = null;
+                        try { addr = await getAddressFromInboxId(await conv.peerInboxId()); } catch (e) { }
+                        if (!addr) continue;
+
+                        let msgs = [];
+                        try { msgs = await conv.messages({ limit: 1000n }); } catch (e) { continue; }
+
+                        let idx = contacts.findIndex(c => c.address.toLowerCase() === addr.toLowerCase());
+                        // Marca de agua de lectura: si el contacto nunca la tuvo (primera corrida con este código),
+                        // asumimos leído todo hasta el último mensaje conocido para no inflar el badge de golpe.
+                        const watermark = idx > -1
+                            ? (contacts[idx].lastReadTimestamp ?? (contacts[idx].lastMessageTimestamp || 0))
+                            : 0;
+
+                        let newest = 0, newestText = null, unread = 0;
+                        for (const m of msgs) {
+                            if (SKIP.has(m.contentType?.typeId)) continue;
+                            const ts = m.sentAt ? m.sentAt.getTime() : 0;
+                            if (ts > newest) {
+                                newest = ts;
+                                newestText = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+                            }
+                            const inbound = m.senderInboxId !== chatwalletxmtp.inboxId;
+                            if (inbound && ts > watermark) unread++;
+                        }
+
+                        if (idx === -1) {
+                            const shortAddress = addr.startsWith('0x') ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr.slice(0, 10) + '...';
+                            contacts.push({
+                                name: shortAddress, address: addr, unreadCount: unread,
+                                lastMessage: newestText, lastMessageTimestamp: newest,
+                                status: 'offline', lastSeen: null, lastReadTimestamp: 0, avatar: ANON_AVATAR
+                            });
+                            idx = contacts.length - 1;
+                        } else {
+                            if (contacts[idx].lastReadTimestamp === undefined) contacts[idx].lastReadTimestamp = watermark;
+                            if (newest > (contacts[idx].lastMessageTimestamp || 0)) {
+                                contacts[idx].lastMessage = newestText;
+                                contacts[idx].lastMessageTimestamp = newest;
+                            }
+                            contacts[idx].unreadCount = unread;
+                        }
+
+                        if (unread > 0) {
+                            summary.totalNew += unread;
+                            summary.senders.push({ name: contacts[idx].name, count: unread });
+                        }
+                    } catch (e) { console.warn('reconcileUnread conv:', e); }
+                }
+                return summary;
+            }
+
             async function saveContacts() {
                 try {
                     const encryptedContacts = await encryptContacts(contacts);
@@ -4250,8 +4328,10 @@
             // --- Chat ---
             async function startChatWithContact(contact) {
                 const contactIndex = contacts.findIndex(c => c.address.toLowerCase() === contact.address.toLowerCase());
-                if (contactIndex > -1 && contacts[contactIndex].unreadCount > 0) {
+                if (contactIndex > -1) {
                     contacts[contactIndex].unreadCount = 0;
+                    // Marca de lectura: al abrir, todo lo recibido hasta ahora queda leído (evita recontarlo al reabrir).
+                    contacts[contactIndex].lastReadTimestamp = Date.now();
                 }
 
                 chattingWithEl.textContent = contact.name;
@@ -4460,6 +4540,9 @@
                                         contacts[contactIndex].lastMessageTimestamp = messageTimestamp;
                                         if (!isSentByMe && !isChatOpen) {
                                             contacts[contactIndex].unreadCount = (contacts[contactIndex].unreadCount || 0) + 1;
+                                        } else if (!isSentByMe && isChatOpen) {
+                                            // Chat abierto: se está leyendo en vivo → avanzar la marca de lectura.
+                                            contacts[contactIndex].lastReadTimestamp = messageTimestamp;
                                         }
                                     } else {
                                         // Nuevo contacto (tanto si me escriben como si escribí yo desde otro dispositivo)
@@ -4472,7 +4555,10 @@
                                             lastMessage: lastMsgText,
                                             lastMessageTimestamp: messageTimestamp,
                                             status: 'offline',
-                                            lastSeen: null
+                                            lastSeen: null,
+                                            // Si es entrante y no lo leíste, marca en 0 para que el reconcile lo siga contando;
+                                            // si lo abriste/lo enviaste vos, queda como leído hasta este mensaje.
+                                            lastReadTimestamp: (!isSentByMe && !isChatOpen) ? 0 : messageTimestamp
                                         });
                                     }
                                 } else if (!isSentByMe) {
@@ -4683,6 +4769,8 @@
                     await chatwalletxmtp.conversations.syncAll().catch(() => chatwalletxmtp.conversations.sync().catch(() => {}));
                     // Device/history sync: recuperar historial servido por otras instalaciones (ver arranque).
                     await chatwalletxmtp.preferences.sync().catch(() => {});
+                    // Recontar no-leídos de lo que llegó mientras el stream estuvo muerto (silencioso: solo badges).
+                    try { await reconcileUnreadFromStore(); await saveContacts(); } catch (e) { console.warn('reconcile en resync:', e); }
                     renderContacts();
                 } catch (e) {
                     console.warn('resyncMessages:', e);
