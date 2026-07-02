@@ -766,7 +766,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.40 alpha</p>
+            <p class="text-sm text-gray-400">v 1.43 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1218,6 +1218,18 @@
                                 </button>
                             </div>
                         </div>
+                        <button id="offlineScanReplyBtn" type="button" title="Escanear respuesta (QR)"
+                            class="hidden p-3 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors focus:outline-none flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="text-yellow-400">
+                                <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                                <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                                <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                                <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                                <line x1="7" y1="12" x2="17" y2="12" />
+                            </svg>
+                        </button>
                         <form id="sendMessageForm" class="flex-grow flex items-center space-x-2">
                             <input type="text" id="messageInput" placeholder="Escribe un mensaje..."
                                 class="flex-grow bg-gray-700 border-0 text-white rounded-full px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -1783,6 +1795,26 @@
             </div>
         </div>
 
+        <!-- Modal Mensaje Offline (QR cifrado para el interlocutor) -->
+        <div id="offlineMsgQrModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-yellow-300">Mensaje cifrado (QR)</h3>
+                    <button id="closeOfflineMsgQrModal"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                <p class="text-sm text-gray-400">Mostrale este QR al interlocutor para que lo escanee. Solo su
+                    billetera puede descifrarlo. Cuando te responda, tocá <span class="text-yellow-400 font-semibold">Escanear
+                        respuesta</span>.</p>
+                <div class="w-full max-w-[280px] mx-auto p-4 bg-white rounded-xl shadow-lg">
+                    <div id="offlineMsgQrCode"></div>
+                </div>
+                <button id="offlineMsgScanReplyBtn"
+                    class="w-full px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-500 font-semibold">Escanear
+                    respuesta</button>
+            </div>
+        </div>
+
         <!-- Modal Stealth Address -->
         <div id="stealthAddressModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
             <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4">
@@ -2137,7 +2169,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.40</p>
+                    <p id="settingsVersionText">Versión 1.43</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -3206,6 +3238,10 @@
             async function initializeWalletAndXmtp(wallet, isNewWallet = false) {
                 if (isOffline) {
                     console.log("Initialize in OFFLINE mode.");
+                    currentWallet = wallet;              // necesario para firmar/descifrar QR offline
+                    userAddress = wallet.address;
+                    loadOfflineThreads();
+                    try { await loadContacts(); } catch (e) { }
                     statusEl.textContent = "Modo Offline: Billetera cargada.";
                     return;
                 }
@@ -3296,6 +3332,7 @@
 
                     listenForIncomingMessages();
                     await loadContacts();
+                    loadOfflineThreads();
                     // Detectar y contar los mensajes que llegaron mientras la app estuvo cerrada/offline.
                     try {
                         const missed = await reconcileUnreadFromStore();
@@ -3959,7 +3996,11 @@
 
             // --- Contactos ---
             async function encryptContacts(contacts) {
-                const contactsString = JSON.stringify(contacts);
+                // No persistir los BYTES del avatar en el blob cifrado (viven en IndexedDB por hash,
+                // ver avatarPut); guardamos solo avatarHash → el blob no colapsa con muchos contactos.
+                // Si un contacto no tiene hash (fallback sin crypto.subtle), se deja el avatar inline.
+                const slim = contacts.map(c => (c.avatarHash && c.avatar) ? { ...c, avatar: undefined } : c);
+                const contactsString = JSON.stringify(slim);
                 if (!currentWallet || !currentWallet.signingKey) return null;
                 const publicKey = currentWallet.signingKey.publicKey;
                 const encrypted = await EthCrypto.encryptWithPublicKey(
@@ -3979,11 +4020,111 @@
                 return JSON.parse(decrypted);
             }
 
+            // ─────────────────────────────────────────────────────────────
+            //  Mensajería OFFLINE por QR (ECIES sobre secp256k1)
+            //  Permite continuar una conversación SIN red: cada mensaje viaja
+            //  cifrado dentro de un QR que el interlocutor escanea y descifra.
+            //  Requiere conocer la clave PÚBLICA del otro (no basta la address):
+            //  se intercambia una sola vez con el QR de identidad (?address=…&pk=…).
+            // ─────────────────────────────────────────────────────────────
+            const OFFLINE_MSG_PREFIX = 'CWM1|';               // magic de un QR de mensaje offline
+            const OFFLINE_THREADS_KEY = 'chatwallet_offline_threads_v1';
+            const OFFLINE_MSG_MAXLEN = 240;                   // cabe en 1 QR de alta corrección
+            let currentOfflineContact = null;                 // contacto del chat offline abierto
+            let offlineThreads = {};                          // { addressLower: [ {dir,text,ts,verified} ] }
+
+            function loadOfflineThreads() {
+                try {
+                    const raw = localStorage.getItem(OFFLINE_THREADS_KEY);
+                    offlineThreads = raw ? JSON.parse(raw) : {};
+                } catch (e) { offlineThreads = {}; }
+            }
+            function saveOfflineThreads() {
+                try { localStorage.setItem(OFFLINE_THREADS_KEY, JSON.stringify(offlineThreads)); } catch (e) { }
+            }
+            function getOfflineThread(address) {
+                const k = address.toLowerCase();
+                if (!offlineThreads[k]) offlineThreads[k] = [];
+                return offlineThreads[k];
+            }
+            function addOfflineMessage(address, msg) {
+                getOfflineThread(address).push(msg);
+                saveOfflineThreads();
+            }
+
+            // Clave pública comprimida propia (para el QR de identidad). 66 hex sin 0x.
+            function myCompressedPubKey() {
+                const pk = currentWallet && currentWallet.signingKey && currentWallet.signingKey.compressedPublicKey;
+                return pk ? (pk.startsWith('0x') ? pk.slice(2) : pk) : null;
+            }
+
+            // Normaliza una pública (comprimida 66 hex o cruda 128 hex) a la forma
+            // que espera eth-crypto para cifrar.
+            function toEncryptablePubKey(pub) {
+                if (!pub) return null;
+                let hex = pub.startsWith('0x') ? pub.slice(2) : pub;
+                if (hex.length === 66) hex = EthCrypto.publicKey.decompress(hex); // comprimida → 128 crudos
+                return hex;
+            }
+
+            // Cifra `text` para el contacto (usa su pubKey guardada). Devuelve el string del QR.
+            async function buildOfflineMessageQR(contact, text) {
+                if (!contact || !contact.pubKey) {
+                    throw new Error('Falta la clave pública del contacto. Escaneá su QR de identidad primero.');
+                }
+                const pub = toEncryptablePubKey(contact.pubKey);
+                const enc = await EthCrypto.encryptWithPublicKey(pub, text);
+                const cipherHex = EthCrypto.cipher.stringify(enc);
+                const from = currentWallet.address;
+                const sig = await currentWallet.signMessage(cipherHex); // autentica al emisor
+                return OFFLINE_MSG_PREFIX + [from, sig, cipherHex].join('|');
+            }
+
+            function isOfflineMessageData(data) {
+                return typeof data === 'string' && data.startsWith(OFFLINE_MSG_PREFIX);
+            }
+
+            // Descifra un QR de mensaje offline. Devuelve {from, text, verified}.
+            async function decodeOfflineMessageQR(data) {
+                const parts = data.slice(OFFLINE_MSG_PREFIX.length).split('|');
+                if (parts.length !== 3) throw new Error('QR de mensaje inválido.');
+                const [from, sig, cipherHex] = parts;
+                // La firma va sobre el ciphertext → se puede verificar al emisor sin descifrar.
+                let verified = false;
+                try { verified = ethers.verifyMessage(cipherHex, sig).toLowerCase() === from.toLowerCase(); } catch (e) { }
+                const text = await EthCrypto.decryptWithPrivateKey(
+                    currentWallet.privateKey,
+                    EthCrypto.cipher.parse(cipherHex)
+                );
+                return { from, text, verified };
+            }
+
+            // Extrae la clave pública comprimida de un QR de identidad (?address=…&pk=…).
+            function extractPubKeyFromData(data) {
+                try {
+                    const q = data.split('?')[1];
+                    if (!q) return null;
+                    const pk = new URLSearchParams(q).get('pk');
+                    if (pk && /^[0-9a-fA-F]{66}$/.test(pk)) return pk;
+                } catch (e) { }
+                return null;
+            }
+
             async function loadContacts() {
                 const storedContacts = localStorage.getItem(CONTACTS_STORAGE_KEY);
                 if (storedContacts) {
                     try {
                         contacts = await decryptContacts(storedContacts);
+                        // Avatares: rehidratar el dataURL desde IndexedDB por hash. Migrar los que
+                        // quedaron inline en el blob de versiones viejas (calcular hash → mover a IDB).
+                        for (const c of (contacts || [])) {
+                            if (c.avatar && !c.avatarHash) {
+                                c.avatarHash = await sha256Hex(c.avatar);
+                                if (c.avatarHash) await avatarPut(c.avatarHash, c.avatar);
+                            } else if (c.avatarHash && !c.avatar) {
+                                c.avatar = await avatarGet(c.avatarHash);
+                            }
+                        }
                     } catch (e) {
                         console.error("Could not decrypt contacts, starting fresh.", e);
                         contacts = [];
@@ -4101,7 +4242,17 @@
                             lastMessageText = '💸 Transacción';
                         }
 
-                        const statusText = contact.status === 'online' ? '🟢 En línea' : '⚪️ Desconectado';
+                        const isOnline = contact.status === 'online';
+                        // Color = estado de conexión (verde en línea / gris offline).
+                        const statusColor = isOnline ? 'text-green-400' : 'text-gray-500';
+                        // Alias propio del contacto (cómo se llama a sí mismo, vía su DID). Sólo lo
+                        // mostramos si difiere del pseudónimo local para no repetirlo.
+                        const selfAlias = (contact.selfAlias && contact.selfAlias !== contact.name) ? contact.selfAlias : '';
+                        // Ocupamos el espacio del "en línea/offline" con el nombre propio del contacto,
+                        // coloreado por estado; si no hay alias, un punto del mismo color cumple la función.
+                        const statusBit = selfAlias
+                            ? `<span class="${statusColor} font-medium">${selfAlias}</span> · `
+                            : `<span class="${statusColor}">●</span> `;
 
                         const contactEl = document.createElement('div');
                         contactEl.className = 'contact-item flex items-center p-3 bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-700 transition gap-3 mb-2';
@@ -4117,7 +4268,7 @@
                                 <p class="text-xs text-gray-400 flex-shrink-0">${lastMessageTime}</p>
                             </div>
                             <div class="flex items-center mt-1">
-                                <p class="text-xs text-gray-500 truncate flex-grow">${statusText} - ${lastMessageText}</p>
+                                <p class="text-xs text-gray-500 truncate flex-grow">${statusBit}${lastMessageText}</p>
                                 ${unreadCount > 0 ? `<span class="unread-badge flex-shrink-0 ml-2">${unreadCount}</span>` : ''}
                             </div>
                         </div>
@@ -4348,6 +4499,18 @@
                 }
                 updateChatHeaderStatus(contact);
 
+                // ── Modo OFFLINE: sin XMTP. Se muestra el hilo local y se compone por QR. ──
+                if (isOffline) {
+                    currentOfflineContact = contact;
+                    currentConversation = null;
+                    showView('chatView');
+                    renderOfflineThread(contact);
+                    updateOfflineComposeUI();
+                    await saveContacts();
+                    return;
+                }
+                currentOfflineContact = null;
+
                 // Mostrar loader inmediatamente al abrir el chat
                 messagesContainer.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-full">
@@ -4362,6 +4525,87 @@
                     sendProfile(currentConversation); // hace "vivo" el perfil soberano al conectar
                 }
                 await saveContacts();
+            }
+
+            // ── Render del hilo offline (mensajes guardados localmente) ──
+            function renderOfflineMsg(m) {
+                const row = document.createElement('div');
+                row.className = `w-full flex ${m.dir === 'sent' ? 'justify-end' : 'justify-start'}`;
+                const bubble = document.createElement('div');
+                bubble.className = `message-bubble ${m.dir === 'sent' ? 'sent' : 'received'}`;
+
+                const span = document.createElement('span');
+                span.textContent = m.text;
+
+                const meta = document.createElement('div');
+                meta.className = 'message-metadata';
+                const t = document.createElement('span');
+                t.textContent = new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                meta.appendChild(t);
+                const tag = document.createElement('span');
+                tag.title = 'Mensaje offline por QR';
+                tag.textContent = (m.dir === 'received' && m.verified === false) ? ' ⚠️ QR' : ' 🔒 QR';
+                meta.appendChild(tag);
+
+                bubble.appendChild(span);
+                bubble.appendChild(meta);
+                row.appendChild(bubble);
+                messagesContainer.appendChild(row);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            function renderOfflineThread(contact) {
+                messagesContainer.innerHTML = '';
+                if (!contact.pubKey) {
+                    const warn = document.createElement('div');
+                    warn.className = 'handshake-message';
+                    warn.innerHTML = `<span class="content">🔑 Aún no tenés la clave pública de este contacto. Escaneá su QR de identidad (Recibir → QR de chat) para poder enviarle mensajes cifrados.</span>`;
+                    messagesContainer.appendChild(warn);
+                }
+                const thread = getOfflineThread(contact.address);
+                if (thread.length === 0 && contact.pubKey) {
+                    const hint = document.createElement('p');
+                    hint.className = 'text-center text-gray-500 text-sm mt-4';
+                    hint.textContent = 'Conversación offline. Escribí un mensaje para generar un QR cifrado, o escaneá el QR del interlocutor.';
+                    messagesContainer.appendChild(hint);
+                }
+                thread.forEach(renderOfflineMsg);
+            }
+
+            // Ajusta el compositor (input + botones) según modo online/offline.
+            function updateOfflineComposeUI() {
+                const scanBtn = document.getElementById('offlineScanReplyBtn');
+                if (isOffline && currentOfflineContact) {
+                    messageInput.placeholder = 'Mensaje offline (se genera un QR cifrado)…';
+                    if (scanBtn) scanBtn.classList.remove('hidden');
+                } else {
+                    messageInput.placeholder = 'Escribe un mensaje...';
+                    if (scanBtn) scanBtn.classList.add('hidden');
+                }
+            }
+
+            // Cifra el texto, lo guarda en el hilo local y muestra el QR para el interlocutor.
+            async function sendOfflineMessage(text) {
+                if (!currentOfflineContact) return;
+                if (text.length > OFFLINE_MSG_MAXLEN) {
+                    showToast(`Mensaje muy largo para un QR offline (máx ${OFFLINE_MSG_MAXLEN} caracteres).`, 'error');
+                    return;
+                }
+                let qrData;
+                try {
+                    qrData = await buildOfflineMessageQR(currentOfflineContact, text);
+                } catch (e) {
+                    showToast(e.message, 'error', 5000);
+                    return;
+                }
+                const msg = { dir: 'sent', text, ts: Date.now(), verified: true };
+                addOfflineMessage(currentOfflineContact.address, msg);
+                renderOfflineMsg(msg);
+                currentOfflineContact.lastMessage = text;
+                currentOfflineContact.lastMessageTimestamp = Date.now();
+                saveContacts();
+                messageInput.value = '';
+                showOfflineMsgQrModal(qrData);
             }
 
             const inboxAddressCache = new Map();
@@ -4728,6 +4972,9 @@
                     for (const message of existingMessages) {
                         const typeId = message.contentType.typeId;
                         if (typeId === 'readReceipt' || typeId === 'read-receipt' || typeId === 'presence') continue;
+                        // Perfiles que llegaron mientras estábamos offline: aplicarlos (alias/avatar
+                        // del contacto) en vez de renderizarlos como un mensaje en el chat.
+                        if (typeId === 'profile') { handleProfileMessage(message); continue; }
 
                         const type = message.senderInboxId === chatwalletxmtp.inboxId ? 'sent' : 'received';
                         addMessageToUI(message, type);
@@ -4999,7 +5246,10 @@
                 if (!qrCodeEl || !address) return;
                 qrCodeEl.innerHTML = '';
                 const baseUrl = window.location.href.split('?')[0];
-                const chatUrl = `${baseUrl}?address=${address}`;
+                // Incluimos la clave pública comprimida (pk) para el handshake de identidad:
+                // el que escanea puede cifrarnos mensajes offline por QR sin necesidad de red.
+                const pk = myCompressedPubKey();
+                const chatUrl = pk ? `${baseUrl}?address=${address}&pk=${pk}` : `${baseUrl}?address=${address}`;
                 const qrColor = isOffline ? "#9ca3af" : "#4f46e5"; // gray-400 en frío / indigo-600 normal
                 const qrCode = new QRCodeStyling({
                     width: 370, height: 370,
@@ -5440,6 +5690,12 @@
 
             let pendingSecret = null;
             async function handleScannedData(data) {
+                // ¿Es un mensaje offline cifrado? (QR con prefijo CWM1|)
+                if (isOfflineMessageData(data)) {
+                    await handleIncomingOfflineMessage(data);
+                    return;
+                }
+
                 const secret = extractSecretFromData(data);
                 if (secret) {
                     playQRscanned();
@@ -5456,7 +5712,7 @@
                 const address = extractAddressFromData(data);
                 if (address) {
                     playQRscanned();
-                    await handleScannedAddress(address);
+                    await handleScannedAddress(address, extractPubKeyFromData(data));
                 } else {
                     alert("QR no reconocido o no contiene una dirección ni llave válida.");
                 }
@@ -5474,7 +5730,7 @@
                 if (typeof setRestoreMode === 'function') setRestoreMode('privateKey');
             };
 
-            async function handleScannedAddress(address) {
+            async function handleScannedAddress(address, pubKey) {
                 if (!currentWallet) {
                     statusEl.textContent = "Creando billetera para chatear...";
                     const randomWallet = window.Wallet.createRandom();
@@ -5498,14 +5754,51 @@
 
                 const existingContact = contacts.find(c => c.address.toLowerCase() === address.toLowerCase());
                 if (existingContact) {
+                    // Handshake de identidad: guardamos/actualizamos la pública si vino en el QR.
+                    if (pubKey && existingContact.pubKey !== pubKey) {
+                        existingContact.pubKey = pubKey;
+                        saveContacts();
+                    }
                     await startChatWithContact(existingContact);
                 } else {
                     const shortName = `${address.slice(0, 6)}...${address.slice(-4)}`;
-                    const newContact = { name: shortName, address: address, unreadCount: 0, status: 'offline', lastSeen: null, avatar: ANON_AVATAR };
+                    const newContact = { name: shortName, address: address, unreadCount: 0, status: 'offline', lastSeen: null, avatar: ANON_AVATAR, pubKey: pubKey || null };
                     contacts.push(newContact);
                     saveContacts();
                     await startChatWithContact(newContact);
                 }
+            }
+
+            // Procesa un QR de mensaje offline entrante: lo descifra, lo guarda en el
+            // hilo local del emisor y abre/continúa el chat offline con ese contacto.
+            async function handleIncomingOfflineMessage(data) {
+                if (!currentWallet) {
+                    alert("Cargá tu billetera antes de escanear un mensaje.");
+                    return;
+                }
+                let decoded;
+                try {
+                    decoded = await decodeOfflineMessageQR(data);
+                } catch (e) {
+                    alert("No se pudo descifrar el mensaje. ¿Es un QR dirigido a vos? (" + e.message + ")");
+                    return;
+                }
+                playQRscanned();
+                const { from, text, verified } = decoded;
+
+                let contact = contacts.find(c => c.address.toLowerCase() === from.toLowerCase());
+                if (!contact) {
+                    const shortName = `${from.slice(0, 6)}...${from.slice(-4)}`;
+                    contact = { name: shortName, address: from, unreadCount: 0, status: 'offline', lastSeen: null, avatar: ANON_AVATAR, pubKey: null };
+                    contacts.push(contact);
+                    saveContacts();
+                }
+
+                addOfflineMessage(from, { dir: 'received', text, ts: Date.now(), verified });
+                if (!verified) {
+                    showToast("⚠️ La firma del emisor no pudo verificarse.", "error", 5000);
+                }
+                await startChatWithContact(contact);
             }
 
             // --- Instalaciones (en Modal de Configuración) ---
@@ -6291,24 +6584,33 @@
             }
 
             // Cadena canónica que se firma/verifica (orden fijo => reproducible en ambos lados).
+            // Cadena que se FIRMA (v1.43+): SIN avatarHash (el hash es derivable de los bytes del
+            // avatar, no hace falta firmarlo). Mantener estable para no romper compatibilidad.
             function profileCanonical(p) {
                 return JSON.stringify([1, (p.did || '').toLowerCase(), p.alias || '', p.links || '', p.avatar || '', p.updatedAt]);
             }
+            // Variante v1.42 (con avatarHash firmado). Se mantiene SOLO para verificar perfiles
+            // viejos que quedaron en el historial firmados con esa forma. No se usa para firmar.
+            function profileCanonicalWithHash(p) {
+                return JSON.stringify([1, (p.did || '').toLowerCase(), p.alias || '', p.links || '', p.avatar || '', p.avatarHash || '', p.updatedAt]);
+            }
 
-            // Reduce el avatar a un thumbnail chico para no inflar el mensaje XMTP. Solo aplica a
-            // data-URLs (un avatar por defecto tipo 'img/anonym.jpg' no se envía).
+            // Normaliza el avatar: recorte CUADRADO centrado (cover) + WebP (fallback jpeg), chico.
+            // Solo aplica a data-URLs (un avatar por defecto tipo 'static/anonym.jpg' no se envía).
             async function makeAvatarThumb(dataUrl, max = 128) {
                 if (!dataUrl || !dataUrl.startsWith('data:image')) return '';
                 return new Promise((resolve) => {
                     const img = new Image();
                     img.onload = () => {
                         try {
-                            const scale = Math.min(1, max / Math.max(img.width, img.height));
-                            const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+                            const side = Math.min(img.width, img.height);          // recorte cuadrado centrado
+                            const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
                             const canvas = document.createElement('canvas');
-                            canvas.width = w; canvas.height = h;
-                            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                            resolve(canvas.toDataURL('image/jpeg', 0.7));
+                            canvas.width = max; canvas.height = max;
+                            canvas.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, max, max);
+                            let out = canvas.toDataURL('image/webp', 0.8);
+                            if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', 0.8); // fallback
+                            resolve(out);
                         } catch (e) { resolve(''); }
                     };
                     img.onerror = () => resolve('');
@@ -6316,23 +6618,75 @@
                 });
             }
 
+            // sha256 hex de una string (content-addressing del avatar). Degrada a '' si no hay
+            // crypto.subtle (contexto no seguro) → el flujo cae al avatar inline de antes.
+            async function sha256Hex(str) {
+                try {
+                    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+                    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) { return ''; }
+            }
+
+            // Caché de avatares content-addressed en IndexedDB: los BYTES viven acá (no en el blob
+            // cifrado de contactos → no colapsa con muchos contactos), deduplicados por hash.
+            // Los avatares SIGUEN viajando por XMTP (en el perfil); esto es solo almacenamiento local.
+            let _avatarDB = null;
+            function avatarDB() {
+                if (_avatarDB) return _avatarDB;
+                _avatarDB = new Promise((resolve, reject) => {
+                    const req = indexedDB.open('chatwallet-avatars', 1);
+                    req.onupgradeneeded = () => req.result.createObjectStore('avatars');
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+                return _avatarDB;
+            }
+            async function avatarPut(hash, dataUrl) {
+                if (!hash || !dataUrl) return false;
+                try {
+                    const db = await avatarDB();
+                    return await new Promise((resolve) => {
+                        const tx = db.transaction('avatars', 'readwrite');
+                        tx.objectStore('avatars').put(dataUrl, hash);
+                        tx.oncomplete = () => resolve(true);
+                        tx.onerror = () => resolve(false);
+                    });
+                } catch (e) { return false; }
+            }
+            async function avatarGet(hash) {
+                if (!hash) return null;
+                try {
+                    const db = await avatarDB();
+                    return await new Promise((resolve) => {
+                        const tx = db.transaction('avatars', 'readonly');
+                        const r = tx.objectStore('avatars').get(hash);
+                        r.onsuccess = () => resolve(r.result || null);
+                        r.onerror = () => resolve(null);
+                    });
+                } catch (e) { return null; }
+            }
+
             async function buildSignedProfile() {
                 let saved = {};
                 try { saved = JSON.parse(localStorage.getItem('chatwallet-user-profile') || '{}'); } catch (e) {}
+                const avatar = await makeAvatarThumb(saved.avatar);
+                // avatarHash NO va firmado: el receptor lo deriva de los bytes. Se manda igual como
+                // conveniencia (dedup), pero la firma solo cubre la cadena canónica simple.
                 const payload = {
                     v: 1,
-                    did: wallet.address,
+                    did: currentWallet.address,
                     alias: (saved.alias || '').slice(0, 64),
                     links: (saved.links || '').slice(0, 500),
-                    avatar: await makeAvatarThumb(saved.avatar),
+                    avatar,
                     updatedAt: Date.now(),
                 };
-                payload.sig = await wallet.signMessage(profileCanonical(payload));
+                if (avatar) payload.avatarHash = await sha256Hex(avatar);
+                payload.sig = await currentWallet.signMessage(profileCanonical(payload));
                 return payload;
             }
 
             async function sendProfile(conversation) {
-                if (!conversation || !wallet) return;
+                if (!conversation || !currentWallet) return;
                 try {
                     const encoded = new ProfileCodec().encode(await buildSignedProfile());
                     await conversation.send(encoded);
@@ -6345,7 +6699,7 @@
             // Re-emite el perfil firmado a TODAS las conversaciones (al editar/guardar el perfil),
             // para que los contactos vean el cambio sin tener que reconectar. Best-effort.
             async function broadcastProfile() {
-                if (!chatwalletxmtp || !wallet) return;
+                if (!chatwalletxmtp || !currentWallet) return;
                 try {
                     const encoded = new ProfileCodec().encode(await buildSignedProfile());
                     let convs = [];
@@ -6366,11 +6720,17 @@
                     const profile = message.content;
                     if (!profile || profile.v !== 1 || !profile.did || !profile.sig) return;
 
-                    // 1. Verificar firma: la address recuperada debe ser el DID declarado.
-                    let recovered;
-                    try { recovered = ethers.verifyMessage(profileCanonical(profile), profile.sig); }
-                    catch (e) { console.warn("Perfil con firma inválida, ignorado", e); return; }
-                    if (recovered.toLowerCase() !== profile.did.toLowerCase()) {
+                    // 1. Verificar firma: la address recuperada debe ser el DID declarado. Probamos
+                    //    ambas variantes de la cadena canónica (con y sin avatarHash) para tolerar
+                    //    perfiles firmados por versiones distintas (v1.41/v1.42/v1.43+).
+                    let recovered = null;
+                    for (const canon of [profileCanonical, profileCanonicalWithHash]) {
+                        try {
+                            const r = ethers.verifyMessage(canon(profile), profile.sig);
+                            if (r.toLowerCase() === profile.did.toLowerCase()) { recovered = r; break; }
+                        } catch (e) { /* probar la siguiente variante */ }
+                    }
+                    if (!recovered) {
                         console.warn("Perfil: la firma no corresponde al DID, ignorado"); return;
                     }
                     // 2. Y que quien lo envió por XMTP sea realmente ese DID (anti-suplantación).
@@ -6379,19 +6739,33 @@
                         console.warn("Perfil: el remitente XMTP no coincide con el DID, ignorado"); return;
                     }
 
-                    // 3. Guardar en el contacto (alias -> name, avatar, links).
+                    // 2b. Avatar: los bytes van a IndexedDB por hash (content-addressed, dedup). En el
+                    //     contacto guardamos avatarHash + el dataURL en memoria para renderizar (al
+                    //     persistir se strippea el dataURL, ver encryptContacts). Viaja por XMTP en el perfil.
+                    let avatarHash = '';
+                    if (profile.avatar) {
+                        avatarHash = await sha256Hex(profile.avatar); // derivado de los bytes (autoritativo)
+                        await avatarPut(avatarHash, profile.avatar);
+                    }
+
+                    // 3. Guardar en el contacto. El alias que el contacto se pone a sí mismo va en
+                    //    `selfAlias` (NO pisa `name`, que es el pseudónimo local que le dio el usuario:
+                    //    p.ej. Bob llama "princesa" a quien se llama a sí misma "alice").
                     const idx = contacts.findIndex(c => c.address && c.address.toLowerCase() === profile.did.toLowerCase());
                     if (idx > -1) {
-                        if (profile.alias) contacts[idx].name = profile.alias;
-                        if (profile.avatar) contacts[idx].avatar = profile.avatar;
+                        if (profile.alias) contacts[idx].selfAlias = profile.alias;
+                        if (profile.avatar) { contacts[idx].avatar = profile.avatar; contacts[idx].avatarHash = avatarHash; }
                         contacts[idx].links = profile.links || '';
                         contacts[idx].profileUpdatedAt = profile.updatedAt;
                     } else {
                         const short = `${profile.did.slice(0, 6)}...${profile.did.slice(-4)}`;
                         contacts.push({
+                            // Sin pseudónimo local todavía: mostramos el alias propio arriba por defecto.
                             name: profile.alias || short,
+                            selfAlias: profile.alias || '',
                             address: profile.did,
                             avatar: profile.avatar || ANON_AVATAR,
+                            avatarHash,
                             links: profile.links || '',
                             unreadCount: 0, status: 'offline', lastSeen: null,
                             profileUpdatedAt: profile.updatedAt,
@@ -6408,6 +6782,8 @@
                         const hdrName = document.getElementById('chattingWith');
                         if (hdrAvatar && c.avatar) hdrAvatar.src = c.avatar;
                         if (hdrName && c.name) hdrName.textContent = c.name;
+                        // El alias propio vive en el subtítulo del header: refrescarlo.
+                        updateChatHeaderStatus(c);
                     }
                     console.log("✦ Perfil soberano recibido y verificado de", profile.did);
                 } catch (e) {
@@ -6430,21 +6806,29 @@
 
             function updateChatHeaderStatus(contact) {
                 if (!contact) {
-                    chatStatusIndicator.textContent = '';
+                    chatStatusIndicator.innerHTML = '';
                     return;
                 }
-                if (contact.status === 'online') {
-                    chatStatusIndicator.textContent = '🟢 En línea';
+                const isOnline = contact.status === 'online';
+                // Color = estado de conexión (verde en línea / gris offline), igual que en la lista.
+                const statusColor = isOnline ? 'text-green-400' : 'text-gray-500';
+                let detail;
+                if (isOnline) {
+                    detail = 'En línea';
                 } else if (contact.lastSeen) {
                     const minutesAgo = Math.floor((Date.now() - contact.lastSeen) / 60000);
-                    if (minutesAgo < 1) {
-                        chatStatusIndicator.textContent = '⚪️ Últ. vez hace un momento';
-                    } else {
-                        chatStatusIndicator.textContent = `⚪️ Últ. vez hace ${minutesAgo} min`;
-                    }
+                    detail = minutesAgo < 1 ? 'Últ. vez hace un momento' : `Últ. vez hace ${minutesAgo} min`;
                 } else {
-                    chatStatusIndicator.textContent = '⚪️ Desconectado';
+                    detail = 'Desconectado';
                 }
+                // El nombre de arriba (chattingWith) es el pseudónimo local; acá mostramos el alias
+                // propio del contacto (cómo se llama a sí mismo, vía su DID) coloreado por estado,
+                // seguido del detalle de conexión. Si no hay alias distinto, un punto de color.
+                const selfAlias = (contact.selfAlias && contact.selfAlias !== contact.name) ? contact.selfAlias : '';
+                const aliasBit = selfAlias
+                    ? `<span class="${statusColor} font-medium">${selfAlias}</span> · `
+                    : `<span class="${statusColor}">●</span> `;
+                chatStatusIndicator.innerHTML = `${aliasBit}<span class="text-gray-400">${detail}</span>`;
             }
             // --- FIN: PRESENCIA Y RECIBOS DE LECTURA ---
 
@@ -6694,6 +7078,12 @@
                     e.preventDefault();
                     const messageText = messageInput.value.trim();
                     if (!messageText) return;
+
+                    // Modo OFFLINE: no hay red; se genera un QR cifrado para el interlocutor.
+                    if (isOffline && currentOfflineContact) {
+                        await sendOfflineMessage(messageText);
+                        return;
+                    }
 
                     // Si la conversación aún no está lista, encolamos el mensaje
                     if (!currentConversation) {
@@ -7626,6 +8016,8 @@
                 body.classList.toggle('cold-mode', isOffline);
                 body.classList.toggle('hot-mode', !isOffline);
                 modeToggleBtn.classList.toggle('text-yellow-400', isOffline);
+                if (!isOffline) currentOfflineContact = null;
+                if (typeof updateOfflineComposeUI === 'function') updateOfflineComposeUI();
                 if (currentWallet) renderAddressQr(currentWallet.address); // recolorear QR (gris en frío)
                 updateBalance(); // Esto mostrará '---' si está offline
             }
@@ -7647,6 +8039,40 @@
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
             }
+
+            // Muestra el QR del mensaje offline cifrado para el interlocutor.
+            function showOfflineMsgQrModal(qrData) {
+                const modal = document.getElementById('offlineMsgQrModal');
+                const qrContainer = document.getElementById('offlineMsgQrCode');
+                if (!modal || !qrContainer) return;
+                qrContainer.innerHTML = '';
+                new QRCodeStyling({
+                    width: 300, height: 300, data: qrData,
+                    dotsOptions: { color: "#000000", type: "square" },
+                    backgroundOptions: { color: "#ffffff" },
+                }).append(qrContainer);
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            function hideOfflineMsgQrModal() {
+                const modal = document.getElementById('offlineMsgQrModal');
+                if (!modal) return;
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            // Cableado del modal de mensaje offline + botones de escanear respuesta.
+            (function wireOfflineMsgQr() {
+                const closeBtn = document.getElementById('closeOfflineMsgQrModal');
+                const scanReplyModalBtn = document.getElementById('offlineMsgScanReplyBtn');
+                const scanReplyComposeBtn = document.getElementById('offlineScanReplyBtn');
+                if (closeBtn) closeBtn.addEventListener('click', hideOfflineMsgQrModal);
+                if (scanReplyModalBtn) scanReplyModalBtn.addEventListener('click', () => {
+                    hideOfflineMsgQrModal();
+                    startScanner();
+                });
+                if (scanReplyComposeBtn) scanReplyComposeBtn.addEventListener('click', () => startScanner());
+            })();
 
             // Contract Configuration
             // const CHATWALLET_DID_ADDRESS = "0x96Df83456f0B4d161C3E00278Ba33670c796523d";
@@ -7829,8 +8255,10 @@
                 const file = event.target.files[0];
                 if (file) {
                     const reader = new FileReader();
-                    reader.onload = (e) => {
-                        userDidAvatar.src = e.target.result;
+                    reader.onload = async (e) => {
+                        // Normalizar al subir: cuadrado + WebP a 256px → evita guardar el original
+                        // multi-MB en localStorage; el envío por XMTP re-thumbnailea a 128.
+                        userDidAvatar.src = (await makeAvatarThumb(e.target.result, 256)) || e.target.result;
                     };
                     reader.readAsDataURL(file);
                 }
@@ -8118,7 +8546,11 @@
 
             const IPFS_STORAGE_KEY = 'chatwallet_ipfs_uploads';
             const IPFS_MAX_MB = 100;
-            const GATEWAY_BASE = 'https://w3s.link/ipfs/';   // swap to gateway.chatwallet.org once live
+            // === Nodo IPFS soberano (reemplazo de Storacha) ===
+            // HOY: Kubo de esta máquina. MAÑANA: caja always-on de casa + gateway.chatwallet.org.
+            // Migración = cambiar SOLO estas dos constantes.
+            const GATEWAY_BASE = 'http://127.0.0.1:8080/ipfs/';           // era https://w3s.link/ipfs/ (Storacha, muerto)
+            const IPFS_UPLOAD_URL = 'http://127.0.0.1:3100/api/ipfs/upload'; // endpoint autenticado (POC upload-server; luego server.js)
             const API_BASE = window.location.port === '3000' ? '' : 'http://localhost:3000';
             window.API_BASE = API_BASE; // exponer global: el <script> clásico lo usa bare (ver init diferido)
 
@@ -8232,7 +8664,7 @@
                     ipfsProgress.classList.remove('hidden');
 
                     for (const item of pending) {
-                        await ipfsUploadViaWorker(item);
+                        await ipfsUploadDirect(item);   // nodo soberano (antes: ipfsUploadViaWorker → Storacha)
                     }
 
                     ipfsUploadBtn.disabled = false;
@@ -8248,6 +8680,66 @@
                         }, 3000);
                     }
                 });
+            }
+
+            // Subida al nodo IPFS soberano vía endpoint autenticado por firma del DID.
+            // Reemplaza a ipfsUploadViaWorker (Storacha), que queda en el archivo sin uso.
+            async function ipfsUploadDirect(item) {
+                item.status = 'uploading';
+                ipfsRenderQueue();
+                const setP = (percent, text) => { ipfsProgressBar.style.width = `${percent}%`; ipfsStatus.textContent = text; };
+                try {
+                    if (!window.currentWallet || !window.currentWallet.privateKey) {
+                        throw new Error('Wallet no disponible para firmar la subida');
+                    }
+                    // 1. Bytes a subir. Privado → cifrar AES-GCM (mismo esquema que uploadWorker.js:
+                    //    key = SHA-256(privateKey), envelope [iv(12)|ciphertext]).
+                    setP(10, item.isPrivate ? '🔒 Encriptando…' : 'Preparando…');
+                    let bytes = new Uint8Array(await item.file.arrayBuffer());
+                    if (item.isPrivate) {
+                        const keyHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(window.currentWallet.privateKey));
+                        const cryptoKey = await crypto.subtle.importKey('raw', keyHash, { name: 'AES-GCM' }, false, ['encrypt']);
+                        const iv = crypto.getRandomValues(new Uint8Array(12));
+                        const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, bytes));
+                        const env = new Uint8Array(iv.length + ct.length);
+                        env.set(iv, 0); env.set(ct, iv.length);
+                        bytes = env;
+                    }
+                    // 2. sha256 de los bytes (size-agnóstico) + firma del DID sobre "ipfs-upload:<sha>:<size>".
+                    setP(30, 'Firmando…');
+                    const digest = await crypto.subtle.digest('SHA-256', bytes);
+                    const sha = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+                    const message = `ipfs-upload:${sha}:${bytes.length}`;
+                    const signer = new window.ethers.Wallet(window.currentWallet.privateKey);
+                    const signature = await signer.signMessage(message);
+                    // 3. POST bytes al endpoint autenticado.
+                    setP(55, 'Subiendo al nodo…');
+                    const res = await fetch(IPFS_UPLOAD_URL, {
+                        method: 'POST',
+                        headers: {
+                            'content-type': 'application/octet-stream',
+                            'x-address': window.currentWallet.address,
+                            'x-signature': signature,
+                            'x-sha256': sha,
+                            'x-size': String(bytes.length),
+                        },
+                        body: bytes,
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.cid) throw new Error(data.error || `Subida rechazada (${res.status})`);
+                    // 4. Listo: guardar CID (+ flag de cifrado para poder descifrar al bajar).
+                    setP(100, '¡Completado!');
+                    item.cid = data.cid;
+                    item.encrypted = !!item.isPrivate;
+                    item.status = 'done';
+                    ipfsSaveHistory(item);
+                    ipfsRenderQueue();
+                    ipfsRenderHistory();
+                } catch (error) {
+                    item.status = 'error';
+                    ipfsRenderQueue();
+                    showIpfsToast(`Error: ${error.message}`, 'error');
+                }
             }
 
             function ipfsUploadViaWorker(item) {
