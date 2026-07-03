@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(UpdaterPlugin.class);
         super.onCreate(savedInstanceState);
         stashChatExtra(getIntent());
+        stashDeepLink(getIntent());
     }
 
     @Override
@@ -19,6 +20,7 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         stashChatExtra(intent);
+        stashDeepLink(intent);
     }
 
     // Guarda la dirección del chat traída por el tap en la notificación; el WebView la consume.
@@ -26,6 +28,15 @@ public class MainActivity extends BridgeActivity {
         if (intent != null) {
             String addr = intent.getStringExtra(KeepAlivePlugin.EXTRA_OPEN_CHAT);
             if (addr != null) KeepAlivePlugin.pendingChatAddress = addr;
+        }
+    }
+
+    // Guarda la URL de un App Link (https://chatwallet.org/dapp?address=...&pk=...) para que el
+    // WebView la consuma y la procese igual que un QR escaneado. NO navegamos el WebView a esa URL:
+    // la app corre sobre assets locales; solo leemos los parámetros.
+    private void stashDeepLink(Intent intent) {
+        if (intent != null && Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() != null) {
+            KeepAlivePlugin.pendingDeepLink = intent.getData().toString();
         }
     }
 }

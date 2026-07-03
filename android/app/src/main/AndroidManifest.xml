@@ -22,6 +22,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- App Link: abrir la app (no el browser) al tocar https://chatwallet.org/dapp?address=...&pk=...
+                 Verificado contra https://chatwallet.org/.well-known/assetlinks.json -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="chatwallet.org" android:pathPrefix="/dapp" />
+            </intent-filter>
+
         </activity>
 
         <provider

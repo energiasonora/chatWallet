@@ -42,6 +42,8 @@ public class KeepAlivePlugin extends Plugin {
     public static final String EXTRA_OPEN_CHAT = "openChatAddress";
     // Dirección pendiente de abrir tras tocar una notificación (la setea MainActivity).
     public static volatile String pendingChatAddress = null;
+    // URL de App Link pendiente de procesar (la setea MainActivity al abrir chatwallet.org/dapp?...).
+    public static volatile String pendingDeepLink = null;
 
     @PluginMethod
     public void start(PluginCall call) {
@@ -66,6 +68,14 @@ public class KeepAlivePlugin extends Plugin {
         JSObject ret = new JSObject();
         ret.put("address", pendingChatAddress);
         pendingChatAddress = null;
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void consumePendingDeepLink(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("url", pendingDeepLink);
+        pendingDeepLink = null;
         call.resolve(ret);
     }
 

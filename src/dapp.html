@@ -766,7 +766,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.43 alpha</p>
+            <p class="text-sm text-gray-400">v 1.54 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1087,7 +1087,7 @@
                             </div>
                             <!-- Token Selector Menu -->
                             <div id="tokenSelectorMenu"
-                                class="absolute z-10 mt-2 w-full bg-gray-700/90 backdrop-blur-sm rounded-xl shadow-lg hidden origin-top animate-scale-in">
+                                class="absolute z-10 bottom-full left-0 mb-2 w-full bg-gray-700/90 backdrop-blur-sm rounded-xl shadow-lg hidden origin-bottom animate-scale-in max-h-[50vh] overflow-y-auto">
                                 <!-- Tokens will be populated here by JS -->
                             </div>
                         </div>
@@ -2169,7 +2169,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.43</p>
+                    <p id="settingsVersionText">Versión 1.54</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -2211,9 +2211,10 @@
                     </div>
 
                     <div class="overflow-y-auto p-1 space-y-3 flex-grow">
-                        <input type="text" id="networkName" placeholder="Nombre de la Red" required
-                            class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
                         <input type="number" id="networkChainId" placeholder="Chain ID" required
+                            class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <p class="text-xs text-gray-400 -mt-1 px-1">Poné el Chain ID y se autocompletan Nombre, RPC, explorador y símbolo.</p>
+                        <input type="text" id="networkName" placeholder="Nombre de la Red" required
                             class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
                         <input type="url" id="networkRpcUrl" placeholder="URL del RPC" required
                             class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
@@ -2509,7 +2510,7 @@
                     "TOKEN_CHAIN_NAME": 'USDC on Arbitrum',
                     "TOKEN_CHAINID": '42161',
                     "EXPLORER": 'https://arbiscan.io/',
-                    "API": 'https://arbitrum-sepolia.infura.io/v3/b17405e634bd40308be3eb4fa2485c9a',
+                    "API": 'https://arb1.arbitrum.io/rpc',
                     "EAS_CONTRACT_ADDRESS": "0x4200000000000000000000000000000000000021",
                     "NATIVE_SYMBOL": 'ETH',
                     "TOKEN_ADDRESS": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
@@ -2565,6 +2566,10 @@
             let chatRecipientAddress = null;
             let allChainsData = [];
             let isOffline = false;
+            // Base pública para links/QR de invitación. NUNCA usar window.location.href: en el APK
+            // (WebView Capacitor) es "localhost" y el QR compartido apuntaría ahí. Siempre el dominio
+            // público → quien no tiene la dapp la abre en la web; con la APK instalada, el App Link la abre.
+            const PUBLIC_INVITE_BASE = 'https://chatwallet.org/dapp';
             const erc20Abi = [
                 "function balanceOf(address owner) view returns (uint256)",
                 "function decimals() view returns (uint8)",
@@ -3533,6 +3538,8 @@
                 if (selectedNetwork.TOKEN_ADDRESS && ethers.isAddress(selectedNetwork.TOKEN_ADDRESS)) {
                     // Es un token ERC20
                     gasBalanceDisplay.classList.remove('hidden');
+                    // Un token sin símbolo configurado no debe mostrar "null" en el saldo.
+                    const tokenLabel = selectedNetwork.TOKEN_SYMBOL || 'tokens';
                     try {
                         const tokenContract = new ethers.Contract(selectedNetwork.TOKEN_ADDRESS, erc20Abi, provider);
                         tknc = tokenContract
@@ -3542,13 +3549,13 @@
                         // const formattedBalance = parseFloat(ethers.formatUnits(balanceWei, decimals)).toFixed(4);
                         console.log("erc20 balance:", formattedBalance);
 
-                        balanceDisplay.textContent = `${formattedBalance} ${selectedNetwork.TOKEN_SYMBOL}`;
+                        balanceDisplay.textContent = `${formattedBalance} ${tokenLabel}`;
                         // El modal de envío muestra el saldo del TOKEN que se va a enviar (no el gas nativo)
-                        setModalBalance(formattedBalance, selectedNetwork.TOKEN_SYMBOL, false);
+                        setModalBalance(formattedBalance, tokenLabel, false);
 
                     } catch (tokenError) {
                         console.error("Error fetching token balance:", tokenError);
-                        balanceDisplay.textContent = `Error ${selectedNetwork.TOKEN_SYMBOL}`;
+                        balanceDisplay.textContent = `Error ${tokenLabel}`;
                     }
 
                 } else {
@@ -4029,7 +4036,7 @@
             // ─────────────────────────────────────────────────────────────
             const OFFLINE_MSG_PREFIX = 'CWM1|';               // magic de un QR de mensaje offline
             const OFFLINE_THREADS_KEY = 'chatwallet_offline_threads_v1';
-            const OFFLINE_MSG_MAXLEN = 240;                   // cabe en 1 QR de alta corrección
+            const OFFLINE_MSG_MAXLEN = 160;                   // cabe en 1 QR legible (densidad moderada)
             let currentOfflineContact = null;                 // contacto del chat offline abierto
             let offlineThreads = {};                          // { addressLower: [ {dir,text,ts,verified} ] }
 
@@ -4076,19 +4083,20 @@
                 const enc = await EthCrypto.encryptWithPublicKey(pub, text);
                 const cipherHex = EthCrypto.cipher.stringify(enc);
                 const from = currentWallet.address;
+                const fromPk = myCompressedPubKey() || ''; // incluir mi pública → el otro puede responder sin escaneo extra
                 const sig = await currentWallet.signMessage(cipherHex); // autentica al emisor
-                return OFFLINE_MSG_PREFIX + [from, sig, cipherHex].join('|');
+                return OFFLINE_MSG_PREFIX + [from, fromPk, sig, cipherHex].join('|');
             }
 
             function isOfflineMessageData(data) {
                 return typeof data === 'string' && data.startsWith(OFFLINE_MSG_PREFIX);
             }
 
-            // Descifra un QR de mensaje offline. Devuelve {from, text, verified}.
+            // Descifra un QR de mensaje offline. Devuelve {from, fromPk, text, verified}.
             async function decodeOfflineMessageQR(data) {
                 const parts = data.slice(OFFLINE_MSG_PREFIX.length).split('|');
-                if (parts.length !== 3) throw new Error('QR de mensaje inválido.');
-                const [from, sig, cipherHex] = parts;
+                if (parts.length !== 4) throw new Error('QR de mensaje inválido.');
+                const [from, fromPk, sig, cipherHex] = parts;
                 // La firma va sobre el ciphertext → se puede verificar al emisor sin descifrar.
                 let verified = false;
                 try { verified = ethers.verifyMessage(cipherHex, sig).toLowerCase() === from.toLowerCase(); } catch (e) { }
@@ -4096,7 +4104,8 @@
                     currentWallet.privateKey,
                     EthCrypto.cipher.parse(cipherHex)
                 );
-                return { from, text, verified };
+                const validPk = /^[0-9a-fA-F]{66}$/.test(fromPk) ? fromPk : null;
+                return { from, fromPk: validPk, text, verified };
             }
 
             // Extrae la clave pública comprimida de un QR de identidad (?address=…&pk=…).
@@ -5245,7 +5254,7 @@
             function renderAddressQr(address) {
                 if (!qrCodeEl || !address) return;
                 qrCodeEl.innerHTML = '';
-                const baseUrl = window.location.href.split('?')[0];
+                const baseUrl = PUBLIC_INVITE_BASE;
                 // Incluimos la clave pública comprimida (pk) para el handshake de identidad:
                 // el que escanea puede cifrarnos mensajes offline por QR sin necesidad de red.
                 const pk = myCompressedPubKey();
@@ -5432,6 +5441,17 @@
                 } catch (e) { }
             }
 
+            // App Link: si la app se abrió desde https://chatwallet.org/dapp?address=...&pk=...
+            // procesamos la URL igual que un QR escaneado (misma lógica de address + pk + abrir chat).
+            async function consumePendingDeepLink() {
+                if (!NativeKeepAlive || !NativeKeepAlive.consumePendingDeepLink) return;
+                try {
+                    const res = await NativeKeepAlive.consumePendingDeepLink();
+                    const url = res && res.url;
+                    if (url) { try { await handleScannedData(url); } catch (e) { } }
+                } catch (e) { }
+            }
+
             // Convierte una imagen (avatar) a PNG base64 vía canvas. El WebView lee su propia
             // imagen (no el nativo). Si está "taintada" (CORS sin permiso) → null y cae al anónimo.
             function avatarToBase64(url) {
@@ -5508,10 +5528,12 @@
                     if (!document.hidden) {
                         if (NativeLocalNotif) { try { NativeLocalNotif.removeAllDeliveredNotifications(); } catch (e) { } }
                         consumePendingChat();
+                        consumePendingDeepLink();
                     }
                 });
                 initNativeNotifications();
                 consumePendingChat(); // por si la app arrancó desde una notificación
+                consumePendingDeepLink(); // por si la app arrancó desde un App Link (chatwallet.org/dapp?...)
             }
 
             async function showNotification(message = null) {
@@ -5784,13 +5806,17 @@
                     return;
                 }
                 playQRscanned();
-                const { from, text, verified } = decoded;
+                const { from, fromPk, text, verified } = decoded;
 
                 let contact = contacts.find(c => c.address.toLowerCase() === from.toLowerCase());
                 if (!contact) {
                     const shortName = `${from.slice(0, 6)}...${from.slice(-4)}`;
-                    contact = { name: shortName, address: from, unreadCount: 0, status: 'offline', lastSeen: null, avatar: ANON_AVATAR, pubKey: null };
+                    contact = { name: shortName, address: from, unreadCount: 0, status: 'offline', lastSeen: null, avatar: ANON_AVATAR, pubKey: fromPk || null };
                     contacts.push(contact);
+                    saveContacts();
+                } else if (fromPk && contact.pubKey !== fromPk) {
+                    // El mensaje trae la pública del emisor → habilita responder sin escaneo extra.
+                    contact.pubKey = fromPk;
                     saveContacts();
                 }
 
@@ -5798,7 +5824,13 @@
                 if (!verified) {
                     showToast("⚠️ La firma del emisor no pudo verificarse.", "error", 5000);
                 }
-                await startChatWithContact(contact);
+
+                if (isOffline) {
+                    await startChatWithContact(contact); // abre el hilo offline
+                } else {
+                    // Online: el hilo offline es aparte del chat XMTP; avisamos y no forzamos createDm.
+                    showToast(`Mensaje offline de ${contact.name} guardado. Activá Modo Offline para verlo.`, "info", 5000);
+                }
             }
 
             // --- Instalaciones (en Modal de Configuración) ---
@@ -6111,7 +6143,10 @@
                 }
             }
 
-            function handleAutocomplete(e) {
+            async function handleAutocomplete(e) {
+                // El diccionario (chainsv1.json) puede no haber terminado de cargar cuando el usuario
+                // empieza a tipear el Chain ID → lo aseguramos acá para que el autocompletado funcione.
+                if (allChainsData.length === 0) await loadAllChainsData();
                 if (allChainsData.length === 0) return;
 
                 const input = e.target;
@@ -6123,14 +6158,17 @@
                         foundChain = allChainsData.find(chain => chain.chainId === parseInt(value));
                     }
                 } else if (input.id === 'networkName') {
+                    // El usuario está escribiendo el Nombre a mano → deja de ser "autocompletado",
+                    // así el Chain ID no se lo vuelve a pisar.
+                    networkNameInput.dataset.autofilled = '';
                     if (value.length > 2) {
                         foundChain = allChainsData.find(chain => chain.name.toLowerCase().includes(value.toLowerCase()));
                     }
                 }
 
                 if (foundChain) {
-                    networkNameInput.value = foundChain.name || '';
-                    networkChainIdInput.value = foundChain.chainId || '';
+                    // Autocompletar los datos técnicos de la cadena…
+                    if (input.id !== 'networkChainId') networkChainIdInput.value = foundChain.chainId || '';
 
                     const rpc = foundChain.rpc?.find(url => url && !url.includes('${') && !url.startsWith('ws')) || foundChain.rpc?.[0] || '';
                     networkRpcUrlInput.value = rpc;
@@ -6140,6 +6178,15 @@
 
                     const nativeSymbol = foundChain.nativeCurrency?.symbol || '';
                     document.getElementById('nativeSymbol').value = nativeSymbol;
+
+                    // Autocompletar el Nombre desde el Chain ID. Lo pisamos si está vacío o si lo pusimos
+                    // nosotros antes (así al seguir cambiando el Chain ID el nombre se actualiza), pero
+                    // NUNCA si el usuario lo escribió a mano.
+                    if (input.id === 'networkChainId' &&
+                        (!networkNameInput.value.trim() || networkNameInput.dataset.autofilled === 'true')) {
+                        networkNameInput.value = foundChain.name || '';
+                        networkNameInput.dataset.autofilled = 'true';
+                    }
                 }
             }
 
@@ -6289,14 +6336,28 @@
                     return;
                 }
 
+                const isToken = tokenAddress && ethers.isAddress(tokenAddress);
+                const tokenSym = tokenSymbol.trim();
+                // Nombre a mostrar:
+                //  - Red nativa: el nombre tal cual (del diccionario o el que puso el usuario), ej "Base".
+                //  - Token ERC20: "SÍMBOLO (RED)" ej "USDC (BASE)"; si no hay símbolo, "0x1234…5678 (RED)".
+                // Guardamos aparte NETWORK_BASE_NAME (el nombre de la red sin componer) para poder
+                // reeditar sin recomponer sobre sí mismo ("USDC (BASE) (BASE)").
+                let displayName = name;
+                if (isToken) {
+                    const tokenLabel = tokenSym || `${tokenAddress.slice(0, 6)}…${tokenAddress.slice(-4)}`;
+                    displayName = `${tokenLabel} (${name.toUpperCase()})`;
+                }
+
                 const newNetwork = {
-                    "TOKEN_CHAIN_NAME": name,
+                    "TOKEN_CHAIN_NAME": displayName,
+                    "NETWORK_BASE_NAME": name,
                     "TOKEN_CHAINID": chainId,
                     "EXPLORER": explorerUrl || '',
                     "API": rpcUrl,
                     "NATIVE_SYMBOL": nativeSymbol,
-                    "TOKEN_ADDRESS": (tokenAddress && ethers.isAddress(tokenAddress)) ? tokenAddress : null,
-                    "TOKEN_SYMBOL": (tokenAddress && tokenSymbol) ? tokenSymbol : null,
+                    "TOKEN_ADDRESS": isToken ? tokenAddress : null,
+                    "TOKEN_SYMBOL": isToken ? (tokenSym || null) : null,
                     "isFavorite": false
                 };
 
@@ -6363,7 +6424,8 @@
                 document.getElementById('networkModalTitle').textContent = "Editar Red";
                 document.getElementById('editNetworkIndex').value = index;
 
-                document.getElementById('networkName').value = network.TOKEN_CHAIN_NAME || '';
+                document.getElementById('networkName').value = network.NETWORK_BASE_NAME || network.TOKEN_CHAIN_NAME || '';
+                networkNameInput.dataset.autofilled = ''; // el nombre guardado es del usuario, no pisarlo
                 document.getElementById('networkChainId').value = network.TOKEN_CHAINID || '';
                 document.getElementById('networkRpcUrl').value = network.API || '';
                 document.getElementById('networkExplorerUrl').value = network.EXPLORER || '';
@@ -6499,11 +6561,13 @@
             }
 
             function openAddNetworkModal() {
+                loadAllChainsData(); // precargar el diccionario para el autocompletado por Chain ID
                 addNewNetworkModal.classList.remove('hidden');
                 addNewNetworkModal.classList.add('flex');
                 document.getElementById('networkModalTitle').textContent = "Añadir Nueva Red";
                 document.getElementById('editNetworkIndex').value = "-1";
                 addNetworkForm.reset();
+                networkNameInput.dataset.autofilled = ''; // reset() no toca dataset
             }
 
             function closeAddNetworkModal() {
@@ -7168,8 +7232,10 @@
             if (copyInviteLinkBtn) {
                 copyInviteLinkBtn.addEventListener('click', () => {
                     if (!currentWallet) return;
-                    const baseUrl = window.location.href.split('?')[0];
-                    const inviteUrl = `${baseUrl}?address=${currentWallet.address}`;
+                    const pk = myCompressedPubKey();
+                    const inviteUrl = pk
+                        ? `${PUBLIC_INVITE_BASE}?address=${currentWallet.address}&pk=${pk}`
+                        : `${PUBLIC_INVITE_BASE}?address=${currentWallet.address}`;
                     navigator.clipboard.writeText(inviteUrl).then(() => {
                         showToast("Link de invitación copiado", "success");
                     });
