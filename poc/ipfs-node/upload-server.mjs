@@ -10,6 +10,8 @@ import express from 'express';
 import cors from 'cors';
 import { ethers } from 'ethers';
 import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const KUBO_API = process.env.KUBO_API || 'http://127.0.0.1:5001';
 const GATEWAY = process.env.KUBO_GATEWAY || 'http://127.0.0.1:8080';
@@ -82,6 +84,60 @@ app.post('/api/ipfs/upload', async (req, res) => {
     console.error('upload error', e);
     res.status(500).json({ error: e.message });
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  POINTER DE RESPALDO DE CHATS (address → último CID)
+//  El dapp sube el respaldo cifrado por /api/ipfs/upload (blob opaco: el server
+//  no puede leerlo) y publica acá el CID firmado. Un dispositivo nuevo, con solo
+//  la seed, pregunta por su address y recupera el historial.
+//  Persistido en backup-pointers.json para sobrevivir reinicios.
+// ═══════════════════════════════════════════════════════════════════════════
+const POINTERS_FILE = fileURLToPath(new URL('./backup-pointers.json', import.meta.url));
+let backupPointers = {};
+try { if (existsSync(POINTERS_FILE)) backupPointers = JSON.parse(readFileSync(POINTERS_FILE, 'utf8')); }
+catch (e) { console.warn('backup-pointers.json ilegible, arrancando vacío:', e.message); }
+function savePointers() { writeFileSync(POINTERS_FILE, JSON.stringify(backupPointers, null, 2)); }
+
+app.post('/api/backup/pointer', express.json(), async (req, res) => {
+  try {
+    const { address, cid, ts, count, signature } = req.body || {};
+    if (!address || !cid || !ts || !signature) {
+      return res.status(400).json({ error: 'Faltan address/cid/ts/signature' });
+    }
+    // El dueño de la address firma "chatwallet-backup:<cid>:<ts>" — nadie más puede pisar su pointer.
+    let recovered;
+    try { recovered = ethers.verifyMessage(`chatwallet-backup:${cid}:${ts}`, signature); }
+    catch (e) { return res.status(401).json({ error: 'Firma ilegible' }); }
+    if (recovered.toLowerCase() !== address.toLowerCase()) {
+      return res.status(401).json({ error: 'Firma no corresponde a la address' });
+    }
+
+    const addr = address.toLowerCase();
+    const prev = backupPointers[addr];
+    if (prev && prev.ts >= ts) {
+      return res.status(409).json({ error: 'Ya hay un pointer más nuevo', current: prev });
+    }
+    backupPointers[addr] = { cid, ts, count: count ?? null };
+    savePointers();
+
+    // Best-effort: despinear el respaldo anterior para no acumular blobs viejos en Kubo.
+    if (prev && prev.cid && prev.cid !== cid) {
+      fetch(`${KUBO_API}/api/v0/pin/rm?arg=${prev.cid}`, { method: 'POST' })
+        .catch(e => console.warn(`unpin ${prev.cid} falló:`, e.message));
+    }
+
+    res.json({ success: true, cid, ts });
+  } catch (e) {
+    console.error('backup pointer error', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/backup/pointer/:address', (req, res) => {
+  const ptr = backupPointers[(req.params.address || '').toLowerCase()];
+  if (!ptr) return res.status(404).json({ error: 'Sin respaldo para esa address' });
+  res.json(ptr);
 });
 
 app.listen(PORT, () => console.log(`POC upload server en http://localhost:${PORT} (Kubo ${KUBO_API})`));

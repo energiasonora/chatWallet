@@ -766,7 +766,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.54 alpha</p>
+            <p class="text-sm text-gray-400">v 1.55 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2161,6 +2161,21 @@
                     class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
 
                 <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300">Respaldo soberano de chats</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2">Historial cifrado con tu llave, en tu nodo IPFS.
+                    Se restaura solo con tu frase semilla.</p>
+                <div id="chatBackupStatus" class="bg-gray-900/50 p-3 rounded-lg text-xs text-gray-400 text-center">
+                    Aún no hay respaldo.</div>
+                <div class="flex gap-2">
+                    <button id="chatBackupNowBtn"
+                        class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                        ☁ Respaldar ahora</button>
+                    <button id="chatBackupRestoreBtn"
+                        class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                        ⤓ Restaurar</button>
+                </div>
+
+                <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300">Gestionar Redes</h2>
                 <button id="manageNetworksBtn"
                     class="w-full mt-2 px-4 py-2 font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
@@ -2169,7 +2184,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.54</p>
+                    <p id="settingsVersionText">Versión 1.55</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -2367,8 +2382,8 @@
                 <div class="bg-yellow-900/50 border border-yellow-700 text-yellow-300 text-sm rounded-lg p-3">
                     <p>Has alcanzado el límite de 10 dispositivos/instalaciones para tu billetera en la red de
                         desarrollo de XMTP.</p>
-                    <p class="mt-2">Para continuar, necesitas revocar las instalaciones antiguas. Esto no afectará tus
-                        mensajes.</p>
+                    <p class="mt-2">Para continuar, se revocarán las instalaciones más antiguas. Tus dispositivos
+                        recientes se conservan y tus mensajes no se ven afectados.</p>
                 </div>
                 <p id="revokeStatus" class="text-center text-sm min-h-[1.5rem]"></p>
                 <button id="revokeInstallationsBtn"
@@ -2391,11 +2406,13 @@
         <script type="module">
             // import { ContentTypeId } from "@xmtp/content-type-primitives";
             // window.ContentTypeId = ContentTypeId;
-            import { Client } from '@xmtp/browser-sdk';
+            import { Client, getInboxIdForIdentifier } from '@xmtp/browser-sdk';
 
             // import { Client, ContentTypeId } from '@xmtp/browser-sdk';
             import { ReadReceiptCodec } from '@xmtp/content-type-read-receipt';
             window.Client = Client;
+            // v6 no tiene Client.getInboxIdForAddress estático; el reemplazo es esta función suelta.
+            window.getInboxIdForIdentifier = getInboxIdForIdentifier;
             window.ReadReceiptCodec = ReadReceiptCodec;
 
             import EthCrypto from 'eth-crypto';
@@ -3337,6 +3354,9 @@
 
                     listenForIncomingMessages();
                     await loadContacts();
+                    // Respaldo soberano: si el store local está vacío (dispositivo/instalación nueva),
+                    // bajar el respaldo cifrado del nodo IPFS y restaurar historial + contactos.
+                    await restoreChatBackupIfNeeded();
                     loadOfflineThreads();
                     // Detectar y contar los mensajes que llegaron mientras la app estuvo cerrada/offline.
                     try {
@@ -3401,7 +3421,9 @@
 
                     if (!targetInboxId || targetInboxId === "current_wallet") {
                         log("Obteniendo Inbox ID...", "info");
-                        targetInboxId = await Client.getInboxIdForAddress(currentWallet.address, env);
+                        // browser-sdk v6: Client.getInboxIdForAddress ya no existe; se usa la función suelta.
+                        targetInboxId = await window.getInboxIdForIdentifier(
+                            { identifier: currentWallet.address.toLowerCase(), identifierKind: 0 }, env);
                     }
 
                     if (!targetInboxId) {
@@ -3423,9 +3445,25 @@
                     const installations = inboxState.installations;
                     log(`Se encontraron ${installations.length} instalaciones activas.`, "info");
 
-                    // En V3, revocamos todas las instalaciones excepto la actual (si la hubiera, pero aquí lo hacemos sin cliente instanciado)
-                    // Para limpiar el límite de 10/10, a menudo es mejor revocar todo y empezar de cero si el usuario está bloqueado.
-                    const toRevoke = installations.map(i => i.bytes); // En WASM bindings, revoke espera Uint8Array[]
+                    // NO revocar todo: las instalaciones recientes (el celu, la otra compu) son la única
+                    // fuente del history sync nativo de XMTP; matarlas garantiza perder ese canal.
+                    // Se revocan solo las más viejas, conservando las KEEP más recientes (+ la nueva que
+                    // se registra al recargar). Con 10/10 esto libera 7 lugares, de sobra para continuar.
+                    const KEEP_NEWEST = 3;
+                    const byAge = [...installations].sort((a, b) => {
+                        const aTs = a.clientTimestampNs ?? 0n;
+                        const bTs = b.clientTimestampNs ?? 0n;
+                        return aTs < bTs ? -1 : aTs > bTs ? 1 : 0; // BigInt: no restar
+                    });
+                    const toRevoke = byAge.slice(0, Math.max(0, byAge.length - KEEP_NEWEST))
+                        .map(i => i.bytes); // En WASM bindings, revoke espera Uint8Array[]
+
+                    if (!toRevoke.length) {
+                        revokeBtn.disabled = false;
+                        revokeBtn.textContent = "Revocar Instalaciones Antiguas";
+                        return log(`Solo hay ${installations.length} instalación(es); no hay antiguas para revocar.`, "info");
+                    }
+                    log(`Revocando ${toRevoke.length} instalación(es) antigua(s), conservando las ${Math.min(KEEP_NEWEST, installations.length)} más recientes…`, "info");
 
                     // Ejecutar revocación usando método estático
                     // Firma del método estático: static revokeInstallations(signer: Signer, inboxId: string, installationIds: Uint8Array[], env?: XmtpEnv, gatewayHost?: string): Promise<void>;
@@ -4169,6 +4207,10 @@
                         let msgs = [];
                         try { msgs = await conv.messages({ limit: 1000n }); } catch (e) { continue; }
 
+                        // Respaldo soberano: esta pasada ya recorre todas las conversaciones con la
+                        // address resuelta → backfill del store propio de mensajes (dedup por id).
+                        captureXmtpMessages(msgs, addr, chatwalletxmtp.inboxId);
+
                         let idx = contacts.findIndex(c => c.address.toLowerCase() === addr.toLowerCase());
                         // Marca de agua de lectura: si el contacto nunca la tuvo (primera corrida con este código),
                         // asumimos leído todo hasta el último mensaje conocido para no inflar el badge de golpe.
@@ -4216,6 +4258,296 @@
                     } catch (e) { console.warn('reconcileUnread conv:', e); }
                 }
                 return summary;
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            //  RESPALDO SOBERANO DE CHATS
+            //  XMTP V3 (MLS) guarda el historial SOLO en la DB local de cada
+            //  instalación: una instalación nueva (restore en otro dispositivo)
+            //  no puede descifrar mensajes anteriores. Este módulo mantiene un
+            //  store propio de mensajes en IndexedDB, lo cifra con una clave
+            //  determinística derivada de la wallet (SHA-256(privateKey), el
+            //  mismo esquema que los docs privados de IPFS) y lo sube al nodo
+            //  Kubo propio. Al restaurar la seed en un dispositivo nuevo se
+            //  baja el blob, se descifra y el historial reaparece aunque XMTP
+            //  no pueda descifrar nada viejo.
+            // ═══════════════════════════════════════════════════════════════
+            // HOY: Kubo de esta máquina (igual que el módulo de Docs).
+            // MAÑANA: caja always-on + gateway.chatwallet.org. Migrar = cambiar estas 3 constantes.
+            const CHATBK_UPLOAD_URL = 'http://127.0.0.1:3100/api/ipfs/upload';
+            const CHATBK_POINTER_URL = 'http://127.0.0.1:3100/api/backup/pointer';
+            const CHATBK_GATEWAY = 'http://127.0.0.1:8080/ipfs/';
+            const CHATBK_META_KEY = () => `chatwallet_backup_meta_${currentWallet?.address?.toLowerCase()}`;
+
+            // ── Store local de mensajes (IndexedDB) ──────────────────────────
+            let msgStoreDbPromise = null;
+            function msgStoreOpen() {
+                if (msgStoreDbPromise) return msgStoreDbPromise;
+                msgStoreDbPromise = new Promise((resolve, reject) => {
+                    const req = indexedDB.open('chatwallet-msgstore', 1);
+                    req.onupgradeneeded = () => {
+                        const os = req.result.createObjectStore('messages', { keyPath: 'id' });
+                        os.createIndex('peer', 'peer', { unique: false });
+                    };
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+                return msgStoreDbPromise;
+            }
+
+            // Inserta registros nuevos (los ids ya existentes se ignoran). Devuelve cuántos entraron.
+            async function msgStorePut(records) {
+                if (!records || !records.length) return 0;
+                const db = await msgStoreOpen();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('messages', 'readwrite');
+                    const os = tx.objectStore('messages');
+                    let added = 0;
+                    for (const r of records) {
+                        const req = os.add(r); // add (no put): falla silencioso si ya existe → cuenta solo nuevos
+                        req.onsuccess = () => added++;
+                        req.onerror = (e) => { e.preventDefault(); e.stopPropagation(); }; // ConstraintError = duplicado, ok
+                    }
+                    tx.oncomplete = () => resolve(added);
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+
+            async function msgStoreGetByPeer(peer) {
+                const db = await msgStoreOpen();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('messages', 'readonly');
+                    const req = tx.objectStore('messages').index('peer').getAll(peer.toLowerCase());
+                    req.onsuccess = () => resolve((req.result || []).sort((a, b) => a.ts - b.ts));
+                    req.onerror = () => reject(req.error);
+                });
+            }
+
+            async function msgStoreGetAll() {
+                const db = await msgStoreOpen();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('messages', 'readonly');
+                    const req = tx.objectStore('messages').getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+
+            async function msgStoreCount() {
+                const db = await msgStoreOpen();
+                return new Promise((resolve, reject) => {
+                    const req = db.transaction('messages', 'readonly').objectStore('messages').count();
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+
+            // ── Captura: mensaje XMTP → registro del store ──────────────────
+            const MSGSTORE_SKIP_TYPES = new Set(['readReceipt', 'read-receipt', 'presence', 'profile', 'group_updated']);
+            function msgRecordFromXmtp(message, peerAddr, isSentByMe) {
+                const typeId = message.contentType?.typeId || 'text';
+                if (MSGSTORE_SKIP_TYPES.has(typeId)) return null;
+                const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+                if (!content || content === '{}' || content === 'null') return null;
+                // Los handshakes (creación del grupo MLS) referencian inboxIds de ESTA conversación;
+                // en un dispositivo nuevo la conversación genera los suyos. No se respaldan.
+                if (isHandshakeMessage(content)) return null;
+                return {
+                    id: message.id,
+                    peer: peerAddr.toLowerCase(),
+                    dir: isSentByMe ? 'sent' : 'received',
+                    typeId,
+                    content,
+                    ts: message.sentAt ? message.sentAt.getTime() : Date.now(),
+                };
+            }
+
+            async function captureXmtpMessages(messages, peerAddr, myInboxId) {
+                if (!peerAddr || !messages?.length) return;
+                const records = [];
+                for (const m of messages) {
+                    const rec = msgRecordFromXmtp(m, peerAddr, m.senderInboxId === myInboxId);
+                    if (rec) records.push(rec);
+                }
+                try {
+                    const added = await msgStorePut(records);
+                    if (added > 0) markChatBackupDirty();
+                } catch (e) { console.warn('msgstore capture:', e); }
+            }
+
+            // Mensaje "fabricado" para renderizar un registro del store con addMessageToUI
+            // cuando XMTP ya no puede descifrar el original (instalación nueva).
+            function msgRecordToUiMessage(r) {
+                return {
+                    id: r.id,
+                    content: r.content,
+                    contentType: { typeId: r.typeId || 'text' },
+                    sentAt: new Date(r.ts),
+                    sentAtNs: r.ts, // autoDetectDate maneja ms
+                };
+            }
+
+            // ── Cifrado determinístico (mismo esquema que docs privados IPFS) ──
+            async function chatBackupKey(usages) {
+                const keyHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(currentWallet.privateKey));
+                return crypto.subtle.importKey('raw', keyHash, { name: 'AES-GCM' }, false, usages);
+            }
+
+            // ── Subida del respaldo (debounced) ─────────────────────────────
+            let chatBackupTimer = null;
+            let chatBackupDirty = false;
+            let chatBackupBusy = false;
+
+            function markChatBackupDirty() {
+                chatBackupDirty = true;
+                if (chatBackupTimer) clearTimeout(chatBackupTimer);
+                chatBackupTimer = setTimeout(() => { chatBackupNow().catch(e => console.warn('backup auto:', e)); }, 30000);
+            }
+
+            document.addEventListener('visibilitychange', () => {
+                // Al irse a background, subir lo pendiente ya (el timer puede no sobrevivir).
+                if (document.visibilityState === 'hidden' && chatBackupDirty && !chatBackupBusy) {
+                    chatBackupNow().catch(() => { });
+                }
+            });
+
+            async function chatBackupNow() {
+                if (chatBackupBusy) return;
+                if (!currentWallet || !currentWallet.privateKey) return;
+                chatBackupBusy = true;
+                if (chatBackupTimer) { clearTimeout(chatBackupTimer); chatBackupTimer = null; }
+                try {
+                    const messages = await msgStoreGetAll();
+                    if (!messages.length) return;
+                    // Contactos: solo lo restaurable (sin bytes de avatar; esos rehidratan vía perfiles XMTP).
+                    const slimContacts = contacts.map(c => ({
+                        name: c.name, address: c.address,
+                        lastMessage: c.lastMessage, lastMessageTimestamp: c.lastMessageTimestamp,
+                        lastReadTimestamp: c.lastReadTimestamp,
+                    }));
+                    const payload = new TextEncoder().encode(JSON.stringify({
+                        v: 1,
+                        address: currentWallet.address.toLowerCase(),
+                        exportedAt: Date.now(),
+                        messages,
+                        contacts: slimContacts,
+                    }));
+
+                    // Cifrar: envelope [iv(12)|ciphertext AES-GCM]
+                    const cryptoKey = await chatBackupKey(['encrypt']);
+                    const iv = crypto.getRandomValues(new Uint8Array(12));
+                    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, payload));
+                    const bytes = new Uint8Array(iv.length + ct.length);
+                    bytes.set(iv, 0); bytes.set(ct, iv.length);
+
+                    // Subir al nodo (misma auth firmada que los docs: "ipfs-upload:<sha>:<size>")
+                    const digest = await crypto.subtle.digest('SHA-256', bytes);
+                    const sha = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+                    const signer = new ethers.Wallet(currentWallet.privateKey);
+                    const signature = await signer.signMessage(`ipfs-upload:${sha}:${bytes.length}`);
+                    const res = await fetch(CHATBK_UPLOAD_URL, {
+                        method: 'POST',
+                        headers: {
+                            'content-type': 'application/octet-stream',
+                            'x-address': currentWallet.address,
+                            'x-signature': signature,
+                            'x-sha256': sha,
+                            'x-size': String(bytes.length),
+                        },
+                        body: bytes,
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.cid) throw new Error(data.error || `Subida rechazada (${res.status})`);
+
+                    // Publicar el pointer (address → CID) firmado, para encontrar el respaldo desde un dispositivo nuevo.
+                    const ts = Date.now();
+                    const ptrSig = await signer.signMessage(`chatwallet-backup:${data.cid}:${ts}`);
+                    const ptrRes = await fetch(CHATBK_POINTER_URL, {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ address: currentWallet.address, cid: data.cid, ts, count: messages.length, signature: ptrSig }),
+                    });
+                    if (!ptrRes.ok) throw new Error(`Pointer rechazado (${ptrRes.status})`);
+
+                    chatBackupDirty = false;
+                    localStorage.setItem(CHATBK_META_KEY(), JSON.stringify({ cid: data.cid, ts, count: messages.length }));
+                    console.log(`☁ Respaldo de chats subido: ${messages.length} mensajes → ${data.cid}`);
+                    renderChatBackupStatus();
+                } finally {
+                    chatBackupBusy = false;
+                }
+            }
+
+            // ── Restore: dispositivo nuevo (store vacío) → bajar y descifrar ──
+            async function restoreChatBackupIfNeeded({ force = false } = {}) {
+                if (!currentWallet || !currentWallet.privateKey) return false;
+                try {
+                    const count = await msgStoreCount();
+                    if (count > 0 && !force) return false;
+
+                    const ptrRes = await fetch(`${CHATBK_POINTER_URL}/${currentWallet.address}`);
+                    if (!ptrRes.ok) return false; // 404 = nunca hubo respaldo (o nodo apagado)
+                    const { cid } = await ptrRes.json();
+                    if (!cid) return false;
+
+                    const blobRes = await fetch(CHATBK_GATEWAY + cid);
+                    if (!blobRes.ok) throw new Error(`Gateway ${blobRes.status}`);
+                    const bytes = new Uint8Array(await blobRes.arrayBuffer());
+                    const cryptoKey = await chatBackupKey(['decrypt']);
+                    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, cryptoKey, bytes.slice(12));
+                    const data = JSON.parse(new TextDecoder().decode(plain));
+                    if (data.address && data.address !== currentWallet.address.toLowerCase()) {
+                        throw new Error('El respaldo no corresponde a esta cuenta');
+                    }
+
+                    const added = await msgStorePut(data.messages || []);
+
+                    // Mergear contactos: agregar los que faltan, completar nombre/último mensaje.
+                    let contactsChanged = false;
+                    for (const bc of (data.contacts || [])) {
+                        if (!bc.address) continue;
+                        const idx = contacts.findIndex(c => c.address.toLowerCase() === bc.address.toLowerCase());
+                        if (idx === -1) {
+                            contacts.push({
+                                name: bc.name || bc.address.slice(0, 10) + '...', address: bc.address,
+                                unreadCount: 0, lastMessage: bc.lastMessage || null,
+                                lastMessageTimestamp: bc.lastMessageTimestamp || 0,
+                                lastReadTimestamp: bc.lastReadTimestamp ?? (bc.lastMessageTimestamp || 0),
+                                status: 'offline', lastSeen: null, avatar: ANON_AVATAR,
+                            });
+                            contactsChanged = true;
+                        } else if ((bc.lastMessageTimestamp || 0) > (contacts[idx].lastMessageTimestamp || 0)) {
+                            contacts[idx].lastMessage = bc.lastMessage;
+                            contacts[idx].lastMessageTimestamp = bc.lastMessageTimestamp;
+                            contactsChanged = true;
+                        }
+                    }
+                    if (contactsChanged) await saveContacts();
+
+                    localStorage.setItem(CHATBK_META_KEY(), JSON.stringify({ cid, ts: data.exportedAt, count: (data.messages || []).length }));
+                    if (added > 0) {
+                        console.log(`☁ Historial restaurado desde el respaldo: ${added} mensajes (CID ${cid.slice(0, 16)}…)`);
+                        showToast(`☁ Historial de chats restaurado: ${added} mensaje${added !== 1 ? 's' : ''}.`, 'success', 6000);
+                    }
+                    renderChatBackupStatus();
+                    return added > 0;
+                } catch (e) {
+                    console.warn('restore backup:', e);
+                    return false;
+                }
+            }
+
+            // ── Estado en Configuración ──────────────────────────────────────
+            function renderChatBackupStatus() {
+                const el = document.getElementById('chatBackupStatus');
+                if (!el || !currentWallet) return;
+                try {
+                    const meta = JSON.parse(localStorage.getItem(CHATBK_META_KEY()) || 'null');
+                    if (!meta) { el.textContent = 'Aún no hay respaldo. Se crea solo al chatear.'; return; }
+                    const when = formatTimestampForContactList(meta.ts) || new Date(meta.ts).toLocaleString('es-ES');
+                    el.innerHTML = `Último respaldo: <span class="text-gray-200">${when}</span> · ${meta.count} mensajes<br>` +
+                        `<span class="font-mono text-[10px] text-gray-500 break-all">${meta.cid}</span>`;
+                } catch (e) { el.textContent = 'Aún no hay respaldo.'; }
             }
 
             async function saveContacts() {
@@ -4787,6 +5119,9 @@
                                 }
 
                                 if (contactAddress) {
+                                    // Respaldo soberano: persistir el mensaje en el store propio (dedup por id).
+                                    captureXmtpMessages([message], contactAddress, chatwalletxmtp.inboxId);
+
                                     // Asignar peerAddress si falta y el chat está abierto
                                     if (isChatOpen && !currentConversation.peerAddress) {
                                         currentConversation.peerAddress = contactAddress;
@@ -4969,25 +5304,44 @@
                     // limit alto: sin él, messages() trunca al default del SDK y se "pierde" historial viejo.
                     const existingMessages = await conv.messages({ limit: 1000n });
                     console.log(`✅ ${existingMessages.length} mensajes recuperados de la base de datos local.`);
-                    messagesContainer.innerHTML = '';
 
-                    if (existingMessages.length === 0) {
-                        messagesContainer.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-full text-gray-500">
-                            <p>No hay mensajes previos.</p>
-                        </div>`;
+                    // Respaldo soberano: los mensajes que XMTP ya no puede descifrar (instalación nueva)
+                    // viven en el store propio. Se renderiza la UNIÓN (XMTP ∪ store) en orden cronológico.
+                    let peerAddr = conv.peerAddress || null;
+                    if (!peerAddr) {
+                        try { peerAddr = await getAddressFromInboxId(await conv.peerInboxId()); } catch (e) { }
                     }
-
+                    const entries = [];
                     for (const message of existingMessages) {
                         const typeId = message.contentType.typeId;
                         if (typeId === 'readReceipt' || typeId === 'read-receipt' || typeId === 'presence') continue;
                         // Perfiles que llegaron mientras estábamos offline: aplicarlos (alias/avatar
                         // del contacto) en vez de renderizarlos como un mensaje en el chat.
                         if (typeId === 'profile') { handleProfileMessage(message); continue; }
-
                         const type = message.senderInboxId === chatwalletxmtp.inboxId ? 'sent' : 'received';
-                        addMessageToUI(message, type);
+                        const ts = message.sentAt ? message.sentAt.getTime() : 0;
+                        entries.push({ message, type, ts });
                     }
+                    if (peerAddr) {
+                        // Backfill del store con lo descifrable hoy (mañana puede no serlo).
+                        captureXmtpMessages(existingMessages, peerAddr, chatwalletxmtp.inboxId);
+                        try {
+                            const xmtpIds = new Set(existingMessages.map(m => m.id));
+                            const restored = (await msgStoreGetByPeer(peerAddr)).filter(r => !xmtpIds.has(r.id));
+                            for (const r of restored) entries.push({ message: msgRecordToUiMessage(r), type: r.dir, ts: r.ts });
+                            if (restored.length) console.log(`☁ ${restored.length} mensaje(s) del respaldo agregados al hilo.`);
+                        } catch (e) { console.warn('merge respaldo en chat:', e); }
+                    }
+                    entries.sort((a, b) => a.ts - b.ts);
+
+                    messagesContainer.innerHTML = '';
+                    if (entries.length === 0) {
+                        messagesContainer.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-gray-500">
+                            <p>No hay mensajes previos.</p>
+                        </div>`;
+                    }
+                    for (const entry of entries) addMessageToUI(entry.message, entry.type);
                     if (window.__updateRefreshBtn) window.__updateRefreshBtn();
                 } catch (error) {
                     console.error("Error al cargar mensajes:", error);
@@ -7211,6 +7565,41 @@
                     settingsModal.classList.remove('hidden');
                     settingsModal.classList.add('flex');
                     listInstallations();
+                    renderChatBackupStatus();
+                });
+            }
+
+            // Respaldo soberano de chats: acciones manuales desde Configuración.
+            const chatBackupNowBtn = document.getElementById('chatBackupNowBtn');
+            if (chatBackupNowBtn) {
+                chatBackupNowBtn.addEventListener('click', async () => {
+                    chatBackupNowBtn.disabled = true;
+                    chatBackupNowBtn.textContent = '⏳ Respaldando…';
+                    try {
+                        await chatBackupNow();
+                        showToast('☁ Respaldo de chats subido a tu nodo.', 'success');
+                    } catch (e) {
+                        showToast(`Error al respaldar: ${e.message}`, 'error');
+                    } finally {
+                        chatBackupNowBtn.disabled = false;
+                        chatBackupNowBtn.textContent = '☁ Respaldar ahora';
+                    }
+                });
+            }
+            const chatBackupRestoreBtn = document.getElementById('chatBackupRestoreBtn');
+            if (chatBackupRestoreBtn) {
+                chatBackupRestoreBtn.addEventListener('click', async () => {
+                    chatBackupRestoreBtn.disabled = true;
+                    chatBackupRestoreBtn.textContent = '⏳ Restaurando…';
+                    try {
+                        const restored = await restoreChatBackupIfNeeded({ force: true });
+                        if (!restored) showToast('No hay respaldo disponible (o ya está todo al día).', 'info');
+                    } catch (e) {
+                        showToast(`Error al restaurar: ${e.message}`, 'error');
+                    } finally {
+                        chatBackupRestoreBtn.disabled = false;
+                        chatBackupRestoreBtn.textContent = '⤓ Restaurar';
+                    }
                 });
             }
             const hideSettingsModal = () => { settingsModal.classList.add('hidden'); settingsModal.classList.remove('flex'); };
