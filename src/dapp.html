@@ -673,6 +673,57 @@
         #initView {
             padding-top: var(--safe-top);
         }
+
+        /* ═══════════ TEMA CLARO ═══════════
+           Activado con body.theme-light (toggle en el modal de marca, persistido en
+           localStorage 'chatwallet_theme'). Nació para que el QR escanee fácil:
+           negro sobre blanco con zona de silencio (ver renderAddressQr).
+           Estas overrides pisan las clases oscuras de Tailwind más usadas;
+           el modo oscuro queda 100% intacto. */
+        body.theme-light {
+            background-color: #f3f4f6;
+            color: #111827;
+        }
+
+        body.theme-light .bg-gray-900 { background-color: #f3f4f6 !important; }
+        body.theme-light .bg-gray-800 { background-color: #ffffff !important; }
+        body.theme-light .bg-gray-700 { background-color: #e5e7eb !important; }
+        body.theme-light .bg-gray-900\/30 { background-color: rgba(229, 231, 235, 0.65) !important; }
+        body.theme-light .bg-gray-900\/50 { background-color: #f9fafb !important; }
+        body.theme-light .bg-gray-800\/50 { background-color: #f9fafb !important; }
+        body.theme-light .bg-gray-700\/50 { background-color: #f3f4f6 !important; }
+        body.theme-light .hover\:bg-gray-700:hover { background-color: #d1d5db !important; }
+        body.theme-light .hover\:bg-gray-600:hover { background-color: #d1d5db !important; }
+        body.theme-light .hover\:bg-gray-700\/50:hover { background-color: #e5e7eb !important; }
+
+        /* Texto: invertir los claros, pero NUNCA sobre botones/fondos de color
+           (indigo/red/green/yellow siguen con texto blanco). */
+        body.theme-light .text-white:not([class*="bg-indigo"]):not([class*="bg-red"]):not([class*="bg-green"]):not([class*="bg-blue"]):not([class*="bg-yellow"]) { color: #111827 !important; }
+        body.theme-light .text-gray-200:not([class*="bg-indigo"]):not([class*="bg-red"]):not([class*="bg-green"]) { color: #1f2937 !important; }
+        body.theme-light .text-gray-300 { color: #374151 !important; }
+        body.theme-light .text-gray-400 { color: #4b5563 !important; }
+        body.theme-light .text-gray-500 { color: #6b7280 !important; }
+        body.theme-light .border-gray-700 { border-color: #d1d5db !important; }
+        body.theme-light .border-gray-600 { border-color: #d1d5db !important; }
+
+        /* Chat: mi burbuja gris clara; la del interlocutor sigue índigo (legible en claro). */
+        body.theme-light .sent { background-color: #e5e7eb; color: #111827; }
+        body.theme-light .sent .message-metadata { color: #6b7280; }
+
+        /* Inputs oscuros → claros con borde. */
+        body.theme-light input.bg-gray-700,
+        body.theme-light select.bg-gray-700,
+        body.theme-light textarea.bg-gray-700 {
+            background-color: #ffffff !important;
+            color: #111827 !important;
+            border: 1px solid #d1d5db;
+        }
+
+        /* Nav inferior (tiene background propio, no clases Tailwind). */
+        body.theme-light #appNav {
+            background: rgba(255, 255, 255, 0.95);
+            border-top: 1px solid rgba(0, 0, 0, 0.12);
+        }
     </style>
     <style>
         #scanner-container {
@@ -766,7 +817,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.55 alpha</p>
+            <p class="text-sm text-gray-400">v 1.58 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -776,6 +827,11 @@
                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
                 </svg>
                 <span id="checkUpdatesLabel">Buscar actualizaciones</span>
+            </button>
+            <!-- Toggle de tema: el claro dibuja el QR negro sobre blanco (escanea fácil) -->
+            <button id="themeToggleBtn"
+                class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
+                <span id="themeToggleLabel">☀️ Tema claro</span>
             </button>
             <p id="updateStatus" class="text-xs text-gray-400 min-h-[1rem]"></p>
             <div class="space-y-2 pt-2">
@@ -911,18 +967,16 @@
 
 
 
+                <!-- Identidad propia: avatar + alias (tap abre el perfil DID). El botón de al
+                     lado copia el LINK DE INVITACIÓN; la address pelada vive debajo del QR. -->
                 <div id="userDidTrigger"
-                    class="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-gray-700/50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        class="text-indigo-400 flex-shrink-0">
-                        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-                        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-                        <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-                    </svg>
-                    <div id="address" class="text-sm text-gray-400 truncate"></div>
+                    class="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-gray-700/50"
+                    title="Tu perfil soberano (DID)">
+                    <img id="headerAvatarImg" src="static/anonym.jpg" alt="Mi avatar"
+                        class="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-indigo-500/60">
+                    <div id="address" class="text-sm text-gray-300 truncate max-w-[110px]"></div>
                 </div>
-                <button id="copyAddressButton" title="Copiar dirección"
+                <button id="copyAddressButton" title="Copiar link de invitación"
                     class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
                     <svg id="copyIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -1017,8 +1071,10 @@
                         <div id="qr-code-wrapper" class="w-full flex items-center justify-center py-2">
                             <div class="w-full max-w-[260px] sm:max-w-[280px] p-2 rounded-xl">
                                 <div id="qr-code"></div>
+                                <!-- Address propia debajo del QR: tap = copiar SOLO la dirección.
+                                     (El link de invitación se copia desde el header, junto al avatar.) -->
                                 <div class="mt-3 flex justify-center">
-                                    <button type="button" id="copyInviteLinkBtn"
+                                    <button type="button" id="qrAddressBtn" title="Copiar dirección"
                                         class="flex items-center space-x-1.5 px-3 py-1.5 text-gray-400 hover:text-indigo-400 rounded-full text-xs transition-colors">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -1026,7 +1082,7 @@
                                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                                         </svg>
-                                        <span>Copiar link para invitar</span>
+                                        <span id="qrAddressLabel" class="font-mono"></span>
                                     </button>
                                 </div>
                             </div>
@@ -2184,7 +2240,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.55</p>
+                    <p id="settingsVersionText">Versión 1.58</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -3239,6 +3295,12 @@
                     userAvatarImg.src = ownProfile.avatar ? ownProfile.avatar : ANON_AVATAR;
                     userAvatarImg.classList.remove('hidden');
                     userInitials.classList.add('hidden');
+
+                    // Header: avatar + alias (o address corta si no hay alias). La address
+                    // completa se copia desde el pill debajo del QR.
+                    const headerAvatarImg = document.getElementById('headerAvatarImg');
+                    if (headerAvatarImg) headerAvatarImg.src = ownProfile.avatar ? ownProfile.avatar : ANON_AVATAR;
+                    if (addressEl) addressEl.textContent = ownProfile.alias ? ownProfile.alias : shortAddress;
 
                     // Generate initials from address for fallback (though anonym.jpg is requested)
                     const initials = `C${address.slice(2, 4).toUpperCase()}`;
@@ -5613,12 +5675,18 @@
                 // el que escanea puede cifrarnos mensajes offline por QR sin necesidad de red.
                 const pk = myCompressedPubKey();
                 const chatUrl = pk ? `${baseUrl}?address=${address}&pk=${pk}` : `${baseUrl}?address=${address}`;
-                const qrColor = isOffline ? "#9ca3af" : "#4f46e5"; // gray-400 en frío / indigo-600 normal
+                // Tema claro = modo escaneo: módulos NEGROS sobre fondo BLANCO con margen
+                // (zona de silencio). El QR índigo-sobre-oscuro es lindo pero los lectores
+                // lo detectan mal (bajo contraste y sin quiet zone).
+                const isLightTheme = document.body.classList.contains('theme-light');
+                const qrColor = isLightTheme ? "#000000" : (isOffline ? "#9ca3af" : "#4f46e5");
+                const qrBg = isLightTheme ? "#ffffff" : "#111828";
                 const qrCode = new QRCodeStyling({
                     width: 370, height: 370,
+                    margin: isLightTheme ? 14 : 0,
                     data: chatUrl,
                     dotsOptions: { color: qrColor, type: "rounded" },
-                    backgroundOptions: { color: "#111828" },
+                    backgroundOptions: { color: qrBg },
                     cornersSquareOptions: { type: "extra-rounded", color: qrColor },
                     cornersDotOptions: { type: "dot", color: qrColor }
                 });
@@ -5626,7 +5694,10 @@
             }
 
             function updateWalletUI(wallet, isNewWallet) {
+                // Header: alias/avatar (lo pisa updateUserProfile si hay alias); fallback address corta.
                 addressEl.textContent = `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`;
+                const qrAddressLabel = document.getElementById('qrAddressLabel');
+                if (qrAddressLabel) qrAddressLabel.textContent = `${wallet.address.slice(0, 8)}…${wallet.address.slice(-6)}`;
                 renderAddressQr(wallet.address);
                 privateKeyEl.innerHTML = '<span class="text-gray-500">Billetera cargada.</span>';
 
@@ -5653,6 +5724,48 @@
             function copyAddress() {
                 if (!currentWallet) return;
                 navigator.clipboard.writeText(currentWallet.address).then(() => {
+                    showToast('Dirección copiada', 'success');
+                }).catch(err => console.error('Error al copiar la dirección:', err));
+            }
+
+            // Link de invitación canónico (URL pública, la misma que codifica el QR — NUNCA location.href).
+            function buildInviteUrl() {
+                if (!currentWallet) return null;
+                const pk = myCompressedPubKey();
+                return pk
+                    ? `${PUBLIC_INVITE_BASE}?address=${currentWallet.address}&pk=${pk}`
+                    : `${PUBLIC_INVITE_BASE}?address=${currentWallet.address}`;
+            }
+
+            // ═══ TEMA CLARO/OSCURO ═══
+            // Toggle en el modal de marca (tag lateral CHATWALLET). El claro existe sobre
+            // todo para que el QR escanee fácil: negro sobre blanco + zona de silencio.
+            const THEME_STORAGE_KEY = 'chatwallet_theme';
+            function applyTheme(theme) {
+                document.body.classList.toggle('theme-light', theme === 'light');
+                const label = document.getElementById('themeToggleLabel');
+                if (label) label.textContent = theme === 'light' ? '🌙 Tema oscuro' : '☀️ Tema claro';
+                // Redibujar el QR con la paleta del tema activo.
+                if (currentWallet) { try { renderAddressQr(currentWallet.address); } catch (e) { } }
+            }
+            applyTheme(localStorage.getItem(THEME_STORAGE_KEY) || 'dark');
+            const themeToggleBtn = document.getElementById('themeToggleBtn');
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener('click', () => {
+                    const next = document.body.classList.contains('theme-light') ? 'dark' : 'light';
+                    localStorage.setItem(THEME_STORAGE_KEY, next);
+                    applyTheme(next);
+                    showToast(next === 'light'
+                        ? '☀️ Tema claro: el QR ahora escanea más fácil.'
+                        : '🌙 Tema oscuro activado.', 'info');
+                });
+            }
+
+            function copyInviteLink() {
+                const inviteUrl = buildInviteUrl();
+                if (!inviteUrl) return;
+                navigator.clipboard.writeText(inviteUrl).then(() => {
+                    showToast('Link de invitación copiado', 'success');
                     const copyIcon = document.getElementById('copyIcon');
                     const checkIcon = document.getElementById('checkIcon');
                     copyIcon.classList.add('hidden');
@@ -5661,7 +5774,7 @@
                         copyIcon.classList.remove('hidden');
                         checkIcon.classList.add('hidden');
                     }, 1500);
-                }).catch(err => console.error('Error al copiar la dirección:', err));
+                }).catch(err => console.error('Error al copiar el link de invitación:', err));
             }
 
             // showBackupNotification removida por redundancia
@@ -5864,6 +5977,27 @@
             function startKeepAlive() {
                 console.log('KeepAlive: plugin disponible?', !!NativeKeepAlive);
                 if (NativeKeepAlive) { try { NativeKeepAlive.start(); } catch (e) { console.warn('startKeepAlive:', e); } }
+                ensureBatteryUnrestricted();
+            }
+
+            // Push soberanas: sin exención de batería, Doze corta la red en background y el
+            // stream XMTP muere → no llegan mensajes con la pantalla apagada. Mismo camino
+            // que Telegram sin Google Play Services: diálogo del sistema
+            // ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS. Se pide 1 vez por sesión;
+            // si el usuario acepta, isBatteryUnrestricted=true y no se vuelve a molestar.
+            let batteryPromptShownThisSession = false;
+            async function ensureBatteryUnrestricted() {
+                if (!NativeKeepAlive || !NativeKeepAlive.isBatteryUnrestricted) return;
+                if (batteryPromptShownThisSession) return;
+                try {
+                    const { unrestricted } = await NativeKeepAlive.isBatteryUnrestricted();
+                    console.log('Batería sin restricción (exención Doze)?', unrestricted);
+                    if (unrestricted) return;
+                    batteryPromptShownThisSession = true;
+                    showToast('🔋 Para recibir mensajes con la pantalla apagada, permití que ChatWallet corra en segundo plano sin restricción.', 'info', 6000);
+                    // Pequeña pausa para que se lea el toast antes del diálogo del sistema.
+                    setTimeout(() => { try { NativeKeepAlive.requestBatteryUnrestricted(); } catch (e) { } }, 2500);
+                } catch (e) { console.warn('ensureBatteryUnrestricted:', e); }
             }
             function stopKeepAlive() { if (NativeKeepAlive) { try { NativeKeepAlive.stop(); } catch (e) { } } }
 
@@ -7460,7 +7594,8 @@
                 showToast("Billetera olvidada correctamente.", "success");
             });
 
-            copyAddressButton.addEventListener('click', copyAddress);
+            // El botón del header copia el LINK DE INVITACIÓN (la address se copia bajo el QR).
+            copyAddressButton.addEventListener('click', copyInviteLink);
             backToContactsBtn.addEventListener('click', () => {
                 // Close chat view and show wallet view, also open sidebar
                 showView('walletView');
@@ -7616,19 +7751,10 @@
                 });
             }
 
-            // Copiar link de invitación (mismo URL que codifica el QR principal: ?address=<addr>)
-            const copyInviteLinkBtn = document.getElementById('copyInviteLinkBtn');
-            if (copyInviteLinkBtn) {
-                copyInviteLinkBtn.addEventListener('click', () => {
-                    if (!currentWallet) return;
-                    const pk = myCompressedPubKey();
-                    const inviteUrl = pk
-                        ? `${PUBLIC_INVITE_BASE}?address=${currentWallet.address}&pk=${pk}`
-                        : `${PUBLIC_INVITE_BASE}?address=${currentWallet.address}`;
-                    navigator.clipboard.writeText(inviteUrl).then(() => {
-                        showToast("Link de invitación copiado", "success");
-                    });
-                });
+            // Pill de address debajo del QR: copia SOLO la dirección.
+            const qrAddressBtn = document.getElementById('qrAddressBtn');
+            if (qrAddressBtn) {
+                qrAddressBtn.addEventListener('click', copyAddress);
             }
 
             if (sendBtn) {

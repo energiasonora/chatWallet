@@ -62,4 +62,8 @@
     <!-- Foreground service para sostener la conexión con la app en segundo plano -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Push soberanas: pedir exención de optimización de batería (mismo camino que
+         Telegram sin Google Play Services). Sin esto, Doze corta la red en background
+         y el stream XMTP muere → no llegan notificaciones con la pantalla apagada. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 </manifest>

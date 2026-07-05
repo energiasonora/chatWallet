@@ -14,7 +14,10 @@ import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.util.Base64;
 
 import androidx.core.app.NotificationCompat;
@@ -60,6 +63,45 @@ public class KeepAlivePlugin extends Plugin {
     public void stop(PluginCall call) {
         Intent intent = new Intent(getContext(), KeepAliveService.class);
         getContext().stopService(intent);
+        call.resolve();
+    }
+
+    /**
+     * ¿Está la app exenta de la optimización de batería (Doze)? Sin la exención, Android
+     * corta la red en background y el stream XMTP muere → no llegan push con pantalla
+     * apagada. Es el mismo requisito/camino que usan Telegram (sin Google Play Services),
+     * Signal sin GPS, Conversations, etc.
+     */
+    @PluginMethod
+    public void isBatteryUnrestricted(PluginCall call) {
+        boolean unrestricted = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+            unrestricted = pm != null && pm.isIgnoringBatteryOptimizations(getContext().getPackageName());
+        }
+        JSObject ret = new JSObject();
+        ret.put("unrestricted", unrestricted);
+        call.resolve(ret);
+    }
+
+    /** Abre el diálogo del sistema "¿Permitir que ChatWallet se ejecute en segundo plano?". */
+    @PluginMethod
+    public void requestBatteryUnrestricted(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                i.setData(Uri.parse("package:" + getContext().getPackageName()));
+                i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(i);
+            } catch (Exception e) {
+                // Fallback: pantalla general de optimización de batería
+                try {
+                    Intent i = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                    i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getContext().startActivity(i);
+                } catch (Exception ignored) { }
+            }
+        }
         call.resolve();
     }
 
