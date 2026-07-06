@@ -3,7 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- interactive-widget=resizes-content: al abrir el teclado, el layout viewport se achica
+         y el input + botón de enviar quedan visibles (Chrome 108+ dejó de hacerlo por defecto) -->
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -144,7 +147,12 @@
             max-width: 75%;
             padding: 0.75rem 1rem;
             border-radius: 1.25rem;
+            /* anywhere (y no break-word): las direcciones 0x…/links largos sin espacios
+               también achican el min-content del flex item; si no, la burbuja empuja
+               el ancho y el chat desborda el contenedor en pantallas angostas */
+            overflow-wrap: anywhere;
             word-wrap: break-word;
+            min-width: 0;
             display: flex;
             flex-direction: column;
         }
@@ -632,6 +640,24 @@
             margin-bottom: var(--nav-height);
         }
 
+        /* La vista de chat nunca debe empujar el form de envío fuera de pantalla:
+           min-height:0 en toda la cadena flex para que la lista de mensajes se
+           comprima y scrollee adentro (sin esto, min-height:auto puede hacer que
+           el contenido exceda el contenedor en WebViews) */
+        #app-shell main {
+            min-height: 0;
+            min-width: 0;
+        }
+
+        #chatView {
+            min-height: 0;
+        }
+
+        #messagesContainer {
+            min-height: 0;
+            overflow-x: hidden;
+        }
+
         /* ── QR Code in Wallet View ─────────────────────── */
         #walletView {
             padding-bottom: 0;
@@ -723,6 +749,53 @@
         body.theme-light #appNav {
             background: rgba(255, 255, 255, 0.95);
             border-top: 1px solid rgba(0, 0, 0, 0.12);
+        }
+
+        /* Sidebar de contactos: usa CSS propio (no clases Tailwind), por eso
+           quedaba con fondo oscuro en tema claro. */
+        body.theme-light .contacts-sidebar {
+            background-color: #ffffff;
+            border-left-color: #d1d5db;
+        }
+
+        body.theme-light .contacts-sidebar-header {
+            border-bottom-color: #d1d5db;
+        }
+
+        body.theme-light .user-profile-section {
+            background-color: #f3f4f6;
+            border-bottom-color: #d1d5db;
+        }
+
+        body.theme-light .close-sidebar-btn {
+            color: #6b7280;
+        }
+
+        body.theme-light .close-sidebar-btn:hover {
+            color: #111827;
+        }
+
+        /* Botones grises medios (importar/exportar contactos, dropdowns) */
+        body.theme-light .bg-gray-600 {
+            background-color: #e5e7eb !important;
+        }
+
+        body.theme-light .hover\:bg-gray-500:hover {
+            background-color: #d1d5db !important;
+        }
+
+        /* Tarjeta de info de usuario (DID) y burbuja de handshake: backgrounds propios */
+        body.theme-light #userInfoCard {
+            background-color: #ffffff;
+            border-color: #d1d5db;
+        }
+
+        body.theme-light #userInfoCard .close-btn {
+            color: #4b5563;
+        }
+
+        body.theme-light .handshake-message .content {
+            background-color: #e5e7eb;
         }
     </style>
     <style>
@@ -817,7 +890,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.59 alpha</p>
+            <p class="text-sm text-gray-400">v 1.60 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2251,7 +2324,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.59</p>
+                    <p id="settingsVersionText">Versión 1.60</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
