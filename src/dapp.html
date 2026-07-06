@@ -817,7 +817,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.58 alpha</p>
+            <p class="text-sm text-gray-400">v 1.59 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -827,11 +827,6 @@
                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
                 </svg>
                 <span id="checkUpdatesLabel">Buscar actualizaciones</span>
-            </button>
-            <!-- Toggle de tema: el claro dibuja el QR negro sobre blanco (escanea fácil) -->
-            <button id="themeToggleBtn"
-                class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
-                <span id="themeToggleLabel">☀️ Tema claro</span>
             </button>
             <p id="updateStatus" class="text-xs text-gray-400 min-h-[1rem]"></p>
             <div class="space-y-2 pt-2">
@@ -1003,6 +998,22 @@
                 <!-- <button id="settingsBtn" title="Configuración" class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
                 </button> -->
+
+                <!-- Toggle de tema: el claro dibuja el QR negro sobre blanco (escanea fácil) -->
+                <button id="themeHeaderBtn" title="Alternar tema claro/oscuro"
+                    class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
+                    <svg id="themeIconSun" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4" />
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                    </svg>
+                    <svg id="themeIconMoon" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" class="hidden">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                </button>
 
                 <button id="mode-toggle-btn" title="Modo Offline (Cold Wallet)"
                     class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
@@ -2240,7 +2251,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.58</p>
+                    <p id="settingsVersionText">Versión 1.59</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -5738,20 +5749,22 @@
             }
 
             // ═══ TEMA CLARO/OSCURO ═══
-            // Toggle en el modal de marca (tag lateral CHATWALLET). El claro existe sobre
-            // todo para que el QR escanee fácil: negro sobre blanco + zona de silencio.
+            // Toggle en el header (sol/luna). El claro existe sobre todo para que el QR
+            // escanee fácil: negro sobre blanco + zona de silencio.
             const THEME_STORAGE_KEY = 'chatwallet_theme';
             function applyTheme(theme) {
-                document.body.classList.toggle('theme-light', theme === 'light');
-                const label = document.getElementById('themeToggleLabel');
-                if (label) label.textContent = theme === 'light' ? '🌙 Tema oscuro' : '☀️ Tema claro';
+                const light = theme === 'light';
+                document.body.classList.toggle('theme-light', light);
+                // Ícono del header: muestra el tema al que se puede saltar (sol en oscuro, luna en claro).
+                document.getElementById('themeIconSun')?.classList.toggle('hidden', light);
+                document.getElementById('themeIconMoon')?.classList.toggle('hidden', !light);
                 // Redibujar el QR con la paleta del tema activo.
                 if (currentWallet) { try { renderAddressQr(currentWallet.address); } catch (e) { } }
             }
             applyTheme(localStorage.getItem(THEME_STORAGE_KEY) || 'dark');
-            const themeToggleBtn = document.getElementById('themeToggleBtn');
-            if (themeToggleBtn) {
-                themeToggleBtn.addEventListener('click', () => {
+            const themeHeaderBtn = document.getElementById('themeHeaderBtn');
+            if (themeHeaderBtn) {
+                themeHeaderBtn.addEventListener('click', () => {
                     const next = document.body.classList.contains('theme-light') ? 'dark' : 'light';
                     localStorage.setItem(THEME_STORAGE_KEY, next);
                     applyTheme(next);
