@@ -482,6 +482,18 @@
             font-weight: bold;
         }
 
+        /* Apodo local (el que VOS le pusiste) — secundario, debajo del nombre propio */
+        #userInfoCard #userCardLocalName {
+            font-size: .8rem;
+            font-style: italic;
+            margin-top: -0.35rem;
+            margin-bottom: .5rem;
+        }
+
+        #userInfoCard #userCardLocalName.hidden {
+            display: none;
+        }
+
         #userInfoCard p {
             font-size: .9rem;
             text-align: center;
@@ -947,7 +959,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.63 alpha</p>
+            <p class="text-sm text-gray-400">v 1.64 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1076,7 +1088,10 @@
     <div id="userInfoCard">
         <button id="closeUserCard" class="close-btn">&times;</button>
         <img id="userCardAvatar" src="static/anonym.jpg" alt="User Avatar">
+        <!-- Arriba el nombre que el usuario eligió para sí (alias del perfil soberano);
+             abajo el apodo local que VOS le pusiste al contacto (si difieren). -->
         <h4 id="userCardName"></h4>
+        <p id="userCardLocalName" class="hidden"></p>
         <p id="userCardAddress" class="font-mono"></p>
         <!-- Links del DID del contacto (poblados desde el perfil soberano recibido por XMTP) -->
         <div id="userCardLinks"></div>
@@ -2381,7 +2396,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.63</p>
+                    <p id="settingsVersionText">Versión 1.64</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -5780,11 +5795,23 @@
 
                 // Find contact to get the name
                 const contact = contacts.find(c => c.address.toLowerCase() === address.toLowerCase());
-                const name = contact ? contact.name : `${address.slice(0, 6)}...${address.slice(-4)}`;
+                const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
+                // ARRIBA: el nombre que el usuario eligió para sí mismo (alias de su perfil
+                // soberano, recibido por XMTP). ABAJO: el apodo local que VOS le pusiste.
+                const selfName = (contact && contact.selfAlias) ? contact.selfAlias : '';
+                const localName = (contact && contact.name) ? contact.name : '';
+                const localNameEl = document.getElementById('userCardLocalName');
 
-                // Avatar y nombre vienen del perfil soberano recibido por XMTP (si llegó).
                 avatar.src = (contact && contact.avatar) ? contact.avatar : ANON_AVATAR;
-                nameEl.textContent = name;
+                nameEl.textContent = selfName || localName || short;
+                if (localNameEl) {
+                    if (localName && localName !== nameEl.textContent) {
+                        localNameEl.textContent = `Tu alias: ${localName}`;
+                        localNameEl.classList.remove('hidden');
+                    } else {
+                        localNameEl.classList.add('hidden');
+                    }
+                }
                 addressEl.textContent = address;
 
                 // Links del DID del contacto: string con un link por línea (mismo formato que el perfil propio).
