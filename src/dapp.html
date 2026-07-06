@@ -797,6 +797,63 @@
         body.theme-light .handshake-message .content {
             background-color: #e5e7eb;
         }
+
+        /* ── Wallet en horizontal (celu apaisado) ─────────────────────────
+           Mitad izquierda: QR completo con la address/copiar debajo (como está).
+           Mitad derecha: arriba red + balance + gas + smartwallet, abajo los
+           botones Enviar/Escanear/Recibir. Solo celus (max-height corta
+           desktop, donde el layout vertical anda bien). */
+        @media (orientation: landscape) and (max-height: 560px) {
+            #walletView.active {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr auto;
+                align-items: center;
+                column-gap: 0.5rem;
+            }
+
+            /* El wrapper intermedio se disuelve: QR y balances pasan a ser
+               celdas directas del grid */
+            #walletView>.flex-grow {
+                display: contents;
+            }
+
+            #qr-code-wrapper {
+                grid-row: 1 / 3;
+                grid-column: 1;
+                height: 100%;
+                padding: 0.25rem 0;
+            }
+
+            /* El QR se achica para entrar COMPLETO en la altura disponible
+               (260px no entran en un celu apaisado) */
+            #qr-code-wrapper>div {
+                max-width: min(260px, calc(100vh - 205px));
+            }
+
+            /* Bloque red + balance + gas + smartwallet: arriba a la derecha */
+            #walletView .relative.text-center {
+                grid-row: 1;
+                grid-column: 2;
+                margin-top: 0;
+            }
+
+            /* Botones: abajo a la derecha */
+            #walletView>.grid {
+                grid-row: 2;
+                grid-column: 2;
+                width: 100%;
+            }
+
+            /* El selector de tokens abre hacia ABAJO (arriba no hay lugar) */
+            #tokenSelectorMenu {
+                bottom: auto;
+                top: 100%;
+                margin-bottom: 0;
+                margin-top: 0.5rem;
+                transform-origin: top;
+            }
+        }
     </style>
     <style>
         #scanner-container {
@@ -890,7 +947,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.62 alpha</p>
+            <p class="text-sm text-gray-400">v 1.63 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2324,7 +2381,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.62</p>
+                    <p id="settingsVersionText">Versión 1.63</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
