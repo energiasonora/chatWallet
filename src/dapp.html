@@ -1007,7 +1007,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.68 alpha</p>
+            <p class="text-sm text-gray-400">v 1.69 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1898,12 +1898,8 @@
             <div id="contactsListSidebar" class="contacts-list-sidebar">
                 <!-- Contacts will be populated here -->
             </div>
-            <div class="p-4 border-t border-gray-700">
-                <button id="closeSidebarFooterBtn"
-                    class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">
-                    Cerrar Contactos
-                </button>
-            </div>
+            <!-- (Se eliminó el botón rojo "Cerrar Contactos": redundante con la X del header
+                 y el swipe para cerrar.) -->
         </div>
 
         <!-- MODALS & OVERLAYS -->
@@ -2444,7 +2440,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.68</p>
+                    <p id="settingsVersionText">Versión 1.69</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -8241,8 +8237,6 @@
             const chatHeaderBtn = document.getElementById('chatHeaderBtn');
             if (chatHeaderBtn) chatHeaderBtn.addEventListener('click', toggleSidebar);
             if (closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
-            const closeSidebarFooterBtn = document.getElementById('closeSidebarFooterBtn');
-            if (closeSidebarFooterBtn) closeSidebarFooterBtn.addEventListener('click', closeSidebar);
             if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
             // Close sidebar when clicking outside
