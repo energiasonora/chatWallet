@@ -157,6 +157,15 @@
             flex-direction: column;
         }
 
+        /* Links dentro de las burbujas: heredan el color del texto (legibles sobre
+           violeta y sobre gris) y se distinguen por el subrayado */
+        .message-bubble a {
+            color: inherit;
+            text-decoration: underline;
+            font-weight: 600;
+            overflow-wrap: anywhere;
+        }
+
         /* Touch distintivo de la UX: el INTERLOCUTOR es violeta, el USUARIO es gris. */
         .sent {
             background-color: #374151;
@@ -884,6 +893,36 @@
                 margin-top: 0.5rem;
                 transform-origin: top;
             }
+
+            /* ── Chat apaisado: mensajes ocupan TODA la mitad izquierda;
+                  a la derecha los detalles del contacto (arriba) y el input (abajo) ── */
+            #chatView.active {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: auto 1fr;
+                column-gap: 0.75rem;
+            }
+
+            #chatView>#messagesContainer {
+                grid-column: 1;
+                grid-row: 1 / 3;
+                margin-bottom: 0;
+            }
+
+            /* Header del chat (volver, avatar, nombre, enviar/solicitar) */
+            #chatView>.justify-between {
+                grid-column: 2;
+                grid-row: 1;
+                margin-bottom: 0;
+            }
+
+            /* Fila del input (+ acciones, escribir, enviar) */
+            #chatView>.space-x-2 {
+                grid-column: 2;
+                grid-row: 2;
+                align-self: end;
+                padding-bottom: 0.25rem;
+            }
         }
 
         /* ── Overlays del modo frío: si el contenido no entra en la altura
@@ -1007,7 +1046,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.70 alpha</p>
+            <p class="text-sm text-gray-400">v 1.71 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2434,7 +2473,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.70</p>
+                    <p id="settingsVersionText">Versión 1.71</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -5133,6 +5172,36 @@
                 await saveContacts();
             }
 
+            // Convierte las URLs del texto en <a> clickeables construyendo nodos DOM
+            // (nunca innerHTML con contenido ajeno: un mensaje malicioso no puede inyectar HTML).
+            // Solo http/https; www.… asume https.
+            function renderTextWithLinks(el, text) {
+                el.textContent = '';
+                const re = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+                let last = 0, m;
+                while ((m = re.exec(text)) !== null) {
+                    if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
+                    let href = m[0];
+                    if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
+                    let ok = false;
+                    try {
+                        const u = new URL(href);
+                        if (u.protocol === 'http:' || u.protocol === 'https:') {
+                            const a = document.createElement('a');
+                            a.href = u.href;
+                            a.target = '_blank';
+                            a.rel = 'noopener noreferrer';
+                            a.textContent = m[0];
+                            el.appendChild(a);
+                            ok = true;
+                        }
+                    } catch (e) { /* no era una URL válida */ }
+                    if (!ok) el.appendChild(document.createTextNode(m[0]));
+                    last = m.index + m[0].length;
+                }
+                if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+            }
+
             // ── Render del hilo offline (mensajes guardados localmente) ──
             function renderOfflineMsg(m) {
                 const row = document.createElement('div');
@@ -5141,7 +5210,7 @@
                 bubble.className = `message-bubble ${m.dir === 'sent' ? 'sent' : 'received'}`;
 
                 const span = document.createElement('span');
-                span.textContent = m.text;
+                renderTextWithLinks(span, m.text);
 
                 const meta = document.createElement('div');
                 meta.className = 'message-metadata';
@@ -5788,7 +5857,7 @@
                     messageContainer.className = `message-bubble ${type}`;
 
                     const contentSpan = document.createElement('span');
-                    contentSpan.textContent = messageContent;
+                    renderTextWithLinks(contentSpan, messageContent);
 
                     const metadataDiv = document.createElement('div');
                     metadataDiv.className = 'message-metadata';
