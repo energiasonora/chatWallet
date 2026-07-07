@@ -1131,7 +1131,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.73 alpha</p>
+            <p class="text-sm text-gray-400">v 1.74 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2048,6 +2048,9 @@
                 <div id="confirmTxDetails" class="text-gray-300 text-sm text-left space-y-2">
                     <!-- Details will be populated here -->
                 </div>
+                <!-- Estado vivo de la tx (espejo de setTxStatus): el usuario ve los pasos
+                     acá mismo mientras el slider dice "Enviando…" -->
+                <p id="confirmTxStatus" class="text-xs text-center text-gray-400 min-h-[1.25rem]"></p>
                 <div class="flex flex-col space-y-3 pt-2">
                     <div class="relative w-full h-12 bg-gray-700 rounded-lg overflow-hidden flex items-center group">
                         <div id="confirmSliderText"
@@ -2558,7 +2561,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.73</p>
+                    <p id="settingsVersionText">Versión 1.74</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -4079,6 +4082,8 @@
                 sliderFill.style.width = `0%`;
                 confirmSlider.disabled = false;
                 cancelBtn.disabled = false;
+                const confirmStatusEl = document.getElementById('confirmTxStatus');
+                if (confirmStatusEl) confirmStatusEl.innerHTML = '';
                 sliderText.innerHTML = 'Desliza para confirmar &rarr;';
                 sliderThumb.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>';
 
@@ -4128,6 +4133,8 @@
 
                 cancelBtn.onclick = onCancel;
             }
+
+            let txWaitTicker = null;
 
             async function executeTransaction(recipient, amount) {
                 const isStealth = isStealthAddress(recipient);
@@ -4200,12 +4207,28 @@
                         txResponse = await signer.sendTransaction(tx);
                     }
 
-                    setTxStatus('Paso 4: Esperando confirmación de la red...', true);
-                    await txResponse.wait();
+                    // La tx ya salió a la red: mostrar el hash y contar el tiempo de espera
+                    // para que el usuario vea que algo pasa (antes: "Enviando…" inmóvil).
+                    const shortHash = `${txResponse.hash.slice(0, 10)}…`;
+                    const waitMsg = extra => `📡 Tx transmitida <span class="font-mono text-[10px]">${shortHash}</span><br>⏳ Esperando confirmación de la red… ${extra}`;
+                    setTxStatus(waitMsg(''), true);
+                    const t0 = Date.now();
+                    if (txWaitTicker) clearInterval(txWaitTicker);
+                    txWaitTicker = setInterval(() => {
+                        setTxStatus(waitMsg(`<b>${Math.round((Date.now() - t0) / 1000)}s</b>`), true);
+                    }, 1000);
+
+                    let receipt;
+                    try {
+                        receipt = await txResponse.wait();
+                    } finally {
+                        clearInterval(txWaitTicker);
+                        txWaitTicker = null;
+                    }
 
                     const txHash = txResponse.hash;
                     const etherscanUrl = `${optionsList[currentTokenIndex].EXPLORER}tx/${txHash}`;
-                    setTxStatus(`<span class="text-green-400">¡Transacción exitosa!</span>`, false);
+                    setTxStatus(`<span class="text-green-400">✅ Confirmada en el bloque #${receipt.blockNumber.toLocaleString()}</span>`, false);
                     updateBalance();
 
                     if (isSendingFromChat && currentConversation && chatRecipientAddress.toLowerCase() === recipient.toLowerCase()) {
@@ -4249,6 +4272,7 @@
                     showNotification();
 
                 } catch (error) {
+                    if (txWaitTicker) { clearInterval(txWaitTicker); txWaitTicker = null; }
                     console.error("Transaction Error:", error);
                     let errorMessage = "Error desconocido.";
                     if (error.code === 'INSUFFICIENT_FUNDS') {
@@ -4263,6 +4287,14 @@
 
             function setTxStatus(message, isLoading) {
                 txStatus.innerHTML = message;
+                // Espejo en el modal de confirmación (el del slider): mientras está abierto
+                // tapa al modal de envío, así que el usuario veía "Enviando…" eterno sin
+                // enterarse de los pasos que pasaban detrás.
+                const mirror = document.getElementById('confirmTxStatus');
+                const confirmModal = document.getElementById('confirmTxModal');
+                if (mirror && confirmModal && !confirmModal.classList.contains('hidden')) {
+                    mirror.innerHTML = message;
+                }
                 sendTxBtn.disabled = isLoading;
                 const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
                 if (isLoading) {
