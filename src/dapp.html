@@ -1007,7 +1007,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.69 alpha</p>
+            <p class="text-sm text-gray-400">v 1.70 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1820,17 +1820,49 @@
 
         <!-- Contacts Sidebar -->
         <div id="contactsSidebar" class="contacts-sidebar">
-            <!-- Header -->
+            <!-- Header: título + gestión de contactos (importar/exportar/añadir) + cerrar -->
             <div class="contacts-sidebar-header">
                 <h2 class="text-lg font-bold">Contactos</h2>
-                <button id="closeSidebarBtn"
-                    class="close-sidebar-btn p-2 rounded-full hover:bg-gray-700 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
+                <div class="flex items-center space-x-2">
+                    <button id="importContactsBtn" title="Importar Contactos"
+                        class="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                    </button>
+                    <input type="file" id="importContactsInput" class="hidden" accept=".json">
+                    <button id="exportContactsBtn" title="Exportar Contactos"
+                        class="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                    </button>
+                    <button id="addContactBtnSidebar" title="Añadir Contacto"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                    </button>
+                    <button id="closeSidebarBtn"
+                        class="close-sidebar-btn p-2 rounded-full hover:bg-gray-700 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <!-- XMTP Error Notice -->
@@ -1855,45 +1887,7 @@
                 </div>
             </div>
 
-            <!-- Contact Actions -->
-            <div class="px-4 py-3 border-b border-gray-700">
-                <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-400">Gestionar Contactos</span>
-                    <div class="flex items-center space-x-2">
-                        <!-- Import/Export/Add buttons -->
-                        <button id="importContactsBtn" title="Importar Contactos"
-                            class="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="17 8 12 3 7 8" />
-                                <line x1="12" y1="3" x2="12" y2="15" />
-                            </svg>
-                        </button>
-                        <input type="file" id="importContactsInput" class="hidden" accept=".json">
-                        <button id="exportContactsBtn" title="Exportar Contactos"
-                            class="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
-                        </button>
-                        <button id="addContactBtnSidebar" title="Añadir Contacto"
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <line x1="12" y1="5" x2="12" y2="19" />
-                                <line x1="5" y1="12" x2="19" y2="12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <!-- (La sección "Gestionar Contactos" se movió al header de la sidebar) -->
             <!-- Contacts List -->
             <div id="contactsListSidebar" class="contacts-list-sidebar">
                 <!-- Contacts will be populated here -->
@@ -2440,7 +2434,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.69</p>
+                    <p id="settingsVersionText">Versión 1.70</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
