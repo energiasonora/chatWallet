@@ -680,6 +680,12 @@
             margin-bottom: var(--nav-height);
         }
 
+        /* Con el nav inferior oculto (vista de chat) esos 64px eran espacio
+           muerto: recuperarlos para los mensajes */
+        #app-shell>.flex.flex-1:has(#appNav.hidden) {
+            margin-bottom: 0;
+        }
+
         /* La vista de chat nunca debe empujar el form de envío fuera de pantalla:
            min-height:0 en toda la cadena flex para que la lista de mensajes se
            comprima y scrollee adentro (sin esto, min-height:auto puede hacer que
@@ -844,6 +850,13 @@
            botones Enviar/Escanear/Recibir. Solo celus (max-height corta
            desktop, donde el layout vertical anda bien). */
         @media (orientation: landscape) and (max-height: 560px) {
+
+            /* En apaisado cada px de alto vale oro: menos padding en el main
+               (p-6 de Tailwind eran 24px por lado) */
+            #app-shell main {
+                padding: 0.5rem 0.75rem;
+            }
+
             #walletView.active {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
@@ -921,7 +934,13 @@
                 grid-column: 2;
                 grid-row: 2;
                 align-self: end;
-                padding-bottom: 0.25rem;
+            }
+
+            /* h-full + padding del main dejan al grid 2px pasado del viewport:
+               que el recorte no muerda el input */
+            #chatView.active {
+                grid-template-rows: auto minmax(0, 1fr);
+                max-height: 100%;
             }
         }
 
@@ -1046,7 +1065,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.71 alpha</p>
+            <p class="text-sm text-gray-400">v 1.72 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2473,7 +2492,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.71</p>
+                    <p id="settingsVersionText">Versión 1.72</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
