@@ -885,6 +885,35 @@
                 transform-origin: top;
             }
         }
+
+        /* ── Overlays del modo frío: si el contenido no entra en la altura
+              (celu apaisado), scrollean y el botón siempre queda alcanzable.
+              margin:auto en la tarjeta centra cuando sobra espacio y permite
+              scrollear hasta los bordes cuando falta (justify-center solo
+              recortaría arriba y abajo). ── */
+        #coldModeSplash,
+        #offlineModeModal {
+            overflow-y: auto;
+        }
+
+        #coldModeSplash {
+            justify-content: flex-start;
+        }
+
+        #coldModeSplashCard {
+            margin-top: auto;
+            margin-bottom: auto;
+            padding: 1.5rem 0;
+        }
+
+        #offlineModeModal {
+            align-items: flex-start;
+        }
+
+        #offlineModeModal>div {
+            margin-top: auto;
+            margin-bottom: auto;
+        }
     </style>
     <style>
         #scanner-container {
@@ -978,7 +1007,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.66 alpha</p>
+            <p class="text-sm text-gray-400">v 1.67 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2415,7 +2444,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.66</p>
+                    <p id="settingsVersionText">Versión 1.67</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
