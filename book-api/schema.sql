@@ -28,3 +28,23 @@ CREATE TABLE IF NOT EXISTS used_tx_hashes (
   token    TEXT,
   used_at  INTEGER               -- epoch ms
 );
+
+-- Pedidos físicos: dirección + contacto para coordinar el envío (crypto o Mercado Pago).
+-- Consultar:  wrangler d1 execute chatwallet-purchases --remote --command "SELECT * FROM orders ORDER BY created_at DESC"
+CREATE TABLE IF NOT EXISTS orders (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at     INTEGER NOT NULL,  -- epoch ms
+  payment_method TEXT,              -- crypto | mercadopago
+  format         TEXT,
+  country        TEXT,
+  lang           TEXT,
+  name           TEXT NOT NULL,
+  email          TEXT NOT NULL,
+  phone          TEXT,
+  address        TEXT,
+  city           TEXT,
+  cp             TEXT,
+  notes          TEXT,
+  tx_hash        TEXT,
+  wallet_address TEXT
+);

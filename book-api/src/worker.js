@@ -188,6 +188,26 @@ async function download(url, env, C) {
   });
 }
 
+// Pedido físico: guarda dirección + contacto en D1 para coordinar el envío.
+// Leerlos:  wrangler d1 execute chatwallet-purchases --remote --command "SELECT * FROM orders ORDER BY created_at DESC"
+async function createOrder(req, env) {
+  const b = await req.json().catch(() => ({}));
+  const s = (v, max = 500) => (typeof v === "string" ? v.slice(0, max) : null);
+  const name = s(b.name, 120), email = s(b.email, 200);
+  if (!name || !email) return json(400, { error: "nombre y email son requeridos" });
+
+  await env.DB.prepare(
+    `INSERT INTO orders (created_at, payment_method, format, country, lang, name, email, phone, address, city, cp, notes, tx_hash, wallet_address)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    Date.now(), s(b.payment_method, 30), s(b.format, 30), s(b.country, 10), s(b.lang, 10),
+    name, email, s(b.phone, 60), s(b.address), s(b.city, 200), s(b.cp, 30), s(b.notes, 1000),
+    s(b.txHash, 80), s(b.walletAddress, 60)
+  ).run();
+
+  return json(200, { success: true });
+}
+
 async function purchases(url, env) {
   const address = url.searchParams.get("address");
   if (!address) return json(400, { error: "address requerida" });
@@ -224,6 +244,7 @@ export default {
 
     try {
       if (request.method === "POST" && path === "/verifyPayment") return await verifyPayment(request, env, C);
+      if (request.method === "POST" && path === "/order") return await createOrder(request, env);
       if (request.method === "GET" && path === "/download") return await download(url, env, C);
       if (request.method === "GET" && path === "/purchases") return await purchases(url, env);
       return json(404, { error: "Endpoint no encontrado" });

@@ -7,616 +7,352 @@
     <title>Crypto para Soberanos — Libro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap"
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
 
     <style>
+        /* Estética energiasonora.xyz: monocromo, bordes finos, Syne + DM Sans */
         :root {
-            --ink: #1a1a1a;
-            --paper: #ffffff;
-            --cream: #f6f4f0;
-            --gold: #b8902f;
-            --gold-light: #e8c96a;
-            --rust: #b85c2a;
-            --muted: #6b6b6b;
-            --white: #ffffff;
-            --success: #2d6a4f;
-            --mp-blue: #009ee3;
-            --border: rgba(26, 26, 26, 0.12);
+            --bg: #fff;
+            --fg: #0a0a0a;
+            --fg-muted: #555;
+            --fg-subtle: #999;
+            --border: #e8e8e8;
+            --border-strong: #0a0a0a;
+            --surface: #f7f7f7;
+            --ok: #10b981;
         }
 
-        * {
+        *, *::before, *::after {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
 
-        body {
-            font-family: 'DM Sans', sans-serif;
-            background-color: var(--paper);
-            color: var(--ink);
+        html, body {
+            width: 100%;
             min-height: 100vh;
         }
+
+        body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'DM Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Syne', sans-serif;
+        }
+
+        a { color: inherit; }
 
         /* ── Layout ── */
         .layout {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 3.5rem 2rem 4rem;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            min-height: 100vh;
+            grid-template-columns: 300px 1fr;
+            gap: 4.5rem;
+            align-items: start;
         }
 
-        @media (max-width: 900px) {
-            .layout {
-                grid-template-columns: 1fr;
-            }
+        .top-nav {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
         }
 
-        /* ── Left Pane ── */
-        .left-pane {
-            background-color: var(--white);
-            border-right: 1px solid var(--border);
+        .top-nav a {
+            color: var(--fg-muted);
+            font-size: .8125rem;
+            font-weight: 500;
+            text-decoration: none;
+            padding: .375rem .75rem;
+            border-radius: 6px;
+            transition: color .2s, background .2s;
+        }
+
+        .top-nav a:hover {
+            color: var(--fg);
+            background: var(--surface);
+        }
+
+        /* ── Cover ── */
+        .cover-col {
+            position: sticky;
+            top: 3.5rem;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 60px 40px;
-            position: sticky;
-            top: 0;
-            height: 100vh;
-            overflow: hidden;
+            gap: 1.25rem;
         }
 
-        @media (max-width: 900px) {
-            .left-pane {
-                position: relative;
-                height: auto;
-                padding: 48px 24px;
-            }
-        }
-
-        .left-pane::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background:
-                radial-gradient(ellipse 60% 50% at 20% 80%, rgba(184, 144, 47, 0.08) 0%, transparent 60%),
-                radial-gradient(ellipse 40% 60% at 80% 20%, rgba(184, 92, 42, 0.06) 0%, transparent 60%);
-            pointer-events: none;
-        }
-
-        .book-frame {
+        .book-cover {
             position: relative;
+            display: block;
             width: 100%;
-            max-width: 320px;
+            max-width: 300px;
+            border-radius: 4px 10px 10px 4px;
+            box-shadow: 0 24px 50px -18px rgba(0, 0, 0, 0.45), 0 6px 16px -8px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            transition: transform .4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow .4s;
         }
 
-        .book-frame::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            background: linear-gradient(135deg, var(--gold) 0%, var(--rust) 50%, var(--gold-light) 100%);
-            border-radius: 6px;
-            z-index: 0;
+        .book-cover:hover {
+            transform: translateY(-6px) rotate(-0.6deg);
+            box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.5);
         }
 
-        .book-frame img {
+        .book-cover img {
             display: block;
             width: 100%;
             height: auto;
-            border-radius: 4px;
-            position: relative;
-            z-index: 1;
-            filter: contrast(1.02);
-            transition: opacity 0.25s ease;
         }
 
-        .book-shadow {
+        .book-cover::after {
+            content: '';
             position: absolute;
-            bottom: -20px;
-            left: 10%;
-            width: 80%;
-            height: 30px;
-            background: rgba(0, 0, 0, 0.22);
-            filter: blur(18px);
-            border-radius: 50%;
-            z-index: 0;
+            top: 0; left: 0; bottom: 0;
+            width: 14px;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0) 70%);
+            pointer-events: none;
         }
 
-        .badge-strip {
-            margin-top: 32px;
-            display: flex;
-            gap: 10px;
+        .cert-link {
+            color: var(--fg-subtle);
+            font-size: .75rem;
+            text-decoration: none;
+            display: inline-flex;
             align-items: center;
-            z-index: 1;
-            flex-wrap: wrap;
-            justify-content: center;
+            gap: .4rem;
+            transition: color .2s;
         }
 
-        .badge {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.65rem;
-            letter-spacing: 0.08em;
+        .cert-link:hover { color: var(--fg); }
+
+        .cert-link .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--ok);
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10b98188;
+            flex-shrink: 0;
+        }
+
+        /* ── Config column ── */
+        .kicker {
+            letter-spacing: .18em;
             text-transform: uppercase;
-            color: var(--gold);
-            border: 1px solid rgba(184, 144, 47, 0.45);
-            padding: 5px 10px;
-            border-radius: 3px;
-        }
-
-        /* ── Right Pane ── */
-        .right-pane {
+            color: var(--fg-subtle);
             display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 60px 56px;
+            align-items: center;
+            gap: .75rem;
+            margin-bottom: 1.5rem;
+            font-size: .7rem;
+            font-weight: 500;
         }
 
-        @media (max-width: 1100px) {
-            .right-pane {
-                padding: 48px 36px;
-            }
-        }
-
-        @media (max-width: 900px) {
-            .right-pane {
-                padding: 40px 24px;
-            }
-        }
-
-        .inner {
-            max-width: 460px;
-        }
-
-        .eyebrow {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.72rem;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            color: var(--gold);
-            margin-bottom: 16px;
+        .kicker::before {
+            content: '';
+            background: var(--fg-subtle);
+            width: 2rem;
+            height: 1px;
         }
 
         h1 {
-            font-family: 'Syne', sans-serif;
-            font-size: clamp(2rem, 4vw, 3rem);
+            letter-spacing: -.04em;
+            font-size: clamp(2.1rem, 5vw, 3rem);
             font-weight: 800;
-            line-height: 1.1;
-            letter-spacing: -0.02em;
-            margin-bottom: 20px;
-            color: var(--ink);
+            line-height: .95;
+            margin-bottom: 1.25rem;
         }
 
-        h1 span {
-            display: block;
-            color: var(--rust);
+        h1 em {
+            color: var(--fg-subtle);
+            font-style: normal;
         }
 
-        .description {
-            font-size: 1rem;
-            color: var(--muted);
+        .lead {
+            color: var(--fg-muted);
+            max-width: 44ch;
+            font-size: .95rem;
             line-height: 1.7;
-            margin-bottom: 28px;
             font-weight: 300;
+            margin-bottom: 2.25rem;
         }
 
-        /* ── Steps (formato / país / idioma / red) ── */
-        .step {
-            margin-bottom: 20px;
+        /* ── Selectors ── */
+        .sel {
+            margin-bottom: 1.5rem;
         }
 
-        .step.hidden {
-            display: none;
-        }
+        .sel.hidden { display: none; }
 
-        .format-label {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.72rem;
-            letter-spacing: 0.1em;
+        .sel-label {
+            letter-spacing: .2em;
             text-transform: uppercase;
-            color: var(--muted);
-            margin-bottom: 10px;
+            color: var(--fg-subtle);
+            font-size: .6563rem;
+            font-weight: 600;
+            margin-bottom: .65rem;
         }
 
-        .format-options {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        @media (max-width: 600px) {
-            .format-options {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .format-option {
-            position: relative;
-            cursor: pointer;
-        }
-
-        .format-option input[type="radio"] {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .format-card {
+        .pills {
             display: flex;
-            flex-direction: column;
-            gap: 4px;
-            padding: 14px 16px;
-            border: 1.5px solid var(--border);
-            border-radius: 8px;
-            background: var(--cream);
-            transition: all 0.2s ease;
-            cursor: pointer;
-            height: 100%;
-        }
-
-        .format-option input:checked+.format-card {
-            border-color: var(--ink);
-            background: white;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-        }
-
-        .format-card:hover {
-            border-color: rgba(13, 13, 13, 0.3);
-        }
-
-        .format-icon {
-            font-size: 1.2rem;
-            margin-bottom: 2px;
-        }
-
-        .format-name {
-            font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            font-size: 0.9rem;
-            color: var(--ink);
-        }
-
-        .format-price {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.8rem;
-            color: var(--muted);
-        }
-
-        .format-badge {
-            display: inline-block;
-            font-family: 'DM Mono', monospace;
-            font-size: 0.6rem;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            background: var(--gold);
-            color: var(--ink);
-            padding: 2px 6px;
-            border-radius: 3px;
-            margin-top: 2px;
-            width: fit-content;
-        }
-
-        .format-badge.new {
-            background: var(--rust);
-            color: white;
-        }
-
-        /* ── Pills (país / idioma / red) ── */
-        .pill-row {
-            display: flex;
-            gap: 8px;
             flex-wrap: wrap;
+            gap: .5rem;
         }
 
         .pill {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.78rem;
-            padding: 9px 14px;
-            border: 1.5px solid var(--border);
+            font-family: 'DM Sans', sans-serif;
+            font-size: .8rem;
+            font-weight: 600;
+            color: var(--fg-muted);
+            background: none;
+            border: 1px solid var(--border);
             border-radius: 100px;
-            background: var(--cream);
-            color: var(--ink);
+            padding: .45rem 1rem;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all .2s;
         }
 
         .pill:hover {
-            border-color: rgba(13, 13, 13, 0.3);
+            color: var(--fg);
+            border-color: var(--fg-subtle);
         }
 
         .pill.active {
-            border-color: var(--ink);
-            background: white;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-            font-weight: 500;
+            color: var(--bg);
+            background: var(--fg);
+            border-color: var(--fg);
         }
 
-        .pill small {
-            display: block;
-            font-size: 0.62rem;
-            color: var(--muted);
-            letter-spacing: 0.04em;
+        .pill span {
+            font-weight: 400;
+            opacity: .6;
         }
 
-        /* ── Delivery note ── */
-        .shipping-note {
-            display: none;
-            align-items: flex-start;
-            gap: 10px;
-            background: #fdf6ec;
-            border: 1px solid rgba(201, 168, 76, 0.3);
-            border-radius: 8px;
-            padding: 12px 14px;
-            margin-bottom: 20px;
-            font-size: 0.82rem;
-            color: var(--muted);
-            line-height: 1.5;
+        /* ── Note ── */
+        .note {
+            color: var(--fg-muted);
+            font-size: .84rem;
+            line-height: 1.65;
+            border-left: 2px solid var(--border);
+            padding-left: .9rem;
+            margin: 1.75rem 0;
+            max-width: 46ch;
         }
 
-        .shipping-note.visible {
+        .note strong { color: var(--fg); font-weight: 600; }
+
+        /* ── Price ── */
+        .price-row {
             display: flex;
-        }
-
-        .shipping-note-icon {
-            font-size: 1rem;
-            flex-shrink: 0;
-            margin-top: 1px;
-        }
-
-        .shipping-note strong {
-            color: var(--ink);
-            font-weight: 500;
-        }
-
-        /* ── Price Card ── */
-        .price-card {
-            background: var(--cream);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 20px 22px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            transition: all 0.3s ease;
+            align-items: baseline;
+            gap: .75rem;
+            margin-bottom: 1.25rem;
         }
 
         .price-usd {
             font-family: 'Syne', sans-serif;
-            font-size: 2rem;
+            font-size: 1.9rem;
             font-weight: 800;
-            color: var(--ink);
-            line-height: 1;
-            transition: all 0.3s ease;
-        }
-
-        .price-usd sub {
-            font-size: 0.9rem;
-            font-weight: 400;
-            color: var(--muted);
-            vertical-align: baseline;
-            margin-right: 2px;
-        }
-
-        .price-breakdown {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.68rem;
-            color: var(--muted);
-            margin-top: 4px;
-            line-height: 1.5;
-            display: none;
-        }
-
-        .price-breakdown.visible {
-            display: block;
-        }
-
-        .price-divider {
-            width: 1px;
-            height: 36px;
-            background: var(--border);
-            flex-shrink: 0;
-        }
-
-        .price-eth-wrap {
-            text-align: right;
+            letter-spacing: -.03em;
         }
 
         .price-eth {
-            font-family: 'DM Mono', monospace;
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: var(--ink);
-            display: block;
+            color: var(--fg-subtle);
+            font-size: .85rem;
         }
 
-        .price-eth-label {
-            font-size: 0.72rem;
-            color: var(--muted);
-            font-family: 'DM Mono', monospace;
-            letter-spacing: 0.05em;
-        }
-
-        .price-loading {
-            font-size: 0.75rem;
-            color: var(--muted);
-            font-family: 'DM Mono', monospace;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .dot-pulse {
-            display: inline-flex;
-            gap: 3px;
-        }
-
-        .dot-pulse span {
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background: var(--gold);
-            animation: pulse 1.2s infinite ease-in-out;
-        }
-
-        .dot-pulse span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .dot-pulse span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            80%,
-            100% {
-                opacity: 0.2;
-                transform: scale(0.8);
-            }
-
-            40% {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        /* ── Network Badge ── */
-        .network-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-
-        .network-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #28a745;
-            box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
-            animation: glow 2s infinite;
-        }
-
-        @keyframes glow {
-
-            0%,
-            100% {
-                box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
-            }
-
-            50% {
-                box-shadow: 0 0 0 5px rgba(40, 167, 69, 0.1);
-            }
-        }
-
-        .network-label {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.72rem;
-            color: var(--muted);
-            letter-spacing: 0.06em;
-        }
-
-        /* ── Buttons ── */
-        #mint-button {
-            width: 100%;
-            padding: 17px 24px;
-            background: var(--ink);
-            color: var(--paper);
-            border: none;
-            border-radius: 8px;
-            font-family: 'Syne', sans-serif;
-            font-size: 1rem;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        #mint-button::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(90deg, transparent 0%, rgba(201, 168, 76, 0.15) 50%, transparent 100%);
-            transform: translateX(-100%);
-            transition: transform 0.5s ease;
-        }
-
-        #mint-button:hover:not(:disabled)::after {
-            transform: translateX(100%);
-        }
-
-        #mint-button:hover:not(:disabled) {
-            background: #1a1a1a;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-        }
-
-        #mint-button:disabled {
-            background: #c0bdb7;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-sub {
-            font-size: 0.72rem;
-            color: var(--muted);
-            text-align: center;
-            margin-top: 10px;
-            font-family: 'DM Mono', monospace;
-        }
-
-        /* ── Botón externo (Mercado Pago / Amazon) ── */
-        .external-pay-btn {
+        /* ── CTA buttons ── */
+        .cta {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: .5rem;
             width: 100%;
-            padding: 16px 24px;
-            border: none;
+            background: var(--fg);
+            color: var(--bg);
+            border: 1px solid var(--fg);
             border-radius: 8px;
-            font-family: 'Syne', sans-serif;
+            padding: .95rem 1.5rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: .9rem;
             font-weight: 700;
-            font-size: 1rem;
             text-decoration: none;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: opacity .2s, transform .2s;
         }
 
-        .external-pay-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        .cta:hover:not(:disabled) {
+            opacity: .85;
+            transform: translateY(-1px);
         }
 
-        .external-pay-btn.mp {
-            background: var(--mp-blue);
-            color: white;
+        .cta:disabled {
+            background: var(--surface);
+            color: var(--fg-subtle);
+            border-color: var(--border);
+            cursor: not-allowed;
         }
 
-        .external-pay-btn.amazon {
-            background: #232f3e;
-            color: #ff9900;
+        .cta-ghost {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            width: 100%;
+            background: none;
+            color: var(--fg-muted);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .95rem 1.5rem;
+            font-size: .9rem;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: border-color .2s, color .2s, transform .2s;
         }
 
-        /* ── Divider "o" ── */
+        .cta-ghost:hover {
+            border-color: var(--fg);
+            color: var(--fg);
+            transform: translateY(-1px);
+        }
+
+        .micro {
+            color: var(--fg-subtle);
+            font-size: .74rem;
+            text-align: center;
+            margin-top: .7rem;
+            line-height: 1.5;
+        }
+
+        .micro a {
+            color: var(--fg-muted);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .micro a:hover { color: var(--fg); }
+
         .divider-or {
             display: flex;
             align-items: center;
-            gap: 14px;
-            margin: 18px 0;
-            font-family: 'DM Mono', monospace;
-            font-size: 0.72rem;
-            letter-spacing: 0.1em;
+            gap: 1rem;
+            margin: 1.1rem 0;
+            color: var(--fg-subtle);
+            font-size: .7rem;
+            letter-spacing: .1em;
             text-transform: uppercase;
-            color: var(--muted);
         }
 
         .divider-or::before,
@@ -627,675 +363,396 @@
             background: var(--border);
         }
 
-        /* ── "Próximamente" (España) ── */
-        .soon-box {
-            display: none;
-            padding: 18px;
-            border: 1px dashed rgba(184, 144, 47, 0.5);
-            border-radius: 8px;
-            background: #fdf9f0;
-            font-size: 0.85rem;
-            color: var(--muted);
-            line-height: 1.6;
-            text-align: center;
-        }
-
-        .soon-box.visible {
-            display: block;
-        }
-
-        .soon-box strong {
-            color: var(--gold);
-        }
-
-        /* ── No-wallet onboarding CTA ── */
-        .no-wallet-cta {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 14px;
-            padding: 11px 14px;
-            border: 1px dashed rgba(184, 144, 47, 0.5);
-            border-radius: 8px;
-            background: #fdf9f0;
-            text-decoration: none;
-            font-size: 0.82rem;
-            color: var(--muted);
-            line-height: 1.4;
-            text-align: center;
-            transition: all 0.2s ease;
-        }
-
-        .no-wallet-cta:hover {
-            border-color: var(--gold);
-            background: #fbf3e2;
-            transform: translateY(-1px);
-        }
-
-        .no-wallet-cta strong {
-            color: var(--gold);
-            font-weight: 700;
-        }
-
-        .no-wallet-icon {
-            font-size: 0.95rem;
-            flex-shrink: 0;
-        }
-
-        /* ── Status Messages ── */
+        /* ── Status ── */
         #status-box {
             display: none;
-            margin-top: 20px;
-            padding: 14px 18px;
+            margin-top: 1.25rem;
+            padding: .85rem 1.1rem;
             border-radius: 8px;
-            background: var(--cream);
+            background: var(--surface);
             border: 1px solid var(--border);
-            font-family: 'DM Mono', monospace;
-            font-size: 0.82rem;
-            color: var(--ink);
-            line-height: 1.5;
+            font-size: .82rem;
+            color: var(--fg-muted);
+            line-height: 1.6;
+            word-break: break-word;
         }
 
         #status-box.error {
-            background: #fdf0eb;
-            border-color: rgba(184, 92, 42, 0.3);
-            color: var(--rust);
+            border-color: #d9b8a8;
+            color: #a04b22;
+            background: #fdf6f2;
         }
 
-        /* ── Result Section ── */
-        #result-section {
-            display: none;
-            margin-top: 32px;
-            padding-top: 32px;
-            border-top: 1px solid var(--border);
-        }
-
-        .success-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .success-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--success);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .success-icon svg {
-            width: 20px;
-            height: 20px;
-            stroke: white;
-            fill: none;
-            stroke-width: 2.5;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        .success-title {
-            font-family: 'Syne', sans-serif;
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: var(--success);
-        }
-
-        .download-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            width: 100%;
-            padding: 16px 24px;
-            background: var(--success);
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            font-size: 1rem;
-            transition: all 0.2s;
-            margin-bottom: 16px;
-        }
-
-        .download-btn:hover {
-            background: #235a41;
-            transform: translateY(-2px);
-        }
-
-        /* ── Shipping Form (post-pago crypto o Mercado Pago) ── */
+        /* ── Shipping form ── */
         #shipping-form-section {
             display: none;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            padding: 20px;
-            background: #fdf6ec;
-            border: 1px solid rgba(201, 168, 76, 0.3);
-            border-radius: 10px;
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
         }
 
-        #shipping-form-section.visible {
-            display: block;
-        }
+        #shipping-form-section.visible { display: block; }
 
-        .shipping-form-title {
+        .form-title {
             font-family: 'Syne', sans-serif;
+            font-size: .95rem;
             font-weight: 700;
-            font-size: 1rem;
-            margin-bottom: 4px;
-            color: var(--ink);
+            margin-bottom: .25rem;
         }
 
-        .shipping-form-sub {
-            font-size: 0.8rem;
-            color: var(--muted);
-            margin-bottom: 16px;
-            font-family: 'DM Mono', monospace;
+        .form-sub {
+            color: var(--fg-muted);
+            font-size: .78rem;
+            line-height: 1.5;
+            margin-bottom: 1.1rem;
         }
 
-        .field-group {
+        .fields {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            margin-bottom: 14px;
+            gap: .6rem;
+            margin-bottom: .9rem;
         }
 
-        .field-group input,
-        .field-group textarea {
+        .fields input,
+        .fields textarea {
             width: 100%;
-            padding: 11px 14px;
-            border: 1.5px solid var(--border);
-            border-radius: 6px;
+            padding: .7rem .9rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
             font-family: 'DM Sans', sans-serif;
-            font-size: 0.88rem;
-            background: white;
-            color: var(--ink);
+            font-size: .85rem;
+            background: var(--bg);
+            color: var(--fg);
             outline: none;
-            transition: border-color 0.2s;
+            transition: border-color .2s;
         }
 
-        .field-group input:focus,
-        .field-group textarea:focus {
-            border-color: var(--ink);
+        .fields input:focus,
+        .fields textarea:focus {
+            border-color: var(--fg);
         }
 
-        .field-group textarea {
+        .fields textarea {
             resize: vertical;
-            min-height: 70px;
-        }
-
-        .shipping-submit-btn {
-            width: 100%;
-            padding: 13px 20px;
-            background: var(--rust);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .shipping-submit-btn:hover {
-            background: #9e4e23;
-            transform: translateY(-1px);
-        }
-
-        .shipping-submit-btn:disabled {
-            background: #c0bdb7;
-            cursor: not-allowed;
-            transform: none;
+            min-height: 60px;
         }
 
         #shipping-sent-msg {
             display: none;
+            padding: .8rem;
             text-align: center;
-            padding: 12px;
-            background: rgba(45, 106, 79, 0.1);
-            border-radius: 6px;
-            font-family: 'DM Mono', monospace;
-            font-size: 0.8rem;
-            color: var(--success);
+            font-size: .8rem;
+            color: var(--ok);
+            background: #10b98114;
+            border-radius: 8px;
+            line-height: 1.5;
         }
 
-        /* ── Receipt ── */
+        /* ── Result / receipt ── */
+        #result-section {
+            display: none;
+            margin-top: 2rem;
+            padding-top: 1.75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .success-line {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1.05rem;
+            margin-bottom: 1.1rem;
+        }
+
+        .success-line .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--ok);
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10b98188;
+        }
+
         .receipt {
-            background: var(--cream);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
-        }
-
-        .receipt-header {
-            padding: 12px 18px;
-            border-bottom: 1px solid var(--border);
-            font-family: 'DM Mono', monospace;
-            font-size: 0.72rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--muted);
+            margin-top: 1.25rem;
         }
 
         .receipt-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 18px;
+            gap: 1rem;
+            padding: .6rem 1rem;
             border-bottom: 1px solid var(--border);
-            gap: 12px;
+            font-size: .78rem;
         }
 
-        .receipt-row:last-child {
-            border-bottom: none;
-        }
+        .receipt-row:last-child { border-bottom: none; }
 
-        .receipt-key {
-            font-size: 0.8rem;
-            color: var(--muted);
-            font-weight: 400;
-            white-space: nowrap;
-        }
+        .receipt-key { color: var(--fg-subtle); white-space: nowrap; }
 
         .receipt-val {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.78rem;
-            color: var(--ink);
+            color: var(--fg);
             word-break: break-all;
             text-align: right;
         }
 
         .receipt-val a {
-            color: var(--rust);
-            text-decoration: none;
-        }
-
-        .receipt-val a:hover {
+            color: var(--fg);
             text-decoration: underline;
+            text-underline-offset: 2px;
         }
 
-        .status-success {
-            color: var(--success);
-            font-weight: 500;
-        }
-
-        .badge a {
-            text-decoration: none;
-            color: inherit;
-            cursor: default;
-        }
-
-        .badge a:hover {
-            text-decoration: underline;
-            cursor: pointer;
-        }
-
-        /* ── Page Nav ── */
-        .page-nav {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-
-        .page-nav-link {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.72rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            text-decoration: none;
-            color: var(--muted);
-            transition: color 0.15s;
-        }
-
-        .page-nav-link:hover {
-            color: var(--ink);
-        }
-
-        .page-nav-link.active {
-            color: var(--ink);
-            font-weight: 500;
-        }
-
-        /* ── Funding Goal (2 ETH soberano) ── */
+        /* ── Funding (compacto) ── */
         .funding {
-            background: var(--white);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px 18px;
-            margin-bottom: 24px;
-        }
-
-        .funding-top {
             display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            margin-bottom: 10px;
-            gap: 10px;
+            align-items: center;
+            gap: .9rem;
+            margin-top: 2.75rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
         }
 
         .funding-label {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.7rem;
-            letter-spacing: 0.08em;
+            letter-spacing: .15em;
             text-transform: uppercase;
-            color: var(--muted);
-        }
-
-        .funding-amount {
-            font-family: 'Syne', sans-serif;
-            font-size: 0.92rem;
-            font-weight: 700;
-            color: var(--ink);
-        }
-
-        .funding-amount .raised {
-            color: var(--gold);
+            color: var(--fg-subtle);
+            font-size: .62rem;
+            font-weight: 600;
+            white-space: nowrap;
         }
 
         .funding-bar {
-            position: relative;
-            height: 9px;
-            background: var(--cream);
+            flex: 1;
+            height: 4px;
+            background: var(--surface);
             border-radius: 100px;
             overflow: hidden;
         }
 
         .funding-fill {
-            position: absolute;
-            inset: 0 auto 0 0;
+            height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 100%);
+            background: var(--fg);
             border-radius: 100px;
-            transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+            transition: width .8s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .funding-amount {
+            color: var(--fg-muted);
+            font-size: .72rem;
+            font-weight: 600;
+            white-space: nowrap;
         }
 
         .funding-note {
-            margin-top: 9px;
-            font-size: 0.72rem;
-            color: var(--muted);
+            color: var(--fg-subtle);
+            font-size: .68rem;
             line-height: 1.5;
+            margin-top: .5rem;
         }
 
-        .funding-note strong {
-            color: var(--ink);
-            font-weight: 500;
+        .foot {
+            color: var(--fg-subtle);
+            font-size: .72rem;
+            line-height: 1.7;
+            margin-top: 2rem;
         }
 
-        /* ── Foot note ── */
-        .foot-note {
-            margin-top: 32px;
-            padding-top: 20px;
-            border-top: 1px solid var(--border);
-            font-size: 0.74rem;
-            color: var(--muted);
-            line-height: 1.6;
-        }
-
-        .foot-note a {
-            color: var(--rust);
-            text-decoration: none;
-        }
-
-        .foot-note a:hover {
+        .foot a {
+            color: var(--fg-muted);
             text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .foot a:hover { color: var(--fg); }
+
+        /* ── Mobile: libro arriba, opciones abajo ── */
+        @media (max-width: 768px) {
+            .top-nav { padding: 1rem 1.25rem; }
+
+            .layout {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+                padding: 2rem 1.25rem 3rem;
+            }
+
+            .cover-col {
+                position: static;
+                align-items: center;
+            }
+
+            .book-cover { max-width: 168px; }
+
+            h1 { font-size: 2rem; text-align: center; }
+            .kicker { justify-content: center; }
+            .kicker::before { display: none; }
+            .lead { text-align: center; margin-left: auto; margin-right: auto; margin-bottom: 1.75rem; }
+            .sel-label { text-align: center; }
+            .pills { justify-content: center; }
+            .note { max-width: none; }
+            .price-row { justify-content: center; }
+            .funding { margin-top: 2.25rem; }
+            .foot { text-align: center; }
         }
     </style>
 </head>
 
 <body>
 
+    <nav class="top-nav">
+        <a href="./index.html">← Inicio</a>
+        <a href="./dapp.html">ChatWallet →</a>
+    </nav>
+
     <div class="layout">
-        <!-- LEFT -->
-        <div class="left-pane">
-            <div class="book-frame">
+        <!-- LIBRO -->
+        <div class="cover-col">
+            <div class="book-cover">
                 <img id="book-cover-es" src="./img/tapacpsES.jpg" alt="Crypto para Soberanos">
                 <img id="book-cover-fr" src="./img/tapacpsFR.jpg" alt="Crypto pour les Souverains" style="display:none;">
-                <div class="book-shadow"></div>
             </div>
-            <div class="badge-strip">
-                <div class="badge">Digital + Físico</div>
-                <div class="badge">ETH · Mercado Pago · Amazon</div>
-                <div class="badge">
-                    <a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank" rel="noopener noreferrer">
-                        Verificación pública<br>mlog0x9575469ab5017cf0
-                    </a>
-                </div>
-            </div>
+            <a class="cert-link" href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank"
+                rel="noopener noreferrer"><span class="dot"></span>Autoría verificada on-chain ↗</a>
         </div>
 
-        <!-- RIGHT -->
-        <div class="right-pane">
-            <div class="inner">
-                <div class="page-nav">
-                    <a href="./index.html" class="page-nav-link active">← Inicio</a>
-                    <a href="./dapp.html" class="page-nav-link">ChatWallet →</a>
+        <!-- CONFIGURADOR -->
+        <div class="config-col">
+            <p class="kicker">Libro · digital y físico</p>
+            <h1>Crypto para <em>Soberanos</em></h1>
+            <p class="lead">Las criptomonedas desde cero, desde la filosofía de la soberanía. Elegí cómo lo querés y
+                pagá con tu wallet — o como prefieras.</p>
+
+            <!-- FORMATO -->
+            <div class="sel">
+                <p class="sel-label">Formato</p>
+                <div class="pills" id="format-pills">
+                    <button type="button" class="pill active" data-format="digital" onclick="selectFormat('digital')">Digital <span>· $10</span></button>
+                    <button type="button" class="pill" data-format="physical" onclick="selectFormat('physical')">Físico + digital</button>
                 </div>
-
-                <p class="eyebrow">Edición digital y física · Crypto · Mercado Pago · Amazon</p>
-                <h1>Crypto para<span>Soberanos</span></h1>
-                <p class="description">Una guía práctica para entender las criptomonedas desde cero, pero desde la
-                    perspectiva filosófica de la soberanía. Elegí formato, país e idioma — y pagá directamente con tu
-                    wallet, sin intermediarios (o como prefieras).</p>
-
-                <!-- FUNDING GOAL (soberano · on-chain) -->
-                <div class="funding">
-                    <div class="funding-top">
-                        <span class="funding-label">Meta soberana de financiamiento</span>
-                        <span class="funding-amount"><span class="raised" id="funding-raised">—</span> / 2 ETH</span>
-                    </div>
-                    <div class="funding-bar">
-                        <div class="funding-fill" id="funding-fill"></div>
-                    </div>
-                    <p class="funding-note">Cada copia digital financia el libro. Al alcanzar las <strong>2 ETH</strong>,
-                        el PDF se libera <strong>gratis para todos</strong>. Recaudación leída on-chain.</p>
-                </div>
-
-                <!-- PASO · FORMATO -->
-                <div class="step">
-                    <p class="format-label">Formato</p>
-                    <div class="format-options">
-                        <label class="format-option">
-                            <input type="radio" name="format" value="digital" checked onchange="onFormatChange()">
-                            <div class="format-card">
-                                <div class="format-icon">📱</div>
-                                <div class="format-name">Digital</div>
-                                <div class="format-price">$10 USD</div>
-                                <div class="format-badge">Descarga inmediata</div>
-                            </div>
-                        </label>
-                        <label class="format-option">
-                            <input type="radio" name="format" value="physical" onchange="onFormatChange()">
-                            <div class="format-card">
-                                <div class="format-icon">📚</div>
-                                <div class="format-name">Físico + Digital</div>
-                                <div class="format-price">según país</div>
-                                <div class="format-badge new">Impreso en papel</div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- PASO · PAÍS (solo físico) -->
-                <div class="step hidden" id="country-step">
-                    <p class="format-label">País de entrega</p>
-                    <div class="pill-row" id="country-pills">
-                        <button type="button" class="pill active" data-country="ar" onclick="selectCountry('ar')">🇦🇷 Argentina</button>
-                        <button type="button" class="pill" data-country="fr" onclick="selectCountry('fr')">🇫🇷 Francia</button>
-                        <button type="button" class="pill" data-country="es" onclick="selectCountry('es')">🇪🇸 España</button>
-                    </div>
-                </div>
-
-                <!-- PASO · IDIOMA (solo físico) -->
-                <div class="step hidden" id="lang-step">
-                    <p class="format-label">Idioma</p>
-                    <div class="pill-row" id="lang-pills">
-                        <button type="button" class="pill active" data-lang="es" onclick="selectLang('es')">Castellano</button>
-                        <button type="button" class="pill" data-lang="fr" onclick="selectLang('fr')">Français</button>
-                    </div>
-                </div>
-
-                <!-- NOTA DE ENTREGA (dinámica) -->
-                <div class="shipping-note visible" id="delivery-note">
-                    <span class="shipping-note-icon" id="delivery-note-icon">📱</span>
-                    <span id="delivery-note-text"></span>
-                </div>
-
-                <!-- ÁREA CRYPTO (digital · físico Argentina) -->
-                <div id="crypto-pay">
-                    <div class="price-card">
-                        <div>
-                            <div class="price-usd" id="price-usd-display"><sub>$</sub><span id="price-usd-amount">10</span>
-                                <span style="font-size:0.85rem;font-weight:400;color:var(--muted)">USD</span>
-                            </div>
-                            <div class="price-breakdown" id="price-breakdown"></div>
-                        </div>
-                        <div class="price-divider"></div>
-                        <div class="price-eth-wrap">
-                            <span class="price-eth" id="price-eth-display">
-                                <span class="price-loading">
-                                    <span class="dot-pulse"><span></span><span></span><span></span></span>
-                                    cargando
-                                </span>
-                            </span>
-                            <span class="price-eth-label">ETH · precio en tiempo real</span>
-                        </div>
-                    </div>
-
-                    <!-- PASO · RED -->
-                    <div class="step" style="margin-bottom:16px;">
-                        <p class="format-label">Red de pago</p>
-                        <div class="pill-row" id="network-pills">
-                            <button type="button" class="pill active" data-network="arbitrum" onclick="selectNetwork('arbitrum')">Arbitrum One<small>gas casi gratis</small></button>
-                            <button type="button" class="pill" data-network="mainnet" onclick="selectNetwork('mainnet')">Ethereum Mainnet<small>la red original</small></button>
-                        </div>
-                    </div>
-
-                    <div class="network-row">
-                        <div class="network-dot"></div>
-                        <span class="network-label" id="network-label">Arbitrum One · Mainnet · Chainlink ETH/USD</span>
-                    </div>
-
-                    <button id="mint-button">Conectar Wallet y Comprar</button>
-                    <p class="btn-sub">MetaMask, Coinbase Wallet, WalletConnect y más</p>
-                    <a href="./dapp.html" class="no-wallet-cta">
-                        <span class="no-wallet-icon">✨</span>
-                        <span>¿No tenés wallet? Creá la tuya <strong>gratis</strong> con ChatWallet →</span>
-                    </a>
-                </div>
-
-                <!-- MERCADO PAGO (solo físico · Argentina) -->
-                <div id="mp-pay" style="display:none;">
-                    <div class="divider-or">o</div>
-                    <a class="external-pay-btn mp" id="mp-link" href="https://link.mercadopago.com.ar/energiasonora"
-                        target="_blank" rel="noopener" onclick="onMpClick()">
-                        💳 Pagar con Mercado Pago
-                    </a>
-                    <p class="btn-sub" id="mp-note">El link te pide ingresar el monto en pesos (≈ USD 35)</p>
-                </div>
-
-                <!-- AMAZON (Francia) -->
-                <div id="amazon-pay" style="display:none;">
-                    <a class="external-pay-btn amazon" id="amazon-link" href="https://www.amazon.fr/dp/B0H2V3GMH4"
-                        target="_blank" rel="noopener">
-                        🛒 Comprar en Amazon.fr
-                    </a>
-                    <p class="btn-sub" id="amazon-note">Impresión bajo demanda · envío por Amazon Francia</p>
-                </div>
-
-                <!-- ESPAÑA · PRÓXIMAMENTE -->
-                <div id="es-soon" class="soon-box">
-                    🇪🇸 <strong>Muy pronto en Amazon.es.</strong><br>
-                    Mientras tanto podés llevarte la <strong>edición digital</strong> con descarga inmediata.
-                </div>
-
-                <div id="status-box"></div>
-
-                <!-- RESULT SECTION (post-pago crypto) -->
-                <div id="result-section">
-                    <div class="success-header">
-                        <div class="success-icon">
-                            <svg viewBox="0 0 24 24">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                        </div>
-                        <div class="success-title">¡Pago Confirmado!</div>
-                    </div>
-
-                    <a href="#" id="download-link" class="download-btn" target="_blank" rel="noopener">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="7 10 12 15 17 10" />
-                            <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                        Descargar Libro (PDF)
-                    </a>
-
-                    <div class="receipt">
-                        <div class="receipt-header">Recibo de transacción</div>
-                        <div class="receipt-row">
-                            <span class="receipt-key">Estado</span>
-                            <span class="receipt-val status-success" id="r-status">—</span>
-                        </div>
-                        <div class="receipt-row">
-                            <span class="receipt-key">Formato</span>
-                            <span class="receipt-val" id="r-format">—</span>
-                        </div>
-                        <div class="receipt-row">
-                            <span class="receipt-key">Red</span>
-                            <span class="receipt-val" id="r-network">—</span>
-                        </div>
-                        <div class="receipt-row">
-                            <span class="receipt-key">Monto</span>
-                            <span class="receipt-val" id="r-amount">—</span>
-                        </div>
-                        <div class="receipt-row">
-                            <span class="receipt-key">Bloque</span>
-                            <span class="receipt-val" id="r-block">—</span>
-                        </div>
-                        <div class="receipt-row">
-                            <span class="receipt-key">Tx Hash</span>
-                            <span class="receipt-val" id="r-hash">—</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- CONTACT/SHIPPING FORM (físico crypto post-pago · o Mercado Pago) -->
-                <div id="shipping-form-section">
-                    <div class="shipping-form-title" id="shipping-form-title">📦 Completá tus datos de envío</div>
-                    <div class="shipping-form-sub" id="shipping-form-sub">Para coordinar el envío del libro físico</div>
-                    <div class="field-group">
-                        <input type="text" id="sh-name" placeholder="Nombre completo" required>
-                        <input type="email" id="sh-email" placeholder="Email de contacto" required>
-                        <input type="tel" id="sh-phone" placeholder="WhatsApp / teléfono">
-                        <div id="sh-postal-fields">
-                            <div class="field-group" style="margin-bottom:0">
-                                <input type="text" id="sh-address" placeholder="Dirección (calle, número, piso/depto)">
-                                <input type="text" id="sh-city" placeholder="Ciudad y provincia">
-                                <input type="text" id="sh-cp" placeholder="Código postal">
-                            </div>
-                        </div>
-                        <textarea id="sh-notes" placeholder="Notas adicionales (opcional)"></textarea>
-                    </div>
-                    <button class="shipping-submit-btn" id="shipping-submit-btn" onclick="submitShipping()">
-                        Enviar datos
-                    </button>
-                    <div id="shipping-sent-msg">✓ Datos recibidos. Te contactaremos pronto para coordinar.</div>
-                </div>
-
-                <p class="foot-note">Impresión artesanal en Argentina a cargo del autor; en Europa, bajo demanda vía
-                    Amazon. El contenido del libro está registrado con su hash y timestamp en
-                    <a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank" rel="noopener">musiclog.org</a>.
-                    Próximamente más países y plataformas.</p>
             </div>
+
+            <!-- PAÍS -->
+            <div class="sel hidden" id="country-step">
+                <p class="sel-label">País de entrega</p>
+                <div class="pills" id="country-pills">
+                    <button type="button" class="pill active" data-country="ar" onclick="selectCountry('ar')">Argentina</button>
+                    <button type="button" class="pill" data-country="fr" onclick="selectCountry('fr')">Francia</button>
+                    <button type="button" class="pill" data-country="es" onclick="selectCountry('es')">España</button>
+                </div>
+            </div>
+
+            <!-- IDIOMA -->
+            <div class="sel hidden" id="lang-step">
+                <p class="sel-label">Idioma</p>
+                <div class="pills" id="lang-pills">
+                    <button type="button" class="pill active" data-lang="es" onclick="selectLang('es')">Castellano</button>
+                    <button type="button" class="pill" data-lang="fr" onclick="selectLang('fr')">Français</button>
+                </div>
+            </div>
+
+            <!-- NOTA -->
+            <p class="note" id="delivery-note"></p>
+
+            <!-- PAGO CRYPTO -->
+            <div id="crypto-pay">
+                <div class="price-row">
+                    <span class="price-usd">$<span id="price-usd-amount">10</span> <span
+                            style="font-size:.85rem;font-weight:400;color:var(--fg-subtle)">USD</span></span>
+                    <span class="price-eth" id="price-eth-display">≈ … ETH</span>
+                </div>
+
+                <div class="sel" style="margin-bottom:1.1rem;">
+                    <p class="sel-label">Red</p>
+                    <div class="pills" id="network-pills">
+                        <button type="button" class="pill active" data-network="arbitrum" onclick="selectNetwork('arbitrum')">Arbitrum One</button>
+                        <button type="button" class="pill" data-network="mainnet" onclick="selectNetwork('mainnet')">Ethereum Mainnet</button>
+                    </div>
+                </div>
+
+                <button class="cta" id="mint-button">Pagar con ETH</button>
+                <p class="micro">MetaMask, WalletConnect y más · ¿Sin wallet? <a href="./dapp.html">Creá una gratis con
+                        ChatWallet</a></p>
+            </div>
+
+            <!-- MERCADO PAGO (físico · Argentina) -->
+            <div id="mp-pay" style="display:none;">
+                <div class="divider-or">o</div>
+                <a class="cta-ghost" id="mp-link" href="https://link.mercadopago.com.ar/energiasonora" target="_blank"
+                    rel="noopener" onclick="onMpClick()">Pagar con Mercado Pago</a>
+                <p class="micro" id="mp-note">Ingresá el equivalente en pesos a USD 35</p>
+            </div>
+
+            <!-- AMAZON (Francia) -->
+            <div id="amazon-pay" style="display:none;">
+                <a class="cta" id="amazon-link" href="https://www.amazon.fr/dp/B0H2V3GMH4" target="_blank"
+                    rel="noopener">Comprar en Amazon.fr →</a>
+                <p class="micro">Impresión bajo demanda · envío por Amazon Francia</p>
+            </div>
+
+            <!-- ESPAÑA -->
+            <div id="es-soon" style="display:none;">
+                <p class="micro" style="text-align:left; margin-top:0;">Muy pronto en Amazon.es. Mientras tanto, la
+                    <a href="#" onclick="selectFormat('digital'); return false;">edición digital</a> está disponible
+                    con descarga inmediata.</p>
+            </div>
+
+            <div id="status-box"></div>
+
+            <!-- RESULTADO (post-pago crypto) -->
+            <div id="result-section">
+                <div class="success-line"><span class="dot"></span>Pago confirmado</div>
+                <a href="#" id="download-link" class="cta" target="_blank" rel="noopener">Descargar el libro (PDF) ↓</a>
+                <div class="receipt">
+                    <div class="receipt-row"><span class="receipt-key">Formato</span><span class="receipt-val" id="r-format">—</span></div>
+                    <div class="receipt-row"><span class="receipt-key">Red</span><span class="receipt-val" id="r-network">—</span></div>
+                    <div class="receipt-row"><span class="receipt-key">Monto</span><span class="receipt-val" id="r-amount">—</span></div>
+                    <div class="receipt-row"><span class="receipt-key">Bloque</span><span class="receipt-val" id="r-block">—</span></div>
+                    <div class="receipt-row"><span class="receipt-key">Tx</span><span class="receipt-val" id="r-hash">—</span></div>
+                </div>
+            </div>
+
+            <!-- DATOS DE ENVÍO (físico: post-pago crypto o Mercado Pago) -->
+            <div id="shipping-form-section">
+                <p class="form-title" id="shipping-form-title">Datos de envío</p>
+                <p class="form-sub" id="shipping-form-sub">Dirección y contacto para coordinar la entrega</p>
+                <div class="fields">
+                    <input type="text" id="sh-name" placeholder="Nombre completo *" required>
+                    <input type="email" id="sh-email" placeholder="Email *" required>
+                    <input type="tel" id="sh-phone" placeholder="WhatsApp / teléfono">
+                    <div id="sh-postal-fields" class="fields" style="margin-bottom:0;">
+                        <input type="text" id="sh-address" placeholder="Dirección (calle, número, piso/depto) *">
+                        <input type="text" id="sh-city" placeholder="Ciudad y provincia *">
+                        <input type="text" id="sh-cp" placeholder="Código postal">
+                    </div>
+                    <textarea id="sh-notes" placeholder="Notas (opcional)"></textarea>
+                </div>
+                <button class="cta" id="shipping-submit-btn" onclick="submitShipping()">Enviar datos</button>
+                <div id="shipping-sent-msg">✓ Recibimos tus datos. Te contactamos por email o WhatsApp para coordinar.</div>
+            </div>
+
+            <!-- META SOBERANA (compacta) -->
+            <div class="funding">
+                <span class="funding-label">Meta soberana</span>
+                <div class="funding-bar">
+                    <div class="funding-fill" id="funding-fill"></div>
+                </div>
+                <span class="funding-amount"><span id="funding-raised">—</span> / 2 ETH</span>
+            </div>
+            <p class="funding-note" id="funding-note">Cada copia financia el libro: al alcanzar 2 ETH, el PDF se libera
+                gratis para todos.</p>
+
+            <p class="foot">Impresión artesanal en Argentina a cargo del autor · en Europa vía Amazon. Contenido
+                registrado en <a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank"
+                    rel="noopener">musiclog.org</a> · Contacto:
+                <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
         </div>
     </div>
 
@@ -1310,7 +767,7 @@
             FUNDING_GOAL_ETH: 2,                                 // meta soberana: al llegar, el PDF se libera
             SLIPPAGE: 0.03,
             API_BASE: "https://api.chatwallet.org",   // Cloudflare Worker (book-api)
-            SHIPPING_ENDPOINT: "https://formspree.io/f/mkoqkgrn",
+            SHIPPING_ENDPOINT: "https://formspree.io/f/mkoqkgrn",  // notificación por email (además de D1 vía /order)
             MP_LINK: "https://link.mercadopago.com.ar/energiasonora",   // link sin monto definido
             AMAZON_FR: "https://www.amazon.fr/dp/B0H2V3GMH4",
             AMAZON_ES: "",                                        // TODO: pegar el link real de amazon.es cuando esté live
@@ -1357,7 +814,7 @@
             { inputs: [], name: "decimals", outputs: [{ name: "", type: "uint8" }], stateMutability: "view", type: "function" }
         ];
 
-        const BTN_IDLE = 'Conectar Wallet y Comprar';
+        const BTN_IDLE = 'Pagar con ETH';
 
         // ── Estado ──
         let ethAmountWei = null;
@@ -1389,8 +846,9 @@
                 p.classList.toggle('active', p.dataset[attr] === value));
         }
 
-        function onFormatChange() {
-            selectedFormat = document.querySelector('input[name="format"]:checked').value;
+        function selectFormat(f) {
+            selectedFormat = f;
+            setActivePill('format-pills', 'format', f);
             updateUI();
         }
 
@@ -1409,9 +867,7 @@
         function selectNetwork(n) {
             selectedNetwork = n;
             setActivePill('network-pills', 'network', n);
-            const net = NETWORKS[n];
-            document.getElementById('network-label').textContent = `${net.name} · Chainlink ETH/USD`;
-            priceEthDisplay.innerHTML = `<span class="price-loading"><span class="dot-pulse"><span></span><span></span><span></span></span> cargando</span>`;
+            priceEthDisplay.textContent = '≈ … ETH';
             fetchEthPrice();
         }
 
@@ -1437,24 +893,17 @@
             document.getElementById('book-cover-fr').style.display = wantFr ? 'block' : 'none';
 
             // Nota de entrega
-            const noteIcon = document.getElementById('delivery-note-icon');
-            const noteText = document.getElementById('delivery-note-text');
+            const note = document.getElementById('delivery-note');
             if (!physical) {
-                noteIcon.textContent = '📱';
-                noteText.innerHTML = 'Recibís el <strong>PDF al instante</strong> tras confirmar el pago on-chain. Edición en castellano.';
+                note.innerHTML = '<strong>PDF al instante</strong> tras el pago on-chain · edición en castellano.';
             } else if (selectedCountry === 'ar') {
-                noteIcon.textContent = '📦';
-                noteText.innerHTML = 'Impreso y encuadernado <strong>artesanalmente por el autor</strong>. Envío a toda Argentina en <strong>~10 días</strong>. Incluye la edición digital (PDF).' +
+                note.innerHTML = 'Impreso y encuadernado <strong>por el autor</strong> · envío a toda Argentina en <strong>~10 días</strong> · incluye el PDF.' +
                     (selectedLang === 'fr' ? ' Edición en <strong>français</strong>.' : '');
             } else if (selectedCountry === 'fr') {
-                noteIcon.textContent = '🇫🇷';
-                noteText.innerHTML = 'Impresión bajo demanda y envío vía <strong>Amazon.fr</strong>.' +
-                    (selectedLang === 'es'
-                        ? ' Por ahora te llevamos a la <strong>édition en français</strong>; la castellana llega muy pronto.'
-                        : '');
+                note.innerHTML = 'Impresión bajo demanda vía <strong>Amazon.fr</strong>.' +
+                    (selectedLang === 'es' ? ' Por ahora en <strong>français</strong>; la edición castellana llega pronto.' : '');
             } else {
-                noteIcon.textContent = '🇪🇸';
-                noteText.innerHTML = 'La edición física para España está <strong>en camino</strong> vía Amazon.es.';
+                note.innerHTML = 'La edición física para <strong>España</strong> está en camino vía Amazon.es.';
             }
 
             // Áreas de pago
@@ -1462,18 +911,11 @@
             document.getElementById('crypto-pay').style.display = crypto ? 'block' : 'none';
             document.getElementById('mp-pay').style.display = (physical && selectedCountry === 'ar') ? 'block' : 'none';
             document.getElementById('amazon-pay').style.display = (physical && selectedCountry === 'fr') ? 'block' : 'none';
-            document.getElementById('es-soon').classList.toggle('visible', physical && selectedCountry === 'es');
+            document.getElementById('es-soon').style.display = (physical && selectedCountry === 'es') ? 'block' : 'none';
 
             // Precio (solo flujo crypto)
             if (crypto) {
                 document.getElementById('price-usd-amount').textContent = getCurrentPriceUSD();
-                const breakdown = document.getElementById('price-breakdown');
-                if (physical) {
-                    breakdown.textContent = '$10 digital + $25 impresión y envío en Argentina';
-                    breakdown.classList.add('visible');
-                } else {
-                    breakdown.classList.remove('visible');
-                }
                 const priceKey = `${selectedFormat}|${selectedNetwork}`;
                 if (priceKey !== lastPriceKey) fetchEthPrice();
             }
@@ -1488,9 +930,9 @@
             const usd = CONFIG.PRICE_USD_PHYSICAL;
             if (arsRate) {
                 const ars = Math.round(usd * arsRate);
-                el.textContent = `El link te pide ingresar el monto: $${ars.toLocaleString('es-AR')} ARS (≈ USD ${usd})`;
+                el.textContent = `Ingresá el monto: $${ars.toLocaleString('es-AR')} ARS (≈ USD ${usd})`;
             } else {
-                el.textContent = `El link te pide ingresar el monto: el equivalente en pesos a USD ${usd}`;
+                el.textContent = `Ingresá el equivalente en pesos a USD ${usd}`;
             }
         }
 
@@ -1508,15 +950,14 @@
         }
 
         function onMpClick() {
-            // El link abre en otra pestaña; acá pedimos los datos para coordinar el envío.
+            // El link abre en otra pestaña; acá pedimos dirección + contacto para coordinar.
             shippingMode = 'mercadopago';
             const usd = CONFIG.PRICE_USD_PHYSICAL;
             const arsTxt = arsRate ? ` ($${Math.round(usd * arsRate).toLocaleString('es-AR')} ARS aprox.)` : '';
-            document.getElementById('shipping-form-title').textContent = '📦 Completá tus datos de envío';
+            document.getElementById('shipping-form-title').textContent = 'Datos de envío';
             document.getElementById('shipping-form-sub').textContent =
-                `Pagaste con Mercado Pago${arsTxt}: verificamos el pago y te enviamos el PDF por email + el libro (~10 días)`;
-            document.getElementById('sh-postal-fields').style.display = 'block';
-            document.getElementById('sh-phone').placeholder = 'WhatsApp / teléfono';
+                `Pagaste con Mercado Pago${arsTxt}: verificamos el pago y te enviamos el PDF por email + el libro (~10 días).`;
+            document.getElementById('sh-postal-fields').style.display = 'flex';
             document.getElementById('sh-notes').placeholder = 'Contanos desde qué mail/nombre pagaste en Mercado Pago (opcional)';
             document.getElementById('shipping-form-section').classList.add('visible');
             setTimeout(() => document.getElementById('shipping-form-section').scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
@@ -1553,12 +994,12 @@
                 const priceUSD = getCurrentPriceUSD();
                 const ethNeeded = priceUSD / price;
                 ethAmountWei = ethers.parseEther((ethNeeded * (1 + CONFIG.SLIPPAGE)).toFixed(8));
-                priceEthDisplay.innerHTML = `<strong>${ethNeeded.toFixed(5)}</strong> ETH`;
+                priceEthDisplay.innerHTML = `≈ <strong>${ethNeeded.toFixed(5)}</strong> ETH · ${net.name}`;
                 lastPriceKey = `${selectedFormat}|${selectedNetwork}`;
                 return true;
             } catch (err) {
                 console.error("Chainlink error:", err);
-                priceEthDisplay.innerHTML = `<span style="color:var(--rust);font-size:0.8rem">Error al cargar precio</span>`;
+                priceEthDisplay.textContent = 'precio no disponible';
                 return false;
             }
         }
@@ -1579,17 +1020,17 @@
                 const goal = CONFIG.FUNDING_GOAL_ETH;
                 const pct = Math.min(100, (raisedEth / goal) * 100);
 
-                raisedEl.textContent = `${raisedEth.toFixed(4)} ETH`;
+                raisedEl.textContent = raisedEth.toFixed(4);
                 fillEl.style.width = `${pct}%`;
 
                 // Al alcanzar la meta: el PDF es libre
                 if (raisedEth >= goal) {
-                    const note = document.querySelector('.funding-note');
-                    if (note) note.innerHTML = '🎉 <strong>¡Meta alcanzada!</strong> El PDF ahora es <strong>libre y gratuito</strong> para todos.';
+                    const note = document.getElementById('funding-note');
+                    if (note) note.innerHTML = '🎉 <strong>Meta alcanzada:</strong> el PDF ahora es libre y gratuito para todos.';
                 }
             } catch (err) {
                 console.error('Funding error:', err);
-                raisedEl.textContent = '· · ·';
+                raisedEl.textContent = '·';
             }
         }
 
@@ -1656,7 +1097,7 @@
             clearStatus();
 
             // 1. Precio fresco
-            setStatus('🔄 Consultando precio en Chainlink...');
+            setStatus('Consultando precio en Chainlink...');
             if (!(await fetchEthPrice())) {
                 setStatus('No se pudo obtener el precio. Recargá la página.', true);
                 mintBtn.disabled = false; mintBtn.textContent = BTN_IDLE;
@@ -1672,7 +1113,7 @@
 
             const address = await signer.getAddress();
             completedAddress = address;
-            setStatus(`✅ Wallet: <code>${address.slice(0, 6)}...${address.slice(-4)}</code><br>📤 Confirmá la transacción en tu wallet...`);
+            setStatus(`Wallet: <code>${address.slice(0, 6)}...${address.slice(-4)}</code><br>Confirmá la transacción en tu wallet...`);
             mintBtn.textContent = 'Esperando firma...';
 
             // 3. Enviar tx
@@ -1689,7 +1130,7 @@
 
             // 4. Esperar confirmación
             completedTxHash = tx.hash;
-            setStatus(`⏳ Esperando confirmación...<br><code style="font-size:0.75rem">${tx.hash}</code>`);
+            setStatus(`Esperando confirmación...<br><code style="font-size:0.72rem">${tx.hash}</code>`);
             mintBtn.textContent = 'Confirmando en blockchain...';
 
             let receipt;
@@ -1708,7 +1149,7 @@
             }
 
             // 5. Verificar con el Worker
-            setStatus('🔐 Verificando pago...');
+            setStatus('Verificando pago...');
             mintBtn.textContent = 'Verificando...';
 
             let token;
@@ -1737,25 +1178,22 @@
 
             downloadLink.href = `${CONFIG.API_BASE}/download?token=${token}`;
 
-            const formatLabels = { digital: 'Digital 📱', physical: 'Físico + Digital 📚' };
-            document.getElementById('r-status').textContent = '✓ Confirmado on-chain';
+            const formatLabels = { digital: 'Digital', physical: 'Físico + digital' };
             document.getElementById('r-format').textContent = formatLabels[selectedFormat] || selectedFormat;
             document.getElementById('r-network').textContent = net.name;
             document.getElementById('r-amount').textContent = `${parseFloat(ethers.formatEther(ethAmountWei)).toFixed(6)} ETH ≈ $${getCurrentPriceUSD()}`;
             document.getElementById('r-block').textContent = `#${receipt.blockNumber}`;
             document.getElementById('r-hash').innerHTML = `<a href="${net.explorer}/tx/${tx.hash}" target="_blank">${tx.hash.slice(0, 12)}...${tx.hash.slice(-6)}</a>`;
 
-            mintBtn.textContent = '¡Acceso concedido!';
-            mintBtn.style.background = 'var(--success)';
+            mintBtn.textContent = '✓ Acceso concedido';
             resultSection.style.display = 'block';
 
-            // Físico: pedir datos de envío
+            // Físico: pedir dirección + contacto para coordinar el envío
             if (selectedFormat === 'physical') {
-                document.getElementById('shipping-form-title').textContent = '📦 Completá tus datos de envío';
-                document.getElementById('shipping-form-sub').textContent = 'Para coordinar el envío postal del libro físico (~10 días en Argentina)';
-                document.getElementById('sh-postal-fields').style.display = 'block';
-                document.getElementById('sh-phone').placeholder = 'WhatsApp / teléfono (opcional)';
-                document.getElementById('sh-notes').placeholder = 'Notas adicionales para el envío (opcional)';
+                document.getElementById('shipping-form-title').textContent = 'Datos de envío';
+                document.getElementById('shipping-form-sub').textContent = 'Dirección y contacto para coordinar la entrega (~10 días en Argentina)';
+                document.getElementById('sh-postal-fields').style.display = 'flex';
+                document.getElementById('sh-notes').placeholder = 'Notas para el envío (opcional)';
                 document.getElementById('shipping-form-section').classList.add('visible');
             }
 
@@ -1763,6 +1201,8 @@
         }
 
         // ── Envío de datos de contacto/envío ──
+        // Se guardan en la D1 propia (POST /order del Worker) y además se notifica
+        // por email vía Formspree. Con que uno de los dos ande, el pedido queda registrado.
         async function submitShipping() {
             const btn = document.getElementById('shipping-submit-btn');
             const name = document.getElementById('sh-name').value.trim();
@@ -1774,7 +1214,7 @@
                 return;
             }
 
-            // Para envío postal, también requerimos dirección
+            // Para el físico necesitamos la dirección
             if (selectedFormat === 'physical') {
                 const addr = document.getElementById('sh-address').value.trim();
                 const city = document.getElementById('sh-city').value.trim();
@@ -1789,6 +1229,7 @@
 
             const payload = {
                 delivery_type: selectedFormat,
+                format: selectedFormat,
                 payment_method: shippingMode,       // crypto | mercadopago
                 country: selectedCountry,
                 lang: selectedLang,
@@ -1803,26 +1244,28 @@
                 walletAddress: completedAddress,
             };
 
-            try {
-                const resp = await fetch(CONFIG.SHIPPING_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
+            const opts = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(payload),
+            };
 
-                if (resp.ok) {
-                    btn.style.display = 'none';
-                    document.getElementById('shipping-sent-msg').style.display = 'block';
-                } else {
-                    throw new Error('Server error');
-                }
-            } catch (err) {
-                console.warn('Shipping endpoint error, logging locally:', payload);
+            const results = await Promise.allSettled([
+                fetch(`${CONFIG.API_BASE}/order`, opts),        // D1 propia (soberano)
+                fetch(CONFIG.SHIPPING_ENDPOINT, opts),          // email vía Formspree
+            ]);
+            const anyOk = results.some(r => r.status === 'fulfilled' && r.value.ok);
+
+            if (anyOk) {
+                btn.style.display = 'none';
+                document.getElementById('shipping-sent-msg').style.display = 'block';
+            } else {
+                console.warn('No se pudo registrar el pedido:', payload);
                 btn.style.display = 'none';
                 document.getElementById('shipping-sent-msg').style.display = 'block';
                 document.getElementById('shipping-sent-msg').textContent = completedTxHash
-                    ? `✓ Datos guardados. Si no recibís confirmación en 48hs, contactanos con tu Tx Hash: ${completedTxHash.slice(0, 12)}...`
-                    : '✓ Datos guardados. Si no recibís confirmación en 48hs, contactanos.';
+                    ? `Hubo un problema de red: escribinos a energiasonorasoftware@protonmail.com con tu Tx Hash ${completedTxHash.slice(0, 12)}... y tu dirección.`
+                    : 'Hubo un problema de red: escribinos a energiasonorasoftware@protonmail.com con tus datos de envío.';
             }
         }
 
@@ -1853,17 +1296,15 @@
                     const latest = data.purchases[0];
                     const explorer = latest.network === 'ethereum' ? NETWORKS.mainnet.explorer : NETWORKS.arbitrum.explorer;
                     downloadLink.href = `${CONFIG.API_BASE}/download?token=${latest.id}`;
-                    document.getElementById('r-status').textContent = '✓ Confirmado on-chain';
-                    document.getElementById('r-format').textContent = latest.format === 'physical' ? 'Físico + Digital 📚' : latest.format === 'pickup' ? 'Digital + Retiro 🤝' : 'Digital 📱';
+                    document.getElementById('r-format').textContent = latest.format === 'physical' ? 'Físico + digital' : latest.format === 'pickup' ? 'Digital + retiro' : 'Digital';
                     document.getElementById('r-network').textContent = latest.network;
                     document.getElementById('r-amount').textContent = `${parseFloat(latest.amountEth).toFixed(6)} ETH`;
                     document.getElementById('r-block').textContent = `#${latest.blockNumber}`;
                     document.getElementById('r-hash').innerHTML = `<a href="${explorer}/tx/${latest.txHash}" target="_blank">${latest.txHash.slice(0, 12)}...${latest.txHash.slice(-6)}</a>`;
                     mintBtn.textContent = '✓ Ya compraste este libro';
-                    mintBtn.style.background = 'var(--success)';
                     mintBtn.disabled = true;
                     resultSection.style.display = 'block';
-                    setStatus('👋 Bienvenido de nuevo. Tu descarga está lista.');
+                    setStatus('Bienvenido de nuevo. Tu descarga está lista.');
                 }
             } catch (err) {
                 console.error("checkExistingPurchase error:", err);
@@ -1926,14 +1367,14 @@
     </script>
 
     <!-- PWA Install Banner -->
-    <div id="pwaInstallBanner" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); width:90%; max-width:400px; background:var(--ink); color:var(--cream); padding:15px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.3); z-index:9999; display:flex; align-items:center; justify-content:space-between; display:none; font-family:'Syne', sans-serif;">
+    <div id="pwaInstallBanner" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); width:90%; max-width:400px; background:#0a0a0a; color:#fff; padding:14px 16px; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.3); z-index:9999; align-items:center; justify-content:space-between; display:none; font-family:'DM Sans', sans-serif;">
         <div style="display:flex; align-items:center; gap:10px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-            <span style="font-weight:bold; font-size:14px;">Instalar ChatWallet</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span style="font-weight:700; font-size:13px;">Instalar ChatWallet</span>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
-            <button id="pwaInstallBtn" style="background:var(--rust); color:white; border:none; padding:6px 12px; border-radius:5px; font-weight:bold; cursor:pointer;">Instalar</button>
-            <button id="pwaDismissBtn" style="background:none; border:none; color:var(--muted); font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+            <button id="pwaInstallBtn" style="background:#fff; color:#0a0a0a; border:none; padding:6px 14px; border-radius:100px; font-weight:700; font-size:12px; cursor:pointer;">Instalar</button>
+            <button id="pwaDismissBtn" style="background:none; border:none; color:#999; font-size:22px; cursor:pointer; line-height:1;">&times;</button>
         </div>
     </div>
 
