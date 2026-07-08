@@ -39,11 +39,14 @@ function cfg(env) {
         label:    "Ethereum Mainnet",
       },
     },
-    // Precio según formato (arregla el undercharge: antes todo validaba contra PRICE_USD=10)
+    // Precio según formato (arregla el undercharge: antes todo validaba contra PRICE_USD=10).
+    // "physical" = físico + digital (key legacy: siempre incluyó el PDF).
+    // "physical-only" = solo el libro en papel, sin PDF.
     PRICES_USD: {
-      digital:  Number(env.PRICE_USD) || 10,
-      physical: 35,
-      pickup:   25,
+      digital:         Number(env.PRICE_USD) || 10,
+      physical:        40,
+      "physical-only": 35,
+      pickup:          25,
     },
   };
 }
@@ -168,8 +171,10 @@ async function download(url, env, C) {
   const token = url.searchParams.get("token");
   if (!token) return json(400, { error: "Token requerido" });
 
-  const row = await env.DB.prepare("SELECT token FROM purchases WHERE token = ?").bind(token).first();
+  const row = await env.DB.prepare("SELECT token, format FROM purchases WHERE token = ?").bind(token).first();
   if (!row) return json(404, { error: "Token inválido" });
+  if (row.format === "physical-only")
+    return json(403, { error: "Tu compra es solo la edición física: no incluye el PDF" });
 
   const obj = await env.BOOK_BUCKET.get(C.BOOK_FILE_KEY);
   if (!obj) return json(404, { error: "Archivo no disponible" });
