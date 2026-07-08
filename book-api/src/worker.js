@@ -22,10 +22,29 @@ function cfg(env) {
     PAYMENT_ADDRESS:    env.PAYMENT_ADDRESS,
     BOOK_FILE_KEY:      env.BOOK_FILE_KEY,
     PRICE_USD:          Number(env.PRICE_USD),
-    CHAIN_ID:           Number(env.CHAIN_ID),
-    RPC_URL:            env.RPC_URL,
-    CHAINLINK_FEED:     env.CHAINLINK_FEED,
     SLIPPAGE_TOLERANCE: Number(env.SLIPPAGE_TOLERANCE),
+    // Redes aceptadas para el pago. Los vars CHAIN_ID/RPC_URL/CHAINLINK_FEED
+    // siguen definiendo la red histórica (Arbitrum One).
+    NETWORKS: {
+      "arbitrum-one": {
+        chainId:  Number(env.CHAIN_ID),
+        rpcUrls:  [env.RPC_URL, "https://arbitrum-one-rpc.publicnode.com"],
+        feed:     env.CHAINLINK_FEED,
+        label:    "Arbitrum One",
+      },
+      "ethereum": {
+        chainId:  1,
+        rpcUrls:  [env.RPC_URL_ETHEREUM || "https://ethereum-rpc.publicnode.com", "https://eth.drpc.org"],
+        feed:     env.CHAINLINK_FEED_ETHEREUM || "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+        label:    "Ethereum Mainnet",
+      },
+    },
+    // Precio según formato (arregla el undercharge: antes todo validaba contra PRICE_USD=10)
+    PRICES_USD: {
+      digital:  Number(env.PRICE_USD) || 10,
+      physical: 35,
+      pickup:   25,
+    },
   };
 }
 
@@ -39,12 +58,24 @@ async function generateToken(address, secret) {
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function getMinAcceptableWei(C) {
-  const provider = new ethers.JsonRpcProvider(C.RPC_URL);
-  const feed = new ethers.Contract(C.CHAINLINK_FEED, CHAINLINK_ABI, provider);
-  const [decimals, [, answer]] = await Promise.all([feed.decimals(), feed.latestRoundData()]);
+// Prueba los RPCs de la red en orden (los públicos fallan intermitentemente).
+async function withRpc(net, fn) {
+  let lastErr;
+  for (const url of net.rpcUrls) {
+    try {
+      return await fn(new ethers.JsonRpcProvider(url, net.chainId, { staticNetwork: true, batchMaxCount: 1 }));
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+
+async function getMinAcceptableWei(C, net, priceUsd) {
+  const [decimals, [, answer]] = await withRpc(net, (provider) => {
+    const feed = new ethers.Contract(net.feed, CHAINLINK_ABI, provider);
+    return Promise.all([feed.decimals(), feed.latestRoundData()]);
+  });
   const ethPrice = Number(answer) / Math.pow(10, Number(decimals));
-  const ethNeeded = C.PRICE_USD / ethPrice;
+  const ethNeeded = priceUsd / ethPrice;
   const withTolerance = ethNeeded * (1 - C.SLIPPAGE_TOLERANCE);
   return ethers.parseEther(withTolerance.toFixed(8));
 }
@@ -67,8 +98,14 @@ function json(status, data) {
 // ════════════════════════════════════════════════
 
 async function verifyPayment(req, env, C) {
-  const { txHash, address, format } = await req.json().catch(() => ({}));
+  const { txHash, address, format, network } = await req.json().catch(() => ({}));
   if (!txHash || !address) return json(400, { error: "txHash y address son requeridos" });
+
+  const netKey = network || "arbitrum-one";
+  const net = C.NETWORKS[netKey];
+  if (!net) return json(400, { error: "Red no soportada" });
+
+  const priceUsd = C.PRICES_USD[format] ?? C.PRICES_USD.digital;
 
   const addr = address.toLowerCase();
   const txH = txHash.toLowerCase();
@@ -80,11 +117,10 @@ async function verifyPayment(req, env, C) {
   // Verificar tx on-chain
   let tx, receipt;
   try {
-    const provider = new ethers.JsonRpcProvider(C.RPC_URL);
-    [tx, receipt] = await Promise.all([
+    [tx, receipt] = await withRpc(net, (provider) => Promise.all([
       provider.getTransaction(txH),
       provider.getTransactionReceipt(txH),
-    ]);
+    ]));
   } catch (e) {
     return json(502, { error: "No se pudo consultar la blockchain" });
   }
@@ -95,19 +131,19 @@ async function verifyPayment(req, env, C) {
     return json(400, { error: "La transacción no va a la wallet correcta" });
   if (tx.from?.toLowerCase() !== addr)
     return json(400, { error: "La address no coincide con el origen de la tx" });
-  if (Number(tx.chainId) !== C.CHAIN_ID)
-    return json(400, { error: "La transacción no es en Arbitrum One" });
+  if (Number(tx.chainId) !== net.chainId)
+    return json(400, { error: `La transacción no es en ${net.label}` });
 
-  // Verificar monto con precio Chainlink
+  // Verificar monto con precio Chainlink (según formato)
   let minWei;
   try {
-    minWei = await getMinAcceptableWei(C);
+    minWei = await getMinAcceptableWei(C, net, priceUsd);
   } catch (e) {
     return json(502, { error: "No se pudo verificar el precio en Chainlink" });
   }
   if (tx.value < minWei) {
     return json(400, {
-      error: `Pago insuficiente. Enviaste ${parseFloat(ethers.formatEther(tx.value)).toFixed(6)} ETH`,
+      error: `Pago insuficiente (el formato elegido cuesta $${priceUsd} USD). Enviaste ${parseFloat(ethers.formatEther(tx.value)).toFixed(6)} ETH`,
     });
   }
 
@@ -118,8 +154,8 @@ async function verifyPayment(req, env, C) {
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO purchases (token, address, tx_hash, downloads, amount_eth, block_number, network, format, created_at, last_download_at)
-       VALUES (?, ?, ?, 0, ?, ?, 'arbitrum-one', ?, ?, NULL)`
-    ).bind(token, addr, txH, ethers.formatEther(tx.value), receipt.blockNumber, format || null, now),
+       VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, NULL)`
+    ).bind(token, addr, txH, ethers.formatEther(tx.value), receipt.blockNumber, netKey, format || null, now),
     env.DB.prepare(
       `INSERT INTO used_tx_hashes (tx_hash, address, token, used_at) VALUES (?, ?, ?, ?)`
     ).bind(txH, addr, token, now),

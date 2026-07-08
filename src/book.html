@@ -24,6 +24,7 @@
             --muted: #6b6b6b;
             --white: #ffffff;
             --success: #2d6a4f;
+            --mp-blue: #009ee3;
             --border: rgba(26, 26, 26, 0.12);
         }
 
@@ -109,6 +110,7 @@
             position: relative;
             z-index: 1;
             filter: contrast(1.02);
+            transition: opacity 0.25s ease;
         }
 
         .book-shadow {
@@ -200,7 +202,15 @@
             font-weight: 300;
         }
 
-        /* ── Format Selector ── */
+        /* ── Steps (formato / país / idioma / red) ── */
+        .step {
+            margin-bottom: 20px;
+        }
+
+        .step.hidden {
+            display: none;
+        }
+
         .format-label {
             font-family: 'DM Mono', monospace;
             font-size: 0.72rem;
@@ -212,9 +222,8 @@
 
         .format-options {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 10px;
-            margin-bottom: 24px;
         }
 
         @media (max-width: 600px) {
@@ -245,6 +254,7 @@
             background: var(--cream);
             transition: all 0.2s ease;
             cursor: pointer;
+            height: 100%;
         }
 
         .format-option input:checked+.format-card {
@@ -294,7 +304,44 @@
             color: white;
         }
 
-        /* ── Shipping note (visible solo con físico) ── */
+        /* ── Pills (país / idioma / red) ── */
+        .pill-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.78rem;
+            padding: 9px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 100px;
+            background: var(--cream);
+            color: var(--ink);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .pill:hover {
+            border-color: rgba(13, 13, 13, 0.3);
+        }
+
+        .pill.active {
+            border-color: var(--ink);
+            background: white;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            font-weight: 500;
+        }
+
+        .pill small {
+            display: block;
+            font-size: 0.62rem;
+            color: var(--muted);
+            letter-spacing: 0.04em;
+        }
+
+        /* ── Delivery note ── */
         .shipping-note {
             display: none;
             align-items: flex-start;
@@ -317,6 +364,11 @@
             font-size: 1rem;
             flex-shrink: 0;
             margin-top: 1px;
+        }
+
+        .shipping-note strong {
+            color: var(--ink);
+            font-weight: 500;
         }
 
         /* ── Price Card ── */
@@ -470,7 +522,7 @@
             letter-spacing: 0.06em;
         }
 
-        /* ── Button ── */
+        /* ── Buttons ── */
         #mint-button {
             width: 100%;
             padding: 17px 24px;
@@ -519,6 +571,81 @@
             text-align: center;
             margin-top: 10px;
             font-family: 'DM Mono', monospace;
+        }
+
+        /* ── Botón externo (Mercado Pago / Amazon) ── */
+        .external-pay-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .external-pay-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .external-pay-btn.mp {
+            background: var(--mp-blue);
+            color: white;
+        }
+
+        .external-pay-btn.amazon {
+            background: #232f3e;
+            color: #ff9900;
+        }
+
+        /* ── Divider "o" ── */
+        .divider-or {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 18px 0;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .divider-or::before,
+        .divider-or::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── "Próximamente" (España) ── */
+        .soon-box {
+            display: none;
+            padding: 18px;
+            border: 1px dashed rgba(184, 144, 47, 0.5);
+            border-radius: 8px;
+            background: #fdf9f0;
+            font-size: 0.85rem;
+            color: var(--muted);
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        .soon-box.visible {
+            display: block;
+        }
+
+        .soon-box strong {
+            color: var(--gold);
         }
 
         /* ── No-wallet onboarding CTA ── */
@@ -642,9 +769,10 @@
             transform: translateY(-2px);
         }
 
-        /* ── Shipping Form (post-pago) ── */
+        /* ── Shipping Form (post-pago crypto o Mercado Pago) ── */
         #shipping-form-section {
             display: none;
+            margin-top: 20px;
             margin-bottom: 20px;
             padding: 20px;
             background: #fdf6ec;
@@ -901,115 +1029,22 @@
             font-weight: 500;
         }
 
-        /* ── Print-on-Demand (físico internacional) ── */
-        .pod-section {
-            margin-top: 40px;
-            padding-top: 32px;
+        /* ── Foot note ── */
+        .foot-note {
+            margin-top: 32px;
+            padding-top: 20px;
             border-top: 1px solid var(--border);
-        }
-
-        .pod-title {
-            font-family: 'Syne', sans-serif;
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--ink);
-            margin-bottom: 6px;
-        }
-
-        .pod-sub {
-            font-size: 0.88rem;
-            color: var(--muted);
-            line-height: 1.6;
-            margin-bottom: 20px;
-        }
-
-        .pod-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-
-        @media (max-width: 600px) {
-            .pod-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .pod-card {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            padding: 16px 12px;
-            border: 1.5px solid var(--border);
-            border-radius: 10px;
-            background: var(--white);
-            transition: all 0.2s ease;
-        }
-
-        .pod-card:hover {
-            border-color: rgba(184, 144, 47, 0.5);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-            transform: translateY(-2px);
-        }
-
-        .pod-card img {
-            width: 64px;
-            height: auto;
-            border-radius: 3px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .pod-lang {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.74rem;
-            letter-spacing: 0.05em;
-            color: var(--ink);
-            font-weight: 500;
-        }
-
-        .pod-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            width: 100%;
-            justify-content: center;
-            padding: 9px 12px;
-            background: var(--ink);
-            color: var(--paper);
-            text-decoration: none;
-            border-radius: 6px;
-            font-family: 'Syne', sans-serif;
-            font-weight: 700;
-            font-size: 0.78rem;
-            transition: background 0.2s, transform 0.2s;
-        }
-
-        .pod-btn:hover {
-            background: var(--rust);
-            transform: translateY(-1px);
-        }
-
-        .pod-btn[aria-disabled="true"] {
-            background: var(--cream);
-            color: var(--muted);
-            cursor: default;
-            pointer-events: none;
-        }
-
-        .pod-foot {
-            margin-top: 16px;
             font-size: 0.74rem;
             color: var(--muted);
             line-height: 1.6;
         }
 
-        .pod-foot a {
+        .foot-note a {
             color: var(--rust);
             text-decoration: none;
         }
 
-        .pod-foot a:hover {
+        .foot-note a:hover {
             text-decoration: underline;
         }
     </style>
@@ -1021,12 +1056,13 @@
         <!-- LEFT -->
         <div class="left-pane">
             <div class="book-frame">
-                <img id="book-cover" src="./img/tapacpsES.jpg" alt="Crypto para Soberanos">
+                <img id="book-cover-es" src="./img/tapacpsES.jpg" alt="Crypto para Soberanos">
+                <img id="book-cover-fr" src="./img/tapacpsFR.jpg" alt="Crypto pour les Souverains" style="display:none;">
                 <div class="book-shadow"></div>
             </div>
             <div class="badge-strip">
-                <div class="badge">Edición Digital</div>
-                <div class="badge">Arbitrum</div>
+                <div class="badge">Digital + Físico</div>
+                <div class="badge">ETH · Mercado Pago · Amazon</div>
                 <div class="badge">
                     <a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank" rel="noopener noreferrer">
                         Verificación pública<br>mlog0x9575469ab5017cf0
@@ -1043,10 +1079,11 @@
                     <a href="./dapp.html" class="page-nav-link">ChatWallet →</a>
                 </div>
 
-                <p class="eyebrow">Acceso exclusivo · Pago en crypto</p>
+                <p class="eyebrow">Edición digital y física · Crypto · Mercado Pago · Amazon</p>
                 <h1>Crypto para<span>Soberanos</span></h1>
                 <p class="description">Una guía práctica para entender las criptomonedas desde cero, pero desde la
-                    perspectiva filosófica de la soberanía. Paga directamente con tu wallet, sin intermediarios.</p>
+                    perspectiva filosófica de la soberanía. Elegí formato, país e idioma — y pagá directamente con tu
+                    wallet, sin intermediarios (o como prefieras).</p>
 
                 <!-- FUNDING GOAL (soberano · on-chain) -->
                 <div class="funding">
@@ -1058,88 +1095,130 @@
                         <div class="funding-fill" id="funding-fill"></div>
                     </div>
                     <p class="funding-note">Cada copia digital financia el libro. Al alcanzar las <strong>2 ETH</strong>,
-                        el PDF se libera <strong>gratis para todos</strong>. Recaudación leída on-chain en Arbitrum One.</p>
+                        el PDF se libera <strong>gratis para todos</strong>. Recaudación leída on-chain.</p>
                 </div>
 
-                <!-- FORMAT SELECTOR -->
-                <p class="format-label">Elegí tu formato</p>
-                <div class="format-options">
-                    <label class="format-option">
-                        <input type="radio" name="format" value="digital" checked onchange="onFormatChange()">
-                        <div class="format-card">
-                            <div class="format-icon">📱</div>
-                            <div class="format-name">Digital</div>
-                            <div class="format-price">$10 USD</div>
-                            <div class="format-badge">Descarga inmediata</div>
-                        </div>
-                    </label>
-                    <label class="format-option">
-                        <input type="radio" name="format" value="physical" onchange="onFormatChange()">
-                        <div class="format-card">
-                            <div class="format-icon">📚</div>
-                            <div class="format-name">Digital + Físico</div>
-                            <div class="format-price">$35 USD</div>
-                            <div class="format-badge new">Envío · Argentina</div>
-                        </div>
-                    </label>
-                    <label class="format-option">
-                        <input type="radio" name="format" value="pickup" onchange="onFormatChange()">
-                        <div class="format-card">
-                            <div class="format-icon">🤝</div>
-                            <div class="format-name">Digital + Retiro</div>
-                            <div class="format-price">$25 USD</div>
-                            <div class="format-badge" style="background:var(--ink);color:white;">En persona · CABA</div>
-                        </div>
-                    </label>
-                </div>
-
-                <!-- SHIPPING / PICKUP NOTE -->
-                <div class="shipping-note" id="shipping-note-physical">
-                    <span class="shipping-note-icon">📦</span>
-                    <span>El libro físico se envía por correo dentro de Argentina. Después de confirmar el pago te
-                        pediremos tu nombre y dirección. Tiempo estimado: 7–15 días hábiles.</span>
-                </div>
-                <div class="shipping-note" id="shipping-note-pickup">
-                    <span class="shipping-note-icon">📍</span>
-                    <span>Retirás el libro en persona en el <strong>Cowork de Crecimiento</strong>, CABA. Coordinamos
-                        día y horario por WhatsApp después de confirmar el pago.</span>
-                </div>
-
-                <!-- PRICE CARD -->
-                <div class="price-card">
-                    <div>
-                        <div class="price-usd" id="price-usd-display"><sub>$</sub><span id="price-usd-amount">10</span>
-                            <span style="font-size:0.85rem;font-weight:400;color:var(--muted)">USD</span>
-                        </div>
-                        <div class="price-breakdown" id="price-breakdown"></div>
+                <!-- PASO · FORMATO -->
+                <div class="step">
+                    <p class="format-label">Formato</p>
+                    <div class="format-options">
+                        <label class="format-option">
+                            <input type="radio" name="format" value="digital" checked onchange="onFormatChange()">
+                            <div class="format-card">
+                                <div class="format-icon">📱</div>
+                                <div class="format-name">Digital</div>
+                                <div class="format-price">$10 USD</div>
+                                <div class="format-badge">Descarga inmediata</div>
+                            </div>
+                        </label>
+                        <label class="format-option">
+                            <input type="radio" name="format" value="physical" onchange="onFormatChange()">
+                            <div class="format-card">
+                                <div class="format-icon">📚</div>
+                                <div class="format-name">Físico + Digital</div>
+                                <div class="format-price">según país</div>
+                                <div class="format-badge new">Impreso en papel</div>
+                            </div>
+                        </label>
                     </div>
-                    <div class="price-divider"></div>
-                    <div class="price-eth-wrap">
-                        <span class="price-eth" id="price-eth-display">
-                            <span class="price-loading">
-                                <span class="dot-pulse"><span></span><span></span><span></span></span>
-                                cargando
+                </div>
+
+                <!-- PASO · PAÍS (solo físico) -->
+                <div class="step hidden" id="country-step">
+                    <p class="format-label">País de entrega</p>
+                    <div class="pill-row" id="country-pills">
+                        <button type="button" class="pill active" data-country="ar" onclick="selectCountry('ar')">🇦🇷 Argentina</button>
+                        <button type="button" class="pill" data-country="fr" onclick="selectCountry('fr')">🇫🇷 Francia</button>
+                        <button type="button" class="pill" data-country="es" onclick="selectCountry('es')">🇪🇸 España</button>
+                    </div>
+                </div>
+
+                <!-- PASO · IDIOMA (solo físico) -->
+                <div class="step hidden" id="lang-step">
+                    <p class="format-label">Idioma</p>
+                    <div class="pill-row" id="lang-pills">
+                        <button type="button" class="pill active" data-lang="es" onclick="selectLang('es')">Castellano</button>
+                        <button type="button" class="pill" data-lang="fr" onclick="selectLang('fr')">Français</button>
+                    </div>
+                </div>
+
+                <!-- NOTA DE ENTREGA (dinámica) -->
+                <div class="shipping-note visible" id="delivery-note">
+                    <span class="shipping-note-icon" id="delivery-note-icon">📱</span>
+                    <span id="delivery-note-text"></span>
+                </div>
+
+                <!-- ÁREA CRYPTO (digital · físico Argentina) -->
+                <div id="crypto-pay">
+                    <div class="price-card">
+                        <div>
+                            <div class="price-usd" id="price-usd-display"><sub>$</sub><span id="price-usd-amount">10</span>
+                                <span style="font-size:0.85rem;font-weight:400;color:var(--muted)">USD</span>
+                            </div>
+                            <div class="price-breakdown" id="price-breakdown"></div>
+                        </div>
+                        <div class="price-divider"></div>
+                        <div class="price-eth-wrap">
+                            <span class="price-eth" id="price-eth-display">
+                                <span class="price-loading">
+                                    <span class="dot-pulse"><span></span><span></span><span></span></span>
+                                    cargando
+                                </span>
                             </span>
-                        </span>
-                        <span class="price-eth-label">ETH · precio en tiempo real</span>
+                            <span class="price-eth-label">ETH · precio en tiempo real</span>
+                        </div>
                     </div>
+
+                    <!-- PASO · RED -->
+                    <div class="step" style="margin-bottom:16px;">
+                        <p class="format-label">Red de pago</p>
+                        <div class="pill-row" id="network-pills">
+                            <button type="button" class="pill active" data-network="arbitrum" onclick="selectNetwork('arbitrum')">Arbitrum One<small>gas casi gratis</small></button>
+                            <button type="button" class="pill" data-network="mainnet" onclick="selectNetwork('mainnet')">Ethereum Mainnet<small>la red original</small></button>
+                        </div>
+                    </div>
+
+                    <div class="network-row">
+                        <div class="network-dot"></div>
+                        <span class="network-label" id="network-label">Arbitrum One · Mainnet · Chainlink ETH/USD</span>
+                    </div>
+
+                    <button id="mint-button">Conectar Wallet y Comprar</button>
+                    <p class="btn-sub">MetaMask, Coinbase Wallet, WalletConnect y más</p>
+                    <a href="./dapp.html" class="no-wallet-cta">
+                        <span class="no-wallet-icon">✨</span>
+                        <span>¿No tenés wallet? Creá la tuya <strong>gratis</strong> con ChatWallet →</span>
+                    </a>
                 </div>
 
-                <div class="network-row">
-                    <div class="network-dot"></div>
-                    <span class="network-label">Arbitrum One · Mainnet · Chainlink ETH/USD</span>
+                <!-- MERCADO PAGO (solo físico · Argentina) -->
+                <div id="mp-pay" style="display:none;">
+                    <div class="divider-or">o</div>
+                    <a class="external-pay-btn mp" id="mp-link" href="https://link.mercadopago.com.ar/energiasonora"
+                        target="_blank" rel="noopener" onclick="onMpClick()">
+                        💳 Pagar con Mercado Pago
+                    </a>
+                    <p class="btn-sub" id="mp-note">El link te pide ingresar el monto en pesos (≈ USD 35)</p>
                 </div>
 
-                <button id="mint-button">Conectar Wallet y Comprar</button>
-                <p class="btn-sub">MetaMask, Coinbase Wallet, WalletConnect y más</p>
-                <a href="./dapp.html" class="no-wallet-cta">
-                    <span class="no-wallet-icon">✨</span>
-                    <span>¿No tenés wallet? Creá la tuya <strong>gratis</strong> con ChatWallet →</span>
-                </a>
+                <!-- AMAZON (Francia) -->
+                <div id="amazon-pay" style="display:none;">
+                    <a class="external-pay-btn amazon" id="amazon-link" href="https://www.amazon.fr/dp/B0H2V3GMH4"
+                        target="_blank" rel="noopener">
+                        🛒 Comprar en Amazon.fr
+                    </a>
+                    <p class="btn-sub" id="amazon-note">Impresión bajo demanda · envío por Amazon Francia</p>
+                </div>
+
+                <!-- ESPAÑA · PRÓXIMAMENTE -->
+                <div id="es-soon" class="soon-box">
+                    🇪🇸 <strong>Muy pronto en Amazon.es.</strong><br>
+                    Mientras tanto podés llevarte la <strong>edición digital</strong> con descarga inmediata.
+                </div>
 
                 <div id="status-box"></div>
 
-                <!-- RESULT SECTION -->
+                <!-- RESULT SECTION (post-pago crypto) -->
                 <div id="result-section">
                     <div class="success-header">
                         <div class="success-icon">
@@ -1159,33 +1238,6 @@
                         </svg>
                         Descargar Libro (PDF)
                     </a>
-
-                    <!-- CONTACT/SHIPPING FORM (solo si compró físico o retiro) -->
-                    <div id="shipping-form-section">
-                        <!-- Título dinámico según formato -->
-                        <div class="shipping-form-title" id="shipping-form-title">📦 Completá tus datos de envío</div>
-                        <div class="shipping-form-sub" id="shipping-form-sub">Para coordinar el envío del libro físico
-                        </div>
-                        <div class="field-group">
-                            <input type="text" id="sh-name" placeholder="Nombre completo" required>
-                            <input type="email" id="sh-email" placeholder="Email de contacto" required>
-                            <input type="tel" id="sh-phone" placeholder="WhatsApp / teléfono">
-                            <!-- Campos solo para envío postal -->
-                            <div id="sh-postal-fields">
-                                <div class="field-group" style="margin-bottom:0">
-                                    <input type="text" id="sh-address"
-                                        placeholder="Dirección (calle, número, piso/depto)">
-                                    <input type="text" id="sh-city" placeholder="Ciudad y provincia">
-                                    <input type="text" id="sh-cp" placeholder="Código postal">
-                                </div>
-                            </div>
-                            <textarea id="sh-notes" placeholder="Notas adicionales (opcional)"></textarea>
-                        </div>
-                        <button class="shipping-submit-btn" id="shipping-submit-btn" onclick="submitShipping()">
-                            Enviar datos
-                        </button>
-                        <div id="shipping-sent-msg">✓ Datos recibidos. Te contactaremos pronto para coordinar.</div>
-                    </div>
 
                     <div class="receipt">
                         <div class="receipt-header">Recibo de transacción</div>
@@ -1216,39 +1268,33 @@
                     </div>
                 </div>
 
-                <!-- PRINT-ON-DEMAND (físico internacional · Amazon) -->
-                <div class="pod-section">
-                    <h2 class="pod-title">📚 ¿Preferís el libro físico?</h2>
-                    <p class="pod-sub">Edición impresa bajo demanda, disponible en tres idiomas vía Amazon.
-                        En Argentina también hago tiradas artesanales que entrego en mano (elegí "Digital + Físico"
-                        o "Retiro" arriba y pagá con crypto).</p>
-
-                    <div class="pod-grid">
-                        <!-- TODO: reemplazar href="#" por la URL real de Amazon -->
-                        <div class="pod-card">
-                            <img src="./img/tapacpsES.jpg" alt="Cripto para Soberanos — Español">
-                            <span class="pod-lang">🇪🇸 Español</span>
-                            <a class="pod-btn" href="#" target="_blank" rel="noopener"
-                                data-amazon="es">Amazon</a>
+                <!-- CONTACT/SHIPPING FORM (físico crypto post-pago · o Mercado Pago) -->
+                <div id="shipping-form-section">
+                    <div class="shipping-form-title" id="shipping-form-title">📦 Completá tus datos de envío</div>
+                    <div class="shipping-form-sub" id="shipping-form-sub">Para coordinar el envío del libro físico</div>
+                    <div class="field-group">
+                        <input type="text" id="sh-name" placeholder="Nombre completo" required>
+                        <input type="email" id="sh-email" placeholder="Email de contacto" required>
+                        <input type="tel" id="sh-phone" placeholder="WhatsApp / teléfono">
+                        <div id="sh-postal-fields">
+                            <div class="field-group" style="margin-bottom:0">
+                                <input type="text" id="sh-address" placeholder="Dirección (calle, número, piso/depto)">
+                                <input type="text" id="sh-city" placeholder="Ciudad y provincia">
+                                <input type="text" id="sh-cp" placeholder="Código postal">
+                            </div>
                         </div>
-                        <div class="pod-card">
-                            <img src="./img/tapacpsEN.jpg" alt="Crypto for Sovereigns — English">
-                            <span class="pod-lang">🇬🇧 English</span>
-                            <a class="pod-btn" href="#" target="_blank" rel="noopener"
-                                data-amazon="en">Amazon</a>
-                        </div>
-                        <div class="pod-card">
-                            <img src="./img/tapacpsFR.jpg" alt="Crypto pour les Souverains — Français">
-                            <span class="pod-lang">🇫🇷 Français</span>
-                            <a class="pod-btn" href="#" target="_blank" rel="noopener"
-                                data-amazon="fr">Amazon</a>
-                        </div>
+                        <textarea id="sh-notes" placeholder="Notas adicionales (opcional)"></textarea>
                     </div>
-
-                    <p class="pod-foot">Próximamente en otras plataformas (Mercado Libre y más). El contenido del libro
-                        está registrado con su hash y timestamp en
-                        <a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank" rel="noopener">musiclog.org</a>.</p>
+                    <button class="shipping-submit-btn" id="shipping-submit-btn" onclick="submitShipping()">
+                        Enviar datos
+                    </button>
+                    <div id="shipping-sent-msg">✓ Datos recibidos. Te contactaremos pronto para coordinar.</div>
                 </div>
+
+                <p class="foot-note">Impresión artesanal en Argentina a cargo del autor; en Europa, bajo demanda vía
+                    Amazon. El contenido del libro está registrado con su hash y timestamp en
+                    <a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank" rel="noopener">musiclog.org</a>.
+                    Próximamente más países y plataformas.</p>
             </div>
         </div>
     </div>
@@ -1261,32 +1307,71 @@
             PAYMENT_ADDRESS: "0x1c87FDF8844cbEe5DC7f0F1681C44bF3c99A0e3d",
             PRICE_USD_DIGITAL: 10,
             PRICE_USD_PHYSICAL: 35,
-            PRICE_USD_PICKUP: 25,
-            CHAIN_ID: 42161,
-            CHAIN_NAME: "Arbitrum One",
-            RPC_URL: "https://arb1.arbitrum.io/rpc",
             FUNDING_GOAL_ETH: 2,                                 // meta soberana: al llegar, el PDF se libera
-            EXPLORER: "https://arbiscan.io",
-            CHAINLINK_FEED: "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",
             SLIPPAGE: 0.03,
-            API_BASE: "https://api.chatwallet.org",   // Cloudflare Worker (book-api). Antes: cloudfunctions.net/api
-            // Para recibir datos de envío: podés usar Formspree, EmailJS, o tu propio endpoint
-            // Reemplazá con tu endpoint real:
+            API_BASE: "https://api.chatwallet.org",   // Cloudflare Worker (book-api)
             SHIPPING_ENDPOINT: "https://formspree.io/f/mkoqkgrn",
+            MP_LINK: "https://link.mercadopago.com.ar/energiasonora",   // link sin monto definido
+            AMAZON_FR: "https://www.amazon.fr/dp/B0H2V3GMH4",
+            AMAZON_ES: "",                                        // TODO: pegar el link real de amazon.es cuando esté live
+            ARS_RATE_API: "https://dolarapi.com/v1/dolares/blue", // para estimar el monto de Mercado Pago en pesos
         };
+
+        // Redes aceptadas para el pago en ETH. `key` es lo que entiende el Worker.
+        // `rpcs` en orden de preferencia: los públicos fallan intermitentemente, se prueba el siguiente.
+        const NETWORKS = {
+            arbitrum: {
+                key: 'arbitrum-one',
+                chainId: 42161,
+                name: 'Arbitrum One',
+                rpcs: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-one-rpc.publicnode.com'],
+                feed: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
+                explorer: 'https://arbiscan.io',
+            },
+            mainnet: {
+                key: 'ethereum',
+                chainId: 1,
+                name: 'Ethereum Mainnet',
+                rpcs: ['https://ethereum-rpc.publicnode.com', 'https://eth.drpc.org', 'https://1rpc.io/eth'],
+                feed: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
+                explorer: 'https://etherscan.io',
+            },
+        };
+
+        // Sin batching (algunos RPCs públicos lo rechazan) y sin autodetección de red.
+        function makeProvider(url, chainId) {
+            return new ethers.JsonRpcProvider(url, chainId, { staticNetwork: true, batchMaxCount: 1 });
+        }
+
+        async function withRpcFallback(net, fn) {
+            let lastErr;
+            for (const url of net.rpcs) {
+                try { return await fn(makeProvider(url, net.chainId)); }
+                catch (err) { lastErr = err; console.warn(`RPC falló (${url}), probando el siguiente...`, err?.message); }
+            }
+            throw lastErr;
+        }
 
         const CHAINLINK_ABI = [
             { inputs: [], name: "latestRoundData", outputs: [{ name: "roundId", type: "uint80" }, { name: "answer", type: "int256" }, { name: "startedAt", type: "uint256" }, { name: "updatedAt", type: "uint256" }, { name: "answeredInRound", type: "uint80" }], stateMutability: "view", type: "function" },
             { inputs: [], name: "decimals", outputs: [{ name: "", type: "uint8" }], stateMutability: "view", type: "function" }
         ];
 
+        const BTN_IDLE = 'Conectar Wallet y Comprar';
+
         // ── Estado ──
         let ethAmountWei = null;
         let provider = null;
         let signer = null;
-        let selectedFormat = 'digital';
+        let selectedFormat = 'digital';   // digital | physical
+        let selectedCountry = 'ar';       // ar | fr | es
+        let selectedLang = 'es';          // es | fr
+        let selectedNetwork = 'arbitrum'; // arbitrum | mainnet
+        let shippingMode = 'crypto';      // crypto | mercadopago
+        let arsRate = null;
         let completedTxHash = null;
         let completedAddress = null;
+        let lastPriceKey = null;   // "formato|red" ya consultado (evita spamear el RPC en cada click)
 
         // ── DOM ──
         const mintBtn = document.getElementById('mint-button');
@@ -1295,36 +1380,146 @@
         const priceEthDisplay = document.getElementById('price-eth-display');
         const downloadLink = document.getElementById('download-link');
 
-        // ── Format change handler ──
+        // ════════════════════════════════════════════════
+        //  🧭  CONFIGURADOR (formato → país → idioma → pago)
+        // ════════════════════════════════════════════════
+
+        function setActivePill(rowId, attr, value) {
+            document.querySelectorAll(`#${rowId} .pill`).forEach(p =>
+                p.classList.toggle('active', p.dataset[attr] === value));
+        }
+
         function onFormatChange() {
             selectedFormat = document.querySelector('input[name="format"]:checked').value;
-            const priceUSD = getCurrentPriceUSD();
+            updateUI();
+        }
 
-            document.getElementById('price-usd-amount').textContent = priceUSD;
+        function selectCountry(c) {
+            selectedCountry = c;
+            setActivePill('country-pills', 'country', c);
+            updateUI();
+        }
 
-            // Notas contextuales
-            document.getElementById('shipping-note-physical').classList.toggle('visible', selectedFormat === 'physical');
-            document.getElementById('shipping-note-pickup').classList.toggle('visible', selectedFormat === 'pickup');
+        function selectLang(l) {
+            selectedLang = l;
+            setActivePill('lang-pills', 'lang', l);
+            updateUI();
+        }
 
-            // Desglose de precio
-            const breakdown = document.getElementById('price-breakdown');
-            if (selectedFormat === 'physical') {
-                breakdown.textContent = '$10 digital + $25 envío por correo';
-                breakdown.classList.add('visible');
-            } else if (selectedFormat === 'pickup') {
-                breakdown.textContent = '$10 digital + $15 retiro en persona';
-                breakdown.classList.add('visible');
-            } else {
-                breakdown.classList.remove('visible');
-            }
-
+        function selectNetwork(n) {
+            selectedNetwork = n;
+            setActivePill('network-pills', 'network', n);
+            const net = NETWORKS[n];
+            document.getElementById('network-label').textContent = `${net.name} · Chainlink ETH/USD`;
+            priceEthDisplay.innerHTML = `<span class="price-loading"><span class="dot-pulse"><span></span><span></span><span></span></span> cargando</span>`;
             fetchEthPrice();
         }
 
         function getCurrentPriceUSD() {
-            if (selectedFormat === 'physical') return CONFIG.PRICE_USD_PHYSICAL;
-            if (selectedFormat === 'pickup') return CONFIG.PRICE_USD_PICKUP;
-            return CONFIG.PRICE_USD_DIGITAL;
+            return selectedFormat === 'physical' ? CONFIG.PRICE_USD_PHYSICAL : CONFIG.PRICE_USD_DIGITAL;
+        }
+
+        function isCryptoFlow() {
+            return selectedFormat === 'digital' || selectedCountry === 'ar';
+        }
+
+        function updateUI() {
+            const physical = selectedFormat === 'physical';
+
+            // Pasos visibles
+            document.getElementById('country-step').classList.toggle('hidden', !physical);
+            document.getElementById('lang-step').classList.toggle('hidden', !physical);
+
+            // Tapa según idioma (físico en français → tapa FR).
+            // Las dos <img> viven en el HTML para que Parcel resuelva los assets.
+            const wantFr = physical && selectedLang === 'fr';
+            document.getElementById('book-cover-es').style.display = wantFr ? 'none' : 'block';
+            document.getElementById('book-cover-fr').style.display = wantFr ? 'block' : 'none';
+
+            // Nota de entrega
+            const noteIcon = document.getElementById('delivery-note-icon');
+            const noteText = document.getElementById('delivery-note-text');
+            if (!physical) {
+                noteIcon.textContent = '📱';
+                noteText.innerHTML = 'Recibís el <strong>PDF al instante</strong> tras confirmar el pago on-chain. Edición en castellano.';
+            } else if (selectedCountry === 'ar') {
+                noteIcon.textContent = '📦';
+                noteText.innerHTML = 'Impreso y encuadernado <strong>artesanalmente por el autor</strong>. Envío a toda Argentina en <strong>~10 días</strong>. Incluye la edición digital (PDF).' +
+                    (selectedLang === 'fr' ? ' Edición en <strong>français</strong>.' : '');
+            } else if (selectedCountry === 'fr') {
+                noteIcon.textContent = '🇫🇷';
+                noteText.innerHTML = 'Impresión bajo demanda y envío vía <strong>Amazon.fr</strong>.' +
+                    (selectedLang === 'es'
+                        ? ' Por ahora te llevamos a la <strong>édition en français</strong>; la castellana llega muy pronto.'
+                        : '');
+            } else {
+                noteIcon.textContent = '🇪🇸';
+                noteText.innerHTML = 'La edición física para España está <strong>en camino</strong> vía Amazon.es.';
+            }
+
+            // Áreas de pago
+            const crypto = isCryptoFlow();
+            document.getElementById('crypto-pay').style.display = crypto ? 'block' : 'none';
+            document.getElementById('mp-pay').style.display = (physical && selectedCountry === 'ar') ? 'block' : 'none';
+            document.getElementById('amazon-pay').style.display = (physical && selectedCountry === 'fr') ? 'block' : 'none';
+            document.getElementById('es-soon').classList.toggle('visible', physical && selectedCountry === 'es');
+
+            // Precio (solo flujo crypto)
+            if (crypto) {
+                document.getElementById('price-usd-amount').textContent = getCurrentPriceUSD();
+                const breakdown = document.getElementById('price-breakdown');
+                if (physical) {
+                    breakdown.textContent = '$10 digital + $25 impresión y envío en Argentina';
+                    breakdown.classList.add('visible');
+                } else {
+                    breakdown.classList.remove('visible');
+                }
+                const priceKey = `${selectedFormat}|${selectedNetwork}`;
+                if (priceKey !== lastPriceKey) fetchEthPrice();
+            }
+
+            updateMpNote();
+        }
+
+        // ── Mercado Pago ──
+        function updateMpNote() {
+            const el = document.getElementById('mp-note');
+            if (!el) return;
+            const usd = CONFIG.PRICE_USD_PHYSICAL;
+            if (arsRate) {
+                const ars = Math.round(usd * arsRate);
+                el.textContent = `El link te pide ingresar el monto: $${ars.toLocaleString('es-AR')} ARS (≈ USD ${usd})`;
+            } else {
+                el.textContent = `El link te pide ingresar el monto: el equivalente en pesos a USD ${usd}`;
+            }
+        }
+
+        async function fetchArsRate() {
+            try {
+                const resp = await fetch(CONFIG.ARS_RATE_API);
+                const data = await resp.json();
+                if (data && data.venta) {
+                    arsRate = Number(data.venta);
+                    updateMpNote();
+                }
+            } catch (err) {
+                console.warn('No se pudo obtener la cotización ARS:', err);
+            }
+        }
+
+        function onMpClick() {
+            // El link abre en otra pestaña; acá pedimos los datos para coordinar el envío.
+            shippingMode = 'mercadopago';
+            const usd = CONFIG.PRICE_USD_PHYSICAL;
+            const arsTxt = arsRate ? ` ($${Math.round(usd * arsRate).toLocaleString('es-AR')} ARS aprox.)` : '';
+            document.getElementById('shipping-form-title').textContent = '📦 Completá tus datos de envío';
+            document.getElementById('shipping-form-sub').textContent =
+                `Pagaste con Mercado Pago${arsTxt}: verificamos el pago y te enviamos el PDF por email + el libro (~10 días)`;
+            document.getElementById('sh-postal-fields').style.display = 'block';
+            document.getElementById('sh-phone').placeholder = 'WhatsApp / teléfono';
+            document.getElementById('sh-notes').placeholder = 'Contanos desde qué mail/nombre pagaste en Mercado Pago (opcional)';
+            document.getElementById('shipping-form-section').classList.add('visible');
+            setTimeout(() => document.getElementById('shipping-form-section').scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
         }
 
         // ── UI helpers ──
@@ -1346,17 +1541,20 @@
             })();
         }
 
-        // ── Precio Chainlink ──
+        // ── Precio Chainlink (en la red elegida) ──
         async function fetchEthPrice() {
+            const net = NETWORKS[selectedNetwork];
             try {
-                const readProvider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
-                const feed = new ethers.Contract(CONFIG.CHAINLINK_FEED, CHAINLINK_ABI, readProvider);
-                const [decimals, roundData] = await Promise.all([feed.decimals(), feed.latestRoundData()]);
+                const [decimals, roundData] = await withRpcFallback(net, (readProvider) => {
+                    const feed = new ethers.Contract(net.feed, CHAINLINK_ABI, readProvider);
+                    return Promise.all([feed.decimals(), feed.latestRoundData()]);
+                });
                 const price = Number(roundData.answer) / Math.pow(10, Number(decimals));
                 const priceUSD = getCurrentPriceUSD();
                 const ethNeeded = priceUSD / price;
                 ethAmountWei = ethers.parseEther((ethNeeded * (1 + CONFIG.SLIPPAGE)).toFixed(8));
                 priceEthDisplay.innerHTML = `<strong>${ethNeeded.toFixed(5)}</strong> ETH`;
+                lastPriceKey = `${selectedFormat}|${selectedNetwork}`;
                 return true;
             } catch (err) {
                 console.error("Chainlink error:", err);
@@ -1365,15 +1563,19 @@
             }
         }
 
-        // ── Financiamiento soberano (lee balance on-chain de la wallet de pago) ──
+        // ── Financiamiento soberano (suma balances on-chain en ambas redes) ──
         async function fetchFunding() {
             const raisedEl = document.getElementById('funding-raised');
             const fillEl = document.getElementById('funding-fill');
             if (!raisedEl || !fillEl) return;
             try {
-                const readProvider = new ethers.JsonRpcProvider(CONFIG.RPC_URL);
-                const balanceWei = await readProvider.getBalance(CONFIG.PAYMENT_ADDRESS);
-                const raisedEth = parseFloat(ethers.formatEther(balanceWei));
+                const balances = await Promise.allSettled(Object.values(NETWORKS).map(net =>
+                    withRpcFallback(net, (p) => p.getBalance(CONFIG.PAYMENT_ADDRESS))
+                ));
+                const ok = balances.filter(b => b.status === 'fulfilled');
+                if (ok.length === 0) throw new Error('sin RPC disponible');
+                const totalWei = ok.reduce((acc, b) => acc + b.value, 0n);
+                const raisedEth = parseFloat(ethers.formatEther(totalWei));
                 const goal = CONFIG.FUNDING_GOAL_ETH;
                 const pct = Math.min(100, (raisedEth / goal) * 100);
 
@@ -1393,6 +1595,7 @@
 
         // ── Conectar wallet ──
         async function connectWallet() {
+            const net = NETWORKS[selectedNetwork];
             try {
                 let modal = window.__web3modal;
                 if (!modal) {
@@ -1424,14 +1627,14 @@
                 signer = await provider.getSigner();
 
                 const network = await provider.getNetwork();
-                if (Number(network.chainId) !== CONFIG.CHAIN_ID) {
+                if (Number(network.chainId) !== net.chainId) {
                     try {
-                        await walletProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x' + CONFIG.CHAIN_ID.toString(16) }] });
+                        await walletProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x' + net.chainId.toString(16) }] });
                         provider = new ethers.BrowserProvider(modal.getWalletProvider());
                         signer = await provider.getSigner();
                     } catch (switchErr) {
                         if (switchErr.code === 4902) {
-                            await walletProvider.request({ method: 'wallet_addEthereumChain', params: [{ chainId: '0x' + CONFIG.CHAIN_ID.toString(16), chainName: CONFIG.CHAIN_NAME, rpcUrls: [CONFIG.RPC_URL], nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, blockExplorerUrls: [CONFIG.EXPLORER] }] });
+                            await walletProvider.request({ method: 'wallet_addEthereumChain', params: [{ chainId: '0x' + net.chainId.toString(16), chainName: net.name, rpcUrls: net.rpcs, nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, blockExplorerUrls: [net.explorer] }] });
                         } else throw switchErr;
                     }
                 }
@@ -1444,8 +1647,10 @@
             }
         }
 
-        // ── Flujo principal ──
+        // ── Flujo principal (crypto) ──
         async function handlePurchase() {
+            const net = NETWORKS[selectedNetwork];
+            shippingMode = 'crypto';
             mintBtn.disabled = true;
             mintBtn.textContent = 'Conectando...';
             clearStatus();
@@ -1454,14 +1659,14 @@
             setStatus('🔄 Consultando precio en Chainlink...');
             if (!(await fetchEthPrice())) {
                 setStatus('No se pudo obtener el precio. Recargá la página.', true);
-                mintBtn.disabled = false; mintBtn.textContent = 'Conectar Wallet y Comprar';
+                mintBtn.disabled = false; mintBtn.textContent = BTN_IDLE;
                 return;
             }
 
             // 2. Wallet
             clearStatus();
             if (!(await connectWallet())) {
-                mintBtn.disabled = false; mintBtn.textContent = 'Conectar Wallet y Comprar';
+                mintBtn.disabled = false; mintBtn.textContent = BTN_IDLE;
                 return;
             }
 
@@ -1478,7 +1683,7 @@
                 if (err.code === 4001 || err.code === 'ACTION_REJECTED') setStatus('Transacción cancelada.', true);
                 else if (err.code === 'INSUFFICIENT_FUNDS') setStatus('Saldo insuficiente para el pago + gas.', true);
                 else setStatus(`Error: ${err.message}`, true);
-                mintBtn.disabled = false; mintBtn.textContent = 'Conectar Wallet y Comprar';
+                mintBtn.disabled = false; mintBtn.textContent = BTN_IDLE;
                 return;
             }
 
@@ -1502,7 +1707,7 @@
                 return;
             }
 
-            // 5. Verificar con Firebase Function
+            // 5. Verificar con el Worker
             setStatus('🔐 Verificando pago...');
             mintBtn.textContent = 'Verificando...';
 
@@ -1511,7 +1716,7 @@
                 const resp = await fetch(`${CONFIG.API_BASE}/verifyPayment`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ txHash: tx.hash, address, format: selectedFormat }),
+                    body: JSON.stringify({ txHash: tx.hash, address, format: selectedFormat, network: net.key, lang: selectedLang, country: selectedCountry }),
                 });
                 const data = await resp.json();
                 if (!resp.ok || !data.token) {
@@ -1532,32 +1737,25 @@
 
             downloadLink.href = `${CONFIG.API_BASE}/download?token=${token}`;
 
-            const formatLabels = { digital: 'Digital 📱', physical: 'Digital + Físico 📚', pickup: 'Digital + Retiro en persona 🤝' };
+            const formatLabels = { digital: 'Digital 📱', physical: 'Físico + Digital 📚' };
             document.getElementById('r-status').textContent = '✓ Confirmado on-chain';
             document.getElementById('r-format').textContent = formatLabels[selectedFormat] || selectedFormat;
-            document.getElementById('r-network').textContent = CONFIG.CHAIN_NAME;
+            document.getElementById('r-network').textContent = net.name;
             document.getElementById('r-amount').textContent = `${parseFloat(ethers.formatEther(ethAmountWei)).toFixed(6)} ETH ≈ $${getCurrentPriceUSD()}`;
             document.getElementById('r-block').textContent = `#${receipt.blockNumber}`;
-            document.getElementById('r-hash').innerHTML = `<a href="${CONFIG.EXPLORER}/tx/${tx.hash}" target="_blank">${tx.hash.slice(0, 12)}...${tx.hash.slice(-6)}</a>`;
+            document.getElementById('r-hash').innerHTML = `<a href="${net.explorer}/tx/${tx.hash}" target="_blank">${tx.hash.slice(0, 12)}...${tx.hash.slice(-6)}</a>`;
 
             mintBtn.textContent = '¡Acceso concedido!';
             mintBtn.style.background = 'var(--success)';
             resultSection.style.display = 'block';
 
-            // Mostrar form post-pago si compró físico o retiro
+            // Físico: pedir datos de envío
             if (selectedFormat === 'physical') {
                 document.getElementById('shipping-form-title').textContent = '📦 Completá tus datos de envío';
-                document.getElementById('shipping-form-sub').textContent = 'Para coordinar el envío postal del libro físico';
+                document.getElementById('shipping-form-sub').textContent = 'Para coordinar el envío postal del libro físico (~10 días en Argentina)';
                 document.getElementById('sh-postal-fields').style.display = 'block';
                 document.getElementById('sh-phone').placeholder = 'WhatsApp / teléfono (opcional)';
                 document.getElementById('sh-notes').placeholder = 'Notas adicionales para el envío (opcional)';
-                document.getElementById('shipping-form-section').classList.add('visible');
-            } else if (selectedFormat === 'pickup') {
-                document.getElementById('shipping-form-title').textContent = '🤝 Coordiná tu retiro en persona';
-                document.getElementById('shipping-form-sub').textContent = 'Cowork de Crecimiento · CABA · Te contactamos por WhatsApp';
-                document.getElementById('sh-postal-fields').style.display = 'none';
-                document.getElementById('sh-phone').placeholder = 'WhatsApp (para coordinar día y horario)';
-                document.getElementById('sh-notes').placeholder = 'Días/horarios de preferencia (opcional)';
                 document.getElementById('shipping-form-section').classList.add('visible');
             }
 
@@ -1591,6 +1789,9 @@
 
             const payload = {
                 delivery_type: selectedFormat,
+                payment_method: shippingMode,       // crypto | mercadopago
+                country: selectedCountry,
+                lang: selectedLang,
                 name,
                 email,
                 phone,
@@ -1619,7 +1820,9 @@
                 console.warn('Shipping endpoint error, logging locally:', payload);
                 btn.style.display = 'none';
                 document.getElementById('shipping-sent-msg').style.display = 'block';
-                document.getElementById('shipping-sent-msg').textContent = `✓ Datos guardados. Si no recibís confirmación en 48hs, contactanos con tu Tx Hash: ${completedTxHash?.slice(0, 12)}...`;
+                document.getElementById('shipping-sent-msg').textContent = completedTxHash
+                    ? `✓ Datos guardados. Si no recibís confirmación en 48hs, contactanos con tu Tx Hash: ${completedTxHash.slice(0, 12)}...`
+                    : '✓ Datos guardados. Si no recibís confirmación en 48hs, contactanos.';
             }
         }
 
@@ -1648,13 +1851,14 @@
                 const data = await resp.json();
                 if (data.purchases && data.purchases.length > 0) {
                     const latest = data.purchases[0];
+                    const explorer = latest.network === 'ethereum' ? NETWORKS.mainnet.explorer : NETWORKS.arbitrum.explorer;
                     downloadLink.href = `${CONFIG.API_BASE}/download?token=${latest.id}`;
                     document.getElementById('r-status').textContent = '✓ Confirmado on-chain';
-                    document.getElementById('r-format').textContent = latest.format === 'physical' ? 'Digital + Físico 📚' : latest.format === 'pickup' ? 'Digital + Retiro 🤝' : 'Digital 📱';
+                    document.getElementById('r-format').textContent = latest.format === 'physical' ? 'Físico + Digital 📚' : latest.format === 'pickup' ? 'Digital + Retiro 🤝' : 'Digital 📱';
                     document.getElementById('r-network').textContent = latest.network;
                     document.getElementById('r-amount').textContent = `${parseFloat(latest.amountEth).toFixed(6)} ETH`;
                     document.getElementById('r-block').textContent = `#${latest.blockNumber}`;
-                    document.getElementById('r-hash').innerHTML = `<a href="${CONFIG.EXPLORER}/tx/${latest.txHash}" target="_blank">${latest.txHash.slice(0, 12)}...${latest.txHash.slice(-6)}</a>`;
+                    document.getElementById('r-hash').innerHTML = `<a href="${explorer}/tx/${latest.txHash}" target="_blank">${latest.txHash.slice(0, 12)}...${latest.txHash.slice(-6)}</a>`;
                     mintBtn.textContent = '✓ Ya compraste este libro';
                     mintBtn.style.background = 'var(--success)';
                     mintBtn.disabled = true;
@@ -1668,10 +1872,11 @@
 
         // ── Init ──
         mintBtn.addEventListener('click', handlePurchase);
-        fetchEthPrice();
+        updateUI();
         setInterval(fetchEthPrice, 60_000);
         fetchFunding();
         setInterval(fetchFunding, 60_000);
+        fetchArsRate();
 
         const modal = window.__web3modal;
         if (modal) {
@@ -1695,6 +1900,14 @@
             rpcUrl: 'https://arb1.arbitrum.io/rpc'
         };
 
+        const ethereumMainnet = {
+            chainId: 1,
+            name: 'Ethereum',
+            currency: 'ETH',
+            explorerUrl: 'https://etherscan.io',
+            rpcUrl: 'https://ethereum-rpc.publicnode.com'
+        };
+
         const modal = createWeb3Modal({
             ethersConfig: defaultConfig({
                 metadata: {
@@ -1704,7 +1917,7 @@
                     icons: ['https://avatars.githubusercontent.com/u/37784886']
                 }
             }),
-            chains: [arbitrumOne],
+            chains: [arbitrumOne, ethereumMainnet],
             projectId: 'd8de87632daad1b785acafc4b63ea717',
             themeMode: 'light',
         });
