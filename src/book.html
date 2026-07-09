@@ -23,6 +23,8 @@
             --border-strong: #0a0a0a;
             --surface: #f7f7f7;
             --ok: #10b981;
+            --pay: #2b9de3;        /* celeste azulado: botón de pago (ETH o fiat) */
+            --pay-hover: #1e8bd0;
         }
 
         *, *::before, *::after {
@@ -510,6 +512,83 @@
             text-underline-offset: 2px;
         }
 
+        /* ── Paybar: total + botón de pago (footer fijo en mobile) ── */
+        .paybar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.25rem;
+            margin-top: 2rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .paybar-total {
+            display: flex;
+            flex-direction: column;
+            gap: .15rem;
+            min-width: 0;
+        }
+
+        .paybar-main {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -.03em;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .paybar-main small {
+            font-family: 'DM Sans', sans-serif;
+            font-size: .8rem;
+            font-weight: 400;
+            color: var(--fg-subtle);
+        }
+
+        .paybar-sub {
+            color: var(--fg-subtle);
+            font-size: .74rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .paybar-btn {
+            width: auto;
+            flex: 1;
+            max-width: 300px;
+            background: var(--pay);
+            border-color: var(--pay);
+            color: #fff;
+        }
+
+        .paybar-btn:hover:not(:disabled) {
+            background: var(--pay-hover);
+            border-color: var(--pay-hover);
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .paybar {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 100;
+                margin: 0;
+                padding: .8rem 1.25rem calc(.8rem + env(safe-area-inset-bottom));
+                background: color-mix(in srgb, var(--bg) 92%, transparent);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                border-top: 1px solid var(--border);
+            }
+
+            body {
+                padding-bottom: 96px;
+            }
+        }
+
         /* ── Funding (compacto) ── */
         .funding {
             display: flex;
@@ -662,47 +741,12 @@
             <!-- NOTA -->
             <p class="note" id="delivery-note"></p>
 
-            <!-- PAGO CRYPTO -->
-            <div id="crypto-pay">
-                <div class="price-row">
-                    <span class="price-usd">$<span id="price-usd-amount">10</span> <span
-                            style="font-size:.85rem;font-weight:400;color:var(--fg-subtle)">USD</span></span>
-                    <span class="price-eth" id="price-eth-display">≈ … ETH</span>
-                </div>
-
-                <div class="sel" style="margin-bottom:1.1rem;">
-                    <p class="sel-label">Red</p>
-                    <div class="pills" id="network-pills">
-                        <button type="button" class="pill active" data-network="arbitrum" onclick="selectNetwork('arbitrum')">Arbitrum One</button>
-                        <button type="button" class="pill" data-network="mainnet" onclick="selectNetwork('mainnet')">Ethereum Mainnet</button>
-                    </div>
-                </div>
-
-                <button class="cta" id="mint-button">Pagar con ETH</button>
-                <p class="micro">MetaMask, WalletConnect y más · ¿Sin wallet? <a href="./dapp.html">Creá una gratis con
-                        ChatWallet</a></p>
-            </div>
-
-            <!-- MERCADO PAGO (físico · Argentina) -->
-            <div id="mp-pay" style="display:none;">
-                <div class="divider-or">o</div>
-                <a class="cta-ghost" id="mp-link" href="https://link.mercadopago.com.ar/energiasonora" target="_blank"
-                    rel="noopener" onclick="onMpClick()">Pagar con Mercado Pago</a>
-                <p class="micro" id="mp-note">Ingresá el equivalente en pesos a USD 35</p>
-            </div>
-
-            <!-- AMAZON (Francia) -->
-            <div id="amazon-pay" style="display:none;">
-                <a class="cta" id="amazon-link" href="https://www.amazon.fr/dp/B0H2V3GMH4" target="_blank"
-                    rel="noopener">Comprar en Amazon.fr →</a>
-                <p class="micro">Impresión bajo demanda · envío por Amazon Francia</p>
-            </div>
-
-            <!-- ESPAÑA -->
-            <div id="es-soon" style="display:none;">
-                <p class="micro" style="text-align:left; margin-top:0;">Muy pronto en Amazon.es. Mientras tanto, la
-                    <a href="#" onclick="selectFormat('digital'); return false;">edición digital</a> está disponible
-                    con descarga inmediata.</p>
+            <!-- MÉTODO DE PAGO -->
+            <div class="sel" id="pay-step">
+                <p class="sel-label">Pago</p>
+                <div class="pills" id="pay-pills"></div>
+                <p class="micro" id="wallet-micro" style="text-align:left;">MetaMask, WalletConnect y más · ¿Sin
+                    wallet? <a href="./dapp.html">Creá una gratis con ChatWallet</a></p>
             </div>
 
             <div id="status-box"></div>
@@ -737,6 +781,15 @@
                 </div>
                 <button class="cta" id="shipping-submit-btn" onclick="submitShipping()">Enviar datos</button>
                 <div id="shipping-sent-msg">✓ Recibimos tus datos. Te contactamos por email o WhatsApp para coordinar.</div>
+            </div>
+
+            <!-- TOTAL + PAGAR · footer fijo en mobile -->
+            <div class="paybar" id="paybar">
+                <div class="paybar-total">
+                    <span class="paybar-main" id="pb-main">$10 <small>USD</small></span>
+                    <span class="paybar-sub" id="pb-sub">≈ … ETH</span>
+                </div>
+                <button class="cta paybar-btn" id="pay-button">Pagar con ETH</button>
             </div>
 
             <!-- META SOBERANA (compacta) -->
@@ -826,17 +879,20 @@
         let selectedCountry = 'ar';       // ar | fr | es
         let selectedLang = 'es';          // es | fr
         let selectedNetwork = 'arbitrum'; // arbitrum | mainnet
+        let selectedPay = 'eth';          // eth | mp | amazon | none (según formato/país)
         let shippingMode = 'crypto';      // crypto | mercadopago
         let arsRate = null;
         let completedTxHash = null;
         let completedAddress = null;
         let lastPriceKey = null;   // "formato|red" ya consultado (evita spamear el RPC en cada click)
+        let lastEthText = null;    // último "≈ x ETH · red" resuelto para el paybar
 
         // ── DOM ──
-        const mintBtn = document.getElementById('mint-button');
+        const mintBtn = document.getElementById('pay-button');
         const statusBox = document.getElementById('status-box');
         const resultSection = document.getElementById('result-section');
-        const priceEthDisplay = document.getElementById('price-eth-display');
+        const pbMain = document.getElementById('pb-main');
+        const pbSub = document.getElementById('pb-sub');
         const downloadLink = document.getElementById('download-link');
 
         // ════════════════════════════════════════════════
@@ -866,11 +922,20 @@
             updateUI();
         }
 
-        function selectNetwork(n) {
-            selectedNetwork = n;
-            setActivePill('network-pills', 'network', n);
-            priceEthDisplay.textContent = '≈ … ETH';
-            fetchEthPrice();
+        function selectPay(v) {
+            if (v === 'mp') {
+                selectedPay = 'mp';
+            } else {
+                selectedPay = 'eth';
+                selectedNetwork = v;
+            }
+            setActivePill('pay-pills', 'pay', v);
+            document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
+            if (selectedPay === 'eth' && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
+                lastEthText = null;
+                fetchEthPrice();
+            }
+            updatePaybar();
         }
 
         function getCurrentPriceUSD() {
@@ -915,33 +980,57 @@
                 note.innerHTML = 'La edición física para <strong>España</strong> está en camino vía Amazon.es.';
             }
 
-            // Áreas de pago
-            const crypto = isCryptoFlow();
-            document.getElementById('crypto-pay').style.display = crypto ? 'block' : 'none';
-            document.getElementById('mp-pay').style.display = (physical && selectedCountry === 'ar') ? 'block' : 'none';
-            document.getElementById('amazon-pay').style.display = (physical && selectedCountry === 'fr') ? 'block' : 'none';
-            document.getElementById('es-soon').style.display = (physical && selectedCountry === 'es') ? 'block' : 'none';
-
-            // Precio (solo flujo crypto)
-            if (crypto) {
-                document.getElementById('price-usd-amount').textContent = getCurrentPriceUSD();
-                const priceKey = `${selectedFormat}|${selectedNetwork}`;
-                if (priceKey !== lastPriceKey) fetchEthPrice();
+            // Opciones de pago según formato/país
+            const opts = [];
+            if (isCryptoFlow()) {
+                opts.push(['arbitrum', 'ETH · Arbitrum'], ['mainnet', 'ETH · Mainnet']);
+                if (physical && selectedCountry === 'ar') opts.push(['mp', 'Pesos · Mercado Pago']);
             }
+            // normalizar la selección actual contra las opciones disponibles
+            const cur = selectedPay === 'mp' ? 'mp' : selectedNetwork;
+            const sel = opts.some(o => o[0] === cur) ? cur : (opts[0]?.[0] ?? null);
+            if (sel === 'mp') selectedPay = 'mp';
+            else if (sel) { selectedPay = 'eth'; selectedNetwork = sel; }
+            else selectedPay = (physical && selectedCountry === 'fr') ? 'amazon' : 'none';
 
-            updateMpNote();
+            document.getElementById('pay-pills').innerHTML = opts.map(([v, label]) =>
+                `<button type="button" class="pill${v === sel ? ' active' : ''}" data-pay="${v}" onclick="selectPay('${v}')">${label}</button>`
+            ).join('');
+            document.getElementById('pay-step').classList.toggle('hidden', opts.length === 0);
+            document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
+
+            if (selectedPay === 'eth' && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
+                lastEthText = null;
+                fetchEthPrice();
+            }
+            updatePaybar();
         }
 
-        // ── Mercado Pago ──
-        function updateMpNote() {
-            const el = document.getElementById('mp-note');
-            if (!el) return;
+        // ── Paybar: total + botón según el pago elegido ──
+        function updatePaybar() {
             const usd = getCurrentPriceUSD();
-            if (arsRate) {
-                const ars = Math.round(usd * arsRate);
-                el.textContent = `Ingresá el monto: $${ars.toLocaleString('es-AR')} ARS (≈ USD ${usd})`;
+            if (selectedPay === 'eth') {
+                pbMain.innerHTML = `$${usd} <small>USD</small>`;
+                pbSub.textContent = lastEthText || '≈ … ETH';
+                mintBtn.textContent = 'Pagar con ETH';
+                mintBtn.disabled = false;
+            } else if (selectedPay === 'mp') {
+                pbMain.innerHTML = `$${usd} <small>USD</small>`;
+                pbSub.textContent = arsRate
+                    ? `≈ $${Math.round(usd * arsRate).toLocaleString('es-AR')} ARS · Mercado Pago`
+                    : 'el equivalente en pesos · Mercado Pago';
+                mintBtn.textContent = 'Pagar con Mercado Pago';
+                mintBtn.disabled = false;
+            } else if (selectedPay === 'amazon') {
+                pbMain.innerHTML = `€ <small>EUR</small>`;
+                pbSub.textContent = 'precio en Amazon.fr · impresión bajo demanda';
+                mintBtn.textContent = 'Comprar en Amazon.fr →';
+                mintBtn.disabled = false;
             } else {
-                el.textContent = `Ingresá el equivalente en pesos a USD ${usd}`;
+                pbMain.textContent = '—';
+                pbSub.textContent = 'próximamente en Amazon.es';
+                mintBtn.textContent = 'Próximamente';
+                mintBtn.disabled = true;
             }
         }
 
@@ -951,7 +1040,7 @@
                 const data = await resp.json();
                 if (data && data.venta) {
                     arsRate = Number(data.venta);
-                    updateMpNote();
+                    updatePaybar();
                 }
             } catch (err) {
                 console.warn('No se pudo obtener la cotización ARS:', err);
@@ -959,7 +1048,7 @@
         }
 
         function onMpClick() {
-            // El link abre en otra pestaña; acá pedimos dirección + contacto para coordinar.
+            // El link ya se abrió en otra pestaña; acá pedimos dirección + contacto para coordinar.
             shippingMode = 'mercadopago';
             const usd = getCurrentPriceUSD();
             const arsTxt = arsRate ? ` ($${Math.round(usd * arsRate).toLocaleString('es-AR')} ARS aprox.)` : '';
@@ -1004,12 +1093,14 @@
                 const priceUSD = getCurrentPriceUSD();
                 const ethNeeded = priceUSD / price;
                 ethAmountWei = ethers.parseEther((ethNeeded * (1 + CONFIG.SLIPPAGE)).toFixed(8));
-                priceEthDisplay.innerHTML = `≈ <strong>${ethNeeded.toFixed(5)}</strong> ETH · ${net.name}`;
+                lastEthText = `≈ ${ethNeeded.toFixed(5)} ETH · ${net.name}`;
                 lastPriceKey = `${selectedFormat}|${selectedNetwork}`;
+                if (selectedPay === 'eth') updatePaybar();
                 return true;
             } catch (err) {
                 console.error("Chainlink error:", err);
-                priceEthDisplay.textContent = 'precio no disponible';
+                lastEthText = 'precio ETH no disponible';
+                if (selectedPay === 'eth') updatePaybar();
                 return false;
             }
         }
@@ -1326,7 +1417,17 @@
         }
 
         // ── Init ──
-        mintBtn.addEventListener('click', handlePurchase);
+        // El botón del paybar ejecuta el método de pago elegido
+        mintBtn.addEventListener('click', () => {
+            if (selectedPay === 'mp') {
+                window.open(CONFIG.MP_LINK, '_blank', 'noopener');
+                onMpClick();
+            } else if (selectedPay === 'amazon') {
+                window.open(CONFIG.AMAZON_FR, '_blank', 'noopener');
+            } else if (selectedPay === 'eth') {
+                handlePurchase();
+            }
+        });
         updateUI();
         setInterval(fetchEthPrice, 60_000);
         fetchFunding();
