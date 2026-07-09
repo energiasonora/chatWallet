@@ -101,8 +101,10 @@ function json(status, data) {
 // ════════════════════════════════════════════════
 
 async function verifyPayment(req, env, C) {
-  const { txHash, address, format, network } = await req.json().catch(() => ({}));
+  const { txHash, address, format, network, lang } = await req.json().catch(() => ({}));
   if (!txHash || !address) return json(400, { error: "txHash y address son requeridos" });
+
+  const langOk = ["es", "fr"].includes(lang) ? lang : "es";
 
   const netKey = network || "arbitrum-one";
   const net = C.NETWORKS[netKey];
@@ -156,9 +158,9 @@ async function verifyPayment(req, env, C) {
 
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO purchases (token, address, tx_hash, downloads, amount_eth, block_number, network, format, created_at, last_download_at)
-       VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, NULL)`
-    ).bind(token, addr, txH, ethers.formatEther(tx.value), receipt.blockNumber, netKey, format || null, now),
+      `INSERT INTO purchases (token, address, tx_hash, downloads, amount_eth, block_number, network, format, lang, created_at, last_download_at)
+       VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, NULL)`
+    ).bind(token, addr, txH, ethers.formatEther(tx.value), receipt.blockNumber, netKey, format || null, langOk, now),
     env.DB.prepare(
       `INSERT INTO used_tx_hashes (tx_hash, address, token, used_at) VALUES (?, ?, ?, ?)`
     ).bind(txH, addr, token, now),
@@ -171,12 +173,16 @@ async function download(url, env, C) {
   const token = url.searchParams.get("token");
   if (!token) return json(400, { error: "Token requerido" });
 
-  const row = await env.DB.prepare("SELECT token, format FROM purchases WHERE token = ?").bind(token).first();
+  const row = await env.DB.prepare("SELECT token, format, lang FROM purchases WHERE token = ?").bind(token).first();
   if (!row) return json(404, { error: "Token inválido" });
   if (row.format === "physical-only")
     return json(403, { error: "Tu compra es solo la edición física: no incluye el PDF" });
 
-  const obj = await env.BOOK_BUCKET.get(C.BOOK_FILE_KEY);
+  // Edición según idioma de la compra; si la FR no está subida a R2, cae a la ES.
+  const wantsFr = row.lang === "fr" && env.BOOK_FILE_KEY_FR;
+  let obj = wantsFr ? await env.BOOK_BUCKET.get(env.BOOK_FILE_KEY_FR) : null;
+  const servedFr = !!obj;
+  if (!obj) obj = await env.BOOK_BUCKET.get(C.BOOK_FILE_KEY);
   if (!obj) return json(404, { error: "Archivo no disponible" });
 
   // Contador de descargas
@@ -184,10 +190,11 @@ async function download(url, env, C) {
     "UPDATE purchases SET downloads = downloads + 1, last_download_at = ? WHERE token = ?"
   ).bind(Date.now(), token).run();
 
+  const filename = servedFr ? "Crypto-pour-Souverains.pdf" : "Crypto-para-Soberanos.pdf";
   return new Response(obj.body, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": 'attachment; filename="Crypto-para-Soberanos.pdf"',
+      "Content-Disposition": `attachment; filename="${filename}"`,
       ...CORS,
     },
   });

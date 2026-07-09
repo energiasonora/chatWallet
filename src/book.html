@@ -630,6 +630,15 @@
             <p class="lead">Las criptomonedas desde cero, desde la filosofía de la soberanía. Elegí cómo lo querés y
                 pagá con tu wallet — o como prefieras.</p>
 
+            <!-- IDIOMA (aplica a digital y físico) -->
+            <div class="sel" id="lang-step">
+                <p class="sel-label">Idioma</p>
+                <div class="pills" id="lang-pills">
+                    <button type="button" class="pill active" data-lang="es" onclick="selectLang('es')">Castellano</button>
+                    <button type="button" class="pill" data-lang="fr" onclick="selectLang('fr')">Français</button>
+                </div>
+            </div>
+
             <!-- FORMATO -->
             <div class="sel">
                 <p class="sel-label">Formato</p>
@@ -647,15 +656,6 @@
                     <button type="button" class="pill active" data-country="ar" onclick="selectCountry('ar')">Argentina</button>
                     <button type="button" class="pill" data-country="fr" onclick="selectCountry('fr')">Francia</button>
                     <button type="button" class="pill" data-country="es" onclick="selectCountry('es')">España</button>
-                </div>
-            </div>
-
-            <!-- IDIOMA -->
-            <div class="sel hidden" id="lang-step">
-                <p class="sel-label">Idioma</p>
-                <div class="pills" id="lang-pills">
-                    <button type="button" class="pill active" data-lang="es" onclick="selectLang('es')">Castellano</button>
-                    <button type="button" class="pill" data-lang="fr" onclick="selectLang('fr')">Français</button>
                 </div>
             </div>
 
@@ -889,20 +889,20 @@
             const physical = isPhysical();
             const withPdf = selectedFormat === 'physical';
 
-            // Pasos visibles
+            // Pasos visibles (el idioma aplica siempre; el país solo al físico)
             document.getElementById('country-step').classList.toggle('hidden', !physical);
-            document.getElementById('lang-step').classList.toggle('hidden', !physical);
 
-            // Tapa según idioma (físico en français → tapa FR).
+            // Tapa según idioma.
             // Las dos <img> viven en el HTML para que Parcel resuelva los assets.
-            const wantFr = physical && selectedLang === 'fr';
+            const wantFr = selectedLang === 'fr';
             document.getElementById('book-cover-es').style.display = wantFr ? 'none' : 'block';
             document.getElementById('book-cover-fr').style.display = wantFr ? 'block' : 'none';
 
             // Nota de entrega
             const note = document.getElementById('delivery-note');
             if (!physical) {
-                note.innerHTML = '<strong>PDF al instante</strong> tras el pago on-chain · edición en castellano.';
+                note.innerHTML = '<strong>PDF al instante</strong> tras el pago on-chain · edición en ' +
+                    (wantFr ? '<strong>français</strong>.' : 'castellano.');
             } else if (selectedCountry === 'ar') {
                 note.innerHTML = 'Impreso y encuadernado <strong>por el autor</strong> · envío a toda Argentina en <strong>~10 días</strong>' +
                     (withPdf ? ' · <strong>incluye el PDF</strong>.' : ' · no incluye la edición digital.') +

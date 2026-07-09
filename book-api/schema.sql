@@ -14,10 +14,12 @@ CREATE TABLE IF NOT EXISTS purchases (
   amount_eth       TEXT,
   block_number     INTEGER,
   network          TEXT,
-  format           TEXT,          -- digital | physical | pickup (se guarda; el cobro por formato llega en Capa 1)
+  format           TEXT,          -- digital | physical (= físico+digital) | physical-only | pickup (legacy)
+  lang             TEXT,          -- es | fr → qué edición del PDF sirve /download
   created_at       INTEGER,       -- epoch ms
   last_download_at INTEGER        -- epoch ms
 );
+-- DB ya existente (prod): correr una vez → ALTER TABLE purchases ADD COLUMN lang TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_purchases_address ON purchases(address);
 
