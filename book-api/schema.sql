@@ -31,10 +31,15 @@ CREATE TABLE IF NOT EXISTS used_tx_hashes (
   used_at  INTEGER               -- epoch ms
 );
 
--- Pedidos físicos: dirección + contacto para coordinar el envío (crypto o Mercado Pago).
+-- Pedidos: dirección + contacto para coordinar la entrega (crypto o Mercado Pago).
 -- Consultar:  wrangler d1 execute chatwallet-purchases --remote --command "SELECT * FROM orders ORDER BY created_at DESC"
+-- Avanzar etapa (la ve el comprador en book.html?pedido=CW-XXXXXX):
+--   wrangler d1 execute chatwallet-purchases --remote --command "UPDATE orders SET stage=2 WHERE public_id='CW-XXXXXX'"
+--   stage: 1 = pedido creado · 2 = imprimiendo (físico) / verificando pago (digital) · 3 = en distribución / PDF enviado
 CREATE TABLE IF NOT EXISTS orders (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  public_id      TEXT UNIQUE,       -- "CW-XXXXXX": id de seguimiento que ve el comprador
+  stage          INTEGER NOT NULL DEFAULT 1,
   created_at     INTEGER NOT NULL,  -- epoch ms
   payment_method TEXT,              -- crypto | mercadopago
   format         TEXT,

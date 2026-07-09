@@ -151,13 +151,15 @@
         }
 
         /* ── Demo: primeras páginas ── */
-        #demo-modal {
+        #demo-modal,
+        #track-modal {
             position: fixed;
             inset: 0;
             z-index: 200;
         }
 
-        #demo-modal[hidden] {
+        #demo-modal[hidden],
+        #track-modal[hidden] {
             display: none;
         }
 
@@ -242,6 +244,109 @@
                 border-radius: 0;
                 border: none;
             }
+        }
+
+        /* ── Seguimiento de pedido ── */
+        .track-panel {
+            height: auto;
+            max-height: 90vh;
+            max-width: 420px;
+        }
+
+        .track-body {
+            padding: 1.5rem 1.5rem 1.75rem;
+            overflow-y: auto;
+        }
+
+        .track-meta {
+            color: var(--fg-subtle);
+            font-size: .76rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .timeline {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .timeline li {
+            position: relative;
+            padding: 0 0 1.75rem 2rem;
+        }
+
+        .timeline li:last-child {
+            padding-bottom: 0;
+        }
+
+        .timeline li::before {
+            /* punto */
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            background: var(--bg);
+        }
+
+        .timeline li::after {
+            /* línea */
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 20px;
+            bottom: 2px;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .timeline li:last-child::after {
+            display: none;
+        }
+
+        .timeline li.done::before {
+            background: var(--pay);
+            border-color: var(--pay);
+        }
+
+        .timeline li.done::after {
+            background: var(--pay);
+        }
+
+        .timeline li.active::before {
+            border-color: var(--pay);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--pay) 22%, transparent);
+        }
+
+        .timeline .t-title {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: .9rem;
+            color: var(--fg-subtle);
+        }
+
+        .timeline li.done .t-title,
+        .timeline li.active .t-title {
+            color: var(--fg);
+        }
+
+        .timeline .t-desc {
+            color: var(--fg-subtle);
+            font-size: .76rem;
+            line-height: 1.5;
+            margin-top: .15rem;
+        }
+
+        .track-error {
+            color: var(--fg-muted);
+            font-size: .85rem;
+            line-height: 1.6;
+            text-align: center;
+            padding: 1rem 0;
         }
 
         .cert-link {
@@ -863,10 +968,11 @@
             <!-- NOTA -->
             <p class="note" id="delivery-note"></p>
 
-            <!-- MÉTODO DE PAGO -->
+            <!-- MÉTODO DE PAGO: crypto o fiat, y la red si es crypto -->
             <div class="sel" id="pay-step">
                 <p class="sel-label">Pago</p>
-                <div class="pills" id="pay-pills"></div>
+                <div class="pills" id="method-pills"></div>
+                <div class="pills" id="net-pills" style="margin-top:.5rem;"></div>
                 <p class="micro" id="wallet-micro" style="text-align:left;">MetaMask, WalletConnect y más · ¿Sin
                     wallet? <a href="./dapp.html">Creá una gratis con ChatWallet</a></p>
             </div>
@@ -929,6 +1035,18 @@
                 registrado en <a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank"
                     rel="noopener">musiclog.org</a> · Contacto:
                 <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
+        </div>
+    </div>
+
+    <!-- SEGUIMIENTO DE PEDIDO (book.html?pedido=CW-XXXXXX) -->
+    <div id="track-modal" hidden>
+        <div class="demo-backdrop" onclick="closeTrack()"></div>
+        <div class="demo-panel track-panel">
+            <div class="demo-head">
+                <span id="track-title">Seguimiento del pedido</span>
+                <button class="demo-close" onclick="closeTrack()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="track-body" id="track-body"></div>
         </div>
     </div>
 
@@ -1057,16 +1175,22 @@
             updateUI();
         }
 
-        function selectPay(v) {
-            if (v === 'mp') {
-                selectedPay = 'mp';
-            } else {
-                selectedPay = 'eth';
-                selectedNetwork = v;
-            }
-            setActivePill('pay-pills', 'pay', v);
+        function selectMethod(m) {
+            selectedPay = (m === 'fiat') ? 'mp' : 'eth';
+            setActivePill('method-pills', 'method', m);
+            document.getElementById('net-pills').style.display = m === 'crypto' ? 'flex' : 'none';
             document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
             if (selectedPay === 'eth' && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
+                lastEthText = null;
+                fetchEthPrice();
+            }
+            updatePaybar();
+        }
+
+        function selectNet(n) {
+            selectedNetwork = n;
+            setActivePill('net-pills', 'net', n);
+            if (`${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
                 lastEthText = null;
                 fetchEthPrice();
             }
@@ -1115,23 +1239,24 @@
                 note.innerHTML = 'La edición física para <strong>España</strong> está en camino vía Amazon.es.';
             }
 
-            // Opciones de pago según formato/país
-            const opts = [];
+            // Pago en dos niveles: método (crypto | fiat) y, si es crypto, la red.
+            // FR/ES físico van por Amazon (sin selector).
             if (isCryptoFlow()) {
-                opts.push(['arbitrum', 'ETH · Arbitrum'], ['mainnet', 'ETH · Mainnet']);
-                if (physical && selectedCountry === 'ar') opts.push(['mp', 'Pesos · Mercado Pago']);
+                if (selectedPay !== 'mp') selectedPay = 'eth';
+                const method = selectedPay === 'mp' ? 'fiat' : 'crypto';
+                document.getElementById('method-pills').innerHTML =
+                    `<button type="button" class="pill${method === 'crypto' ? ' active' : ''}" data-method="crypto" onclick="selectMethod('crypto')">Crypto</button>` +
+                    `<button type="button" class="pill${method === 'fiat' ? ' active' : ''}" data-method="fiat" onclick="selectMethod('fiat')">Pesos · Mercado Pago</button>`;
+                // redes crypto (próximamente: BTC, BCH, XMR…)
+                document.getElementById('net-pills').innerHTML =
+                    `<button type="button" class="pill${selectedNetwork === 'arbitrum' ? ' active' : ''}" data-net="arbitrum" onclick="selectNet('arbitrum')">ETH · Arbitrum</button>` +
+                    `<button type="button" class="pill${selectedNetwork === 'mainnet' ? ' active' : ''}" data-net="mainnet" onclick="selectNet('mainnet')">ETH · Mainnet</button>`;
+                document.getElementById('net-pills').style.display = method === 'crypto' ? 'flex' : 'none';
+                document.getElementById('pay-step').classList.remove('hidden');
+            } else {
+                selectedPay = (physical && selectedCountry === 'fr') ? 'amazon' : 'none';
+                document.getElementById('pay-step').classList.add('hidden');
             }
-            // normalizar la selección actual contra las opciones disponibles
-            const cur = selectedPay === 'mp' ? 'mp' : selectedNetwork;
-            const sel = opts.some(o => o[0] === cur) ? cur : (opts[0]?.[0] ?? null);
-            if (sel === 'mp') selectedPay = 'mp';
-            else if (sel) { selectedPay = 'eth'; selectedNetwork = sel; }
-            else selectedPay = (physical && selectedCountry === 'fr') ? 'amazon' : 'none';
-
-            document.getElementById('pay-pills').innerHTML = opts.map(([v, label]) =>
-                `<button type="button" class="pill${v === sel ? ' active' : ''}" data-pay="${v}" onclick="selectPay('${v}')">${label}</button>`
-            ).join('');
-            document.getElementById('pay-step').classList.toggle('hidden', opts.length === 0);
             document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
 
             if (selectedPay === 'eth' && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
@@ -1183,15 +1308,17 @@
         }
 
         function onMpClick() {
-            // El link ya se abrió en otra pestaña; acá pedimos dirección + contacto para coordinar.
+            // El link ya se abrió en otra pestaña; acá pedimos los datos para crear el pedido.
             shippingMode = 'mercadopago';
             const usd = getCurrentPriceUSD();
             const arsTxt = arsRate ? ` ($${Math.round(usd * arsRate).toLocaleString('es-AR')} ARS aprox.)` : '';
-            document.getElementById('shipping-form-title').textContent = 'Datos de envío';
-            document.getElementById('shipping-form-sub').textContent =
-                `Pagaste con Mercado Pago${arsTxt}: verificamos el pago y te enviamos el libro (~10 días)` +
-                (selectedFormat === 'physical' ? ' + el PDF por email.' : '.');
-            document.getElementById('sh-postal-fields').style.display = 'flex';
+            const physical = isPhysical();
+            document.getElementById('shipping-form-title').textContent = physical ? 'Datos de envío' : 'Tus datos';
+            document.getElementById('shipping-form-sub').textContent = physical
+                ? `Pagaste con Mercado Pago${arsTxt}: verificamos el pago y te enviamos el libro (~10 días)` +
+                  (selectedFormat === 'physical' ? ' + el PDF por email.' : '.')
+                : `Pagaste con Mercado Pago${arsTxt}: verificamos el pago y te enviamos el PDF por email.`;
+            document.getElementById('sh-postal-fields').style.display = physical ? 'flex' : 'none';
             document.getElementById('sh-notes').placeholder = 'Contanos desde qué mail/nombre pagaste en Mercado Pago (opcional)';
             document.getElementById('shipping-form-section').classList.add('visible');
             setTimeout(() => document.getElementById('shipping-form-section').scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
@@ -1216,7 +1343,54 @@
             document.body.style.overflow = '';
         }
 
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDemo(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDemo(); closeTrack(); } });
+
+        // ── Seguimiento de pedido (?pedido=CW-XXXXXX) ──
+        // Etapas: 1 pedido creado · 2 imprimiendo (físico) / verificando pago (digital) · 3 en distribución / PDF enviado
+        function trackSteps(format) {
+            const digital = format === 'digital';
+            return [
+                ['Pedido creado', digital ? 'Recibimos tus datos y el aviso de pago.' : 'Recibimos tus datos y el aviso de pago.'],
+                digital ? ['Verificando el pago', 'Confirmamos tu pago para liberar la descarga.']
+                        : ['Imprimiendo', 'Tu copia se imprime y encuaderna artesanalmente.'],
+                digital ? ['PDF enviado', 'Te llega por email a la casilla que dejaste.']
+                        : ['En distribución', 'El libro viaja hacia tu dirección (~10 días).'],
+            ];
+        }
+
+        async function openTracking(orderId) {
+            const modal = document.getElementById('track-modal');
+            const body = document.getElementById('track-body');
+            document.getElementById('track-title').textContent = `Pedido ${orderId}`;
+            body.innerHTML = '<p class="track-error">Buscando tu pedido…</p>';
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+            try {
+                const resp = await fetch(`${CONFIG.API_BASE}/orderStatus?id=${encodeURIComponent(orderId)}`);
+                if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || 'error');
+                const o = await resp.json();
+                const stage = Math.min(3, Math.max(1, Number(o.stage) || 1));
+                const fecha = o.createdAt ? new Date(o.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+                const fmtLabel = { digital: 'Digital', 'physical-only': 'Físico', physical: 'Físico + digital' }[o.format] || o.format || '—';
+                body.innerHTML =
+                    `<p class="track-meta">${fmtLabel}${o.lang === 'fr' ? ' · français' : ''}${fecha ? ' · creado el ' + fecha : ''}</p>` +
+                    '<ol class="timeline">' +
+                    trackSteps(o.format).map(([t, d], i) => {
+                        const n = i + 1;
+                        const cls = n < stage ? 'done' : n === stage ? (stage === 3 ? 'done' : 'active') : '';
+                        return `<li class="${cls}"><div class="t-title">${t}</div><div class="t-desc">${d}</div></li>`;
+                    }).join('') +
+                    '</ol>';
+            } catch (err) {
+                body.innerHTML = `<p class="track-error">No encontramos el pedido <strong>${orderId}</strong>.<br>` +
+                    `Revisá el enlace o escribinos a <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a>.</p>`;
+            }
+        }
+
+        function closeTrack() {
+            document.getElementById('track-modal').hidden = true;
+            document.body.style.overflow = '';
+        }
 
         // ── UI helpers ──
         function setStatus(html, isError = false) {
@@ -1510,14 +1684,29 @@
             };
 
             const results = await Promise.allSettled([
-                fetch(`${CONFIG.API_BASE}/order`, opts),        // D1 propia (soberano)
+                fetch(`${CONFIG.API_BASE}/order`, opts),        // D1 propia (soberano) → devuelve orderId
                 fetch(CONFIG.SHIPPING_ENDPOINT, opts),          // email vía Formspree
             ]);
             const anyOk = results.some(r => r.status === 'fulfilled' && r.value.ok);
 
+            // id de seguimiento (si la D1 respondió)
+            let orderId = null;
+            try {
+                if (results[0].status === 'fulfilled' && results[0].value.ok) {
+                    orderId = (await results[0].value.json()).orderId || null;
+                }
+            } catch (e) { }
+
             if (anyOk) {
                 btn.style.display = 'none';
-                document.getElementById('shipping-sent-msg').style.display = 'block';
+                const msg = document.getElementById('shipping-sent-msg');
+                msg.style.display = 'block';
+                if (orderId) {
+                    const url = `${location.pathname}?pedido=${orderId}`;
+                    msg.innerHTML = `✓ Pedido <strong>${orderId}</strong> creado.<br>` +
+                        `Seguilo cuando quieras desde <a href="${url}">este enlace</a> — guardalo.`;
+                    history.replaceState(null, '', url);
+                }
             } else {
                 console.warn('No se pudo registrar el pedido:', payload);
                 btn.style.display = 'none';
@@ -1589,6 +1778,10 @@
         fetchFunding();
         setInterval(fetchFunding, 60_000);
         fetchArsRate();
+
+        // ¿Llegó con un link de seguimiento?
+        const pedidoParam = new URLSearchParams(location.search).get('pedido');
+        if (pedidoParam) openTracking(pedidoParam.toUpperCase());
 
         const modal = window.__web3modal;
         if (modal) {

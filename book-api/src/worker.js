@@ -200,24 +200,57 @@ async function download(url, env, C) {
   });
 }
 
-// Pedido físico: guarda dirección + contacto en D1 para coordinar el envío.
+// Pedido: guarda dirección + contacto en D1 y devuelve un id público de seguimiento.
 // Leerlos:  wrangler d1 execute chatwallet-purchases --remote --command "SELECT * FROM orders ORDER BY created_at DESC"
+// Avanzar:  UPDATE orders SET stage=2 WHERE public_id='CW-XXXXXX'   (1 creado · 2 imprimiendo/verificando · 3 distribución/enviado)
+function makeOrderId() {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // sin 0/O/1/I/L
+  const rnd = crypto.getRandomValues(new Uint8Array(6));
+  return "CW-" + [...rnd].map((b) => chars[b % chars.length]).join("");
+}
+
 async function createOrder(req, env) {
   const b = await req.json().catch(() => ({}));
   const s = (v, max = 500) => (typeof v === "string" ? v.slice(0, max) : null);
   const name = s(b.name, 120), email = s(b.email, 200);
   if (!name || !email) return json(400, { error: "nombre y email son requeridos" });
 
-  await env.DB.prepare(
-    `INSERT INTO orders (created_at, payment_method, format, country, lang, name, email, phone, address, city, cp, notes, tx_hash, wallet_address)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(
-    Date.now(), s(b.payment_method, 30), s(b.format, 30), s(b.country, 10), s(b.lang, 10),
-    name, email, s(b.phone, 60), s(b.address), s(b.city, 200), s(b.cp, 30), s(b.notes, 1000),
-    s(b.txHash, 80), s(b.walletAddress, 60)
-  ).run();
+  // reintentar ante la (improbable) colisión del public_id
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const publicId = makeOrderId();
+    try {
+      await env.DB.prepare(
+        `INSERT INTO orders (public_id, stage, created_at, payment_method, format, country, lang, name, email, phone, address, city, cp, notes, tx_hash, wallet_address)
+         VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        publicId, Date.now(), s(b.payment_method, 30), s(b.format, 30), s(b.country, 10), s(b.lang, 10),
+        name, email, s(b.phone, 60), s(b.address), s(b.city, 200), s(b.cp, 30), s(b.notes, 1000),
+        s(b.txHash, 80), s(b.walletAddress, 60)
+      ).run();
+      return json(200, { success: true, orderId: publicId });
+    } catch (e) {
+      if (!String(e?.message || e).includes("UNIQUE")) throw e;
+    }
+  }
+  return json(500, { error: "No se pudo generar el id del pedido" });
+}
 
-  return json(200, { success: true });
+// Seguimiento público del pedido (sin datos personales).
+async function orderStatus(url, env) {
+  const id = (url.searchParams.get("id") || "").toUpperCase();
+  if (!id) return json(400, { error: "id requerido" });
+  const row = await env.DB.prepare(
+    "SELECT public_id, stage, format, country, lang, created_at FROM orders WHERE public_id = ?"
+  ).bind(id).first();
+  if (!row) return json(404, { error: "Pedido no encontrado" });
+  return json(200, {
+    orderId: row.public_id,
+    stage: row.stage,
+    format: row.format,
+    country: row.country,
+    lang: row.lang,
+    createdAt: row.created_at,
+  });
 }
 
 async function purchases(url, env) {
@@ -257,6 +290,7 @@ export default {
     try {
       if (request.method === "POST" && path === "/verifyPayment") return await verifyPayment(request, env, C);
       if (request.method === "POST" && path === "/order") return await createOrder(request, env);
+      if (request.method === "GET" && path === "/orderStatus") return await orderStatus(url, env);
       if (request.method === "GET" && path === "/download") return await download(url, env, C);
       if (request.method === "GET" && path === "/purchases") return await purchases(url, env);
       return json(404, { error: "Endpoint no encontrado" });
