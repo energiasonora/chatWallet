@@ -27,7 +27,10 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Major+Mono+Display&display=swap"
         rel="stylesheet">
-    <link rel="manifest" href="manifest.json">
+    <!-- Mismo manifest que la landing (site.webmanifest): un solo start_url (/dapp.html) y un solo id
+         (/chatwallet-dapp) sin riesgo de que las dos copias diverjan. OJO: una PWA ya instalada congela
+         su start_url — cambios acá requieren desinstalar + reinstalar en el dispositivo. -->
+    <link rel="manifest" href="./site.webmanifest">
     <meta name="theme-color" content="#111827">
     <style>
         :root {
@@ -1144,7 +1147,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.75 alpha</p>
+            <p class="text-sm text-gray-400">v 1.76 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2389,6 +2392,16 @@
             </div>
         </div>
 
+        <!-- Recordatorio de backup: amarillo y persistente hasta que el usuario confirme
+             "He guardado mis claves". bottom-40 para no pisar el banner de instalar PWA (bottom-24). -->
+        <div id="backupNagBanner"
+            class="fixed bottom-40 left-1/2 -translate-x-1/2 w-11/12 max-w-md bg-yellow-500 text-gray-900 p-3 rounded-lg shadow-xl z-30 hidden items-center justify-between cursor-pointer">
+            <span class="text-sm font-semibold">⚠️ <span data-i18n-key="backup_nag_text">Respaldá tu frase secreta: sin
+                    backup, perder este dispositivo es perder tu billetera.</span></span>
+            <span class="bg-gray-900 text-yellow-300 px-3 py-1 rounded text-sm font-bold ml-3 shrink-0"
+                data-i18n-key="backup_nag_cta">Respaldar</span>
+        </div>
+
         <!-- Modal Añadir/Editar Contacto -->
         <div id="addContactModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-40">
             <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
@@ -2574,7 +2587,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.75</p>
+                    <p id="settingsVersionText">Versión 1.76</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -3103,6 +3116,11 @@
 
             // --- Almacenamiento ---
             const WALLET_STORAGE_KEY = 'xmtp-chat-wallet';
+            // Frase mnemónica de la wallet CREADA acá: se persiste para poder ofrecerla en el
+            // backup aunque haya reload (new ethers.Wallet(pk) no conserva la frase).
+            const WALLET_MNEMONIC_KEY = 'xmtp-chat-wallet-mnemonic';
+            // '1' cuando el usuario confirmó "He guardado mis claves" — apaga el recordatorio.
+            const WALLET_BACKUP_DONE_KEY = 'xmtp-chat-wallet-backup-done';
             const CONTACTS_STORAGE_KEY = 'xmtp-chat-contacts';
             const NETWORKS_STORAGE_KEY = 'xmtp-chat-networks';
             const SELECTED_NETWORK_KEY = 'xmtp-chat-selected-network';
@@ -3670,6 +3688,7 @@
                     loadOfflineThreads();
                     try { await loadContacts(); } catch (e) { }
                     statusEl.textContent = "Modo Offline: Billetera cargada.";
+                    updateBackupNagBanner();
                     return;
                 }
 
@@ -3701,6 +3720,7 @@
                 // await initEAS(); // FIXME: Función no definida
 
                 updateWalletUI(wallet, isNewWallet);
+                updateBackupNagBanner();
                 updateBalance(); // Moved to run regardless of XMTP status
 
                 appHeader.classList.remove('hidden');
@@ -4454,12 +4474,16 @@
                     // Así no depende de que el usuario haya elegido el modo correcto en el toggle.
                     if (/\s/.test(raw)) {
                         restoredWallet = ethers.Wallet.fromPhrase(raw.replace(/\s+/g, ' '));
+                        localStorage.setItem(WALLET_MNEMONIC_KEY, restoredWallet.mnemonic.phrase);
                     } else {
                         const pk = raw.startsWith('0x') ? raw : '0x' + raw; // tolerar clave sin prefijo 0x
                         restoredWallet = new ethers.Wallet(pk);
+                        localStorage.removeItem(WALLET_MNEMONIC_KEY); // la frase guardada era de otra wallet
                     }
 
                     localStorage.setItem(WALLET_STORAGE_KEY, restoredWallet.privateKey);
+                    // Quien restaura ya tiene su secreto a resguardo: no hace falta recordárselo.
+                    localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
                     restoreWalletModal.classList.add('hidden');
                     restoreWalletModal.classList.remove('flex');
                     statusEl.textContent = "Billetera restaurada. Conectando...";
@@ -6742,6 +6766,7 @@
                     statusEl.textContent = "Creando billetera para chatear...";
                     const randomWallet = window.Wallet.createRandom();
                     localStorage.setItem(WALLET_STORAGE_KEY, randomWallet.privateKey);
+                    rememberCreatedMnemonic(randomWallet);
                     await initializeWalletAndXmtp(randomWallet, true);
                     showToast('wallet creada, <a href="#" onclick="openBackupModal()" class="underline font-bold">backup</a> | <a href="#" onclick="openRestoreModal()" class="underline font-bold">restore wallet</a>', 'success', 10000);
                 }
@@ -7984,6 +8009,7 @@
 
                     const randomWallet = window.ethers.HDNodeWallet.createRandom(undefined, undefined, wordlist);
                     localStorage.setItem(WALLET_STORAGE_KEY, randomWallet.privateKey);
+                    rememberCreatedMnemonic(randomWallet);
 
                     // Solo inicializamos la UI inmediatamente
                     await initializeWalletAndXmtp(randomWallet, true);
@@ -8038,11 +8064,15 @@
                         let restoredWallet = null;
                         if (pendingSecret.type === 'privateKey') {
                             restoredWallet = new ethers.Wallet(pendingSecret.value);
+                            localStorage.removeItem(WALLET_MNEMONIC_KEY); // la frase guardada era de otra wallet
                         } else {
                             restoredWallet = ethers.Wallet.fromPhrase(pendingSecret.value);
+                            localStorage.setItem(WALLET_MNEMONIC_KEY, restoredWallet.mnemonic.phrase);
                         }
 
                         localStorage.setItem(WALLET_STORAGE_KEY, restoredWallet.privateKey);
+                        // Quien restaura ya tiene su secreto a resguardo: no hace falta recordárselo.
+                        localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
                         autoRestoreModal.classList.add('hidden');
                         autoRestoreModal.classList.remove('flex');
 
@@ -8083,9 +8113,12 @@
                 forgetWalletModal.classList.add('hidden');
                 forgetWalletModal.classList.remove('flex');
                 localStorage.removeItem(WALLET_STORAGE_KEY);
+                localStorage.removeItem(WALLET_MNEMONIC_KEY);
+                localStorage.removeItem(WALLET_BACKUP_DONE_KEY);
                 localStorage.removeItem(NETWORKS_STORAGE_KEY);
                 localStorage.removeItem(SELECTED_NETWORK_KEY);
                 resetUI();
+                if (backupNagBanner) { backupNagBanner.classList.add('hidden'); backupNagBanner.classList.remove('flex'); }
                 const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
                 statusEl.textContent = translations[lang]['wallet_forgotten'];
                 showToast("Billetera olvidada correctamente.", "success");
@@ -8572,6 +8605,40 @@
             const cancelBackupBtn = document.getElementById('cancelBackupBtn');
             const closeBackupModalBtn = document.getElementById('closeBackupModalBtn');
             const closeBackupModal = document.getElementById('closeBackupModal'); // Botón 'X'
+            const backupNagBanner = document.getElementById('backupNagBanner');
+
+            function rememberCreatedMnemonic(wallet) {
+                if (wallet && wallet.mnemonic && wallet.mnemonic.phrase) {
+                    localStorage.setItem(WALLET_MNEMONIC_KEY, wallet.mnemonic.phrase);
+                    localStorage.removeItem(WALLET_BACKUP_DONE_KEY); // wallet nueva: backup pendiente
+                }
+            }
+
+            // Devuelve la frase persistida SOLO si deriva a la wallet actual (probamos las
+            // wordlists con las que se pudo crear: en/es/fr). Si no matchea, es de otra wallet.
+            function getStoredMnemonic() {
+                const phrase = localStorage.getItem(WALLET_MNEMONIC_KEY);
+                if (!phrase || !currentWallet) return null;
+                const wordlists = [undefined];
+                try {
+                    if (window.ethers.wordlists) wordlists.push(window.ethers.wordlists.es, window.ethers.wordlists.fr);
+                } catch (e) { }
+                for (const wl of wordlists) {
+                    try {
+                        const w = window.ethers.HDNodeWallet.fromPhrase(phrase, undefined, undefined, wl);
+                        if (w.address.toLowerCase() === currentWallet.address.toLowerCase()) return phrase;
+                    } catch (e) { }
+                }
+                return null;
+            }
+
+            // Banner amarillo persistente: wallet creada acá + frase disponible + backup sin confirmar.
+            function updateBackupNagBanner() {
+                if (!backupNagBanner) return;
+                const show = !!currentWallet && !localStorage.getItem(WALLET_BACKUP_DONE_KEY) && !!getStoredMnemonic();
+                backupNagBanner.classList.toggle('hidden', !show);
+                backupNagBanner.classList.toggle('flex', show);
+            }
 
             function openBackupModal() {
                 if (!currentWallet) return;
@@ -8584,8 +8651,9 @@
                 document.getElementById('backupWarningView').classList.remove('hidden');
                 document.getElementById('backupKeysView').classList.add('hidden');
 
-                if (currentWallet.mnemonic && currentWallet.mnemonic.phrase) {
-                    mnemonicEl.textContent = currentWallet.mnemonic.phrase;
+                const phrase = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic();
+                if (phrase) {
+                    mnemonicEl.textContent = phrase;
                     mnemonicContainer.classList.remove('hidden');
                 } else {
                     mnemonicContainer.classList.add('hidden');
@@ -8616,9 +8684,16 @@
             window.addSharedNetwork = addSharedNetwork;
 
             // Backup Listeners
-            closeBackupModalBtn.addEventListener('click', doCloseBackupModal);
+            // "He guardado mis claves" (solo visible tras mostrar las claves) = confirmación:
+            // apaga el recordatorio. Cancelar y ✕ NO confirman.
+            closeBackupModalBtn.addEventListener('click', () => {
+                localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
+                updateBackupNagBanner();
+                doCloseBackupModal();
+            });
             cancelBackupBtn.addEventListener('click', doCloseBackupModal);
             closeBackupModal.addEventListener('click', doCloseBackupModal);
+            if (backupNagBanner) backupNagBanner.addEventListener('click', () => openBackupModal());
             showBackupKeysBtn.addEventListener('click', () => {
                 document.getElementById('backupWarningView').classList.add('hidden');
                 document.getElementById('backupKeysView').classList.remove('hidden');
@@ -8826,6 +8901,8 @@
                     "backup_understand_risk": "Entiendo el riesgo, mostrar claves",
                     "cancel_button": "Cancelar",
                     "backup_mnemonic_label": "Frase Mnemónica (12 palabras)",
+                    "backup_nag_text": "Respaldá tu frase secreta: sin backup, perder este dispositivo es perder tu billetera.",
+                    "backup_nag_cta": "Respaldar",
                     "backup_private_key_label": "Clave Privada",
                     "backup_keys_saved": "He guardado mis claves",
                     "init_title": "Crypto Wallet & Chat",
@@ -8863,6 +8940,8 @@
                     "backup_understand_risk": "I understand the risk, show keys",
                     "cancel_button": "Cancel",
                     "backup_mnemonic_label": "Mnemonic Phrase (12 words)",
+                    "backup_nag_text": "Back up your secret phrase: without a backup, losing this device means losing your wallet.",
+                    "backup_nag_cta": "Back up",
                     "backup_private_key_label": "Private Key",
                     "backup_keys_saved": "I have saved my keys",
                     "init_title": "Crypto Wallet & Chat",
@@ -8900,6 +8979,8 @@
                     "backup_understand_risk": "Je comprends le risque, afficher les clés",
                     "cancel_button": "Annuler",
                     "backup_mnemonic_label": "Phrase Mnémonique (12 mots)",
+                    "backup_nag_text": "Sauvegardez votre phrase secrète : sans copie, perdre cet appareil c'est perdre votre portefeuille.",
+                    "backup_nag_cta": "Sauvegarder",
                     "backup_private_key_label": "Clé Privée",
                     "backup_keys_saved": "J'ai sauvegardé mes clés",
                     "init_title": "Crypto Wallet & Chat",
@@ -10159,26 +10240,37 @@
 
     <script>
         let deferredPrompt;
+        // Corriendo ya instalada (PWA standalone o APK/Capacitor) el banner no tiene sentido
+        // y beforeinstallprompt no dispara: no mostrar nada.
+        const pwaRunningStandalone = window.matchMedia('(display-mode: standalone)').matches
+            || window.matchMedia('(display-mode: fullscreen)').matches
+            || window.navigator.standalone === true
+            || !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
         window.addEventListener('beforeinstallprompt', (e) => {
             // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
             // Stash the event so it can be triggered later.
             deferredPrompt = e;
             // Update UI notify the user they can install the PWA
-            document.getElementById('pwaInstallBanner').classList.remove('hidden');
+            if (!pwaRunningStandalone) document.getElementById('pwaInstallBanner').classList.remove('hidden');
         });
 
         document.getElementById('pwaInstallBtn').addEventListener('click', async () => {
-            // Hide the app provided install promotion
-            document.getElementById('pwaInstallBanner').classList.add('hidden');
-            // Show the install prompt
             if(deferredPrompt) {
+                // Hide the app provided install promotion
+                document.getElementById('pwaInstallBanner').classList.add('hidden');
                 deferredPrompt.prompt();
                 // Wait for the user to respond to the prompt
                 const { outcome } = await deferredPrompt.userChoice;
                 console.log(`User response to the install prompt: ${outcome}`);
                 // We've used the prompt, and can't use it again, throw it away
                 deferredPrompt = null;
+            } else {
+                // El navegador no ofrece instalación ahora (prompt ya usado/descartado, ya instalada,
+                // o browser sin soporte): explicar en vez de fallar en silencio.
+                document.querySelector('#pwaInstallBanner span').textContent =
+                    'Instalación manual: menú ⋮ del navegador → "Instalar app" / "Añadir a pantalla de inicio". Si ya está instalada, desinstalá la anterior primero.';
             }
         });
 
@@ -10189,6 +10281,7 @@
         window.addEventListener('appinstalled', () => {
             // Clear the deferredPrompt so it can be garbage collected
             deferredPrompt = null;
+            document.getElementById('pwaInstallBanner').classList.add('hidden');
             console.log('PWA was installed');
         });
     </script>

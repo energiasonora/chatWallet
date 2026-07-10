@@ -1396,6 +1396,15 @@
                                 <span lang="es">Abrir DApp</span>
                                 <span lang="fr">Ouvrir DApp</span>
                             </a>
+                            <!-- Instalar como PWA: dispara el prompt nativo si el browser lo ofrece;
+                                 si no (ya instalada, iOS, prompt agotado) abre el modal de ayuda. -->
+                            <button id="heroInstallBtn" type="button" class="download-button"
+                                style="margin-bottom:0; display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                <span lang="en">Install App (PWA)</span>
+                                <span lang="es">Instalar App (PWA)</span>
+                                <span lang="fr">Installer l'App (PWA)</span>
+                            </button>
                             <!-- Descarga del APK Android: URL estable del último release de GitHub (siempre la versión más nueva). -->
                             <a href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet.apk"
                                 class="download-button" style="margin-bottom:0; display:inline-flex; align-items:center; gap:8px;"
@@ -1915,30 +1924,90 @@
         </div>
     </div>
 
+    <!-- Ayuda de instalación PWA: se muestra cuando el browser no ofrece el prompt nativo
+         (ya instalada, iOS/Safari, prompt descartado 3 veces, browser sin soporte). -->
+    <div id="pwaInstallHelp" style="position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:10000; display:none; align-items:center; justify-content:center; padding:16px;">
+        <div style="background:#1f2937; color:#e5e7eb; max-width:420px; width:100%; border-radius:12px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,0.5); font-size:15px; line-height:1.5;">
+            <h3 style="margin:0 0 12px; color:#fff; font-size:18px;">
+                <span lang="en">Install ChatWallet</span>
+                <span lang="es">Instalar ChatWallet</span>
+                <span lang="fr">Installer ChatWallet</span>
+            </h3>
+            <p style="margin:0 0 10px;">
+                <span lang="en">Your browser isn't offering the install right now. Common reasons:</span>
+                <span lang="es">Tu navegador no está ofreciendo la instalación ahora. Causas comunes:</span>
+                <span lang="fr">Votre navigateur ne propose pas l'installation. Causes fréquentes :</span>
+            </p>
+            <ul style="margin:0 0 16px; padding-left:20px;">
+                <li style="margin-bottom:8px;">
+                    <span lang="en"><b>Already installed:</b> look for ChatWallet on your home screen. To reinstall, uninstall the old one first.</span>
+                    <span lang="es"><b>Ya está instalada:</b> buscá ChatWallet en tu pantalla de inicio. Para reinstalarla, primero desinstalá la anterior.</span>
+                    <span lang="fr"><b>Déjà installée :</b> cherchez ChatWallet sur votre écran d'accueil. Pour réinstaller, désinstallez d'abord l'ancienne.</span>
+                </li>
+                <li style="margin-bottom:8px;">
+                    <span lang="en"><b>Manual install:</b> browser menu ⋮ → "Install app" / "Add to Home screen".</span>
+                    <span lang="es"><b>Instalación manual:</b> menú ⋮ del navegador → "Instalar app" / "Añadir a pantalla de inicio".</span>
+                    <span lang="fr"><b>Installation manuelle :</b> menu ⋮ du navigateur → « Installer l'application » / « Ajouter à l'écran d'accueil ».</span>
+                </li>
+                <li>
+                    <span lang="en"><b>iPhone/iPad:</b> Share button → "Add to Home Screen".</span>
+                    <span lang="es"><b>iPhone/iPad:</b> botón Compartir → "Añadir a pantalla de inicio".</span>
+                    <span lang="fr"><b>iPhone/iPad :</b> bouton Partager → « Sur l'écran d'accueil ».</span>
+                </li>
+            </ul>
+            <button id="pwaHelpCloseBtn" style="width:100%; background:#6c63ff; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">
+                <span lang="en">Got it</span>
+                <span lang="es">Entendido</span>
+                <span lang="fr">Compris</span>
+            </button>
+        </div>
+    </div>
+
     <script>
         let deferredPrompt;
+        const pwaHelpEl = document.getElementById('pwaInstallHelp');
+        const heroInstallBtn = document.getElementById('heroInstallBtn');
+        // Corriendo ya como app instalada no tiene sentido ofrecer instalar.
+        const pwaRunningStandalone = window.matchMedia('(display-mode: standalone)').matches
+            || window.matchMedia('(display-mode: fullscreen)').matches
+            || window.navigator.standalone === true;
+        if (pwaRunningStandalone) heroInstallBtn.style.display = 'none';
+
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            document.getElementById('pwaInstallBanner').style.display = 'flex';
+            if (!pwaRunningStandalone) document.getElementById('pwaInstallBanner').style.display = 'flex';
         });
 
-        document.getElementById('pwaInstallBtn').addEventListener('click', async () => {
-            document.getElementById('pwaInstallBanner').style.display = 'none';
-            if(deferredPrompt) {
+        async function pwaPromptInstall() {
+            if (deferredPrompt) {
+                document.getElementById('pwaInstallBanner').style.display = 'none';
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
                 console.log(`User response to the install prompt: ${outcome}`);
                 deferredPrompt = null;
+            } else {
+                // Sin prompt disponible: explicar en vez de fallar en silencio.
+                pwaHelpEl.style.display = 'flex';
             }
-        });
+        }
+
+        document.getElementById('pwaInstallBtn').addEventListener('click', pwaPromptInstall);
+        heroInstallBtn.addEventListener('click', pwaPromptInstall);
 
         document.getElementById('pwaDismissBtn').addEventListener('click', () => {
             document.getElementById('pwaInstallBanner').style.display = 'none';
         });
+        document.getElementById('pwaHelpCloseBtn').addEventListener('click', () => {
+            pwaHelpEl.style.display = 'none';
+        });
+        pwaHelpEl.addEventListener('click', (e) => { if (e.target === pwaHelpEl) pwaHelpEl.style.display = 'none'; });
 
         window.addEventListener('appinstalled', () => {
             deferredPrompt = null;
+            document.getElementById('pwaInstallBanner').style.display = 'none';
+            heroInstallBtn.innerHTML = '✓ <span lang="en">Installed — check your home screen</span><span lang="es">Instalada — mirá tu pantalla de inicio</span><span lang="fr">Installée — voir l\'écran d\'accueil</span>';
+            heroInstallBtn.disabled = true;
             console.log('PWA was installed');
         });
     </script>

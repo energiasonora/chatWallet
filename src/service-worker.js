@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chatwallet-cache-1.75';
+const CACHE_NAME = 'chatwallet-cache-1.76';
 const urlsToCache = [
   '/',
   '/dapp.html',
@@ -83,6 +83,6 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil(
-    clients.openWindow('/')
+    clients.openWindow('/dapp.html')
   );
 });
