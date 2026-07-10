@@ -1312,6 +1312,21 @@
             }
         }
 
+        // Crypto físico: pedimos dirección + contacto antes de abrir la wallet;
+        // el pedido se crea recién con la tx verificada (queda ligado al txHash).
+        function openCryptoShippingForm() {
+            shippingMode = 'crypto';
+            document.getElementById('shipping-form-title').textContent = 'Datos de envío';
+            document.getElementById('shipping-form-sub').textContent =
+                'Completá tus datos y después pagás con tu wallet. Enviamos a tu dirección (~10 días en Argentina)' +
+                (selectedFormat === 'physical' ? ' + PDF al instante.' : '.');
+            document.getElementById('sh-postal-fields').style.display = 'flex';
+            document.getElementById('sh-notes').placeholder = 'Notas para el envío (opcional)';
+            document.getElementById('shipping-submit-btn').textContent = 'Continuar al pago con ETH →';
+            document.getElementById('shipping-form-section').classList.add('visible');
+            setTimeout(() => document.getElementById('shipping-form-section').scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+        }
+
         function onMpClick() {
             // Primero los datos → se crea el pedido → el Worker arma el checkout de MP
             // con el monto exacto en ARS y de ahí sale el botón "Pagar en Mercado Pago".
@@ -1534,7 +1549,6 @@
         async function handlePurchase() {
             const net = NETWORKS[selectedNetwork];
             shippingMode = 'crypto';
-            document.getElementById('shipping-submit-btn').textContent = 'Enviar datos';
             mintBtn.disabled = true;
             mintBtn.textContent = 'Conectando...';
             clearStatus();
@@ -1633,13 +1647,19 @@
             mintBtn.textContent = '✓ Acceso concedido';
             resultSection.style.display = 'block';
 
-            // Físico: pedir dirección + contacto para coordinar el envío
+            // Físico: crear el pedido con los datos cargados antes del pago (+ txHash)
             if (isPhysical()) {
-                document.getElementById('shipping-form-title').textContent = 'Datos de envío';
-                document.getElementById('shipping-form-sub').textContent = 'Dirección y contacto para coordinar la entrega (~10 días en Argentina)';
-                document.getElementById('sh-postal-fields').style.display = 'flex';
-                document.getElementById('sh-notes').placeholder = 'Notas para el envío (opcional)';
-                document.getElementById('shipping-form-section').classList.add('visible');
+                if (document.getElementById('sh-name').value.trim() && document.getElementById('sh-email').value.trim()) {
+                    await submitShipping();
+                } else {
+                    // fallback (pago directo sin pasar por el form): pedir los datos ahora
+                    document.getElementById('shipping-form-title').textContent = 'Datos de envío';
+                    document.getElementById('shipping-form-sub').textContent = 'Dirección y contacto para coordinar la entrega (~10 días en Argentina)';
+                    document.getElementById('sh-postal-fields').style.display = 'flex';
+                    document.getElementById('sh-notes').placeholder = 'Notas para el envío (opcional)';
+                    document.getElementById('shipping-submit-btn').textContent = 'Enviar datos';
+                    document.getElementById('shipping-form-section').classList.add('visible');
+                }
             }
 
             resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1668,6 +1688,27 @@
                     alert('Por favor completá dirección, ciudad y código postal para el envío.');
                     return;
                 }
+            }
+
+            // Crypto físico con datos validados: recién ahora arranca el pago con la wallet.
+            // El pedido se manda solo cuando la tx quedó verificada (más abajo, con txHash).
+            if (shippingMode === 'crypto' && isPhysical() && !completedTxHash) {
+                btn.disabled = true;
+                btn.textContent = 'Esperando el pago…';
+                try {
+                    await handlePurchase();
+                } finally {
+                    if (!completedTxHash) {
+                        // la tx no llegó a salir (cancelada/error): permitir reintentar
+                        btn.disabled = false;
+                        btn.textContent = 'Continuar al pago con ETH →';
+                    } else if (btn.style.display !== 'none') {
+                        // la tx salió pero la verificación falló: registrar el pedido
+                        // igual (datos + txHash) para no perder al comprador
+                        await submitShipping();
+                    }
+                }
+                return;
             }
 
             btn.disabled = true;
@@ -1793,7 +1834,9 @@
             } else if (selectedPay === 'amazon') {
                 window.open(CONFIG.AMAZON_FR, '_blank', 'noopener');
             } else if (selectedPay === 'eth') {
-                handlePurchase();
+                // Físico: datos de envío ANTES de pagar (el pago arranca desde el form)
+                if (isPhysical() && !completedTxHash) openCryptoShippingForm();
+                else handlePurchase();
             }
         });
         updateUI();
