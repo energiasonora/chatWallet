@@ -29,9 +29,10 @@ bucket_name = "chatwallet-book"
 [vars]
 PAYMENT_ADDRESS    = "0x1c87FDF8844cbEe5DC7f0F1681C44bF3c99A0e3d"
 BOOK_FILE_KEY      = "cryptoParaSoberanos-v34b.pdf"
-# Edición francesa (compras con lang=fr). Subirla:
-#   wrangler r2 object put chatwallet-book/cryptoPourSouverains-v32cFR.pdf --file=$HOME/Desktop/LIBRO/cryptoPourSouverains-v32cFR.pdf --content-type=application/pdf --remote
-BOOK_FILE_KEY_FR   = "cryptoPourSouverains-v32cFR.pdf"
+# Edición francesa (compras con lang=fr). Subir nuevas versiones:
+#   wrangler r2 object put chatwallet-book/<archivo>.pdf --file=$HOME/Desktop/LIBRO/<archivo>.pdf --content-type=application/pdf --remote
+# Ambas v34b registradas en musiclog (Arbitrum One): ES mlog0x9575469ab5017cf0 · FR mlog0x05c881dc6fe6cbea
+BOOK_FILE_KEY_FR   = "cryptoPourSouverains-v34b.pdf"
 PRICE_USD          = "10"
 CHAIN_ID           = "42161"
 RPC_URL            = "https://arb1.arbitrum.io/rpc"

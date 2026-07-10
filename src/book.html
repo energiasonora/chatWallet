@@ -925,7 +925,7 @@
                 <img id="book-cover-fr" src="./img/LIBROFRv2.jpg" alt="Crypto pour les Souverains" style="display:none;">
             </div>
             <button class="peek-hint" onclick="openDemo()">👀 Tocá la tapa y hojeá las primeras páginas</button>
-            <a class="cert-link" href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank"
+            <a class="cert-link" id="cert-link" href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank"
                 rel="noopener noreferrer"><span class="dot"></span>Autoría verificada on-chain ↗</a>
         </div>
 
@@ -1032,8 +1032,9 @@
                 gratis para todos.</p>
 
             <p class="foot">Impresión artesanal en Argentina a cargo del autor · en Europa vía Amazon. Contenido
-                registrado en <a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank"
-                    rel="noopener">musiclog.org</a> · Contacto:
+                registrado en musiclog.org (<a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank"
+                    rel="noopener">ES</a> · <a href="https://musiclog.org/?q=mlog0x05c881dc6fe6cbea" target="_blank"
+                    rel="noopener">FR</a>) · Contacto:
                 <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
         </div>
     </div>
@@ -1221,6 +1222,10 @@
             const wantFr = selectedLang === 'fr';
             document.getElementById('book-cover-es').style.display = wantFr ? 'none' : 'block';
             document.getElementById('book-cover-fr').style.display = wantFr ? 'block' : 'none';
+
+            // Registro on-chain (musiclog) de la edición elegida
+            document.getElementById('cert-link').href =
+                `https://musiclog.org/?q=${wantFr ? 'mlog0x05c881dc6fe6cbea' : 'mlog0x9575469ab5017cf0'}`;
 
             // Nota de entrega
             const note = document.getElementById('delivery-note');
