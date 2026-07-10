@@ -1147,7 +1147,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.76 alpha</p>
+            <p class="text-sm text-gray-400">v 1.77 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2587,7 +2587,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.76</p>
+                    <p id="settingsVersionText">Versión 1.77</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -4474,7 +4474,10 @@
                     // Así no depende de que el usuario haya elegido el modo correcto en el toggle.
                     if (/\s/.test(raw)) {
                         restoredWallet = ethers.Wallet.fromPhrase(raw.replace(/\s+/g, ' '));
-                        localStorage.setItem(WALLET_MNEMONIC_KEY, restoredWallet.mnemonic.phrase);
+                        // NO persistir la frase: quien restaura ya la tiene a resguardo afuera;
+                        // guardarla acá solo agranda la superficie de ataque. Solo se persiste
+                        // en la CREACIÓN (donde sin eso se perdería antes del backup).
+                        localStorage.removeItem(WALLET_MNEMONIC_KEY);
                     } else {
                         const pk = raw.startsWith('0x') ? raw : '0x' + raw; // tolerar clave sin prefijo 0x
                         restoredWallet = new ethers.Wallet(pk);
@@ -8067,7 +8070,8 @@
                             localStorage.removeItem(WALLET_MNEMONIC_KEY); // la frase guardada era de otra wallet
                         } else {
                             restoredWallet = ethers.Wallet.fromPhrase(pendingSecret.value);
-                            localStorage.setItem(WALLET_MNEMONIC_KEY, restoredWallet.mnemonic.phrase);
+                            // NO persistir la frase (ver restore manual): el que restaura ya la tiene.
+                            localStorage.removeItem(WALLET_MNEMONIC_KEY);
                         }
 
                         localStorage.setItem(WALLET_STORAGE_KEY, restoredWallet.privateKey);
