@@ -37,21 +37,27 @@ CREATE TABLE IF NOT EXISTS used_tx_hashes (
 --   wrangler d1 execute chatwallet-purchases --remote --command "UPDATE orders SET stage=2 WHERE public_id='CW-XXXXXX'"
 --   stage: 1 = pedido creado · 2 = imprimiendo (físico) / verificando pago (digital) · 3 = en distribución / PDF enviado
 CREATE TABLE IF NOT EXISTS orders (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  public_id      TEXT UNIQUE,       -- "CW-XXXXXX": id de seguimiento que ve el comprador
-  stage          INTEGER NOT NULL DEFAULT 1,
-  created_at     INTEGER NOT NULL,  -- epoch ms
-  payment_method TEXT,              -- crypto | mercadopago
-  format         TEXT,
-  country        TEXT,
-  lang           TEXT,
-  name           TEXT NOT NULL,
-  email          TEXT NOT NULL,
-  phone          TEXT,
-  address        TEXT,
-  city           TEXT,
-  cp             TEXT,
-  notes          TEXT,
-  tx_hash        TEXT,
-  wallet_address TEXT
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  public_id        TEXT UNIQUE,       -- "CW-XXXXXX": id de seguimiento que ve el comprador
+  stage            INTEGER NOT NULL DEFAULT 1,
+  created_at       INTEGER NOT NULL,  -- epoch ms
+  payment_method   TEXT,              -- crypto | mercadopago
+  format           TEXT,
+  country          TEXT,
+  lang             TEXT,
+  name             TEXT NOT NULL,
+  email            TEXT NOT NULL,
+  phone            TEXT,
+  address          TEXT,
+  city             TEXT,
+  cp               TEXT,
+  notes            TEXT,
+  tx_hash          TEXT,
+  wallet_address   TEXT,
+  -- Mercado Pago (Checkout Pro): el webhook /mpWebhook completa estos campos
+  mp_preference_id TEXT,              -- checkout creado para este pedido
+  mp_payment_id    TEXT,              -- pago acreditado (llega por webhook)
+  ars_amount       INTEGER,           -- monto ARS cobrado (dólar blue al crear el pedido)
+  paid             INTEGER NOT NULL DEFAULT 0,
+  download_token   TEXT               -- token de /download emitido al acreditarse (si incluye PDF)
 );

@@ -37,6 +37,8 @@ CHAIN_ID           = "42161"
 RPC_URL            = "https://arb1.arbitrum.io/rpc"
 CHAINLINK_FEED     = "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612"
 SLIPPAGE_TOLERANCE = "0.05"
+PUBLIC_BOOK_URL    = "https://chatwallet.org/book.html"  # back_url del checkout MP (?pedido=CW-XXXXXX)
 
-# TOKEN_SECRET NO va acá. Se setea como secret:
+# Secrets (NO van acá):
 #   wrangler secret put TOKEN_SECRET
+#   wrangler secret put MP_ACCESS_TOKEN   ← Access Token APP_USR-... de la app "criptoParaSoberanos" (MP Developers)

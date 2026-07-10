@@ -1308,18 +1308,20 @@
         }
 
         function onMpClick() {
-            // El link ya se abrió en otra pestaña; acá pedimos los datos para crear el pedido.
+            // Primero los datos → se crea el pedido → el Worker arma el checkout de MP
+            // con el monto exacto en ARS y de ahí sale el botón "Pagar en Mercado Pago".
             shippingMode = 'mercadopago';
             const usd = getCurrentPriceUSD();
             const arsTxt = arsRate ? ` ($${Math.round(usd * arsRate).toLocaleString('es-AR')} ARS aprox.)` : '';
             const physical = isPhysical();
             document.getElementById('shipping-form-title').textContent = physical ? 'Datos de envío' : 'Tus datos';
             document.getElementById('shipping-form-sub').textContent = physical
-                ? `Pagaste con Mercado Pago${arsTxt}: verificamos el pago y te enviamos el libro (~10 días)` +
-                  (selectedFormat === 'physical' ? ' + el PDF por email.' : '.')
-                : `Pagaste con Mercado Pago${arsTxt}: verificamos el pago y te enviamos el PDF por email.`;
+                ? `Completá tus datos y te llevamos a Mercado Pago${arsTxt}. Acreditado el pago, imprimimos y enviamos tu libro (~10 días)` +
+                  (selectedFormat === 'physical' ? ' + PDF al instante.' : '.')
+                : `Completá tus datos y te llevamos a Mercado Pago${arsTxt}. Acreditado el pago, tu PDF se libera al instante.`;
             document.getElementById('sh-postal-fields').style.display = physical ? 'flex' : 'none';
-            document.getElementById('sh-notes').placeholder = 'Contanos desde qué mail/nombre pagaste en Mercado Pago (opcional)';
+            document.getElementById('sh-notes').placeholder = 'Algo que quieras aclarar sobre tu pedido (opcional)';
+            document.getElementById('shipping-submit-btn').textContent = 'Continuar al pago →';
             document.getElementById('shipping-form-section').classList.add('visible');
             setTimeout(() => document.getElementById('shipping-form-section').scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
         }
@@ -1347,13 +1349,13 @@
 
         // ── Seguimiento de pedido (?pedido=CW-XXXXXX) ──
         // Etapas: 1 pedido creado · 2 imprimiendo (físico) / verificando pago (digital) · 3 en distribución / PDF enviado
-        function trackSteps(format) {
+        function trackSteps(format, hasDownload) {
             const digital = format === 'digital';
             return [
-                ['Pedido creado', digital ? 'Recibimos tus datos y el aviso de pago.' : 'Recibimos tus datos y el aviso de pago.'],
+                ['Pedido creado', 'Recibimos tus datos y el aviso de pago.'],
                 digital ? ['Verificando el pago', 'Confirmamos tu pago para liberar la descarga.']
                         : ['Imprimiendo', 'Tu copia se imprime y encuaderna artesanalmente.'],
-                digital ? ['PDF enviado', 'Te llega por email a la casilla que dejaste.']
+                digital ? ['PDF disponible', hasDownload ? 'Tu descarga está lista acá abajo. 👇' : 'Te llega por email a la casilla que dejaste.']
                         : ['En distribución', 'El libro viaja hacia tu dirección (~10 días).'],
             ];
         }
@@ -1372,15 +1374,19 @@
                 const stage = Math.min(3, Math.max(1, Number(o.stage) || 1));
                 const fecha = o.createdAt ? new Date(o.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
                 const fmtLabel = { digital: 'Digital', 'physical-only': 'Físico', physical: 'Físico + digital' }[o.format] || o.format || '—';
+                const hasDownload = !!o.downloadToken;
                 body.innerHTML =
                     `<p class="track-meta">${fmtLabel}${o.lang === 'fr' ? ' · français' : ''}${fecha ? ' · creado el ' + fecha : ''}</p>` +
                     '<ol class="timeline">' +
-                    trackSteps(o.format).map(([t, d], i) => {
+                    trackSteps(o.format, hasDownload).map(([t, d], i) => {
                         const n = i + 1;
                         const cls = n < stage ? 'done' : n === stage ? (stage === 3 ? 'done' : 'active') : '';
                         return `<li class="${cls}"><div class="t-title">${t}</div><div class="t-desc">${d}</div></li>`;
                     }).join('') +
-                    '</ol>';
+                    '</ol>' +
+                    (hasDownload
+                        ? `<a class="cta paybar-btn" style="display:block;text-align:center;margin-top:16px" href="${CONFIG.API_BASE}/download?token=${encodeURIComponent(o.downloadToken)}">⬇ Descargar PDF</a>`
+                        : '');
             } catch (err) {
                 body.innerHTML = `<p class="track-error">No encontramos el pedido <strong>${orderId}</strong>.<br>` +
                     `Revisá el enlace o escribinos a <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a>.</p>`;
@@ -1523,6 +1529,7 @@
         async function handlePurchase() {
             const net = NETWORKS[selectedNetwork];
             shippingMode = 'crypto';
+            document.getElementById('shipping-submit-btn').textContent = 'Enviar datos';
             mintBtn.disabled = true;
             mintBtn.textContent = 'Conectando...';
             clearStatus();
@@ -1689,11 +1696,13 @@
             ]);
             const anyOk = results.some(r => r.status === 'fulfilled' && r.value.ok);
 
-            // id de seguimiento (si la D1 respondió)
-            let orderId = null;
+            // id de seguimiento + checkout MP (si la D1 respondió)
+            let orderId = null, initPoint = null;
             try {
                 if (results[0].status === 'fulfilled' && results[0].value.ok) {
-                    orderId = (await results[0].value.json()).orderId || null;
+                    const data = await results[0].value.json();
+                    orderId = data.orderId || null;
+                    initPoint = data.initPoint || null;
                 }
             } catch (e) { }
 
@@ -1703,9 +1712,18 @@
                 msg.style.display = 'block';
                 if (orderId) {
                     const url = `${location.pathname}?pedido=${orderId}`;
-                    msg.innerHTML = `✓ Pedido <strong>${orderId}</strong> creado.<br>` +
+                    let html = `✓ Pedido <strong>${orderId}</strong> creado.<br>` +
                         `Seguilo cuando quieras desde <a href="${url}">este enlace</a> — guardalo.`;
+                    if (shippingMode === 'mercadopago') {
+                        // checkout con el monto exacto; si el Worker no lo pudo crear, cae al link manual
+                        const payHref = initPoint || CONFIG.MP_LINK;
+                        html += `<br><a class="cta paybar-btn" style="display:inline-block;margin-top:12px" href="${payHref}">Pagar en Mercado Pago →</a>`;
+                        if (initPoint) html += `<br><span style="color:var(--fg-subtle);font-size:.85em">Al acreditarse el pago, tu pedido avanza solo${selectedFormat !== 'physical-only' ? ' y se libera el PDF' : ''}.</span>`;
+                    }
+                    msg.innerHTML = html;
                     history.replaceState(null, '', url);
+                } else if (shippingMode === 'mercadopago') {
+                    msg.innerHTML = `✓ Datos recibidos.<br><a class="cta paybar-btn" style="display:inline-block;margin-top:12px" href="${CONFIG.MP_LINK}">Pagar en Mercado Pago →</a>`;
                 }
             } else {
                 console.warn('No se pudo registrar el pedido:', payload);
@@ -1765,7 +1783,6 @@
         // El botón del paybar ejecuta el método de pago elegido
         mintBtn.addEventListener('click', () => {
             if (selectedPay === 'mp') {
-                window.open(CONFIG.MP_LINK, '_blank', 'noopener');
                 onMpClick();
             } else if (selectedPay === 'amazon') {
                 window.open(CONFIG.AMAZON_FR, '_blank', 'noopener');
