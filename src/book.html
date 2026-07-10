@@ -1003,7 +1003,7 @@
                     <div id="sh-postal-fields" class="fields" style="margin-bottom:0;">
                         <input type="text" id="sh-address" placeholder="Dirección (calle, número, piso/depto) *">
                         <input type="text" id="sh-city" placeholder="Ciudad y provincia *">
-                        <input type="text" id="sh-cp" placeholder="Código postal">
+                        <input type="text" id="sh-cp" placeholder="Código postal *">
                     </div>
                     <textarea id="sh-notes" placeholder="Notas (opcional)"></textarea>
                 </div>
@@ -1659,12 +1659,13 @@
                 return;
             }
 
-            // Para el físico necesitamos la dirección
+            // Para el físico necesitamos la dirección completa (CP incluido, por las dudas)
             if (isPhysical()) {
                 const addr = document.getElementById('sh-address').value.trim();
                 const city = document.getElementById('sh-city').value.trim();
-                if (!addr || !city) {
-                    alert('Por favor completá la dirección y ciudad para el envío.');
+                const cp = document.getElementById('sh-cp').value.trim();
+                if (!addr || !city || !cp) {
+                    alert('Por favor completá dirección, ciudad y código postal para el envío.');
                     return;
                 }
             }
