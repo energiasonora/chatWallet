@@ -49,6 +49,16 @@
             android:name=".KeepAliveService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- Tras un reboot el FGS no puede rearrancar solo: este receiver avisa con una
+             notificación "abrí ChatWallet para reactivar el chat" (tap abre la app) -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Permissions -->
@@ -67,4 +77,6 @@
          Telegram sin Google Play Services). Sin esto, Doze corta la red en background
          y el stream XMTP muere → no llegan notificaciones con la pantalla apagada. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Aviso post-reinicio (BootReceiver) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>
