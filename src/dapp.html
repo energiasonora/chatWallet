@@ -1147,7 +1147,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.79 alpha</p>
+            <p class="text-sm text-gray-400">v 1.80 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2588,7 +2588,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.79</p>
+                    <p id="settingsVersionText">Versión 1.80</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -5548,6 +5548,14 @@
                     messageStream = await chatwalletxmtp.conversations.streamAllMessages({
                         onValue: async (message) => {
                             try {
+                                // --- StealthPay/dApp connect protocol (cw:1) over XMTP ---
+                                // Intercept RPC-style messages BEFORE they reach the chat UI.
+                                // Fire-and-forget so a pending user approval never blocks the
+                                // chat message stream.
+                                if (typeof message.content === 'string' && message.senderInboxId !== chatwalletxmtp.inboxId) {
+                                    let __cw; try { __cw = JSON.parse(message.content); } catch (_) { __cw = null; }
+                                    if (__cw && __cw.cw === 1) { handleWalletConnectRpc(message, __cw).catch(e => console.warn('[cw-bridge]', e)); return; }
+                                }
                                 if (message.contentType.typeId === 'readReceipt' ||
                                     message.contentType.typeId === 'read-receipt' ||
                                     message.contentType.typeId === 'presence' ||
@@ -6680,6 +6688,116 @@
                 }
             }
 
+            // ==========================================================================
+            // ChatWallet ↔ dApp connect bridge (StealthPay) — "WalletConnect over XMTP"
+            // A dApp shows a QR (chatwallet://wc?inbox=..&chain=..&v=1). We open a DM to
+            // that ephemeral inbox and thereafter serve personal_sign / eth_sendTransaction
+            // requests it sends, each behind an explicit user approval. The private key
+            // never leaves ChatWallet.
+            // ==========================================================================
+            const wcApprovedInboxes = new Set();   // peer inbox ids the user agreed to serve
+            const wcSessionChain = new Map();       // peerInboxId -> requested chainId
+
+            async function startWalletConnectSession(uri) {
+                if (!currentWallet) { alert('Primero desbloqueá tu wallet.'); return; }
+                if (!chatwalletxmtp) { alert('El chat (XMTP) todavía no está listo. Esperá unos segundos e intentá de nuevo.'); return; }
+                let inbox = '', chainId = 0;
+                try {
+                    const q = new URLSearchParams(uri.split('?')[1] || '');
+                    inbox = (q.get('inbox') || '').toLowerCase();
+                    chainId = Number(q.get('chain') || '0');
+                } catch (_) {}
+                if (!/^0x[0-9a-fA-F]{40}$/.test(inbox)) { alert('QR de conexión inválido.'); return; }
+
+                const ok = await wcApprove('Conectar con dApp',
+                    `Una dApp quiere vincularse a tu ChatWallet vía XMTP para pedirte firmas y envíos.\n\nInbox: ${inbox.slice(0, 10)}…${inbox.slice(-6)}\nRed (chainId): ${chainId || '?'}\n\nTu clave privada nunca sale de ChatWallet.`,
+                    'Conectar');
+                if (!ok) return;
+
+                try {
+                    await chatwalletxmtp.conversations.sync();
+                    const dm = await chatwalletxmtp.conversations.createDmWithIdentifier({ identifier: inbox, identifierKind: 0 });
+                    let peerInboxId = null;
+                    try { peerInboxId = await dm.peerInboxId(); } catch (_) {}
+                    if (peerInboxId) { wcApprovedInboxes.add(peerInboxId); wcSessionChain.set(peerInboxId, chainId); }
+                    await dm.send(JSON.stringify({ cw: 1, type: 'connect', address: currentWallet.address, chainId }));
+                    wcToast('✅ Conectado a la dApp. Sus solicitudes aparecerán acá.');
+                } catch (e) {
+                    alert('No se pudo conectar: ' + (e.message || e));
+                }
+            }
+
+            async function handleWalletConnectRpc(message, data) {
+                // Only serve inboxes the user explicitly connected to.
+                if (!wcApprovedInboxes.has(message.senderInboxId)) return;
+                if (data.type !== 'rpc') return;
+                const id = data.id;
+                const conv = await chatwalletxmtp.conversations.getConversationById(message.conversationId);
+                const reply = (obj) => conv && conv.send(JSON.stringify(Object.assign({ cw: 1, id }, obj)));
+
+                try {
+                    if (data.method === 'personal_sign') {
+                        const msg = data.params?.[0] ?? '';
+                        const ok = await wcApprove('Firmar mensaje',
+                            `La dApp pide firmar este mensaje:\n\n"${String(msg).slice(0, 180)}"\n\nEsto NO envía fondos.`, 'Firmar');
+                        if (!ok) return reply({ type: 'error', error: 'user rejected' });
+                        const sig = await currentWallet.signMessage(msg);
+                        return reply({ type: 'result', result: sig });
+                    }
+                    if (data.method === 'eth_sendTransaction') {
+                        const tx = data.params?.[0] || {};
+                        if (!provider) return reply({ type: 'error', error: 'wallet provider not ready' });
+                        // La tx sale por la red actualmente seleccionada en ChatWallet:
+                        // si la dApp pide otra cadena, rechazar antes de molestar al usuario.
+                        const walletChainId = Number((await provider.getNetwork()).chainId);
+                        if (tx.chainId && Number(tx.chainId) !== walletChainId) {
+                            wcToast(`⚠️ La dApp pide la red ${tx.chainId} pero ChatWallet está en la ${walletChainId}. Cambiá de red y reintentá.`);
+                            return reply({ type: 'error', error: `wrong network: wallet on chain ${walletChainId}, dApp requested ${tx.chainId}` });
+                        }
+                        const valEth = tx.value ? ethers.formatEther(BigInt(tx.value)) : '0';
+                        const ok = await wcApprove('Enviar transacción',
+                            `La dApp pide ENVIAR una transacción:\n\nA: ${tx.to}\nValor: ${valEth} ETH\nchainId: ${tx.chainId}\n\nSe firmará y transmitirá con tu wallet.`, 'Enviar');
+                        if (!ok) return reply({ type: 'error', error: 'user rejected' });
+                        const s = currentWallet.connect(provider);
+                        const resp = await s.sendTransaction({ to: tx.to, data: tx.data || '0x', value: tx.value ? BigInt(tx.value) : 0n });
+                        return reply({ type: 'result', result: resp.hash });
+                    }
+                    return reply({ type: 'error', error: 'unsupported method ' + data.method });
+                } catch (e) {
+                    return reply({ type: 'error', error: String(e.message || e) });
+                }
+            }
+
+            // Minimal promise-based approval modal — self-contained, no dependency on
+            // the app's own modal system.
+            function wcApprove(title, body, confirmLabel) {
+                return new Promise((resolve) => {
+                    const ov = document.createElement('div');
+                    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;';
+                    // OJO: title/body llevan contenido que manda la dApp — nunca via innerHTML.
+                    ov.innerHTML = `<div style="background:#111827;color:#fff;border:1px solid #374151;border-radius:16px;max-width:360px;width:100%;padding:22px;font-family:system-ui,sans-serif;box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+                        <div id="wc-title" style="font-weight:800;font-size:1.05rem;margin-bottom:10px;"></div>
+                        <div id="wc-body" style="font-size:0.82rem;color:#cbd5e1;white-space:pre-wrap;line-height:1.5;margin-bottom:18px;word-break:break-word;"></div>
+                        <div style="display:flex;gap:10px;">
+                            <button id="wc-no" style="flex:1;padding:10px;border-radius:10px;border:1px solid #374151;background:transparent;color:#9ca3af;font-weight:700;cursor:pointer;">Rechazar</button>
+                            <button id="wc-yes" style="flex:1;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#7c5cff,#5b8cff);color:#fff;font-weight:800;cursor:pointer;"></button>
+                        </div></div>`;
+                    ov.querySelector('#wc-title').textContent = '💬 ' + title;
+                    ov.querySelector('#wc-body').textContent = body;
+                    ov.querySelector('#wc-yes').textContent = confirmLabel || 'Aprobar';
+                    document.body.appendChild(ov);
+                    ov.querySelector('#wc-yes').onclick = () => { ov.remove(); resolve(true); };
+                    ov.querySelector('#wc-no').onclick = () => { ov.remove(); resolve(false); };
+                });
+            }
+
+            function wcToast(msg) {
+                const t = document.createElement('div');
+                t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99999;background:#111827;color:#fff;border:1px solid #374151;border-radius:12px;padding:12px 18px;font-family:system-ui,sans-serif;font-size:0.85rem;box-shadow:0 12px 30px rgba(0,0,0,0.5);';
+                t.textContent = msg; document.body.appendChild(t);
+                setTimeout(() => t.remove(), 4000);
+            }
+
             function extractAddressFromData(data) {
                 try {
                     // The generated QR might be just the URL string, not a full URL object.
@@ -6725,6 +6843,11 @@
 
             let pendingSecret = null;
             async function handleScannedData(data) {
+                // ¿Es una solicitud de conexión de dApp (StealthPay) vía XMTP?
+                if (typeof data === 'string' && data.startsWith('chatwallet://wc')) {
+                    await startWalletConnectSession(data);
+                    return;
+                }
                 // ¿Es un mensaje offline cifrado? (QR con prefijo CWM1|)
                 if (isOfflineMessageData(data)) {
                     await handleIncomingOfflineMessage(data);
