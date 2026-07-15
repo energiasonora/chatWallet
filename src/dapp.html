@@ -114,6 +114,14 @@
             /* Etiqueta lateral gris */
         }
 
+        /* QR que nunca desborda su contenedor (canvas/svg de QRCodeStyling) */
+        .qr-fit canvas,
+        .qr-fit svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
         /* --- Splash al activar Modo Frío (Cold Wallet) --- */
         #coldModeSplash {
             animation: coldSplashIn 0.35s ease both;
@@ -1147,7 +1155,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.81 alpha</p>
+            <p class="text-sm text-gray-400">v 1.82 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2187,8 +2195,8 @@
                 </div>
                 <p class="text-sm text-gray-400">Escanea este código QR o copia los datos para transmitir la transacción
                     desde un dispositivo online.</p>
-                <div class="w-full max-w-[250px] mx-auto p-4 bg-white rounded-xl shadow-lg">
-                    <div id="signedTxQrCode"></div>
+                <div class="w-full max-w-[330px] mx-auto p-3 bg-white rounded-xl shadow-lg">
+                    <div id="signedTxQrCode" class="qr-fit"></div>
                 </div>
                 <textarea id="signedTxData" rows="4"
                     class="w-full bg-gray-900 rounded-lg p-2 font-mono text-xs text-gray-300 select-all"
@@ -2196,6 +2204,121 @@
                 <button id="copySignedTxBtn"
                     class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Copiar Datos de
                     Transacción</button>
+            </div>
+        </div>
+
+        <!-- ═══════════ TRANSACCIÓN FRÍA (circuito de 2 dispositivos) ═══════════
+             1) Dispositivo ONLINE prepara la tx (nonce/gas/chainId frescos) → QR CWT1
+             2) Dispositivo FRÍO escanea, revisa y firma → QR CWS1
+             3) Dispositivo ONLINE escanea la firma y la transmite a la red        -->
+
+        <!-- Modal Preparar Transacción Fría (lado online) -->
+        <div id="coldTxPrepareModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4 max-h-[92vh] overflow-y-auto">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-cyan-300">Transacción Fría ❄</h3>
+                    <button id="closeColdTxPrepareModal"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                <!-- Paso 1: formulario -->
+                <div id="coldTxPrepareStep1">
+                    <p class="text-sm text-gray-400 mb-3">
+                        Prepará acá (con internet) una transacción para que la firme una wallet en
+                        <strong class="text-white">modo frío</strong>. Se usa la red seleccionada:
+                        <strong id="coldTxNetworkName" class="text-cyan-300"></strong>.
+                    </p>
+                    <form id="coldTxPrepareForm" class="space-y-4">
+                        <div>
+                            <label for="coldTxFromAddress" class="block text-sm text-gray-400 mb-1">Dirección de la
+                                wallet fría (quien firma y paga)</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="coldTxFromAddress" required placeholder="0x..."
+                                    class="flex-1 min-w-0 bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-cyan-500 font-mono">
+                                <button type="button" id="coldTxScanFromBtn" title="Escanear dirección"
+                                    class="px-3 rounded-lg bg-gray-700 hover:bg-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                                        <line x1="8" y1="12" x2="16" y2="12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="coldTxRecipient" class="block text-sm text-gray-400 mb-1">Destinatario</label>
+                            <input type="text" id="coldTxRecipient" required placeholder="0x..."
+                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-cyan-500 font-mono">
+                        </div>
+                        <div>
+                            <label for="coldTxAmount" class="block text-sm text-gray-400 mb-1">Monto (<span
+                                    id="coldTxSymbol">ETH</span>)</label>
+                            <input type="number" step="0.0001" id="coldTxAmount" required placeholder="0.0"
+                                class="w-full bg-gray-700 rounded-lg p-2 text-2xl font-bold outline-none focus:ring-2 focus:ring-cyan-500">
+                        </div>
+                        <div id="coldTxPrepareStatus" class="text-center text-sm min-h-[1.5rem] text-gray-400"></div>
+                        <button type="submit" id="coldTxGenerateBtn"
+                            class="w-full px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 font-semibold">
+                            Generar QR para firmar</button>
+                    </form>
+                </div>
+                <!-- Paso 2: QR de la tx sin firmar -->
+                <div id="coldTxPrepareStep2" class="hidden space-y-3">
+                    <p class="text-sm text-gray-400">Escaneá este QR desde la wallet en modo frío
+                        (botón <strong class="text-white">Escanear</strong>). Ahí se revisa y se firma.</p>
+                    <div class="w-full max-w-[300px] mx-auto p-3 bg-white rounded-xl shadow-lg">
+                        <div id="coldTxUnsignedQr" class="qr-fit"></div>
+                    </div>
+                    <div id="coldTxUnsignedDetails" class="bg-gray-900/50 p-3 rounded-lg text-xs space-y-1"></div>
+                    <button id="coldTxScanSignedBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 font-semibold">
+                        📷 Ya firmé → Escanear QR firmado</button>
+                    <button id="coldTxBackBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm">← Volver</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Firmar Transacción Fría (lado frío) -->
+        <div id="coldTxSignModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-cyan-300">Firmar Transacción ❄</h3>
+                    <button id="closeColdTxSignModal"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                <p class="text-sm text-gray-400">Revisá bien qué estás por firmar. La firma se hace
+                    <strong class="text-white">sin conexión</strong>: tu clave no sale de este dispositivo.</p>
+                <div id="coldTxSignDetails" class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-1"></div>
+                <div id="coldTxSignWarn" class="hidden p-2 bg-red-900/40 border border-red-700 rounded-lg
+                    text-red-300 text-xs"></div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" id="cancelColdTxSignBtn"
+                        class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500">Cancelar</button>
+                    <button type="button" id="confirmColdTxSignBtn"
+                        class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 font-semibold">✍️ Firmar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Transmitir Transacción Firmada (lado online) -->
+        <div id="coldTxBroadcastModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-cyan-300">Transmitir Transacción ❄</h3>
+                    <button id="closeColdTxBroadcastModal"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                <p class="text-sm text-gray-400">Transacción firmada lista para transmitir a la red.
+                    Verificá los datos antes de enviarla.</p>
+                <div id="coldTxBroadcastDetails" class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-1"></div>
+                <div id="coldTxBroadcastStatus" class="text-center text-sm min-h-[2rem] text-gray-400"></div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" id="cancelColdTxBroadcastBtn"
+                        class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500">Cerrar</button>
+                    <button type="button" id="confirmColdTxBroadcastBtn"
+                        class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 font-semibold">📡 Transmitir</button>
+                </div>
             </div>
         </div>
 
@@ -2580,6 +2703,28 @@
                 </div>
 
                 <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300">Llevar contactos a otro dispositivo</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2">Por QR entre dos dispositivos, o copiando y pegando
+                    el texto (mismo teléfono). No viaja ninguna llave.</p>
+                <div class="flex gap-2">
+                    <button id="exportContactsQrBtn"
+                        class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                        ⇪ Exportar</button>
+                    <button id="importContactsQrBtn"
+                        class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                        ⇩ Importar</button>
+                </div>
+
+                <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300">Transacción fría ❄</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2">Prepará una transacción para que la firme una
+                    wallet en modo frío, y transmitila cuando te devuelvan el QR firmado.</p>
+                <button id="openColdTxPrepareBtn"
+                    class="w-full px-4 py-2 font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                    ❄ Preparar transacción fría
+                </button>
+
+                <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300">Gestionar Redes</h2>
                 <button id="manageNetworksBtn"
                     class="w-full mt-2 px-4 py-2 font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
@@ -2588,7 +2733,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.81</p>
+                    <p id="settingsVersionText">Versión 1.82</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -2614,6 +2759,57 @@
                 <div class="flex-shrink-0 pt-3 border-t border-gray-700">
                     <button id="openAddNetworkModalBtn"
                         class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Añadir Nueva Red</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Exportar Contactos (QR CWC1) -->
+        <div id="exportContactsModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-indigo-300">Exportar contactos</h3>
+                    <button id="closeExportContactsModal"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                <p class="text-sm text-gray-400">Escaneá este QR desde el otro dispositivo. Si es el mismo teléfono
+                    (no podés escanear tu propia pantalla), usá <span class="text-indigo-300 font-semibold">Copiar
+                        todos</span> y pegalo en Importar.</p>
+                <div class="w-full max-w-[340px] mx-auto p-4 bg-white rounded-xl shadow-lg flex justify-center">
+                    <div id="exportContactsQrCode"></div>
+                </div>
+                <p id="exportContactsCount" class="text-xs text-gray-500 text-center"></p>
+                <div id="exportContactsPager" class="hidden items-center justify-center gap-4">
+                    <button id="exportContactsPrevBtn"
+                        class="px-4 py-1 rounded-lg bg-gray-700 hover:bg-gray-600 font-bold">←</button>
+                    <span id="exportContactsPageLabel" class="text-sm text-gray-300 font-semibold"></span>
+                    <button id="exportContactsNextBtn"
+                        class="px-4 py-1 rounded-lg bg-gray-700 hover:bg-gray-600 font-bold">→</button>
+                </div>
+                <button id="exportContactsCopyBtn"
+                    class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold">Copiar
+                    todos</button>
+            </div>
+        </div>
+
+        <!-- Modal Importar Contactos (pegar texto CWC1; el QR se escanea con el escáner normal) -->
+        <div id="importContactsModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-indigo-300">Importar contactos</h3>
+                    <button id="closeImportContactsModal"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                <p class="text-sm text-gray-400">Escaneá el QR de exportación del otro dispositivo, o pegá acá el
+                    texto copiado. Los contactos se agregan a los tuyos, sin pisar nada.</p>
+                <textarea id="importContactsQrInput" rows="4"
+                    class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                    placeholder="CWC1|..."></textarea>
+                <div class="flex gap-2">
+                    <button id="importContactsScanBtn"
+                        class="flex-1 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 font-semibold">Escanear
+                        QR</button>
+                    <button id="importContactsSubmitBtn"
+                        class="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold">Importar</button>
                 </div>
             </div>
         </div>
@@ -4081,6 +4277,19 @@
 
             async function handleSendTransaction(e) {
                 e.preventDefault();
+
+                // Modo frío: acá no se puede ARMAR una transacción (nonce, gas y chainId
+                // requieren red). El circuito es: un dispositivo online la prepara
+                // (Configuración → Transacción fría) y esta wallet solo escanea y FIRMA.
+                if (isOffline) {
+                    setTxStatus(
+                        '<span class="text-cyan-300">Modo frío: esta wallet solo firma. ' +
+                        'Prepará la transacción desde un dispositivo online ' +
+                        '(Configuración → Transacción fría ❄) y escaneá el QR acá con ' +
+                        '<strong>Escanear</strong>.</span>', false);
+                    return;
+                }
+
                 const recipient = recipientAddressInput.value.trim();
                 const amount = amountInput.value.trim();
 
@@ -4174,22 +4383,6 @@
                 const isStealth = isStealthAddress(recipient);
 
                 setTxStatus('Preparando transacción...', true);
-
-                if (isOffline) {
-                    try {
-                        setTxStatus('Firmando transacción offline...', true);
-                        const tx = { to: recipient, value: ethers.parseEther(amount) };
-                        const populatedTx = await currentWallet.populateTransaction(tx);
-                        const signedTx = await currentWallet.signTransaction(populatedTx);
-
-                        showSignedTxModal(signedTx);
-                        setTxStatus('Transacción firmada. Lista para transmitir.', false);
-                    } catch (error) {
-                        console.error("Error signing offline:", error);
-                        setTxStatus(`<span class="text-red-400">Error al firmar: ${error.message.slice(0, 40)}...</span>`, false);
-                    }
-                    return;
-                }
 
                 try {
                     const signer = currentWallet.connect(provider);
@@ -4526,6 +4719,211 @@
                 );
                 return JSON.parse(decrypted);
             }
+
+            // ─────────────────────────────────────────────────────────────
+            //  Exportar / Importar CONTACTOS por QR o texto pegado.
+            //  Payload: CWC1|base64url(deflate-raw(JSON [[nombre,address,pubKey],…]))
+            //  (CWC0| = sin comprimir, fallback si no hay CompressionStream).
+            //  No viaja ninguna llave privada: solo agenda + pubKeys de handshake.
+            //  Cada QR es autónomo (un subset de contactos): las "páginas" se
+            //  escanean en cualquier orden y cada una mergea por su cuenta.
+            // ─────────────────────────────────────────────────────────────
+            const CONTACTS_QR_PREFIX = 'CWC1|';
+            const CONTACTS_QR_PREFIX_PLAIN = 'CWC0|';
+            const CONTACTS_QR_CHUNK = 10; // contactos por QR: denso pero escaneable con cámara de teléfono
+
+            function b64urlEncode(bytes) {
+                let bin = '';
+                for (const b of bytes) bin += String.fromCharCode(b);
+                return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            }
+            function b64urlDecode(str) {
+                const bin = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+                return Uint8Array.from(bin, ch => ch.charCodeAt(0));
+            }
+            async function pipeBytes(bytes, transform) {
+                const res = new Response(new Blob([bytes]).stream().pipeThrough(transform));
+                return new Uint8Array(await res.arrayBuffer());
+            }
+
+            async function encodeContactsPayload(list) {
+                const compact = list.map(c => [c.name || '', c.address, c.pubKey || '']);
+                const raw = new TextEncoder().encode(JSON.stringify(compact));
+                if (typeof CompressionStream === 'function') {
+                    const deflated = await pipeBytes(raw, new CompressionStream('deflate-raw'));
+                    return CONTACTS_QR_PREFIX + b64urlEncode(deflated);
+                }
+                return CONTACTS_QR_PREFIX_PLAIN + b64urlEncode(raw);
+            }
+
+            function isContactsQrData(data) {
+                return typeof data === 'string' &&
+                    (data.startsWith(CONTACTS_QR_PREFIX) || data.startsWith(CONTACTS_QR_PREFIX_PLAIN));
+            }
+
+            async function decodeContactsPayload(data) {
+                let bytes = b64urlDecode(data.slice(CONTACTS_QR_PREFIX.length));
+                if (data.startsWith(CONTACTS_QR_PREFIX)) {
+                    bytes = await pipeBytes(bytes, new DecompressionStream('deflate-raw'));
+                }
+                const arr = JSON.parse(new TextDecoder().decode(bytes));
+                if (!Array.isArray(arr)) throw new Error('Payload de contactos inválido');
+                return arr.map(([name, address, pubKey]) => ({ name, address, pubKey }));
+            }
+
+            // ¿El nombre es el placeholder derivado de la address? (no vale la pena conservarlo)
+            function isPlaceholderContactName(name, address) {
+                return !name
+                    || name === `${address.slice(0, 6)}...${address.slice(-4)}`
+                    || name === address.slice(0, 10) + '...';
+            }
+
+            // Merge conservador: agrega los que faltan; en los existentes solo completa
+            // pubKey y reemplaza el nombre si el local era un placeholder.
+            async function mergeImportedContacts(list) {
+                let added = 0, updated = 0;
+                for (const item of list) {
+                    const address = String(item.address || '').trim();
+                    if (!isAddress(address) && !isStealthAddress(address)) continue;
+                    const pubKey = /^[0-9a-fA-F]{66}$/.test(item.pubKey || '') ? item.pubKey : null;
+                    const name = String(item.name || '').trim().slice(0, 60);
+                    const idx = contacts.findIndex(c => c.address.toLowerCase() === address.toLowerCase());
+                    if (idx === -1) {
+                        contacts.push({
+                            name: name || `${address.slice(0, 6)}...${address.slice(-4)}`,
+                            address, unreadCount: 0, lastMessage: null, lastMessageTimestamp: 0,
+                            status: 'offline', lastSeen: null, avatar: ANON_AVATAR, pubKey,
+                        });
+                        added++;
+                    } else {
+                        let changed = false;
+                        if (pubKey && !contacts[idx].pubKey) { contacts[idx].pubKey = pubKey; changed = true; }
+                        if (name && !isPlaceholderContactName(name, address)
+                            && isPlaceholderContactName(contacts[idx].name, address)) {
+                            contacts[idx].name = name; changed = true;
+                        }
+                        if (changed) updated++;
+                    }
+                }
+                if (added || updated) {
+                    await saveContacts();
+                    markChatBackupDirty();
+                }
+                return { added, updated };
+            }
+
+            async function handleIncomingContactsQR(data) {
+                try {
+                    const list = await decodeContactsPayload(data.trim());
+                    const { added, updated } = await mergeImportedContacts(list);
+                    playQRscanned();
+                    closeImportContactsModal();
+                    if (added || updated) {
+                        showToast(`Contactos importados: ${added} nuevo${added !== 1 ? 's' : ''}, ${updated} actualizado${updated !== 1 ? 's' : ''}.`, 'success', 5000);
+                    } else {
+                        showToast('Nada para importar: esos contactos ya estaban.', 'info', 4000);
+                    }
+                } catch (e) {
+                    console.warn('import contactos:', e);
+                    showToast('El QR/texto de contactos no es válido.', 'error');
+                }
+            }
+
+            // ── UI: modal de exportación (QR paginado + copiar todos) ──
+            let exportContactsPages = [];   // payloads CWC1, uno por QR
+            let exportContactsPage = 0;
+
+            function renderExportContactsPage() {
+                const container = document.getElementById('exportContactsQrCode');
+                container.innerHTML = '';
+                new QRCodeStyling({
+                    width: 300, height: 300, data: exportContactsPages[exportContactsPage],
+                    dotsOptions: { color: '#000000', type: 'square' },
+                    backgroundOptions: { color: '#ffffff' },
+                }).append(container);
+                const pager = document.getElementById('exportContactsPager');
+                if (exportContactsPages.length > 1) {
+                    pager.classList.remove('hidden');
+                    pager.classList.add('flex');
+                    document.getElementById('exportContactsPageLabel').textContent =
+                        `QR ${exportContactsPage + 1} de ${exportContactsPages.length}`;
+                } else {
+                    pager.classList.add('hidden');
+                    pager.classList.remove('flex');
+                }
+            }
+
+            async function openExportContactsModal() {
+                if (!contacts.length) { showToast('No hay contactos para exportar.', 'error'); return; }
+                exportContactsPages = [];
+                for (let i = 0; i < contacts.length; i += CONTACTS_QR_CHUNK) {
+                    exportContactsPages.push(await encodeContactsPayload(contacts.slice(i, i + CONTACTS_QR_CHUNK)));
+                }
+                exportContactsPage = 0;
+                document.getElementById('exportContactsCount').textContent =
+                    `${contacts.length} contacto${contacts.length !== 1 ? 's' : ''}` +
+                    (exportContactsPages.length > 1 ? ` en ${exportContactsPages.length} QRs (escanealos en cualquier orden)` : '');
+                renderExportContactsPage();
+                const modal = document.getElementById('exportContactsModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            function closeExportContactsModal() {
+                const modal = document.getElementById('exportContactsModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            function openImportContactsModal() {
+                const input = document.getElementById('importContactsQrInput');
+                if (input) input.value = '';
+                const modal = document.getElementById('importContactsModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            function closeImportContactsModal() {
+                const modal = document.getElementById('importContactsModal');
+                if (!modal) return;
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            (function wireContactsTransferUI() {
+                const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+                on('exportContactsQrBtn', openExportContactsModal);
+                on('closeExportContactsModal', closeExportContactsModal);
+                on('exportContactsPrevBtn', () => {
+                    exportContactsPage = (exportContactsPage - 1 + exportContactsPages.length) % exportContactsPages.length;
+                    renderExportContactsPage();
+                });
+                on('exportContactsNextBtn', () => {
+                    exportContactsPage = (exportContactsPage + 1) % exportContactsPages.length;
+                    renderExportContactsPage();
+                });
+                on('exportContactsCopyBtn', async (e) => {
+                    // Un solo payload con TODOS los contactos: el portapapeles no tiene el límite del QR.
+                    const payload = await encodeContactsPayload(contacts);
+                    await navigator.clipboard.writeText(payload);
+                    const btn = e.currentTarget;
+                    const prev = btn.textContent;
+                    btn.textContent = '✓ Copiado';
+                    setTimeout(() => { btn.textContent = prev; }, 2000);
+                });
+                on('importContactsQrBtn', openImportContactsModal);
+                on('closeImportContactsModal', closeImportContactsModal);
+                on('importContactsSubmitBtn', async () => {
+                    const raw = (document.getElementById('importContactsQrInput').value || '').trim();
+                    if (!isContactsQrData(raw)) {
+                        showToast('Eso no parece un export de contactos (debe empezar con CWC1|).', 'error');
+                        return;
+                    }
+                    await handleIncomingContactsQR(raw);
+                });
+                on('importContactsScanBtn', () => {
+                    closeImportContactsModal();
+                    startScanner(); // el escáner reconoce CWC1| y mergea solo
+                });
+            })();
 
             // ─────────────────────────────────────────────────────────────
             //  Mensajería OFFLINE por QR (ECIES sobre secp256k1)
@@ -4886,6 +5284,7 @@
                         name: c.name, address: c.address,
                         lastMessage: c.lastMessage, lastMessageTimestamp: c.lastMessageTimestamp,
                         lastReadTimestamp: c.lastReadTimestamp,
+                        pubKey: c.pubKey || undefined, // handshake offline: sin esto, el QR frío pide re-escanear identidad
                     }));
                     const payload = new TextEncoder().encode(JSON.stringify({
                         v: 1,
@@ -4976,12 +5375,19 @@
                                 lastMessageTimestamp: bc.lastMessageTimestamp || 0,
                                 lastReadTimestamp: bc.lastReadTimestamp ?? (bc.lastMessageTimestamp || 0),
                                 status: 'offline', lastSeen: null, avatar: ANON_AVATAR,
+                                pubKey: bc.pubKey || null,
                             });
                             contactsChanged = true;
-                        } else if ((bc.lastMessageTimestamp || 0) > (contacts[idx].lastMessageTimestamp || 0)) {
-                            contacts[idx].lastMessage = bc.lastMessage;
-                            contacts[idx].lastMessageTimestamp = bc.lastMessageTimestamp;
-                            contactsChanged = true;
+                        } else {
+                            if ((bc.lastMessageTimestamp || 0) > (contacts[idx].lastMessageTimestamp || 0)) {
+                                contacts[idx].lastMessage = bc.lastMessage;
+                                contacts[idx].lastMessageTimestamp = bc.lastMessageTimestamp;
+                                contactsChanged = true;
+                            }
+                            if (bc.pubKey && !contacts[idx].pubKey) {
+                                contacts[idx].pubKey = bc.pubKey;
+                                contactsChanged = true;
+                            }
                         }
                     }
                     if (contactsChanged) await saveContacts();
@@ -6597,6 +7003,9 @@
 
             // --- Scanner ---
             function startScanner() {
+                // Limpiar el resultado del escaneo anterior (si no, reaparece al reabrir)
+                document.getElementById('scanned-data').textContent = '';
+                document.getElementById('scanned-result').style.display = 'none';
                 scannerView.classList.remove('hidden');
                 scannerView.classList.add('flex');
                 html5QrCodeScanner = new Html5Qrcode("qr-reader");
@@ -6656,16 +7065,25 @@
             }
 
             function stopScanner() {
+                // Ocultar la vista SIEMPRE: si la cámara nunca arrancó (permiso denegado,
+                // sin cámara) isScanning es false y antes el overlay quedaba atrapando al usuario.
+                const hideView = () => {
+                    scannerView.classList.add('hidden');
+                    scannerView.classList.remove('flex');
+                };
                 if (html5QrCodeScanner && html5QrCodeScanner.isScanning) {
-                    html5QrCodeScanner.stop().then(() => {
-                        scannerView.classList.add('hidden');
-                        scannerView.classList.remove('flex');
-                    }).catch(err => console.error("Error al detener escáner:", err));
+                    html5QrCodeScanner.stop().then(hideView).catch(err => {
+                        console.error("Error al detener escáner:", err);
+                        hideView();
+                    });
+                } else {
+                    hideView();
                 }
             }
 
             async function onScanSuccess(decodedText, decodedResult) {
                 stopScanner();
+                playQRscanned();
                 document.getElementById('scanned-data').textContent = decodedText;
                 document.getElementById('scanned-result').style.display = 'block';
 
@@ -6673,7 +7091,6 @@
                 if (document.body.dataset.scannerContext === 'addContact') {
                     const address = extractAddressFromData(decodedText);
                     if (address) {
-                        playQRscanned();
                         document.getElementById('contactAddress').value = address;
                     } else {
                         alert("No se pudo encontrar una dirección válida en el QR.");
@@ -6682,6 +7099,16 @@
                     addContactModal.classList.remove('hidden');
                     addContactModal.classList.add('flex');
                     // Reset context
+                    delete document.body.dataset.scannerContext;
+                } else if (document.body.dataset.scannerContext === 'coldTxFrom') {
+                    // Escanear la dirección de la wallet fría desde el modal de preparación
+                    const address = extractAddressFromData(decodedText);
+                    if (address) {
+                        document.getElementById('coldTxFromAddress').value = address;
+                    } else {
+                        alert("No se pudo encontrar una dirección válida en el QR.");
+                    }
+                    if (window.__reopenColdTxPrepare) window.__reopenColdTxPrepare();
                     delete document.body.dataset.scannerContext;
                 } else {
                     await handleScannedData(decodedText);
@@ -6849,9 +7276,24 @@
                     await startWalletConnectSession(data);
                     return;
                 }
+                // ¿Es una transacción fría sin firmar? (QR con prefijo CWT1|) → revisar y firmar
+                if (isColdTxData(data)) {
+                    await handleIncomingColdTx(data);
+                    return;
+                }
+                // ¿Es una transacción firmada? (QR con prefijo CWS1|) → confirmar y transmitir
+                if (isSignedColdTxData(data)) {
+                    await handleIncomingSignedTx(data);
+                    return;
+                }
                 // ¿Es un mensaje offline cifrado? (QR con prefijo CWM1|)
                 if (isOfflineMessageData(data)) {
                     await handleIncomingOfflineMessage(data);
+                    return;
+                }
+                // ¿Es un export de contactos? (QR con prefijo CWC1|/CWC0|)
+                if (isContactsQrData(data)) {
+                    await handleIncomingContactsQR(data);
                     return;
                 }
 
@@ -6876,6 +7318,10 @@
                     alert("QR no reconocido o no contiene una dirección ni llave válida.");
                 }
             }
+
+            // Mismo pipeline que un QR escaneado, para payloads que llegan por otra vía
+            // (pegar texto, deep-links, testing por CDP).
+            window.handleScannedData = handleScannedData;
 
             window.openRestoreModal = () => {
                 const restoreWalletModal = document.getElementById('restoreWalletModal');
@@ -8719,6 +9165,9 @@
                     addContactModal.classList.remove('hidden');
                     addContactModal.classList.add('flex');
                     delete document.body.dataset.scannerContext;
+                } else if (document.body.dataset.scannerContext === 'coldTxFrom') {
+                    if (window.__reopenColdTxPrepare) window.__reopenColdTxPrepare();
+                    delete document.body.dataset.scannerContext;
                 }
             });
 
@@ -8901,7 +9350,12 @@
                 }
             }
 
+            let lastQRscannedSoundTs = 0;
             function playQRscanned() {
+                // Throttle: onScanSuccess suena siempre y los handlers específicos también
+                // llaman acá (por los caminos de pegar texto / deep-link); evita el beep doble.
+                if (Date.now() - lastQRscannedSoundTs < 600) return;
+                lastQRscannedSoundTs = Date.now();
                 if (toneStarted && clickSynth) {
                     const now = Tone.now();
                     clickSynth.triggerAttackRelease("F5", "16n", now);
@@ -9316,8 +9770,8 @@
                 dataTextarea.value = signedTx;
                 qrContainer.innerHTML = ''; // Limpiar QR anterior
                 const qrCode = new QRCodeStyling({
-                    width: 370, height: 370, data: signedTx,
-                    dotsOptions: { color: "#000000", type: "dots" },
+                    width: 330, height: 330, data: signedTx,
+                    dotsOptions: { color: "#000000", type: "square" },
                     backgroundOptions: { color: "#ffffff" },
                 });
                 qrCode.append(qrContainer);
@@ -9358,6 +9812,283 @@
                     startScanner();
                 });
                 if (scanReplyComposeBtn) scanReplyComposeBtn.addEventListener('click', () => startScanner());
+            })();
+
+            // ==========================================================================
+            //  TRANSACCIÓN FRÍA (air-gapped): online prepara → frío firma → online transmite
+            //  CWT1| = tx sin firmar (JSON b64url)   CWS1| = raw tx firmada (hex)
+            // ==========================================================================
+            const COLD_TX_PREFIX = 'CWT1|';
+            const SIGNED_TX_PREFIX = 'CWS1|';
+            let pendingColdTx = null;      // payload CWT1 decodificado, esperando firma
+            let pendingSignedTx = null;    // { raw, parsed } esperando transmisión
+
+            function isColdTxData(d) { return typeof d === 'string' && d.startsWith(COLD_TX_PREFIX); }
+            function isSignedColdTxData(d) { return typeof d === 'string' && d.startsWith(SIGNED_TX_PREFIX); }
+
+            function shortAddr(a) { return a ? `${a.slice(0, 8)}…${a.slice(-6)}` : '—'; }
+            function coldTxMaxFeeEth(t) {
+                // Costo máximo de gas: gasLimit × precio máximo por unidad
+                const perGas = BigInt(t.maxFeePerGas || t.gasPrice || '0');
+                return ethers.formatEther(BigInt(t.gasLimit) * perGas);
+            }
+
+            // ── Lado ONLINE: preparar la tx con datos frescos de la red ──
+            async function prepareColdTx(from, to, amount) {
+                const net = optionsList[currentTokenIndex];
+                const value = ethers.parseEther(amount);
+                const [nonce, feeData, balance] = await Promise.all([
+                    provider.getTransactionCount(from, 'pending'),
+                    provider.getFeeData(),
+                    provider.getBalance(from)
+                ]);
+                let gasLimit;
+                try {
+                    // margen 20%: el gas no usado se devuelve
+                    gasLimit = (await provider.estimateGas({ from, to, value })) * 12n / 10n;
+                } catch (e) {
+                    gasLimit = 21000n;
+                }
+                const tx = {
+                    from, to, value: value.toString(), nonce,
+                    chainId: String(net.TOKEN_CHAINID), gasLimit: gasLimit.toString()
+                };
+                if (feeData.maxFeePerGas) {
+                    tx.type = 2;
+                    tx.maxFeePerGas = feeData.maxFeePerGas.toString();
+                    tx.maxPriorityFeePerGas = (feeData.maxPriorityFeePerGas || 0n).toString();
+                } else {
+                    tx.type = 0;
+                    tx.gasPrice = (feeData.gasPrice || 0n).toString();
+                }
+                const maxCost = value + BigInt(tx.gasLimit) * BigInt(tx.maxFeePerGas || tx.gasPrice);
+                if (balance < maxCost) {
+                    throw new Error(`Saldo insuficiente en la wallet fría: tiene ${parseFloat(ethers.formatEther(balance)).toFixed(6)} y necesita hasta ${parseFloat(ethers.formatEther(maxCost)).toFixed(6)}.`);
+                }
+                const payload = { v: 1, net: net.TOKEN_CHAIN_NAME, sym: net.NATIVE_SYMBOL || 'ETH', tx };
+                return { payload, qrData: COLD_TX_PREFIX + b64urlEncode(new TextEncoder().encode(JSON.stringify(payload))) };
+            }
+
+            function coldTxDetailsHtml(payload) {
+                const t = payload.tx;
+                return `
+                    <p><strong>Desde (firma):</strong> <span class="font-mono break-all">${t.from}</span></p>
+                    <p><strong>Hacia:</strong> <span class="font-mono break-all">${t.to}</span></p>
+                    <p><strong>Monto:</strong> <span class="font-bold text-white">${ethers.formatEther(BigInt(t.value))} ${payload.sym}</span></p>
+                    <p><strong>Red:</strong> ${payload.net} (chainId ${t.chainId})</p>
+                    <p><strong>Nonce:</strong> ${t.nonce} · <strong>Gas máx:</strong> ${parseFloat(coldTxMaxFeeEth(t)).toFixed(8)} ${payload.sym}</p>`;
+            }
+
+            // ── Lado FRÍO: revisar y firmar un CWT1 escaneado ──
+            async function handleIncomingColdTx(data) {
+                if (!currentWallet) {
+                    alert("Cargá tu billetera antes de firmar una transacción.");
+                    return;
+                }
+                let payload;
+                try {
+                    payload = JSON.parse(new TextDecoder().decode(b64urlDecode(data.slice(COLD_TX_PREFIX.length))));
+                    const t = payload.tx;
+                    if (!ethers.isAddress(t.to) || !ethers.isAddress(t.from)) throw new Error('direcciones inválidas');
+                    BigInt(t.value); BigInt(t.gasLimit); BigInt(t.chainId); // valida numéricos
+                } catch (e) {
+                    showToast('QR de transacción fría inválido.', 'error');
+                    return;
+                }
+                pendingColdTx = payload;
+                document.getElementById('coldTxSignDetails').innerHTML = coldTxDetailsHtml(payload);
+
+                const warnEl = document.getElementById('coldTxSignWarn');
+                const signBtn = document.getElementById('confirmColdTxSignBtn');
+                const mismatch = payload.tx.from.toLowerCase() !== currentWallet.address.toLowerCase();
+                warnEl.classList.toggle('hidden', !mismatch);
+                signBtn.disabled = mismatch;
+                signBtn.classList.toggle('opacity-50', mismatch);
+                if (mismatch) {
+                    warnEl.innerHTML = `⚠️ Esta transacción fue preparada para <span class="font-mono">${shortAddr(payload.tx.from)}</span>, pero esta wallet es <span class="font-mono">${shortAddr(currentWallet.address)}</span>. No se puede firmar acá.`;
+                }
+                const modal = document.getElementById('coldTxSignModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            function hideColdTxSignModal() {
+                const modal = document.getElementById('coldTxSignModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                pendingColdTx = null;
+            }
+
+            async function confirmColdTxSign() {
+                if (!pendingColdTx || !currentWallet) return;
+                const t = pendingColdTx.tx;
+                const txObj = {
+                    to: t.to, value: BigInt(t.value), nonce: Number(t.nonce),
+                    chainId: BigInt(t.chainId), gasLimit: BigInt(t.gasLimit), type: t.type
+                };
+                if (t.type === 2) {
+                    txObj.maxFeePerGas = BigInt(t.maxFeePerGas);
+                    txObj.maxPriorityFeePerGas = BigInt(t.maxPriorityFeePerGas);
+                } else {
+                    txObj.gasPrice = BigInt(t.gasPrice);
+                }
+                try {
+                    // Firma 100% local: no requiere provider ni red
+                    const raw = await currentWallet.signTransaction(txObj);
+                    hideColdTxSignModal();
+                    showSignedTxModal(SIGNED_TX_PREFIX + raw);
+                } catch (e) {
+                    console.error('Error firmando tx fría:', e);
+                    showToast('Error al firmar: ' + e.message.slice(0, 60), 'error');
+                }
+            }
+
+            // ── Lado ONLINE: transmitir un CWS1 escaneado ──
+            async function handleIncomingSignedTx(data) {
+                if (isOffline) {
+                    showToast('Estás en modo frío: pasá a modo online para transmitir la transacción.', 'error', 6000);
+                    return;
+                }
+                const raw = data.slice(SIGNED_TX_PREFIX.length).trim();
+                let parsed;
+                try {
+                    parsed = ethers.Transaction.from(raw);
+                    if (!parsed.from) throw new Error('sin firma');
+                } catch (e) {
+                    showToast('QR de transacción firmada inválido.', 'error');
+                    return;
+                }
+                pendingSignedTx = { raw, parsed };
+                const net = optionsList.find(n => String(n.TOKEN_CHAINID) === parsed.chainId.toString() && !n.TOKEN_ADDRESS)
+                    || optionsList.find(n => String(n.TOKEN_CHAINID) === parsed.chainId.toString());
+                const sym = (net && net.NATIVE_SYMBOL) || 'ETH';
+                document.getElementById('coldTxBroadcastDetails').innerHTML = `
+                    <p><strong>Firmada por:</strong> <span class="font-mono break-all">${parsed.from}</span></p>
+                    <p><strong>Hacia:</strong> <span class="font-mono break-all">${parsed.to}</span></p>
+                    <p><strong>Monto:</strong> <span class="font-bold text-white">${ethers.formatEther(parsed.value)} ${sym}</span></p>
+                    <p><strong>Red:</strong> ${net ? net.TOKEN_CHAIN_NAME : '⚠️ desconocida'} (chainId ${parsed.chainId})</p>
+                    <p><strong>Nonce:</strong> ${parsed.nonce}</p>`;
+                const statusEl2 = document.getElementById('coldTxBroadcastStatus');
+                statusEl2.innerHTML = net ? '' : '<span class="text-red-400">No tenés ninguna red configurada con ese chainId.</span>';
+                const bcBtn = document.getElementById('confirmColdTxBroadcastBtn');
+                bcBtn.disabled = !net;
+                bcBtn.classList.remove('hidden');
+                const modal = document.getElementById('coldTxBroadcastModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            function hideColdTxBroadcastModal() {
+                const modal = document.getElementById('coldTxBroadcastModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            async function confirmColdTxBroadcast() {
+                if (!pendingSignedTx) return;
+                const { raw, parsed } = pendingSignedTx;
+                const statusEl2 = document.getElementById('coldTxBroadcastStatus');
+                const btn = document.getElementById('confirmColdTxBroadcastBtn');
+                const net = optionsList.find(n => String(n.TOKEN_CHAINID) === parsed.chainId.toString() && !n.TOKEN_ADDRESS)
+                    || optionsList.find(n => String(n.TOKEN_CHAINID) === parsed.chainId.toString());
+                if (!net) return;
+                // Usar el provider actual si ya está en esa red; si no, uno ad-hoc
+                const current = optionsList[currentTokenIndex];
+                const p = (provider && String(current.TOKEN_CHAINID) === parsed.chainId.toString())
+                    ? provider : new ethers.JsonRpcProvider(net.API);
+                btn.disabled = true;
+                statusEl2.innerHTML = '<span class="spinner" style="width:14px;height:14px;margin-right:8px;"></span> Transmitiendo…';
+                try {
+                    const resp = await p.broadcastTransaction(raw);
+                    const explorerBase = (net.EXPLORER || '').replace(/\/$/, '');
+                    const link = explorerBase ? ` <a href="${explorerBase}/tx/${resp.hash}" target="_blank" rel="noopener" class="underline text-cyan-300">ver en explorer</a>` : '';
+                    btn.classList.add('hidden');
+                    statusEl2.innerHTML = `📡 Enviada.${link}<br><span class="text-xs font-mono break-all">${resp.hash}</span>`;
+                    pendingSignedTx = null;
+                    await resp.wait(1);
+                    statusEl2.innerHTML = `✅ Confirmada.${link}<br><span class="text-xs font-mono break-all">${resp.hash}</span>`;
+                } catch (e) {
+                    console.error('Error transmitiendo tx fría:', e);
+                    const msg = (e.shortMessage || e.message || '').slice(0, 120);
+                    statusEl2.innerHTML = `<span class="text-red-400">Error: ${msg}</span>`;
+                    btn.disabled = false;
+                }
+            }
+
+            // ── Wiring de los tres modales ──
+            (function wireColdTx() {
+                const prepareModal = document.getElementById('coldTxPrepareModal');
+                const step1 = document.getElementById('coldTxPrepareStep1');
+                const step2 = document.getElementById('coldTxPrepareStep2');
+                const prepareStatus = document.getElementById('coldTxPrepareStatus');
+
+                const showPrepareModal = () => { prepareModal.classList.remove('hidden'); prepareModal.classList.add('flex'); };
+                const hidePrepareModal = () => { prepareModal.classList.add('hidden'); prepareModal.classList.remove('flex'); };
+                const resetToStep1 = () => { step2.classList.add('hidden'); step1.classList.remove('hidden'); prepareStatus.textContent = ''; };
+
+                document.getElementById('openColdTxPrepareBtn').addEventListener('click', () => {
+                    if (isOffline || !provider) {
+                        showToast('Para preparar la transacción hace falta estar en modo online.', 'error', 5000);
+                        return;
+                    }
+                    settingsModal.classList.add('hidden');
+                    settingsModal.classList.remove('flex');
+                    const net = optionsList[currentTokenIndex];
+                    document.getElementById('coldTxNetworkName').textContent = net.TOKEN_CHAIN_NAME;
+                    document.getElementById('coldTxSymbol').textContent = net.NATIVE_SYMBOL || 'ETH';
+                    resetToStep1();
+                    showPrepareModal();
+                });
+                document.getElementById('closeColdTxPrepareModal').addEventListener('click', hidePrepareModal);
+                document.getElementById('coldTxBackBtn').addEventListener('click', resetToStep1);
+
+                document.getElementById('coldTxScanFromBtn').addEventListener('click', () => {
+                    hidePrepareModal();
+                    document.body.dataset.scannerContext = 'coldTxFrom';
+                    startScanner();
+                });
+                // Reabrir el modal tras escanear la dirección (lo usa onScanSuccess)
+                window.__reopenColdTxPrepare = showPrepareModal;
+
+                document.getElementById('coldTxPrepareForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const from = document.getElementById('coldTxFromAddress').value.trim();
+                    const to = document.getElementById('coldTxRecipient').value.trim();
+                    const amount = document.getElementById('coldTxAmount').value.trim();
+                    if (!ethers.isAddress(from)) { prepareStatus.innerHTML = '<span class="text-red-400">Dirección de la wallet fría inválida.</span>'; return; }
+                    if (!ethers.isAddress(to)) { prepareStatus.innerHTML = '<span class="text-red-400">Destinatario inválido.</span>'; return; }
+                    if (isNaN(amount) || parseFloat(amount) <= 0) { prepareStatus.innerHTML = '<span class="text-red-400">Monto inválido.</span>'; return; }
+                    prepareStatus.innerHTML = 'Consultando nonce, gas y saldo…';
+                    try {
+                        const { payload, qrData } = await prepareColdTx(from, to, amount);
+                        const qrContainer = document.getElementById('coldTxUnsignedQr');
+                        qrContainer.innerHTML = '';
+                        new QRCodeStyling({
+                            width: 300, height: 300, data: qrData,
+                            dotsOptions: { color: "#000000", type: "square" },
+                            backgroundOptions: { color: "#ffffff" },
+                        }).append(qrContainer);
+                        document.getElementById('coldTxUnsignedDetails').innerHTML = coldTxDetailsHtml(payload);
+                        step1.classList.add('hidden');
+                        step2.classList.remove('hidden');
+                    } catch (e) {
+                        console.error('Error preparando tx fría:', e);
+                        prepareStatus.innerHTML = `<span class="text-red-400">${(e.shortMessage || e.message || 'Error').slice(0, 140)}</span>`;
+                    }
+                });
+
+                document.getElementById('coldTxScanSignedBtn').addEventListener('click', () => {
+                    hidePrepareModal();
+                    startScanner(); // el CWS1| se reconoce solo en handleScannedData
+                });
+
+                document.getElementById('closeColdTxSignModal').addEventListener('click', hideColdTxSignModal);
+                document.getElementById('cancelColdTxSignBtn').addEventListener('click', hideColdTxSignModal);
+                document.getElementById('confirmColdTxSignBtn').addEventListener('click', confirmColdTxSign);
+
+                document.getElementById('closeColdTxBroadcastModal').addEventListener('click', hideColdTxBroadcastModal);
+                document.getElementById('cancelColdTxBroadcastBtn').addEventListener('click', hideColdTxBroadcastModal);
+                document.getElementById('confirmColdTxBroadcastBtn').addEventListener('click', confirmColdTxBroadcast);
             })();
 
             // Contract Configuration
