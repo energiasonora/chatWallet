@@ -45,7 +45,7 @@ echo "✦ Build con Node $(node -v)…"
 # Las páginas de /tools son didácticas y se copian verbatim desde src/static/tools
 # (vía parcel-reporter-static-files-copy), NO como entries de Parcel: así no se les
 # reescriben los links relativos entre sí.
-yarn parcel build src/index.html src/book.html src/dapp.html \
+yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html \
   --dist-dir public --public-url ./ --cache-dir .parcel-cache-build
 
 # ── 4. Deploy (Node 20, donde está firebase CLI) ──

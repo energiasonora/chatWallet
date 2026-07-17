@@ -246,8 +246,193 @@
             /* Kept as is, no direct intro equivalent */
             display: flex;
             justify-content: center;
+            align-items: stretch;
             gap: 1rem;
             flex-wrap: wrap;
+            margin-top: 1.8rem;
+        }
+
+        /* Botones del hero: misma altura, mismo padding, mismo radio — nada desalineado */
+        .hero-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: #fff !important;
+            text-decoration: none;
+            border: none;
+            border-radius: 12px;
+            padding: 16px 28px;
+            min-height: 56px;
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
+        }
+
+        .hero-btn:hover {
+            transform: translateY(-3px);
+            filter: brightness(1.1);
+        }
+
+        .hero-btn--pwa {
+            background: linear-gradient(135deg, #6c63ff 0%, #4a3fd8 100%);
+            box-shadow: 0 8px 24px rgba(108, 99, 255, 0.45);
+        }
+
+        .hero-btn--apk {
+            background: linear-gradient(135deg, #28a745 0%, #1b7e33 100%);
+            box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4);
+        }
+
+        .intro__try {
+            display: inline-block;
+            margin-top: 1.4rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            color: #b9b3ff;
+            text-decoration: none;
+            border-bottom: 1px dashed rgba(185, 179, 255, 0.5);
+            padding-bottom: 2px;
+            transition: color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .intro__try:hover {
+            color: #fff;
+            border-color: #fff;
+        }
+
+        /* Pills de features (solo lo que ya existe) */
+        .intro__pills {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 1.6rem;
+        }
+
+        .intro__pills .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            color: #e0e0e0;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(4px);
+            border-radius: 999px;
+            padding: 6px 14px;
+        }
+
+        /* Orbes de fondo: color flotando lento, detrás de todo */
+        .intro__orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(70px);
+            opacity: 0.55;
+            will-change: transform;
+            animation: orb-float 18s ease-in-out infinite alternate;
+        }
+
+        .intro__orb--1 {
+            width: 45vw;
+            height: 45vw;
+            left: -12vw;
+            top: -12vw;
+            background: radial-gradient(circle, rgba(108, 99, 255, 0.7) 0%, transparent 70%);
+        }
+
+        .intro__orb--2 {
+            width: 38vw;
+            height: 38vw;
+            right: -10vw;
+            bottom: -10vw;
+            background: radial-gradient(circle, rgba(6, 153, 211, 0.55) 0%, transparent 70%);
+            animation-delay: -6s;
+            animation-duration: 22s;
+        }
+
+        .intro__orb--3 {
+            width: 24vw;
+            height: 24vw;
+            right: 8vw;
+            top: 6vh;
+            background: radial-gradient(circle, rgba(124, 77, 255, 0.45) 0%, transparent 70%);
+            animation-delay: -12s;
+            animation-duration: 26s;
+        }
+
+        @keyframes orb-float {
+            from { transform: translate(0, 0) scale(1); }
+            to { transform: translate(4vw, -4vh) scale(1.15); }
+        }
+
+        /* Retícula sutil para dar textura al fondo */
+        .intro__grid {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+            background-size: 56px 56px;
+            -webkit-mask-image: radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0.8) 0%, transparent 70%);
+            mask-image: radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0.8) 0%, transparent 70%);
+        }
+
+        /* Indicador de scroll */
+        .intro__scroll-hint {
+            position: absolute;
+            bottom: 26px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3;
+            color: rgba(255, 255, 255, 0.65);
+            animation: hint-bounce 2.2s ease-in-out infinite;
+        }
+
+        @keyframes hint-bounce {
+            0%, 100% { transform: translate(-50%, 0); opacity: 0.65; }
+            50% { transform: translate(-50%, 10px); opacity: 1; }
+        }
+
+        /* CTA dentro de un slide: blanco sobre el color del slide, siempre contrasta */
+        .slide-cta {
+            display: inline-block;
+            margin-top: 1.6rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--dark) !important;
+            background: #fff;
+            padding: 14px 26px;
+            border-radius: 12px;
+            text-decoration: none;
+            text-shadow: none;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .slide-cta:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Badge honesto para features en desarrollo */
+        .roadmap-badge {
+            display: inline-block;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #fff;
+            border: 1.5px solid rgba(255, 255, 255, 0.7);
+            border-radius: 999px;
+            padding: 6px 16px;
+            margin-bottom: 1.2rem;
+            background: rgba(0, 0, 0, 0.18);
         }
 
         .slide {
@@ -451,7 +636,8 @@
         @media all and (max-width: 768px) {
             .col__content-title {
                 margin: 0 0 6vw;
-                font-size: 13vw;
+                /* 13vw rompía palabras largas en ES ("DIRECCIONES" → "DIRECCIO NES") */
+                font-size: 9.5vw;
                 letter-spacing: -0.5vw;
                 padding-left: 2vw;
             }
@@ -1000,6 +1186,26 @@
             line-height: 1.6;
         }
 
+        /* Bullets del libro: qué es, cómo se paga, a qué va la plata */
+        .book-points {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 30px 0;
+            text-align: left;
+        }
+
+        .book-points li {
+            font-size: 1rem;
+            color: var(--text-light);
+            padding: 9px 0;
+            border-bottom: 1px dashed var(--border-color);
+            line-height: 1.5;
+        }
+
+        .book-points li:last-child {
+            border-bottom: none;
+        }
+
         /* --- Price Info Section --- */
         .price-info {
             background-color: var(--info-bg);
@@ -1369,6 +1575,11 @@
             <section class="intro slide--0" id="slide-0">
                 <div class="intro__background">
                     <img src="logoius.svg" class="intro__bg-art" alt="Flower of Life background art">
+                    <!-- Orbes decorativos: gradientes difusos flotando detrás del contenido -->
+                    <div class="intro__orb intro__orb--1"></div>
+                    <div class="intro__orb intro__orb--2"></div>
+                    <div class="intro__orb intro__orb--3"></div>
+                    <div class="intro__grid"></div>
                 </div>
 
                 <div class="intro__content">
@@ -1386,40 +1597,47 @@
                         <span lang="es">Soberanía Digital</span>
                         <span lang="fr">Souveraineté Numérique</span>
                     </h3>
-                   
-         
 
-                    <div class="hero__cta-group-static" style="opacity: 1 !important; visibility: visible !important; transform: none !important;">
-                        <div class="headerpresale" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:center;">
-                            <a href="/dapp" class="btn btn--primary">
-                                <span lang="en">Try it!</span>
-                                <span lang="es">Abrir DApp</span>
-                                <span lang="fr">Ouvrir DApp</span>
-                            </a>
-                            <!-- Instalar como PWA: dispara el prompt nativo si el browser lo ofrece;
-                                 si no (ya instalada, iOS, prompt agotado) abre el modal de ayuda. -->
-                            <button id="heroInstallBtn" type="button" class="download-button"
-                                style="margin-bottom:0; display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                                <span lang="en">Install App (PWA)</span>
-                                <span lang="es">Instalar App (PWA)</span>
-                                <span lang="fr">Installer l'App (PWA)</span>
-                            </button>
-                            <!-- Descarga del APK Android: URL estable del último release de GitHub (siempre la versión más nueva). -->
-                            <a href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet.apk"
-                                class="download-button" style="margin-bottom:0; display:inline-flex; align-items:center; gap:8px;"
-                                rel="noopener">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                    <path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.23A11.46 11.46 0 0 0 12 7.99c-1.74 0-3.38.41-4.83 1.15L5.31 5.9a.4.4 0 1 0-.69.4l1.84 3.18A11.37 11.37 0 0 0 .5 18.5h23a11.37 11.37 0 0 0-5.9-9.02zM7 15.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
-                                </svg>
-                                <span lang="en">Download Android APK</span>
-                                <span lang="es">Descargar APK Android</span>
-                                <span lang="fr">Télécharger l'APK Android</span>
-                            </a>
-                        </div>
+                    <!-- Pills: solo features que existen hoy en la app -->
+                    <div class="intro__pills">
+                        <span class="pill">🔑 <span lang="en">Self-custody (BIP39)</span><span lang="es">Autocustodia (BIP39)</span><span lang="fr">Auto-garde (BIP39)</span></span>
+                        <span class="pill">💬 <span lang="en">Encrypted chat (XMTP)</span><span lang="es">Chat cifrado (XMTP)</span><span lang="fr">Chat chiffré (XMTP)</span></span>
+                        <span class="pill">🧊 <span lang="en">Air-gapped signing</span><span lang="es">Firma sin internet</span><span lang="fr">Signature hors ligne</span></span>
+                        <span class="pill">🌐 <span lang="en">Open source</span><span lang="es">Código abierto</span><span lang="fr">Open source</span></span>
                     </div>
 
+                    <div class="hero__cta-group-static" style="opacity: 1 !important; visibility: visible !important; transform: none !important;">
+                        <!-- Instalar como PWA: dispara el prompt nativo si el browser lo ofrece;
+                             si no (ya instalada, iOS, prompt agotado) abre el modal de ayuda. -->
+                        <button id="heroInstallBtn" type="button" class="hero-btn hero-btn--pwa">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                            <span lang="en">Install App (PWA)</span>
+                            <span lang="es">Instalar App (PWA)</span>
+                            <span lang="fr">Installer l'App (PWA)</span>
+                        </button>
+                        <!-- Descarga del APK Android: URL estable del último release de GitHub (siempre la versión más nueva). -->
+                        <a href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet.apk"
+                            class="hero-btn hero-btn--apk" rel="noopener">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.23A11.46 11.46 0 0 0 12 7.99c-1.74 0-3.38.41-4.83 1.15L5.31 5.9a.4.4 0 1 0-.69.4l1.84 3.18A11.37 11.37 0 0 0 .5 18.5h23a11.37 11.37 0 0 0-5.9-9.02zM7 15.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+                            </svg>
+                            <span lang="en">Download Android APK</span>
+                            <span lang="es">Descargar APK Android</span>
+                            <span lang="fr">Télécharger l'APK Android</span>
+                        </a>
+                    </div>
 
+                    <!-- Probar sin instalar: secundario a propósito -->
+                    <a href="/dapp" class="intro__try">
+                        <span lang="en">or try it in your browser →</span>
+                        <span lang="es">o probala en el navegador →</span>
+                        <span lang="fr">ou essayez-la dans le navigateur →</span>
+                    </a>
+
+                </div>
+
+                <div class="intro__scroll-hint" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
 
                 <img class="intro__img intro__img--1" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
@@ -1440,61 +1658,16 @@
                                     lang="fr">Souverain</span></span>
                         </h2>
                         <div class="col__content-wrap">
-                            <!-- <p class="col__content-txt">
-                                <span lang="en">A hot wallet for day-to-day transactions. A gentle claw at the system — you're the one in control.
-                                </span>
-                                <span lang="es">Para el dia a dia. Libre y ágil. Un zarpazo suave al sistema, vos
-                                    mandás.</span>
-                                <span lang="fr">Portefeuille chaud pour les transactions quotidiennes. Une attaque douce mais subversive contre le système — tu reprends le contrôle.</span>
-                            </p> -->
-
-
-                                <p class="col__content-txt">
-                                <span lang="en">Funded by the community</span>
-                                <span lang="es">Financiado por la comunidad</span>
-                                <span lang="fr">Financé par la communauté</span>
+                            <p class="col__content-txt">
+                                <span lang="en">Funded by the community — no VCs, no token presale. Buying the book keeps the project alive.</span>
+                                <span lang="es">Financiada por la comunidad: sin VCs ni preventa. Comprando el libro mantenés vivo el proyecto.</span>
+                                <span lang="fr">Financé par la communauté — sans VCs ni prévente. Acheter le livre fait vivre le projet.</span>
+                                <a href="book.html" class="slide-cta">
+                                    <span lang="en">Support the project →</span>
+                                    <span lang="es">Apoyar el proyecto →</span>
+                                    <span lang="fr">Soutenir le projet →</span>
+                                </a>
                             </p>
-
-  <div class="headerpresale" style="margin-top: 2rem;">
-                                <a href="/presale" class="btn btn--primary">
-                                     <span lang="en">Get Tokens</span>
-                                <span lang="es">Comprar Tokens</span>
-                                <span lang="fr">Obtenir des Jetons</span>
-                                </a>
-                            </div>
-
-<!-- 
-                                       <p class="intro__txt">
-                        <span lang="en">Funded by the community.</span>
-                        <span lang="es">Fundado por la comunidad.</span>
-                        <span lang="fr">Financé par la communauté.</span>
-                    </p> -->
-
-                    <!-- Countdown Timer -->
-                    <!-- <div id="countdown-container">
-                        <h3 class="countdown-title">
-                            <span lang="en">First Tokens Available In:</span>
-                            <span lang="es">Primeros Tokens Disponibles En:</span>
-                            <span lang="fr">Premiers Jetons Disponibles Dans:</span>
-                        </h3>
-                        <div id="countdown-timer">
-                            <div><span id="days">00</span><span class="label" lang="en">Days</span><span class="label" lang="es">Días</span><span class="label" lang="fr">Jours</span></div>
-                            <div><span id="hours">00</span><span class="label" lang="en">Hours</span><span class="label" lang="es">Horas</span><span class="label" lang="fr">Heures</span></div>
-                            <div><span id="minutes">00</span><span class="label" lang="en">Minutes</span><span class="label" lang="es">Minutos</span><span class="label" lang="fr">Minutes</span></div>
-                            <div><span id="seconds">00</span><span class="label" lang="en">Seconds</span><span class="label" lang="es">Segundos</span><span class="label" lang="fr">Secondes</span></div>
-                        </div>
-                    </div> -->
-
-                    
-                            <!-- <div class="headerpresale" style="margin-top: 2rem;">
-                                <a href="/presale" class="btn btn--primary">
-                                     <span lang="en">Get Tokens</span>
-                                <span lang="es">Comprar Tokens</span>
-                                <span lang="fr">Obtenir des Jetons</span>
-                                </a>
-                            </div> -->
-
-
                         </div>
                     </div>
                 </div>
@@ -1551,9 +1724,10 @@
                         </h2>
                         <div class="col__content-wrap">
                             <p class="col__content-txt">
-                                <span lang="en">All transactions in chat are off the radar. <br> Stealth by default. Private by design.</span>
-                                <span lang="es">Todas las transacciones en el chat son invisibles. <br> Direcciones stealth por defecto. Privado por diseño.</span>
-                                <span lang="fr"> Toutes les transactions dans le chat passent sous le radar.  <br>Stealth par défaut. Privé par conception.</span>
+                                <span class="roadmap-badge"><span lang="en">In development</span><span lang="es">En desarrollo</span><span lang="fr">En développement</span></span>
+                                <span lang="en">We're building stealth addresses so your in-chat payments leave no public trail. Coming to ChatWallet.</span>
+                                <span lang="es">Estamos construyendo direcciones stealth para que tus pagos por chat no dejen rastro público. Próximamente en ChatWallet.</span>
+                                <span lang="fr">Nous construisons des adresses furtives pour que vos paiements en chat ne laissent aucune trace publique. Bientôt dans ChatWallet.</span>
                             </p>
                         </div>
                     </div>
@@ -1601,9 +1775,10 @@
                         </h2>
                         <div class="col__content-wrap">
                             <p class="col__content-txt">
-                                <span lang="en">Authenticate with your signature.<br>Attestations to prove, validate, and build your on-chain web of trust.</span>
-                                <span lang="es"> Autentica con tu firma. <br>Atestaciones para probar, validar y construir tu red de confianza.</span>
-                                <span lang="fr">Authentifie avec ta signature.<br>Attestations pour prouver, valider et bâtir ta toile de confiance on-chain.</span>
+                                <span class="roadmap-badge"><span lang="en">In development</span><span lang="es">En desarrollo</span><span lang="fr">En développement</span></span>
+                                <span lang="en">Your DID profile is already signed and verifiable. Next up: attestations to prove, validate, and build your on-chain web of trust.</span>
+                                <span lang="es">Tu perfil DID ya se firma y verifica. Lo que viene: atestaciones para probar, validar y construir tu red de confianza.</span>
+                                <span lang="fr">Ton profil DID est déjà signé et vérifiable. La suite : des attestations pour prouver, valider et bâtir ta toile de confiance on-chain.</span>
 
                             </p>
                         </div>
@@ -1626,9 +1801,9 @@
                         </h2>
                         <div class="col__content-wrap">
                             <p class="col__content-txt">
-                                <span lang="en">Go full cold-wallet with offline mode. Securely sign transactions without an internet connection and share them via QR code or NFC.</span>
-                                <span lang="es">Desconéctate de Internet con el modo offline. Firma transacciones de forma segura y compártelas mediante código QR o NFC.</span>
-                                <span lang="fr">Passez en mode portefeuille froid avec le mode hors ligne. Signez les transactions en toute sécurité sans connexion Internet et partagez-les via un code QR ou NFC.</span>
+                                <span lang="en">A real cold-wallet circuit: prepare the transaction online, sign it on a device with no internet, broadcast it via QR. Your keys never touch the network.</span>
+                                <span lang="es">Circuito frío real: preparás la transacción online, la firmás en un dispositivo sin internet y la transmitís por QR. Tus llaves nunca tocan la red.</span>
+                                <span lang="fr">Un vrai circuit froid : préparez la transaction en ligne, signez-la sur un appareil sans internet, diffusez-la par QR. Vos clés ne touchent jamais le réseau.</span>
                             </p>
                         </div>
                     </div>
@@ -1722,20 +1897,38 @@
                     <div class="content-pane">
                         <div class="content-inner">
                             <h1 class="major-mono-display-mint">
-                                <span lang="en">Launch</span>
-                                <span lang="es">Lanzamiento </span>
-                                <span lang="fr">Lancement</span>
+                                <span lang="en">The Book</span>
+                                <span lang="es">El Libro</span>
+                                <span lang="fr">Le Livre</span>
                             </h1>
                             <p class="subtitle-mint">
-                                <span lang="en">Buy the book for "Crypto for Sovereigns".</span>
-                                <span lang="es">Adquiere el libro "Cripto para Soberanos".</span>
-                                <span lang="fr">Achetez le livre "Crypto for Sovereigns".</span>
+                                <span lang="en">"Crypto for Sovereigns": learn to hold your own keys, run your own wallet and guard your privacy — no banks, no permission. Written by the developer of ChatWallet.</span>
+                                <span lang="es">«Cripto para Soberanos»: aprendé a manejar tus propias llaves, tu billetera y tu privacidad, sin bancos ni permiso de nadie. Escrito por el desarrollador de ChatWallet.</span>
+                                <span lang="fr">« Crypto for Sovereigns » : apprenez à gérer vos clés, votre portefeuille et votre vie privée — sans banques, sans permission. Écrit par le développeur de ChatWallet.</span>
                             </p>
 
+                            <ul class="book-points">
+                                <li>
+                                    <span lang="en">📖 Paperback or PDF, in Spanish, English and French</span>
+                                    <span lang="es">📖 En papel o PDF — español, inglés y francés</span>
+                                    <span lang="fr">📖 Papier ou PDF — espagnol, anglais et français</span>
+                                </li>
+                                <li>
+                                    <span lang="en">💳 Pay with crypto, card or Mercado Pago</span>
+                                    <span lang="es">💳 Pagá con cripto, tarjeta o Mercado Pago</span>
+                                    <span lang="fr">💳 Payez en crypto ou par carte</span>
+                                </li>
+                                <li>
+                                    <span lang="en">🐈‍⬛ Every copy funds ChatWallet's development</span>
+                                    <span lang="es">🐈‍⬛ Cada ejemplar financia el desarrollo de ChatWallet</span>
+                                    <span lang="fr">🐈‍⬛ Chaque exemplaire finance le développement de ChatWallet</span>
+                                </li>
+                            </ul>
+
                             <a href="book.html" id="mint-button" role="button" style="text-decoration: none;">
-                                <span lang="en">Buy</span>
-                                <span lang="es">Comprar</span>
-                                <span lang="fr">Acheter</span>
+                                <span lang="en">Get the book</span>
+                                <span lang="es">Comprar el libro</span>
+                                <span lang="fr">Acheter le livre</span>
                             </a>
 
                         </div>
@@ -1760,10 +1953,7 @@
                             <span lang="fr">Projet</span>
                         </h4>
                         <ul>
-                            <li><a href="/dapp"><span lang="en">Try it!</span><span lang="es">DApp</span><span lang="fr">DApp</span></a></li>
-                            <!-- <li><a href="/demo"><span lang="en">UI Demo</span><span lang="es">UI Demo</span><span lang="fr">Démo UI</span></a></li> -->
-                            <li><a href="/roadmap"><span lang="en">Roadmap</span><span lang="es">Hoja de Ruta</span><span lang="fr">Feuille de Route</span></a></li>
-
+                            <li><a href="/dapp"><span lang="en">Try it in your browser</span><span lang="es">Probar en el navegador</span><span lang="fr">Essayer dans le navigateur</span></a></li>
                             <li><a href="/manifiesto"><span lang="en">Manifest</span><span
                                         lang="es">Manifiesto</span><span lang="fr">Manifest</span></a></li>
                             <li id="whitepaper-link-container">
@@ -1797,9 +1987,9 @@
                             </li>
                             <li>
                                 <a href="book.html">
-                                    <span lang="en">Mint Book: Chapter 1</span>
-                                    <span lang="es">Mintear Libro: Capítulo 1</span>
-                                    <span lang="fr">Miner Livre : Chapitre 1</span>
+                                    <span lang="en">Get the book</span>
+                                    <span lang="es">Comprar el libro</span>
+                                    <span lang="fr">Acheter le livre</span>
                                 </a>
                             </li>
                         </ul>
@@ -1817,19 +2007,19 @@
                     </div>
                     <div class="footer-new__presale">
                         <h4>
-                            <span lang="en">Join the Revolution</span>
-                            <span lang="es">Únete a la Revolución</span>
-                            <span lang="fr">Rejoignez la Révolution</span>
+                            <span lang="en">Get the app</span>
+                            <span lang="es">Llevate la app</span>
+                            <span lang="fr">Obtenez l'app</span>
                         </h4>
-                        <a href="https://chatwallet.org/presale" class="btn btn--primary">
-                            <span lang="en">Get Tokens</span>
-                            <span lang="es">Comprar Tokens</span>
-                            <span lang="fr">Obtenir des Jetons</span>
+                        <a href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet.apk" class="btn btn--primary" rel="noopener">
+                            <span lang="en">Download Android APK</span>
+                            <span lang="es">Descargar APK Android</span>
+                            <span lang="fr">Télécharger l'APK Android</span>
                         </a>
                     </div>
                 </div>
                 <div class="footer-new__bottom">
-                    <p>© 2025 ChatWallet. All rights reserved.</p>
+                    <p>© 2026 ChatWallet</p>
                     <a class="footer__link-top" href="#slide-0">
                         <span lang="en">Top</span><span lang="es">Arriba</span><span lang="fr">Haut</span>
                     </a>
@@ -1877,31 +2067,6 @@
                 });
             });
 
-            // --- Countdown Timer Logic ---
-            const countDownDate = new Date("Sep 22, 2025 00:00:00").getTime();
-            const timer = setInterval(function() {
-                const now = new Date().getTime();
-                const distance = countDownDate - now;
-
-                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-                const formatTime = (time) => time < 10 ? `0${time}` : time;
-
-                document.getElementById("days").innerText = formatTime(days);
-                document.getElementById("hours").innerText = formatTime(hours);
-                document.getElementById("minutes").innerText = formatTime(minutes);
-                document.getElementById("seconds").innerText = formatTime(seconds);
-
-                if (distance < 0) {
-                    clearInterval(timer);
-                    document.getElementById("countdown-container").innerHTML = `<h3 class="countdown-title"><span lang="en">Funded by the community.</span><span lang="es">Fundado por la comunidad de usuarios</span><span lang="fr">Les Premiers Jetons Sont Maintenant Disponibles !</span></h3>`;
-                }
-            }, 1000);
-
-
             // --- Tilt Effect ---
             VanillaTilt.init(document.querySelectorAll(".artwork-container"), {
                 max: 5,
@@ -1912,17 +2077,8 @@
 
     </script>
 
-    <!-- PWA Install Banner -->
-    <div id="pwaInstallBanner" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); width:90%; max-width:400px; background:#6c63ff; color:white; padding:15px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.3); z-index:9999; display:flex; align-items:center; justify-content:space-between; display:none;">
-        <div style="display:flex; align-items:center; gap:10px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-            <span style="font-weight:bold; font-size:14px;">Install ChatWallet App</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:10px;">
-            <button id="pwaInstallBtn" style="background:white; color:#6c63ff; border:none; padding:5px 10px; border-radius:5px; font-weight:bold; cursor:pointer;">Install</button>
-            <button id="pwaDismissBtn" style="background:none; border:none; color:white; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
-        </div>
-    </div>
+    <!-- El banner flotante de instalación se eliminó: el hero ya lidera con el botón
+         "Instalar App (PWA)" y el banner tapaba los CTAs en móvil. -->
 
     <!-- Ayuda de instalación PWA: se muestra cuando el browser no ofrece el prompt nativo
          (ya instalada, iOS/Safari, prompt descartado 3 veces, browser sin soporte). -->
@@ -1976,12 +2132,10 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            if (!pwaRunningStandalone) document.getElementById('pwaInstallBanner').style.display = 'flex';
         });
 
         async function pwaPromptInstall() {
             if (deferredPrompt) {
-                document.getElementById('pwaInstallBanner').style.display = 'none';
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
                 console.log(`User response to the install prompt: ${outcome}`);
@@ -1992,12 +2146,8 @@
             }
         }
 
-        document.getElementById('pwaInstallBtn').addEventListener('click', pwaPromptInstall);
         heroInstallBtn.addEventListener('click', pwaPromptInstall);
 
-        document.getElementById('pwaDismissBtn').addEventListener('click', () => {
-            document.getElementById('pwaInstallBanner').style.display = 'none';
-        });
         document.getElementById('pwaHelpCloseBtn').addEventListener('click', () => {
             pwaHelpEl.style.display = 'none';
         });
@@ -2005,7 +2155,6 @@
 
         window.addEventListener('appinstalled', () => {
             deferredPrompt = null;
-            document.getElementById('pwaInstallBanner').style.display = 'none';
             heroInstallBtn.innerHTML = '✓ <span lang="en">Installed — check your home screen</span><span lang="es">Instalada — mirá tu pantalla de inicio</span><span lang="fr">Installée — voir l\'écran d\'accueil</span>';
             heroInstallBtn.disabled = true;
             console.log('PWA was installed');
