@@ -1155,7 +1155,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.85 alpha</p>
+            <p class="text-sm text-gray-400">v 1.86 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2740,7 +2740,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.85</p>
+                    <p id="settingsVersionText">Versión 1.86</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -6968,6 +6968,44 @@
                 initNativeNotifications();
                 consumePendingChat(); // por si la app arrancó desde una notificación
                 consumePendingDeepLink(); // por si la app arrancó desde un App Link (chatwallet.org/dapp?...)
+            }
+
+            // ===== Botón físico "atrás" (Android) =====
+            // Prioridad: cerrar lo que esté abierto (scanner/splash/modal/sidebar) → si no,
+            // volver a la vista principal (QR + saldo) → y recién en la principal, minimizar
+            // la app (NO cerrarla: el stream XMTP sigue vivo con el foreground service).
+            const NativeApp = IS_NATIVE && _Cap.Plugins ? _Cap.Plugins.App : null;
+            if (NativeApp && NativeApp.addListener) {
+                NativeApp.addListener('backButton', () => {
+                    // 1. Scanner abierto → cerrarlo por su botón (apaga la cámara)
+                    const scanner = document.getElementById('scannerView');
+                    if (scanner && !scanner.classList.contains('hidden') && (scanner.offsetWidth || scanner.offsetHeight)) {
+                        const btn = document.getElementById('closeScannerBtn');
+                        if (btn) { btn.click(); return; }
+                    }
+                    // 2. Splash de modo frío
+                    const splash = document.getElementById('coldModeSplash');
+                    if (splash && !splash.classList.contains('hidden') && (splash.offsetWidth || splash.offsetHeight)) {
+                        const ok = document.getElementById('coldModeSplashOk');
+                        if (ok) { ok.click(); return; }
+                    }
+                    // 3. Modal visible → cerrarlo por su botón (respeta su cleanup); último recurso, ocultarlo
+                    for (const m of document.querySelectorAll('[id$="Modal"]')) {
+                        if (/^close/i.test(m.id)) continue; // los botones close*Modal no son contenedores
+                        if (m.classList.contains('hidden') || !(m.offsetWidth || m.offsetHeight)) continue;
+                        const closer = m.querySelector('[id^="close"], [id^="cancel"]');
+                        if (closer) closer.click();
+                        else { m.classList.add('hidden'); m.classList.remove('flex'); }
+                        return;
+                    }
+                    // 4. Sidebar de contactos abierta
+                    if (contactsSidebar && contactsSidebar.classList.contains('active')) { closeSidebar(); return; }
+                    // 5. Cualquier vista que no sea la principal (chat, historial, docs, atestaciones)
+                    const activeView = document.querySelector('.view.active');
+                    if (!activeView || activeView.id !== 'walletView') { showView('walletView'); return; }
+                    // 6. Ya en la principal sin nada abierto → al fondo
+                    try { NativeApp.minimizeApp(); } catch (e) { }
+                });
             }
 
             async function showNotification(message = null) {

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@capacitor/android": "7",
+    "@capacitor/app": "7",
     "@capacitor/cli": "7",
     "@capacitor/core": "7",
     "@capacitor/local-notifications": "7",
