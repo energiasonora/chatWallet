@@ -166,6 +166,129 @@
             min-width: 0;
             display: flex;
             flex-direction: column;
+            /* ancla para la barra de reacciones (chips superpuestos al borde inferior) */
+            position: relative;
+        }
+
+        /* ── Reacciones (chips estilo WhatsApp, superpuestos al borde de la burbuja) ── */
+        .reactions-bar {
+            position: absolute;
+            bottom: -14px;
+            display: flex;
+            gap: 3px;
+            z-index: 2;
+        }
+
+        .sent .reactions-bar { right: 6px; }
+        .received .reactions-bar { left: 6px; }
+
+        /* cuando hay chips, la burbuja reserva aire abajo para que no pisen al mensaje siguiente */
+        .message-bubble.has-reactions { margin-bottom: 14px; }
+
+        .reaction-chip {
+            background: #1f2937;
+            border: 1px solid #4b5563;
+            border-radius: 999px;
+            padding: 0 7px;
+            font-size: 0.8rem;
+            line-height: 1.4rem;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            color: #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+        }
+
+        .reaction-chip .rc-count {
+            font-size: 0.7rem;
+            color: #9ca3af;
+        }
+
+        /* mi reacción: borde índigo para saber que puedo quitarla con un tap */
+        .reaction-chip.mine {
+            border-color: #818cf8;
+            background: #312e81;
+        }
+
+        /* ── Cita dentro de una respuesta (reply) ── */
+        .reply-quote {
+            border-left: 3px solid rgba(255, 255, 255, .45);
+            background: rgba(0, 0, 0, .18);
+            border-radius: .5rem;
+            padding: .35rem .6rem;
+            margin-bottom: .4rem;
+            font-size: .8rem;
+            cursor: pointer;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        .sent .reply-quote { border-left-color: #818cf8; }
+
+        .reply-quote .rq-name {
+            font-weight: 700;
+            font-size: .72rem;
+            display: block;
+            margin-bottom: 1px;
+            color: #a5b4fc;
+        }
+
+        .reply-quote .rq-text {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            opacity: .85;
+        }
+
+        /* flash al saltar al mensaje citado */
+        @keyframes quoteFlash {
+            0% { background: rgba(129, 140, 248, .35); }
+            100% { background: transparent; }
+        }
+
+        .quote-flash {
+            animation: quoteFlash 1.2s ease-out;
+            border-radius: 1rem;
+        }
+
+        /* ── Picker flotante de reacciones (long-press / doble tap sobre una burbuja) ── */
+        #reactionPicker {
+            position: fixed;
+            z-index: 60;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 999px;
+            padding: 4px 6px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, .5);
+        }
+
+        #reactionPicker.hidden { display: none; }
+
+        #reactionPicker button {
+            font-size: 1.35rem;
+            line-height: 1;
+            padding: 5px;
+            border-radius: 50%;
+            transition: transform .1s ease-out, background .1s ease-out;
+        }
+
+        #reactionPicker button:hover {
+            background: #374151;
+            transform: scale(1.15);
+        }
+
+        #reactionPicker .rp-reply {
+            border-left: 1px solid #4b5563;
+            border-radius: 0 999px 999px 0;
+            margin-left: 2px;
+            padding-left: 9px;
+            color: #d1d5db;
         }
 
         /* Links dentro de las burbujas: heredan el color del texto (legibles sobre
@@ -793,6 +916,17 @@
         body.theme-light .sent { background-color: #e5e7eb; color: #111827; }
         body.theme-light .sent .message-metadata { color: #6b7280; }
 
+        /* Reacciones y respuestas en tema claro (el CSS crudo oscuro necesita override explícito) */
+        body.theme-light .reaction-chip { background: #ffffff; border-color: #d1d5db; color: #111827; box-shadow: 0 1px 3px rgba(0, 0, 0, .15); }
+        body.theme-light .reaction-chip .rc-count { color: #6b7280; }
+        body.theme-light .reaction-chip.mine { background: #e0e7ff; border-color: #6366f1; }
+        body.theme-light #reactionPicker { background: #ffffff; border-color: #e5e7eb; box-shadow: 0 6px 24px rgba(0, 0, 0, .18); }
+        body.theme-light #reactionPicker button:hover { background: #f3f4f6; }
+        body.theme-light #reactionPicker .rp-reply { border-left-color: #e5e7eb; color: #4b5563; }
+        body.theme-light .sent .reply-quote { background: rgba(0, 0, 0, .07); border-left-color: #6366f1; }
+        body.theme-light .sent .reply-quote .rq-name { color: #4f46e5; }
+        body.theme-light #replyPreviewBar { background: #e5e7eb !important; }
+
         /* Inputs oscuros → claros con borde. */
         body.theme-light input.bg-gray-700,
         body.theme-light select.bg-gray-700,
@@ -1155,7 +1289,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.86 alpha</p>
+            <p class="text-sm text-gray-400">v 1.87 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1601,6 +1735,22 @@
                     <!-- (Se eliminó la píldora flotante "Actualizar mensajes": ahora el resync es
                          silencioso y automático al llegar al fondo del chat / al abrir / al volver al foco.) -->
 
+                    <!-- Barra "Respondiendo a…": se activa con swipe sobre una burbuja o desde el picker de reacciones -->
+                    <div id="replyPreviewBar" class="hidden items-center bg-gray-700/80 rounded-xl px-3 py-2 mb-2">
+                        <div class="flex-grow min-w-0 border-l-2 border-indigo-400 pl-2">
+                            <span id="replyPreviewName" class="block text-xs font-bold text-indigo-300"></span>
+                            <p id="replyPreviewText" class="text-sm text-gray-300 truncate"></p>
+                        </div>
+                        <button id="cancelReplyBtn" type="button" title="Cancelar respuesta"
+                            class="p-2 text-gray-400 hover:text-white flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                        </button>
+                    </div>
                     <!-- INICIO: ÁREA DE ACCIONES Y FORMULARIO DE MENSAJE MODIFICADA -->
                     <div class="flex items-center space-x-2">
                         <div class="relative">
@@ -2740,7 +2890,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.86</p>
+                    <p id="settingsVersionText">Versión 1.87</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -3017,10 +3167,18 @@
 
             // import { Client, ContentTypeId } from '@xmtp/browser-sdk';
             import { ReadReceiptCodec } from '@xmtp/content-type-read-receipt';
+            // Reacciones y respuestas: content types OFICIALES de XMTP (interoperables con otras apps).
+            import { ReactionCodec } from '@xmtp/content-type-reaction';
+            import { ReplyCodec } from '@xmtp/content-type-reply';
+            import { TextCodec, ContentTypeText } from '@xmtp/content-type-text';
             window.Client = Client;
             // v6 no tiene Client.getInboxIdForAddress estático; el reemplazo es esta función suelta.
             window.getInboxIdForIdentifier = getInboxIdForIdentifier;
             window.ReadReceiptCodec = ReadReceiptCodec;
+            window.ReactionCodec = ReactionCodec;
+            window.ReplyCodec = ReplyCodec;
+            window.TextCodec = TextCodec;
+            window.ContentTypeText = ContentTypeText;
 
             import EthCrypto from 'eth-crypto';
             window.EthCrypto = EthCrypto;
@@ -3963,7 +4121,7 @@
                     console.log("Iniciando XMTP (Background)...");
                     chatwalletxmtp = await Client.create(walletSigner, {
                         env: 'dev',
-                        codecs: [new PresenceCodec(), new ProfileCodec(), new window.ReadReceiptCodec()],
+                        codecs: [new PresenceCodec(), new ProfileCodec(), new window.ReadReceiptCodec(), new window.ReactionCodec(), new window.ReplyCodec()],
                         dbPath: `chatwallet_v3_${wallet.address.toLowerCase()}`
                     });
 
@@ -5064,7 +5222,8 @@
                 let convs = [];
                 try { convs = await chatwalletxmtp.conversations.list(); } catch (e) { return summary; }
 
-                const SKIP = new Set(['readReceipt', 'read-receipt', 'presence', 'profile', 'group_updated']);
+                // 'reaction' no cuenta como no-leído ni sirve de preview (es un chip, no un mensaje).
+                const SKIP = new Set(['readReceipt', 'read-receipt', 'presence', 'profile', 'group_updated', 'reaction']);
                 for (const conv of convs) {
                     try {
                         let addr = null;
@@ -5088,7 +5247,8 @@
                         let newest = 0, newestText = null, unread = 0;
                         for (const m of msgs) {
                             if (SKIP.has(m.contentType?.typeId)) continue;
-                            const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+                            // Preview legible: las respuestas muestran su texto anidado, no el JSON del sobre.
+                            const content = xmtpMessagePreview(m);
                             // Los mensajes de sistema (creación del DM / "Contacto iniciado por…") no cuentan
                             // como no-leídos ni sirven de preview en la lista.
                             if (isHandshakeMessage(content)) continue;
@@ -5823,6 +5983,7 @@
                 const scanBtn = document.getElementById('offlineScanReplyBtn');
                 if (isOffline && currentOfflineContact) {
                     messageInput.placeholder = 'Mensaje offline (se genera un QR cifrado)…';
+                    cancelReply(); // el modo respuesta (reply XMTP) no existe en el circuito frío
                     if (scanBtn) scanBtn.classList.remove('hidden');
                 } else {
                     messageInput.placeholder = 'Escribe un mensaje...';
@@ -5989,6 +6150,24 @@
 
                                 const isSentByMe = message.senderInboxId === chatwalletxmtp.inboxId;
 
+                                // Reacciones: chips sobre la burbuja referenciada. No cuentan como no-leído
+                                // ni pisan el preview del contacto; sí se persisten en el respaldo soberano.
+                                if (message.contentType.typeId === 'reaction') {
+                                    if (isChatOpen) addMessageToUI(message, isSentByMe ? 'sent' : 'received');
+                                    try {
+                                        let reactPeer = null;
+                                        if (isSentByMe) {
+                                            const conv = await chatwalletxmtp.conversations.getConversationById(message.conversationId);
+                                            if (conv) reactPeer = await getAddressFromInboxId(await conv.peerInboxId());
+                                        } else {
+                                            reactPeer = await getAddressFromInboxId(message.senderInboxId);
+                                        }
+                                        if (reactPeer) captureXmtpMessages([message], reactPeer, chatwalletxmtp.inboxId);
+                                    } catch (e) { console.warn('No se pudo persistir la reacción:', e); }
+                                    if (!isSentByMe && isChatOpen) playNewMessageSound();
+                                    return;
+                                }
+
                                 if (!isSentByMe && typeof message.content === 'string' && message.content.startsWith('[TRANSACTION]')) {
                                     console.log('Incoming transaction detected, refreshing balance.');
                                     await updateBalance();
@@ -5999,7 +6178,7 @@
 
                                 if (isChatOpen) {
                                     addMessageToUI(message, type);
-                                    if (!isSentByMe && message.contentType.typeId === 'text') {
+                                    if (!isSentByMe && (message.contentType.typeId === 'text' || message.contentType.typeId === 'reply')) {
                                         // Send read receipt ONLY for text messages to avoid loops
                                         try {
                                             const codec = new window.ReadReceiptCodec();
@@ -6040,7 +6219,7 @@
                                         currentConversation.peerAddress = contactAddress;
                                     }
 
-                                    const lastMsgText = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+                                    const lastMsgText = xmtpMessagePreview(message);
                                     const contactIndex = contacts.findIndex(c => c.address.toLowerCase() === contactAddress.toLowerCase());
 
                                     if (contactIndex > -1) {
@@ -6210,6 +6389,8 @@
                 </div>`;
                 processedMessages.clear();
                 handshakeShownInChat = false;
+                cancelReply();
+                hideReactionPicker();
 
                 try {
                     console.log("Sincronizando mensajes para conversación...", conv.id);
@@ -6344,11 +6525,279 @@
                     return false;
                 }
             }
+
+            // ═══════════════════════════════════════════════════════════════
+            //  REACCIONES Y RESPUESTAS (v1.87)
+            //  Content types oficiales de XMTP ('reaction' y 'reply'), inter-
+            //  operables con otras apps. Long-press / doble tap sobre una
+            //  burbuja abre el picker de emojis; swipe horizontal activa el
+            //  modo respuesta (cita renderizada dentro de la burbuja).
+            // ═══════════════════════════════════════════════════════════════
+            const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+            const reactionsByMsg = new Map();   // msgId → Map<emoji, Set<senderInboxId>>
+            const msgTextById = new Map();      // msgId → { text, type } (para las citas de las respuestas)
+            let replyTarget = null;             // { id, text, type } cuando el input está en modo respuesta
+
+            // El contenido puede venir como objeto (decodificado por XMTP) o como string JSON (respaldo/store).
+            function parseMsgObjContent(message) {
+                if (message.content && typeof message.content === 'object') return message.content;
+                try { return JSON.parse(message.content); } catch (e) { return null; }
+            }
+
+            // Preview de un mensaje para lista de contactos / notificaciones (las respuestas muestran su texto).
+            function xmtpMessagePreview(message) {
+                const typeId = message.contentType?.typeId;
+                if (typeId === 'reply') {
+                    const rep = parseMsgObjContent(message);
+                    if (rep) return typeof rep.content === 'string' ? rep.content : '↩️ Respuesta';
+                }
+                if (typeId === 'reaction') {
+                    const r = parseMsgObjContent(message);
+                    return r ? `Reaccionó ${r.content || ''}` : 'Reacción';
+                }
+                return typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+            }
+
+            function applyReactionMessage(message) {
+                const r = parseMsgObjContent(message);
+                if (!r || !r.reference || !r.content) return;
+                applyReaction(r, message.senderInboxId);
+            }
+
+            // Idempotente (Sets): el eco del stream de mis propias reacciones y los re-renders
+            // del historial no duplican chips.
+            function applyReaction(r, senderInboxId) {
+                let perEmoji = reactionsByMsg.get(r.reference);
+                if (!perEmoji) { perEmoji = new Map(); reactionsByMsg.set(r.reference, perEmoji); }
+                let who = perEmoji.get(r.content);
+                if (!who) { who = new Set(); perEmoji.set(r.content, who); }
+                if (r.action === 'removed') who.delete(senderInboxId); else who.add(senderInboxId);
+                if (who.size === 0) perEmoji.delete(r.content);
+                renderReactionsBar(r.reference);
+            }
+
+            function renderReactionsBar(msgId) {
+                const row = document.getElementById(`msg-${msgId}`);
+                const bubble = row ? row.querySelector('.message-bubble') : null;
+                if (!bubble) return; // la burbuja puede no estar renderizada (otro chat); el estado queda en el Map
+                let bar = bubble.querySelector('.reactions-bar');
+                const perEmoji = reactionsByMsg.get(msgId);
+                const entries = perEmoji ? [...perEmoji.entries()].filter(([, who]) => who.size > 0) : [];
+                if (!entries.length) {
+                    if (bar) bar.remove();
+                    bubble.classList.remove('has-reactions');
+                    return;
+                }
+                if (!bar) {
+                    bar = document.createElement('div');
+                    bar.className = 'reactions-bar';
+                    bubble.appendChild(bar);
+                }
+                bubble.classList.add('has-reactions');
+                bar.innerHTML = '';
+                for (const [emoji, who] of entries) {
+                    const chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'reaction-chip' + (chatwalletxmtp && who.has(chatwalletxmtp.inboxId) ? ' mine' : '');
+                    chip.title = 'Tocar para sumar / quitar tu reacción';
+                    chip.textContent = emoji;
+                    if (who.size > 1) {
+                        const count = document.createElement('span');
+                        count.className = 'rc-count';
+                        count.textContent = who.size;
+                        chip.appendChild(count);
+                    }
+                    chip.onclick = (e) => { e.stopPropagation(); sendReaction(msgId, emoji); };
+                    bar.appendChild(chip);
+                }
+            }
+
+            async function sendReaction(msgId, emoji) {
+                if (!currentConversation || !chatwalletxmtp || isOffline) {
+                    showToast('Las reacciones necesitan el chat online.', 'info');
+                    return;
+                }
+                if (String(msgId).startsWith('temp-')) return; // mensaje optimista aún sin id real
+                hideReactionPicker();
+                const alreadyMine = reactionsByMsg.get(msgId)?.get(emoji)?.has(chatwalletxmtp.inboxId);
+                const reaction = {
+                    reference: msgId,
+                    action: alreadyMine ? 'removed' : 'added',
+                    content: emoji,
+                    schema: 'unicode'
+                };
+                applyReaction(reaction, chatwalletxmtp.inboxId); // optimista; el eco del stream es idempotente
+                try {
+                    const encoded = new window.ReactionCodec().encode(reaction);
+                    await currentConversation.send(encoded);
+                } catch (e) {
+                    console.error('Error enviando reacción:', e);
+                    // rollback del render optimista
+                    applyReaction({ ...reaction, action: alreadyMine ? 'added' : 'removed' }, chatwalletxmtp.inboxId);
+                    showToast('No se pudo enviar la reacción.', 'error');
+                }
+            }
+
+            // ── Picker flotante ──────────────────────────────────────────────
+            let pickerForMsgId = null;
+            let pickerOpenedAt = 0;
+            function ensureReactionPicker() {
+                let picker = document.getElementById('reactionPicker');
+                if (picker) return picker;
+                picker = document.createElement('div');
+                picker.id = 'reactionPicker';
+                picker.className = 'hidden';
+                for (const emoji of REACTION_EMOJIS) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.textContent = emoji;
+                    btn.onclick = (e) => { e.stopPropagation(); sendReaction(pickerForMsgId, emoji); };
+                    picker.appendChild(btn);
+                }
+                const replyBtn = document.createElement('button');
+                replyBtn.type = 'button';
+                replyBtn.className = 'rp-reply';
+                replyBtn.title = 'Responder';
+                replyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>';
+                replyBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const id = pickerForMsgId;
+                    hideReactionPicker();
+                    startReply(id);
+                };
+                picker.appendChild(replyBtn);
+                document.body.appendChild(picker);
+                // Cerrar al tocar fuera o al scrollear el hilo. El guard de 350ms evita que el
+                // click sintético que sigue al long-press lo cierre apenas abierto.
+                document.addEventListener('click', (e) => {
+                    if (picker.classList.contains('hidden')) return;
+                    if (Date.now() - pickerOpenedAt < 350) return;
+                    if (!picker.contains(e.target)) hideReactionPicker();
+                });
+                messagesContainer.addEventListener('scroll', hideReactionPicker, { passive: true });
+                return picker;
+            }
+
+            function showReactionPicker(msgId, anchorEl) {
+                if (isOffline || !currentConversation) return; // modo frío: sin reacciones
+                if (String(msgId).startsWith('temp-')) return;
+                const picker = ensureReactionPicker();
+                pickerForMsgId = msgId;
+                pickerOpenedAt = Date.now();
+                picker.classList.remove('hidden');
+                const rect = anchorEl.getBoundingClientRect();
+                const pw = picker.offsetWidth, ph = picker.offsetHeight;
+                let top = rect.top - ph - 8;
+                if (top < 8) top = Math.min(rect.bottom + 8, window.innerHeight - ph - 8);
+                const left = Math.min(Math.max(8, rect.left + rect.width / 2 - pw / 2), window.innerWidth - pw - 8);
+                picker.style.top = `${top}px`;
+                picker.style.left = `${left}px`;
+                if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) { } }
+            }
+
+            function hideReactionPicker() {
+                const picker = document.getElementById('reactionPicker');
+                if (picker) picker.classList.add('hidden');
+                pickerForMsgId = null;
+            }
+
+            // ── Modo respuesta ───────────────────────────────────────────────
+            function startReply(msgId) {
+                if (!msgId || String(msgId).startsWith('temp-')) return;
+                if (isOffline || !currentConversation) return;
+                const info = msgTextById.get(msgId);
+                if (!info) { showToast('No se puede responder a este mensaje.', 'info'); return; }
+                replyTarget = { id: msgId, text: info.text, type: info.type };
+                const bar = document.getElementById('replyPreviewBar');
+                const nameEl = document.getElementById('replyPreviewName');
+                const textEl = document.getElementById('replyPreviewText');
+                if (!bar || !nameEl || !textEl) return;
+                const contact = currentConversation?.peerAddress
+                    ? contacts.find(c => c.address && c.address.toLowerCase() === currentConversation.peerAddress.toLowerCase())
+                    : null;
+                nameEl.textContent = info.type === 'sent' ? 'Vos' : (contact?.name || 'Contacto');
+                textEl.textContent = info.text;
+                bar.classList.remove('hidden');
+                bar.classList.add('flex');
+                messageInput.focus();
+            }
+
+            function cancelReply() {
+                replyTarget = null;
+                const bar = document.getElementById('replyPreviewBar');
+                if (bar) { bar.classList.add('hidden'); bar.classList.remove('flex'); }
+            }
+            document.getElementById('cancelReplyBtn')?.addEventListener('click', cancelReply);
+
+            // ── Gestos sobre las burbujas ────────────────────────────────────
+            // Long-press (450ms, mouse o touch) y doble tap/click → picker de reacciones.
+            // Swipe horizontal dominante (>55px) sobre la fila → modo respuesta.
+            function attachMessageGestures(row, bubble, msgId) {
+                let lpTimer = null, pStartX = 0, pStartY = 0, pMoved = false;
+                const clearLp = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
+                bubble.addEventListener('pointerdown', (e) => {
+                    pStartX = e.clientX; pStartY = e.clientY; pMoved = false;
+                    clearLp();
+                    lpTimer = setTimeout(() => { if (!pMoved) showReactionPicker(msgId, bubble); }, 450);
+                });
+                bubble.addEventListener('pointermove', (e) => {
+                    if (Math.abs(e.clientX - pStartX) > 10 || Math.abs(e.clientY - pStartY) > 10) { pMoved = true; clearLp(); }
+                });
+                bubble.addEventListener('pointerup', clearLp);
+                bubble.addEventListener('pointercancel', clearLp);
+                bubble.addEventListener('dblclick', (e) => { e.preventDefault(); showReactionPicker(msgId, bubble); });
+                // El long-press en Android dispara el menú contextual del WebView; lo suprimimos
+                // dentro de las burbujas para que gane el picker.
+                bubble.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+
+                let tStartX = 0, tStartY = 0, swiping = false, dx = 0;
+                row.addEventListener('touchstart', (e) => {
+                    const t = e.touches[0];
+                    tStartX = t.clientX; tStartY = t.clientY; swiping = false; dx = 0;
+                }, { passive: true });
+                row.addEventListener('touchmove', (e) => {
+                    const t = e.touches[0];
+                    const mx = t.clientX - tStartX, my = t.clientY - tStartY;
+                    if (!swiping) {
+                        if (Math.abs(mx) > 14 && Math.abs(mx) > Math.abs(my) * 1.5) { swiping = true; clearLp(); }
+                        else { if (Math.abs(my) > 10) clearLp(); return; }
+                    }
+                    dx = Math.max(-80, Math.min(80, mx));
+                    row.style.transition = 'none';
+                    row.style.transform = `translateX(${dx}px)`;
+                }, { passive: true });
+                row.addEventListener('touchend', () => {
+                    if (!swiping) return;
+                    const trigger = Math.abs(dx) > 55;
+                    row.style.transition = 'transform .18s ease-out';
+                    row.style.transform = '';
+                    if (trigger) {
+                        if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) { } }
+                        startReply(msgId);
+                    }
+                    swiping = false; dx = 0;
+                });
+            }
             function addMessageToUI(message, type) {
                 if (processedMessages.has(message.id)) return;
                 processedMessages.add(message.id);
 
-                let messageContent = typeof message.content === 'object' ? JSON.stringify(message.content) : message.content;
+                // Reacciones: no son una burbuja; se aplican como chips sobre el mensaje referenciado.
+                // Llegan DESPUÉS de su mensaje en el orden cronológico del hilo, así que la burbuja ya existe.
+                if (message.contentType?.typeId === 'reaction') {
+                    applyReactionMessage(message);
+                    return;
+                }
+
+                // Respuestas: el texto real viene anidado en { reference, content, contentType }.
+                let replyInfo = null;
+                if (message.contentType?.typeId === 'reply') {
+                    replyInfo = parseMsgObjContent(message);
+                }
+
+                let messageContent = replyInfo
+                    ? (typeof replyInfo.content === 'string' ? replyInfo.content : JSON.stringify(replyInfo.content))
+                    : (typeof message.content === 'object' ? JSON.stringify(message.content) : message.content);
 
                 // Ignorar mensajes vacíos o que solo contienen un objeto vacío
                 if (!messageContent || messageContent === '{}' || messageContent === 'null') {
@@ -6435,6 +6884,36 @@
                     const messageContainer = document.createElement('div');
                     messageContainer.className = `message-bubble ${type}`;
 
+                    // Cita del mensaje original (si esto es una respuesta). Tap en la cita salta al original.
+                    if (replyInfo && replyInfo.reference) {
+                        const quote = document.createElement('div');
+                        quote.className = 'reply-quote';
+                        const original = msgTextById.get(replyInfo.reference);
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'rq-name';
+                        const peerContact = currentConversation?.peerAddress
+                            ? contacts.find(c => c.address && c.address.toLowerCase() === currentConversation.peerAddress.toLowerCase())
+                            : null;
+                        nameSpan.textContent = original
+                            ? (original.type === 'sent' ? 'Vos' : (peerContact?.name || 'Contacto'))
+                            : 'Mensaje anterior';
+                        const textDiv = document.createElement('div');
+                        textDiv.className = 'rq-text';
+                        textDiv.textContent = original ? original.text : '…';
+                        quote.appendChild(nameSpan);
+                        quote.appendChild(textDiv);
+                        quote.onclick = (e) => {
+                            e.stopPropagation();
+                            const target = document.getElementById(`msg-${replyInfo.reference}`);
+                            if (!target) return;
+                            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            target.classList.remove('quote-flash');
+                            void target.offsetWidth; // reinicia la animación si ya corrió
+                            target.classList.add('quote-flash');
+                        };
+                        messageContainer.appendChild(quote);
+                    }
+
                     const contentSpan = document.createElement('span');
                     renderTextWithLinks(contentSpan, messageContent);
 
@@ -6463,10 +6942,18 @@
                     messageContainer.appendChild(contentSpan);
                     messageContainer.appendChild(metadataDiv);
                     messageRow.appendChild(messageContainer);
+
+                    // Registrar el texto (para citas de futuras respuestas) y habilitar gestos:
+                    // long-press / doble tap → reacciones; swipe horizontal → responder.
+                    msgTextById.set(message.id, { text: messageContent, type });
+                    attachMessageGestures(messageRow, messageContainer, message.id);
                 }
 
                 messagesContainer.appendChild(messageRow);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+                // Si ya conocíamos reacciones para este mensaje (historial re-renderizado), pintarlas.
+                if (reactionsByMsg.has(message.id)) renderReactionsBar(message.id);
             }
 
             function updateMessageStatusToRead(messageId) {
@@ -6894,7 +7381,9 @@
                 if (!NativeKeepAlive || !document.hidden) return;
                 try {
                     let title = 'Nuevo mensaje';
-                    const body = typeof message.content === 'string' ? message.content : 'Mensaje (multimedia)';
+                    const body = (typeof message.content === 'string' || message.contentType?.typeId === 'reply')
+                        ? xmtpMessagePreview(message)
+                        : 'Mensaje (multimedia)';
                     let address = null;
                     let avatar = null;
                     try {
@@ -7016,7 +7505,9 @@
                     notificationBanner.classList.remove('bg-yellow-500', 'text-black', 'bg-green-500/20', 'text-green-400', 'border', 'border-green-500/30', 'backdrop-blur-md', 'bg-green-600');
                     notificationBanner.classList.add('bg-indigo-600', 'text-white');
 
-                    notificationContent.textContent = typeof message.content === 'string' ? message.content : 'Mensaje (Multimedia/Sistema)';
+                    notificationContent.textContent = (typeof message.content === 'string' || message.contentType?.typeId === 'reply')
+                        ? xmtpMessagePreview(message)
+                        : 'Mensaje (Multimedia/Sistema)';
                     notificationSender.textContent = "Nuevo mensaje de...";
 
                     // Resolución asíncrona para no bloquear el banner
@@ -8861,7 +9352,19 @@
                     if (submitButton) submitButton.disabled = true;
 
                     try {
-                        const sentMessage = await currentConversation.sendText(messageText);
+                        let sentMessage;
+                        if (replyTarget) {
+                            // Respuesta: content type oficial 'reply' con el texto anidado (ContentTypeText).
+                            // El registry mínimo alcanza: el ReplyCodec solo pide el codec del contenido anidado.
+                            const encoded = new window.ReplyCodec().encode(
+                                { reference: replyTarget.id, content: messageText, contentType: window.ContentTypeText },
+                                { codecFor: () => new window.TextCodec() }
+                            );
+                            sentMessage = await currentConversation.send(encoded);
+                            cancelReply();
+                        } else {
+                            sentMessage = await currentConversation.sendText(messageText);
+                        }
 
                         const contactIndex = contacts.findIndex(c => c.address.toLowerCase() === currentConversation?.peerAddress?.toLowerCase());
                         if (contactIndex > -1) {
