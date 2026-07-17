@@ -1155,7 +1155,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.84 alpha</p>
+            <p class="text-sm text-gray-400">v 1.85 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1844,14 +1844,10 @@
                             <div>
                                 <p class="text-xs font-bold text-indigo-300 uppercase tracking-widest">☁ IPFS Storage
                                 </p>
-                                <p id="ipfsQuotaValue" class="text-xs text-indigo-200 mt-0.5 font-mono italic">Cargando
-                                    cuota...</p>
+                                <p id="ipfsQuotaValue" class="text-xs text-indigo-200 mt-0.5 font-mono italic">
+                                    Verificando nodo...</p>
 
                             </div>
-                            <button id="ipfsBuyQuotaBtn"
-                                class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition whitespace-nowrap">
-                                + Cuota CWLT
-                            </button>
                         </div>
 
                         <!-- Dropzone -->
@@ -2744,7 +2740,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.84</p>
+                    <p id="settingsVersionText">Versión 1.85</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -5143,11 +5139,11 @@
             //  baja el blob, se descifra y el historial reaparece aunque XMTP
             //  no pueda descifrar nada viejo.
             // ═══════════════════════════════════════════════════════════════
-            // HOY: Kubo de esta máquina (igual que el módulo de Docs).
-            // MAÑANA: caja always-on + gateway.chatwallet.org. Migrar = cambiar estas 3 constantes.
-            const CHATBK_UPLOAD_URL = 'http://127.0.0.1:3100/api/ipfs/upload';
-            const CHATBK_POINTER_URL = 'http://127.0.0.1:3100/api/backup/pointer';
-            const CHATBK_GATEWAY = 'http://127.0.0.1:8080/ipfs/';
+            // Nodo soberano always-on (caja de casa, vía Cloudflare Tunnel).
+            // El blob viaja SIEMPRE cifrado (AES-GCM, key derivada de la seed): el nodo y Cloudflare solo ven ciphertext.
+            const CHATBK_UPLOAD_URL = 'https://backup.chatwallet.org/api/ipfs/upload';
+            const CHATBK_POINTER_URL = 'https://backup.chatwallet.org/api/backup/pointer';
+            const CHATBK_GATEWAY = 'https://gateway.chatwallet.org/ipfs/';
             const CHATBK_META_KEY = () => `chatwallet_backup_meta_${currentWallet?.address?.toLowerCase()}`;
 
             // ── Store local de mensajes (IndexedDB) ──────────────────────────
@@ -10637,10 +10633,9 @@
             const IPFS_STORAGE_KEY = 'chatwallet_ipfs_uploads';
             const IPFS_MAX_MB = 100;
             // === Nodo IPFS soberano (reemplazo de Storacha) ===
-            // HOY: Kubo de esta máquina. MAÑANA: caja always-on de casa + gateway.chatwallet.org.
-            // Migración = cambiar SOLO estas dos constantes.
-            const GATEWAY_BASE = 'http://127.0.0.1:8080/ipfs/';           // era https://w3s.link/ipfs/ (Storacha, muerto)
-            const IPFS_UPLOAD_URL = 'http://127.0.0.1:3100/api/ipfs/upload'; // endpoint autenticado (POC upload-server; luego server.js)
+            // Caja always-on de casa, expuesta por Cloudflare Tunnel.
+            const GATEWAY_BASE = 'https://gateway.chatwallet.org/ipfs/';           // era https://w3s.link/ipfs/ (Storacha, muerto)
+            const IPFS_UPLOAD_URL = 'https://backup.chatwallet.org/api/ipfs/upload'; // endpoint autenticado (upload-server en la caja)
             const API_BASE = window.location.port === '3000' ? '' : 'http://localhost:3000';
             window.API_BASE = API_BASE; // exponer global: el <script> clásico lo usa bare (ver init diferido)
 
@@ -10872,31 +10867,13 @@
             }
 
             async function ipfsRefreshQuota() {
-                if (!window.currentWallet) return;
+                // Estado del nodo soberano (la vieja cuota Storacha ya no aplica: la subida se autentica por firma).
+                if (!ipfsQuotaValue) return;
                 try {
-                    const res = await fetch(`${API_BASE}/api/quota/${window.currentWallet.address}`);
-                    if (!res.ok) {
-                        if (ipfsQuotaValue) {
-                            ipfsQuotaValue.textContent = 'Servidor Offline 🔴';
-                        }
-                        return;
-                    }
-                    const text = await res.text();
-                    try {
-                        const data = JSON.parse(text);
-                        ipfsCurrentQuota = data.quota || 0;
-
-                        if (ipfsQuotaValue) {
-                            ipfsQuotaValue.textContent = `Cuota disponible: ${ipfsFormatSize(ipfsCurrentQuota)}`;
-                        }
-                    } catch (jsonErr) {
-                        console.error('[IPFS] Invalid JSON from quota API:', text.slice(0, 100));
-                    }
-
+                    const res = await fetch(IPFS_UPLOAD_URL.replace('/api/ipfs/upload', '/health'), { signal: AbortSignal.timeout(8000) });
+                    ipfsQuotaValue.textContent = res.ok ? 'Nodo soberano en línea 🟢' : 'Nodo offline 🔴';
                 } catch (e) {
-                    if (document.getElementById('ipfsQuotaValue')) {
-                        document.getElementById('ipfsQuotaValue').textContent = 'Servidor Offline 🔴';
-                    }
+                    ipfsQuotaValue.textContent = 'Nodo offline 🔴';
                 }
             }
 

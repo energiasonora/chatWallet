@@ -24,6 +24,9 @@ export { seedQuota };
 
 const app = express();
 app.use(cors());
+
+// Health check liviano: el banner de Docs lo usa para mostrar el estado del nodo.
+app.get('/health', (req, res) => res.json({ ok: true }));
 // Bytes crudos del archivo (hasta 100MB, igual que IPFS_MAX_MB del uploader actual).
 app.use('/api/ipfs/upload', express.raw({ type: '*/*', limit: '100mb' }));
 
