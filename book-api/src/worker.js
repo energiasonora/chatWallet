@@ -269,13 +269,18 @@ async function getArsAmount(usd) {
 
 const FORMAT_LABELS = { digital: "Digital (PDF)", physical: "Físico + digital", "physical-only": "Físico" };
 
+// Overrideable para tests locales (mock de MP); en prod queda el default.
+function mpApiBase(env) {
+  return env.MP_API_BASE || "https://api.mercadopago.com";
+}
+
 async function mpCreatePreference(env, C, publicId, format) {
   const usd = C.PRICES_USD[format] ?? C.PRICES_USD.digital;
   const ars = await getArsAmount(usd);
   const bookUrl = env.PUBLIC_BOOK_URL || "https://chatwallet.org/book.html";
   const trackUrl = `${bookUrl}?pedido=${publicId}`;
 
-  const resp = await fetch("https://api.mercadopago.com/checkout/preferences", {
+  const resp = await fetch(`${mpApiBase(env)}/checkout/preferences`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -318,7 +323,7 @@ async function mpWebhook(req, url, env) {
   // MP manda otras notificaciones (merchant_order, etc.): 200 y listo.
   if (!paymentId || (kind && kind !== "payment")) return json(200, { ok: true });
 
-  const resp = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+  const resp = await fetch(`${mpApiBase(env)}/v1/payments/${paymentId}`, {
     headers: { "Authorization": `Bearer ${env.MP_ACCESS_TOKEN}` },
   });
   if (!resp.ok) return json(200, { ok: true }); // id desconocido: no reintentar
