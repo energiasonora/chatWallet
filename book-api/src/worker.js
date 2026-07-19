@@ -8,7 +8,9 @@
 //    GET  /orderStatus?id= · seguimiento público del pedido
 //    GET  /download?token= · sirve el PDF desde R2 (gated por token)
 //    GET  /purchases?address= · lista compras de una address
-//  Secrets: TOKEN_SECRET · MP_ACCESS_TOKEN (wrangler secret put MP_ACCESS_TOKEN)
+//    GET  /funding            · recaudación acumulada (meta soberana)
+//    /admin/*                 · panel book-admin.html + notificador de la caja
+//  Secrets: TOKEN_SECRET · MP_ACCESS_TOKEN · ADMIN_TOKEN (panel) · NOTIFIER_TOKEN (caja, solo /admin/events)
 // ════════════════════════════════════════════════
 import { ethers } from "ethers";
 
@@ -94,8 +96,24 @@ async function getMinAcceptableWei(C, net, priceUsd) {
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
+
+// ── Auth del panel/notificador (comparación constante) ──
+function safeEq(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length || !a.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+function bearer(req) {
+  return (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+}
+
+// ADMIN_TOKEN (secret) = panel completo · NOTIFIER_TOKEN (secret) = solo /admin/events (la caja)
+const isAdmin = (req, env) => safeEq(bearer(req), env.ADMIN_TOKEN || "");
+const isNotifier = (req, env) => isAdmin(req, env) || safeEq(bearer(req), env.NOTIFIER_TOKEN || "");
 
 function json(status, data) {
   return new Response(JSON.stringify(data), {
@@ -363,8 +381,8 @@ async function mpWebhook(req, url, env) {
   // digital: pago acreditado = PDF disponible → etapa 3. Físico: pasa a "imprimiendo" (2).
   const newStage = digital ? 3 : Math.max(2, order.stage || 1);
   stmts.push(env.DB.prepare(
-    "UPDATE orders SET paid = 1, mp_payment_id = ?, stage = ?, download_token = ? WHERE public_id = ?"
-  ).bind(String(paymentId), newStage, downloadToken, order.public_id));
+    "UPDATE orders SET paid = 1, mp_payment_id = ?, stage = ?, download_token = ?, paid_at = ? WHERE public_id = ?"
+  ).bind(String(paymentId), newStage, downloadToken, now, order.public_id));
 
   await env.DB.batch(stmts);
   return json(200, { ok: true });
@@ -397,6 +415,65 @@ async function funding(env, C) {
     raisedEth: cryptoEth + mpEth,
     breakdown: { cryptoEth, arsPaid, mpEth, mpConverted: converted },
   });
+}
+
+// ════════════════════════════════════════════════
+//  PANEL DE ADMINISTRACIÓN (book-admin.html)
+//  GET  /admin/orders     · pedidos completos (con datos de envío)
+//  GET  /admin/purchases  · compras crypto/MP
+//  POST /admin/orderStage · { publicId, stage } avanza/corrige etapa
+//  GET  /admin/events?since=ms · ventas nuevas (lo consume el notificador XMTP de la caja)
+// ════════════════════════════════════════════════
+
+async function adminOrders(env) {
+  const { results } = await env.DB.prepare(
+    "SELECT * FROM orders ORDER BY created_at DESC LIMIT 300"
+  ).all();
+  return json(200, { orders: results || [] });
+}
+
+async function adminPurchases(env) {
+  const { results } = await env.DB.prepare(
+    "SELECT address, tx_hash, downloads, amount_eth, block_number, network, format, lang, created_at, last_download_at FROM purchases ORDER BY created_at DESC LIMIT 300"
+  ).all();
+  return json(200, { purchases: results || [] });
+}
+
+async function adminOrderStage(req, env) {
+  const { publicId, stage } = await req.json().catch(() => ({}));
+  const s = Number(stage);
+  if (!publicId || ![1, 2, 3].includes(s)) return json(400, { error: "publicId y stage (1-3) requeridos" });
+  const r = await env.DB.prepare("UPDATE orders SET stage = ? WHERE public_id = ?")
+    .bind(s, String(publicId).toUpperCase()).run();
+  if (!r.meta.changes) return json(404, { error: "Pedido no encontrado" });
+  return json(200, { success: true, stage: s });
+}
+
+// Ventas nuevas desde `since` (epoch ms). Dos fuentes sin duplicar:
+//  · pedidos: crypto se crean recién con la tx verificada (created_at = venta);
+//    MP cuentan cuando acreditan (paid_at, seteado por el webhook).
+//  · compras crypto digitales (no generan pedido — el PDF sale al toque).
+async function adminEvents(url, env) {
+  const since = Number(url.searchParams.get("since") || 0);
+  const now = Date.now();
+  const [orders, purchases] = await Promise.all([
+    env.DB.prepare(
+      `SELECT public_id, format, lang, country, payment_method, ars_amount, city, stage, paid, created_at, paid_at FROM orders
+       WHERE (payment_method = 'crypto' AND created_at > ?1)
+          OR (paid = 1 AND COALESCE(paid_at, created_at) > ?1)
+       ORDER BY created_at ASC LIMIT 50`
+    ).bind(since).all(),
+    env.DB.prepare(
+      `SELECT tx_hash, amount_eth, network, format, lang, created_at FROM purchases
+       WHERE network != 'mercadopago' AND (format = 'digital' OR format IS NULL) AND created_at > ?1
+       ORDER BY created_at ASC LIMIT 50`
+    ).bind(since).all(),
+  ]);
+  const events = [
+    ...(orders.results || []).map((o) => ({ type: "pedido", at: o.paid_at || o.created_at, ...o })),
+    ...(purchases.results || []).map((p) => ({ type: "compra-crypto", at: p.created_at, ...p })),
+  ].sort((a, b) => a.at - b.at);
+  return json(200, { now, events });
 }
 
 // Seguimiento público del pedido (sin datos personales).
@@ -456,6 +533,15 @@ export default {
     const C = cfg(env);
 
     try {
+      if (path.startsWith("/admin/")) {
+        const authed = path === "/admin/events" ? isNotifier(request, env) : isAdmin(request, env);
+        if (!authed) return json(401, { error: "No autorizado" });
+        if (request.method === "GET" && path === "/admin/orders") return await adminOrders(env);
+        if (request.method === "GET" && path === "/admin/purchases") return await adminPurchases(env);
+        if (request.method === "GET" && path === "/admin/events") return await adminEvents(url, env);
+        if (request.method === "POST" && path === "/admin/orderStage") return await adminOrderStage(request, env);
+        return json(404, { error: "Endpoint no encontrado" });
+      }
       if (request.method === "POST" && path === "/verifyPayment") return await verifyPayment(request, env, C);
       if (request.method === "POST" && path === "/order") return await createOrder(request, env, C);
       if (request.method === "POST" && path === "/mpWebhook") return await mpWebhook(request, url, env);

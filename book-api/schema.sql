@@ -59,5 +59,7 @@ CREATE TABLE IF NOT EXISTS orders (
   mp_payment_id    TEXT,              -- pago acreditado (llega por webhook)
   ars_amount       INTEGER,           -- monto ARS cobrado (dólar blue al crear el pedido)
   paid             INTEGER NOT NULL DEFAULT 0,
+  paid_at          INTEGER,           -- epoch ms de la acreditación (webhook MP) — lo usa /admin/events
   download_token   TEXT               -- token de /download emitido al acreditarse (si incluye PDF)
 );
+-- DB ya existente (prod): correr una vez → ALTER TABLE orders ADD COLUMN paid_at INTEGER;
