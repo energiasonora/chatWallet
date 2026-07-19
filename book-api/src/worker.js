@@ -76,12 +76,16 @@ async function withRpc(net, fn) {
   throw lastErr;
 }
 
-async function getMinAcceptableWei(C, net, priceUsd) {
+async function getEthUsd(net) {
   const [decimals, [, answer]] = await withRpc(net, (provider) => {
     const feed = new ethers.Contract(net.feed, CHAINLINK_ABI, provider);
     return Promise.all([feed.decimals(), feed.latestRoundData()]);
   });
-  const ethPrice = Number(answer) / Math.pow(10, Number(decimals));
+  return Number(answer) / Math.pow(10, Number(decimals));
+}
+
+async function getMinAcceptableWei(C, net, priceUsd) {
+  const ethPrice = await getEthUsd(net);
   const ethNeeded = priceUsd / ethPrice;
   const withTolerance = ethNeeded * (1 - C.SLIPPAGE_TOLERANCE);
   return ethers.parseEther(withTolerance.toFixed(8));
@@ -366,6 +370,35 @@ async function mpWebhook(req, url, env) {
   return json(200, { ok: true });
 }
 
+// Recaudación acumulada para la "meta soberana" (2 ETH → PDF libre).
+// Suma las ventas reales registradas: compras crypto (amount_eth en purchases)
+// + pedidos Mercado Pago acreditados (ars_amount → ETH vía dólar blue + Chainlink).
+// A diferencia del balance on-chain de la wallet, esto no retrocede si se mueven fondos.
+async function funding(env, C) {
+  const [cryptoRow, mpRow] = await Promise.all([
+    env.DB.prepare("SELECT SUM(CAST(amount_eth AS REAL)) AS s FROM purchases WHERE amount_eth IS NOT NULL").first(),
+    env.DB.prepare("SELECT SUM(ars_amount) AS s FROM orders WHERE paid = 1 AND ars_amount IS NOT NULL").first(),
+  ]);
+  const cryptoEth = Number(cryptoRow?.s || 0);
+  const arsPaid = Number(mpRow?.s || 0);
+
+  let mpEth = 0, converted = true;
+  if (arsPaid > 0) {
+    try {
+      const blueResp = await fetch("https://dolarapi.com/v1/dolares/blue");
+      const blue = Number((await blueResp.json())?.venta);
+      const ethUsd = await getEthUsd(C.NETWORKS["ethereum"]);
+      if (blue > 0 && ethUsd > 0) mpEth = arsPaid / blue / ethUsd;
+      else converted = false;
+    } catch { converted = false; }
+  }
+
+  return json(200, {
+    raisedEth: cryptoEth + mpEth,
+    breakdown: { cryptoEth, arsPaid, mpEth, mpConverted: converted },
+  });
+}
+
 // Seguimiento público del pedido (sin datos personales).
 async function orderStatus(url, env) {
   const id = (url.searchParams.get("id") || "").toUpperCase();
@@ -427,6 +460,7 @@ export default {
       if (request.method === "POST" && path === "/order") return await createOrder(request, env, C);
       if (request.method === "POST" && path === "/mpWebhook") return await mpWebhook(request, url, env);
       if (request.method === "GET" && path === "/orderStatus") return await orderStatus(url, env);
+      if (request.method === "GET" && path === "/funding") return await funding(env, C);
       if (request.method === "GET" && path === "/download") return await download(url, env, C);
       if (request.method === "GET" && path === "/purchases") return await purchases(url, env);
       return json(404, { error: "Endpoint no encontrado" });

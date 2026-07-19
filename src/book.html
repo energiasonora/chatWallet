@@ -5,6 +5,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto para Soberanos — Libro</title>
+    <meta name="description"
+        content="Guía práctica para empezar de cero en crypto desde la soberanía: la semilla, la wallet, la blockchain, DeFi, privacidad y herencia. 251 páginas · digital y físico · pagá con ETH o Mercado Pago.">
+    <link rel="canonical" href="https://chatwallet.org/book.html">
+    <!-- Social cards: la tapa vive en src/static/img (se copia verbatim al build → URL estable sin hash) -->
+    <meta property="og:type" content="book">
+    <meta property="og:title" content="Crypto para Soberanos — el libro">
+    <meta property="og:description"
+        content="Guía práctica para arrancar en crypto desde cero, con soberanía: 13 capítulos, 251 páginas. Digital $10 · físico $35 · pagá con ETH o Mercado Pago.">
+    <meta property="og:url" content="https://chatwallet.org/book.html">
+    <meta property="og:image" content="https://chatwallet.org/img/tapacpsES.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Crypto para Soberanos — el libro">
+    <meta name="twitter:description"
+        content="Guía práctica para arrancar en crypto desde cero, con soberanía: 13 capítulos, 251 páginas.">
+    <meta name="twitter:image" content="https://chatwallet.org/img/tapacpsES.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap"
@@ -236,6 +251,21 @@
             text-align: center;
         }
 
+        .demo-cta {
+            background: var(--fg);
+            color: var(--bg);
+            border: none;
+            border-radius: 999px;
+            padding: .45rem 1rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: .78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+
+        .demo-cta:hover { opacity: .85; }
+
         @media (max-width: 768px) {
             .demo-panel {
                 max-width: none;
@@ -409,8 +439,31 @@
             font-size: .95rem;
             line-height: 1.7;
             font-weight: 300;
+            margin-bottom: 1rem;
+        }
+
+        /* Specs del libro: qué hay adentro, de un vistazo */
+        .specs {
+            color: var(--fg-subtle);
+            font-size: .8rem;
+            line-height: 1.6;
             margin-bottom: 2.25rem;
         }
+
+        .specs button {
+            background: none;
+            border: none;
+            padding: 0;
+            font: inherit;
+            color: var(--fg-muted);
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            text-decoration-color: var(--border);
+            transition: color .2s;
+        }
+
+        .specs button:hover { color: var(--fg); }
 
         /* ── Selectors ── */
         .sel {
@@ -899,7 +952,8 @@
             h1 { font-size: 2rem; text-align: center; }
             .kicker { justify-content: center; }
             .kicker::before { display: none; }
-            .lead { text-align: center; margin-left: auto; margin-right: auto; margin-bottom: 1.75rem; }
+            .lead { text-align: center; margin-left: auto; margin-right: auto; margin-bottom: 1rem; }
+            .specs { text-align: center; margin-bottom: 1.75rem; }
             .sel-label { text-align: center; }
             .pills { justify-content: center; }
             .note { max-width: none; }
@@ -935,6 +989,8 @@
             <h1>Crypto para <em>Soberanos</em></h1>
             <p class="lead">Este libro es una guía práctica para empezar de cero en el mundo crypto, desde la
                 perspectiva soberana. Elegí cómo lo querés y pagá con tu wallet — o como prefieras.</p>
+            <p class="specs">251 páginas · 13 capítulos: de la semilla y la wallet a DeFi, privacidad y herencia
+                soberana · <button type="button" onclick="openDemo()">ver el índice</button></p>
 
             <!-- IDIOMA (aplica a digital y físico) -->
             <div class="sel" id="lang-step">
@@ -1037,7 +1093,7 @@
                     rel="noopener">FR</a>) · Contacto:
                 <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
             <!-- Bumpear en CADA deploy de book.html (trackeo de versiones de la página) -->
-            <p class="foot" id="book-version">v 1.00</p>
+            <p class="foot" id="book-version">v 1.01</p>
         </div>
     </div>
 
@@ -1062,7 +1118,8 @@
                 <button class="demo-close" onclick="closeDemo()" aria-label="Cerrar">&times;</button>
             </div>
             <div class="demo-pages" id="demo-pages"></div>
-            <p class="demo-foot">¿Te gustó? Elegí tu formato y seguí leyendo ✨</p>
+            <p class="demo-foot">¿Te gustó? <button type="button" class="demo-cta" onclick="closeDemoToFormats()">Elegí
+                    tu formato y seguí leyendo ✨</button></p>
         </div>
     </div>
 
@@ -1367,6 +1424,12 @@
             document.body.style.overflow = '';
         }
 
+        // CTA del demo: cerrar y dejar al lector sobre el selector de formato
+        function closeDemoToFormats() {
+            closeDemo();
+            document.getElementById('format-pills').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDemo(); closeTrack(); } });
 
         // ── Seguimiento de pedido (?pedido=CW-XXXXXX) ──
@@ -1463,33 +1526,46 @@
             }
         }
 
-        // ── Financiamiento soberano (suma balances on-chain en ambas redes) ──
+        // ── Financiamiento soberano ──
+        // Recaudación ACUMULADA real (Worker /funding: ventas crypto en D1 + pedidos MP
+        // acreditados convertidos a ETH). El balance on-chain de la wallet queda de
+        // fallback: retrocede a cero si se mueven fondos y desinfla la barra.
         async function fetchFunding() {
             const raisedEl = document.getElementById('funding-raised');
             const fillEl = document.getElementById('funding-fill');
             if (!raisedEl || !fillEl) return;
+            let raisedEth = null;
             try {
-                const balances = await Promise.allSettled(Object.values(NETWORKS).map(net =>
-                    withRpcFallback(net, (p) => p.getBalance(CONFIG.PAYMENT_ADDRESS))
-                ));
-                const ok = balances.filter(b => b.status === 'fulfilled');
-                if (ok.length === 0) throw new Error('sin RPC disponible');
-                const totalWei = ok.reduce((acc, b) => acc + b.value, 0n);
-                const raisedEth = parseFloat(ethers.formatEther(totalWei));
-                const goal = CONFIG.FUNDING_GOAL_ETH;
-                const pct = Math.min(100, (raisedEth / goal) * 100);
+                const resp = await fetch(`${CONFIG.API_BASE}/funding`);
+                const data = await resp.json();
+                if (resp.ok && typeof data.raisedEth === 'number') raisedEth = data.raisedEth;
+            } catch (err) { /* cae al fallback on-chain */ }
 
-                raisedEl.textContent = raisedEth.toFixed(4);
-                fillEl.style.width = `${pct}%`;
-
-                // Al alcanzar la meta: el PDF es libre
-                if (raisedEth >= goal) {
-                    const note = document.getElementById('funding-note');
-                    if (note) note.innerHTML = '🎉 <strong>Meta alcanzada:</strong> el PDF ahora es libre y gratuito para todos.';
+            if (raisedEth === null) {
+                try {
+                    const balances = await Promise.allSettled(Object.values(NETWORKS).map(net =>
+                        withRpcFallback(net, (p) => p.getBalance(CONFIG.PAYMENT_ADDRESS))
+                    ));
+                    const ok = balances.filter(b => b.status === 'fulfilled');
+                    if (ok.length === 0) throw new Error('sin RPC disponible');
+                    const totalWei = ok.reduce((acc, b) => acc + b.value, 0n);
+                    raisedEth = parseFloat(ethers.formatEther(totalWei));
+                } catch (err) {
+                    console.error('Funding error:', err);
+                    raisedEl.textContent = '·';
+                    return;
                 }
-            } catch (err) {
-                console.error('Funding error:', err);
-                raisedEl.textContent = '·';
+            }
+
+            const goal = CONFIG.FUNDING_GOAL_ETH;
+            const pct = Math.min(100, (raisedEth / goal) * 100);
+            raisedEl.textContent = raisedEth.toFixed(4);
+            fillEl.style.width = `${pct}%`;
+
+            // Al alcanzar la meta: el PDF es libre
+            if (raisedEth >= goal) {
+                const note = document.getElementById('funding-note');
+                if (note) note.innerHTML = '🎉 <strong>Meta alcanzada:</strong> el PDF ahora es libre y gratuito para todos.';
             }
         }
 
