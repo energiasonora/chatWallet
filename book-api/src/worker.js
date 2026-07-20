@@ -244,18 +244,20 @@ async function createOrder(req, env, C) {
 
   const paymentMethod = s(b.payment_method, 30);
   const format = s(b.format, 30);
+  // preferencia de entrega (AR físico): correo | coordinar (AMBA, entrega del autor)
+  const deliveryPref = ["correo", "coordinar"].includes(b.delivery_pref) ? b.delivery_pref : null;
 
   // reintentar ante la (improbable) colisión del public_id
   for (let attempt = 0; attempt < 3; attempt++) {
     const publicId = makeOrderId();
     try {
       await env.DB.prepare(
-        `INSERT INTO orders (public_id, stage, created_at, payment_method, format, country, lang, name, email, phone, address, city, cp, notes, tx_hash, wallet_address)
-         VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO orders (public_id, stage, created_at, payment_method, format, country, lang, name, email, phone, address, city, cp, notes, tx_hash, wallet_address, delivery_pref)
+         VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         publicId, Date.now(), paymentMethod, format, s(b.country, 10), s(b.lang, 10),
         name, email, s(b.phone, 60), s(b.address), s(b.city, 200), s(b.cp, 30), s(b.notes, 1000),
-        s(b.txHash, 80), s(b.walletAddress, 60)
+        s(b.txHash, 80), s(b.walletAddress, 60), deliveryPref
       ).run();
 
       // Mercado Pago: crear el checkout con el monto exacto en ARS.
@@ -269,6 +271,10 @@ async function createOrder(req, env, C) {
           console.log("MP preference falló:", String(e?.message || e));
         }
       }
+
+      // Email al comprador con su link de seguimiento (crypto: el pedido nace pagado)
+      await sendBuyerEmail(env, { public_id: publicId, name, email, format },
+        paymentMethod === "crypto" ? "paid" : "created");
 
       return json(200, { success: true, orderId: publicId, initPoint });
     } catch (e) {
@@ -355,7 +361,7 @@ async function mpWebhook(req, url, env) {
   if (pay.status !== "approved" || !pay.external_reference) return json(200, { ok: true });
 
   const order = await env.DB.prepare(
-    "SELECT public_id, stage, paid, format, lang, ars_amount FROM orders WHERE public_id = ?"
+    "SELECT public_id, stage, paid, format, lang, ars_amount, name, email FROM orders WHERE public_id = ?"
   ).bind(pay.external_reference).first();
   if (!order || order.paid) return json(200, { ok: true }); // idempotente
 
@@ -386,6 +392,10 @@ async function mpWebhook(req, url, env) {
   ).bind(String(paymentId), newStage, downloadToken, now, order.public_id));
 
   await env.DB.batch(stmts);
+
+  // Email al comprador: pago acreditado (digital: PDF listo · físico: entra a imprenta)
+  await sendBuyerEmail(env, order, "paid");
+
   return json(200, { ok: true });
 }
 
@@ -418,6 +428,71 @@ async function funding(env, C) {
   });
 }
 
+// ── Email al comprador (Cloudflare Email Service, binding EMAIL) ──
+// Si el binding no existe todavía (dominio sin onboardear) se saltea sin romper:
+// el email es un refuerzo, nunca un bloqueante de la venta.
+function buyerEmailContent(order, kind) {
+  const track = `https://chatwallet.org/book.html?pedido=${order.public_id}`;
+  const fisico = order.format && order.format !== "digital";
+  const nombre = (order.name || "").split(" ")[0];
+  const hola = nombre ? `Hola ${nombre}!` : "¡Hola!";
+
+  let subject, intro;
+  if (kind === "paid") {
+    if (fisico) {
+      subject = `📦 Pago acreditado — tu ejemplar de Cripto para Soberanos entra a imprenta (${order.public_id})`;
+      intro = "Tu pago se acreditó. Tu ejemplar se imprime y encuaderna artesanalmente (~10 días) y coordinamos la entrega.";
+    } else {
+      subject = `📄 Tu PDF de Cripto para Soberanos está listo (${order.public_id})`;
+      intro = "Tu pago se acreditó y tu edición digital ya está disponible: entrá a tu página de pedido y tocá «Descargar PDF».";
+    }
+  } else {
+    subject = `Recibimos tu pedido de Cripto para Soberanos (${order.public_id})`;
+    intro = fisico
+      ? "Recibimos tu pedido. Apenas se acredite el pago, tu ejemplar entra a imprenta y te avisamos por acá."
+      : "Recibimos tu pedido. Apenas se acredite el pago, tu PDF queda disponible en tu página de pedido.";
+  }
+
+  const text = `${hola}
+
+${intro}
+
+Tu pedido: ${order.public_id}
+Seguilo (y guardá este link): ${track}
+
+Cualquier cosa respondé este mail.
+— Cripto para Soberanos · chatwallet.org/book.html`;
+
+  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:520px;margin:0 auto;color:#0a0a0a;line-height:1.6">
+    <h2 style="font-weight:800;letter-spacing:-.02em">Cripto para <em>Soberanos</em></h2>
+    <p>${hola}</p>
+    <p>${intro}</p>
+    <p style="background:#f7f7f7;border-radius:10px;padding:12px 16px">Tu pedido: <strong>${order.public_id}</strong></p>
+    <p><a href="${track}" style="display:inline-block;background:#2b9de3;color:#fff;text-decoration:none;border-radius:999px;padding:10px 22px;font-weight:600">Seguir mi pedido →</a></p>
+    <p style="color:#555;font-size:13px">Guardá este mail: el link de arriba es tu comprobante y seguimiento${fisico ? "" : " (ahí está tu botón de descarga)"}.</p>
+    <p style="color:#999;font-size:12px">Cualquier cosa respondé este mail · chatwallet.org/book.html</p>
+  </div>`;
+
+  return { subject, text, html };
+}
+
+async function sendBuyerEmail(env, order, kind) {
+  if (!env.EMAIL || !order?.email || !order?.public_id) return false;
+  const { subject, text, html } = buyerEmailContent(order, kind);
+  try {
+    await env.EMAIL.send({
+      to: order.email,
+      from: { email: "pedidos@chatwallet.org", name: "Cripto para Soberanos" },
+      replyTo: "energiasonorasoftware@protonmail.com",
+      subject, text, html,
+    });
+    return true;
+  } catch (e) {
+    console.log("email al comprador falló:", String(e?.message || e));
+    return false;
+  }
+}
+
 // ════════════════════════════════════════════════
 //  PANEL DE ADMINISTRACIÓN (book-admin.html)
 //  GET  /admin/orders     · pedidos completos (con datos de envío)
@@ -441,13 +516,40 @@ async function adminPurchases(env) {
 }
 
 async function adminOrderStage(req, env) {
-  const { publicId, stage } = await req.json().catch(() => ({}));
+  const { publicId, stage, tracking } = await req.json().catch(() => ({}));
+  const id = String(publicId || "").toUpperCase();
+  if (!id) return json(400, { error: "publicId requerido" });
+
+  // tracking solo (sin cambiar etapa): código o URL que ve el comprador en su seguimiento
+  if (stage === undefined && tracking !== undefined) {
+    const r = await env.DB.prepare("UPDATE orders SET tracking = ? WHERE public_id = ?")
+      .bind(String(tracking).slice(0, 200) || null, id).run();
+    if (!r.meta.changes) return json(404, { error: "Pedido no encontrado" });
+    return json(200, { success: true, tracking: String(tracking).slice(0, 200) || null });
+  }
+
   const s = Number(stage);
-  if (!publicId || ![1, 2, 3].includes(s)) return json(400, { error: "publicId y stage (1-3) requeridos" });
-  const r = await env.DB.prepare("UPDATE orders SET stage = ? WHERE public_id = ?")
-    .bind(s, String(publicId).toUpperCase()).run();
+  if (![1, 2, 3].includes(s)) return json(400, { error: "stage (1-3) o tracking requeridos" });
+  const r = tracking !== undefined
+    ? await env.DB.prepare("UPDATE orders SET stage = ?, tracking = ? WHERE public_id = ?")
+        .bind(s, String(tracking).slice(0, 200) || null, id).run()
+    : await env.DB.prepare("UPDATE orders SET stage = ? WHERE public_id = ?").bind(s, id).run();
   if (!r.meta.changes) return json(404, { error: "Pedido no encontrado" });
   return json(200, { success: true, stage: s });
+}
+
+// Reenviar (o probar) el email del pedido: { publicId, to?, kind? }.
+// `to` permite mandarlo a otra casilla (probar cómo se ve) sin tocar el pedido.
+async function adminSendOrderEmail(req, env) {
+  const { publicId, to, kind } = await req.json().catch(() => ({}));
+  const order = await env.DB.prepare("SELECT public_id, name, email, format, paid, payment_method FROM orders WHERE public_id = ?")
+    .bind(String(publicId || "").toUpperCase()).first();
+  if (!order) return json(404, { error: "Pedido no encontrado" });
+  const k = kind || ((order.paid || order.payment_method === "crypto") ? "paid" : "created");
+  const target = { ...order, email: to || order.email };
+  if (!env.EMAIL) return json(503, { error: "Email no configurado (falta onboardear el dominio / binding EMAIL)" });
+  const ok = await sendBuyerEmail(env, target, k);
+  return json(ok ? 200 : 502, ok ? { success: true, to: target.email, kind: k } : { error: "El envío falló (ver logs)" });
 }
 
 // Ventas nuevas desde `since` (epoch ms). Dos fuentes sin duplicar:
@@ -459,7 +561,7 @@ async function adminEvents(url, env) {
   const now = Date.now();
   const [orders, purchases] = await Promise.all([
     env.DB.prepare(
-      `SELECT public_id, format, lang, country, payment_method, ars_amount, city, stage, paid, created_at, paid_at FROM orders
+      `SELECT public_id, format, lang, country, payment_method, ars_amount, city, stage, paid, created_at, paid_at, wallet_address, delivery_pref FROM orders
        WHERE (payment_method = 'crypto' AND created_at > ?1)
           OR (paid = 1 AND COALESCE(paid_at, created_at) > ?1)
        ORDER BY created_at ASC LIMIT 50`
@@ -482,7 +584,7 @@ async function orderStatus(url, env) {
   const id = (url.searchParams.get("id") || "").toUpperCase();
   if (!id) return json(400, { error: "id requerido" });
   const row = await env.DB.prepare(
-    "SELECT public_id, stage, format, country, lang, created_at, paid, download_token FROM orders WHERE public_id = ?"
+    "SELECT public_id, stage, format, country, lang, created_at, paid, download_token, tracking, delivery_pref FROM orders WHERE public_id = ?"
   ).bind(id).first();
   if (!row) return json(404, { error: "Pedido no encontrado" });
   return json(200, {
@@ -493,6 +595,8 @@ async function orderStatus(url, env) {
     lang: row.lang,
     createdAt: row.created_at,
     paid: !!row.paid,
+    tracking: row.tracking || null,
+    deliveryPref: row.delivery_pref || null,
     // solo existe si el pago acreditó y el formato incluye PDF: quien tiene el
     // link de seguimiento es el comprador (el CW-XXXXXX actúa de secreto).
     downloadToken: row.download_token || null,
@@ -541,6 +645,7 @@ export default {
         if (request.method === "GET" && path === "/admin/purchases") return await adminPurchases(env);
         if (request.method === "GET" && path === "/admin/events") return await adminEvents(url, env);
         if (request.method === "POST" && path === "/admin/orderStage") return await adminOrderStage(request, env);
+        if (request.method === "POST" && path === "/admin/sendOrderEmail") return await adminSendOrderEmail(request, env);
         return json(404, { error: "Endpoint no encontrado" });
       }
       if (request.method === "POST" && path === "/verifyPayment") return await verifyPayment(request, env, C);

@@ -70,26 +70,47 @@ function makeSigner(w) {
   };
 }
 
-let client, dm;
-async function ensureXmtp() {
-  if (dm) return dm;
+let client;
+const dms = new Map(); // address → conversación (autor + compradores que dejaron su ChatWallet)
+
+async function ensureClient() {
+  if (client) return client;
   client = await Client.create(makeSigner(wallet), {
     env: CFG.XMTP_ENV,
     dbPath: join(HERE, `xmtp-notifier-${CFG.XMTP_ENV}.db3`),
   });
   await client.conversations.sync();
+  return client;
+}
+
+async function dmTo(address) {
+  const addr = address.toLowerCase();
+  if (dms.has(addr)) return dms.get(addr);
+  const c = await ensureClient();
   // node-sdk v6: createDmWithIdentifier (el newDmWithIdentifier es del browser-sdk)
-  dm = await client.conversations.createDmWithIdentifier({
-    identifier: CFG.NOTIFY_TO,
+  const dm = await c.conversations.createDmWithIdentifier({
+    identifier: addr,
     identifierKind: IdentifierKind.Ethereum,
   });
+  dms.set(addr, dm);
   return dm;
 }
 
 async function notify(text) {
-  const conv = await ensureXmtp();
+  const conv = await dmTo(CFG.NOTIFY_TO);
   await conv.sendText(text); // v6: send() espera EncodedContent; texto plano = sendText()
   console.log(`📨 ${new Date().toISOString()} → ${text.split('\n')[0]}`);
+}
+
+// DM al comprador (mejor esfuerzo: puede no estar registrado en XMTP)
+async function notifyBuyer(address, text) {
+  try {
+    const conv = await dmTo(address);
+    await conv.sendText(text);
+    console.log(`📬 ${new Date().toISOString()} → comprador ${address.slice(0, 10)}…`);
+  } catch (e) {
+    console.log(`(comprador ${address.slice(0, 10)}… sin XMTP o falló: ${e.message})`);
+  }
 }
 
 // ── Formateo de eventos ──
@@ -120,7 +141,17 @@ async function poll() {
   });
   if (!resp.ok) throw new Error(`events ${resp.status}`);
   const { now, events } = await resp.json();
-  for (const ev of events) await notify(fmtEvent(ev));
+  for (const ev of events) {
+    await notify(fmtEvent(ev));
+    // si el comprador dejó su ChatWallet, le confirmamos la compra por chat
+    if (ev.type === 'pedido' && ev.wallet_address && /^0x[0-9a-fA-F]{40}$/.test(ev.wallet_address)) {
+      const fisico = ev.format !== 'digital';
+      await notifyBuyer(ev.wallet_address,
+        `✅ ¡Gracias por tu compra de Cripto para Soberanos! Tu pedido ${ev.public_id} está confirmado` +
+        (fisico ? ' — tu ejemplar entra a imprenta (~10 días).' : ' — tu PDF ya está disponible.') +
+        `\nSeguilo acá: https://chatwallet.org/book.html?pedido=${ev.public_id}`);
+    }
+  }
   state.since = now;
   saveState(state);
   return events.length;

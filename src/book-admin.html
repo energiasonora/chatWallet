@@ -175,6 +175,20 @@
         .stage-btn:not(.on):hover { border-color: var(--fg); color: var(--fg); }
         .stage-btn:disabled { opacity: .6; cursor: wait; }
 
+        .trk-input {
+            flex: 1;
+            min-width: 160px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .3rem .6rem;
+            font-size: .74rem;
+            font-family: monospace;
+        }
+
+        .trk-input:focus { outline: none; border-color: var(--fg); }
+
+        .order-meta code { font-size: .72rem; background: var(--surface); padding: .1rem .35rem; border-radius: 5px; }
+
         .order .links { margin-top: .6rem; font-size: .74rem; }
         .order .links a { color: var(--fg-subtle); }
 
@@ -355,8 +369,8 @@
                         <span class="badge">${o.payment_method === 'mercadopago' ? 'MP' : 'ETH'} · ${esc(amount)}</span>
                         <span class="when">${fdate(o.created_at)}${o.paid_at ? ' · acreditado ' + fdate(o.paid_at) : ''}</span>
                     </div>
-                    <div class="order-meta">👤 <strong>${esc(o.name)}</strong> · ${esc(o.email)}${o.phone ? ' · 📱 ' + esc(o.phone) : ''}</div>
-                    ${hasShip ? `<div class="ship">📍 <strong>${esc(o.address || '')}</strong> · ${esc(o.city || '')} · CP ${esc(o.cp || '')}${o.notes ? `<br>📝 ${esc(o.notes)}` : ''}</div>`
+                    <div class="order-meta">👤 <strong>${esc(o.name)}</strong> · ${esc(o.email)}${o.phone ? ' · 📱 ' + esc(o.phone) : ''}${o.wallet_address ? `<br>💬 ChatWallet: <code>${esc(o.wallet_address)}</code>` : ''}</div>
+                    ${hasShip ? `<div class="ship">${o.delivery_pref === 'coordinar' ? '🤝 <strong>Coordinar entrega (AMBA)</strong> · ' : ''}📍 <strong>${esc(o.address || '')}</strong> · ${esc(o.city || '')}${o.cp ? ' · CP ' + esc(o.cp) : ''}${o.notes ? `<br>📝 ${esc(o.notes)}` : ''}</div>`
                         : (o.notes ? `<div class="ship">📝 ${esc(o.notes)}</div>` : '')}
                     <div class="stage-row">
                         <span class="lbl">Etapa:</span>
@@ -364,9 +378,38 @@
                             `<button class="stage-btn${o.stage === s ? ' on' : ''}" onclick="setStage('${esc(o.public_id)}', ${s}, this)">${s} · ${STAGES[s]}</button>`
                         ).join('')}
                     </div>
-                    <div class="links"><a href="https://chatwallet.org/book.html?pedido=${esc(o.public_id)}" target="_blank" rel="noopener">ver seguimiento público ↗</a></div>
+                    ${o.format !== 'digital' && o.delivery_pref !== 'coordinar' ? `<div class="stage-row">
+                        <span class="lbl">Tracking:</span>
+                        <input class="trk-input" id="trk-${esc(o.public_id)}" value="${esc(o.tracking || '')}" placeholder="código o URL de seguimiento">
+                        <button class="stage-btn" onclick="saveTracking('${esc(o.public_id)}', this)">Guardar</button>
+                    </div>` : ''}
+                    <div class="links"><a href="https://chatwallet.org/book.html?pedido=${esc(o.public_id)}" target="_blank" rel="noopener">ver seguimiento público ↗</a>
+                        · <a href="#" onclick="resendEmail('${esc(o.public_id)}', this); return false;">✉️ reenviar email al comprador</a></div>
                 </div>`;
             }).join('');
+        }
+
+        async function saveTracking(publicId, btn) {
+            btn.disabled = true;
+            try {
+                const tracking = document.getElementById('trk-' + publicId).value.trim();
+                await api('/admin/orderStage', { method: 'POST', body: JSON.stringify({ publicId, tracking }) });
+                btn.textContent = '✓';
+                setTimeout(() => { btn.textContent = 'Guardar'; btn.disabled = false; }, 1200);
+            } catch (e) {
+                btn.disabled = false;
+                alert('No se pudo guardar: ' + e.message);
+            }
+        }
+
+        async function resendEmail(publicId, link) {
+            link.textContent = '✉️ enviando…';
+            try {
+                const r = await api('/admin/sendOrderEmail', { method: 'POST', body: JSON.stringify({ publicId }) });
+                link.textContent = r.success ? `✉️ enviado a ${r.to} ✓` : '✉️ falló: ' + (r.error || '?');
+            } catch (e) {
+                link.textContent = '✉️ falló — reintentar';
+            }
         }
 
         async function setStage(publicId, stage, btn) {
