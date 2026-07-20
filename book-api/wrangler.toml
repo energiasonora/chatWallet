@@ -25,6 +25,12 @@ database_id = "9acb2df0-243b-40a9-9a54-a90b0253225a"
 binding = "BOOK_BUCKET"
 bucket_name = "chatwallet-book"
 
+# ── Email al comprador (Cloudflare Email Service) ──
+# chatwallet.org onboardeado en Email Sending (dashboard, 2026-07-20).
+# El worker manda desde pedidos@chatwallet.org (sendBuyerEmail).
+[[send_email]]
+name = "EMAIL"
+
 # ── Config pública (no secretos) ──
 [vars]
 PAYMENT_ADDRESS    = "0x1c87FDF8844cbEe5DC7f0F1681C44bF3c99A0e3d"
