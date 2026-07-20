@@ -62,8 +62,10 @@ CREATE TABLE IF NOT EXISTS orders (
   paid_at          INTEGER,           -- epoch ms de la acreditación (webhook MP) — lo usa /admin/events
   download_token   TEXT,              -- token de /download emitido al acreditarse (si incluye PDF)
   delivery_pref    TEXT,              -- correo | coordinar (AMBA: entrega coordinada con el autor)
-  tracking         TEXT               -- código o URL de seguimiento del envío (lo carga el panel; visible en orderStatus)
+  tracking         TEXT,              -- código o URL de seguimiento del envío (lo carga el panel; visible en orderStatus)
+  email_sent_at    INTEGER            -- epoch ms del último email exitoso AL COMPRADOR (visible en el panel)
 );
 -- DB ya existente (prod): correr una vez →
 --   ALTER TABLE orders ADD COLUMN paid_at INTEGER;
 --   ALTER TABLE orders ADD COLUMN delivery_pref TEXT; ALTER TABLE orders ADD COLUMN tracking TEXT;
+--   ALTER TABLE orders ADD COLUMN email_sent_at INTEGER;

@@ -367,6 +367,7 @@
                         <span class="badge">${FORMATS[o.format] || esc(o.format)}</span>
                         <span class="badge">${esc((o.lang || 'es').toUpperCase())} · ${esc((o.country || '—').toUpperCase())}</span>
                         <span class="badge">${o.payment_method === 'mercadopago' ? 'MP' : 'ETH'} · ${esc(amount)}</span>
+                        <span class="badge ${o.email_sent_at ? 'paid' : 'unpaid'}" title="${o.email_sent_at ? 'último email al comprador' : 'el comprador NO recibió email todavía'}">✉️ ${o.email_sent_at ? fdate(o.email_sent_at) : 'sin enviar'}</span>
                         <span class="when">${fdate(o.created_at)}${o.paid_at ? ' · acreditado ' + fdate(o.paid_at) : ''}</span>
                     </div>
                     <div class="order-meta">👤 <strong>${esc(o.name)}</strong> · ${esc(o.email)}${o.phone ? ' · 📱 ' + esc(o.phone) : ''}${o.wallet_address ? `<br>💬 ChatWallet: <code>${esc(o.wallet_address)}</code>` : ''}</div>
@@ -407,6 +408,7 @@
             try {
                 const r = await api('/admin/sendOrderEmail', { method: 'POST', body: JSON.stringify({ publicId }) });
                 link.textContent = r.success ? `✉️ enviado a ${r.to} ✓` : '✉️ falló: ' + (r.error || '?');
+                if (r.success) setTimeout(loadAll, 2000); // refresca el badge "✉️ enviado"
             } catch (e) {
                 link.textContent = '✉️ falló — reintentar';
             }

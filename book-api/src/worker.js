@@ -476,7 +476,7 @@ Cualquier cosa respondé este mail.
   return { subject, text, html };
 }
 
-async function sendBuyerEmail(env, order, kind) {
+async function sendBuyerEmail(env, order, kind, { record = true } = {}) {
   if (!env.EMAIL || !order?.email || !order?.public_id) return false;
   const { subject, text, html } = buyerEmailContent(order, kind);
   try {
@@ -486,6 +486,12 @@ async function sendBuyerEmail(env, order, kind) {
       replyTo: "energiasonorasoftware@protonmail.com",
       subject, text, html,
     });
+    // asentar el envío para que el panel muestre "✉️ enviado" (no cuando es
+    // una prueba a otra casilla: record=false)
+    if (record) {
+      await env.DB.prepare("UPDATE orders SET email_sent_at = ? WHERE public_id = ?")
+        .bind(Date.now(), order.public_id).run().catch(() => {});
+    }
     return true;
   } catch (e) {
     console.log("email al comprador falló:", String(e?.message || e));
@@ -548,7 +554,8 @@ async function adminSendOrderEmail(req, env) {
   const k = kind || ((order.paid || order.payment_method === "crypto") ? "paid" : "created");
   const target = { ...order, email: to || order.email };
   if (!env.EMAIL) return json(503, { error: "Email no configurado (falta onboardear el dominio / binding EMAIL)" });
-  const ok = await sendBuyerEmail(env, target, k);
+  // una prueba a otra casilla no cuenta como "email enviado al comprador"
+  const ok = await sendBuyerEmail(env, target, k, { record: target.email === order.email });
   return json(ok ? 200 : 502, ok ? { success: true, to: target.email, kind: k } : { error: "El envío falló (ver logs)" });
 }
 
