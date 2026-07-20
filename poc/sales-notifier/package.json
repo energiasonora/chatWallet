@@ -1,0 +1,9 @@
+{
+  "name": "sales-notifier",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@xmtp/node-sdk": "^6.0.0",
+    "ethers": "^6.17.0"
+  }
+}
