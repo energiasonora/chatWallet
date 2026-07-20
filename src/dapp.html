@@ -1289,7 +1289,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.87 alpha</p>
+            <p class="text-sm text-gray-400">v 1.88 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2890,7 +2890,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.87</p>
+                    <p id="settingsVersionText">Versión 1.88</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -6443,6 +6443,31 @@
                 }
             }
 
+            // El worker WASM de XMTP puede quedar "wedged" tras un rato en background (Doze/throttling
+            // del WebView): las llamadas a conversations.sync()/syncAll() quedan colgadas para siempre
+            // sin rechazar ni resolver. Antes eso dejaba isSyncingMessages trabado en true (bloqueando
+            // todo resync futuro) y el stream muerto hasta un force-stop manual. withTimeout() convierte
+            // ese cuelgue silencioso en un rechazo detectable.
+            function withTimeout(promise, ms, label) {
+                let timer;
+                const timeout = new Promise((_, reject) => {
+                    timer = setTimeout(() => reject(new Error(`timeout: ${label} (${ms}ms)`)), ms);
+                });
+                return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+            }
+
+            // Único punto de recuperación cuando se detecta el worker XMTP colgado: un reload de la
+            // página reconstruye el cliente (y su Worker WASM) desde cero. Es seguro y silencioso: la
+            // wallet se recarga sola desde localStorage al bootear (ver init(), sin PIN/unlock), y el
+            // foreground service nativo (KeepAliveService) no se toca por un reload del WebView.
+            let recoveringFromWedgedXmtp = false;
+            function recoverFromWedgedXmtpStream(reason) {
+                if (recoveringFromWedgedXmtp) return;
+                recoveringFromWedgedXmtp = true;
+                console.error('🔁 XMTP wedged, recargando para recuperar el stream:', reason);
+                location.reload();
+            }
+
             // Resincroniza mensajes que no llegaron por el stream en vivo (típicamente porque la app
             // estuvo en background/cerrada y el stream se cortó). Reabre los streams y trae del local
             // store los mensajes faltantes del chat abierto. addMessageToUI deduplica vía processedMessages,
@@ -6458,34 +6483,37 @@
                     if (icon) icon.classList.add('animate-spin');
                 }
                 try {
-                    // Reabrir streams (en APK el WebView se suspende en background y el stream muere).
-                    await listenForIncomingMessages();
+                    await withTimeout((async () => {
+                        // Reabrir streams (en APK el WebView se suspende en background y el stream muere).
+                        await listenForIncomingMessages();
 
-                    // Traer mensajes faltantes del chat abierto.
-                    if (currentConversation && chatView.classList.contains('active')) {
-                        const before = processedMessages.size;
-                        await currentConversation.sync();
-                        const msgs = await currentConversation.messages({ limit: 1000n });
-                        for (const message of msgs) {
-                            const typeId = message.contentType.typeId;
-                            if (typeId === 'readReceipt' || typeId === 'read-receipt' || typeId === 'presence' || typeId === 'profile') continue;
-                            const type = message.senderInboxId === chatwalletxmtp.inboxId ? 'sent' : 'received';
-                            addMessageToUI(message, type);
+                        // Traer mensajes faltantes del chat abierto.
+                        if (currentConversation && chatView.classList.contains('active')) {
+                            const before = processedMessages.size;
+                            await currentConversation.sync();
+                            const msgs = await currentConversation.messages({ limit: 1000n });
+                            for (const message of msgs) {
+                                const typeId = message.contentType.typeId;
+                                if (typeId === 'readReceipt' || typeId === 'read-receipt' || typeId === 'presence' || typeId === 'profile') continue;
+                                const type = message.senderInboxId === chatwalletxmtp.inboxId ? 'sent' : 'received';
+                                addMessageToUI(message, type);
+                            }
+                            const added = processedMessages.size - before;
+                            if (added > 0) console.log(`🔄 Resync: ${added} mensaje(s) nuevo(s) recuperado(s).`);
                         }
-                        const added = processedMessages.size - before;
-                        if (added > 0) console.log(`🔄 Resync: ${added} mensaje(s) nuevo(s) recuperado(s).`);
-                    }
 
-                    // Refrescar lista de contactos. syncAll() es más fuerte que sync(): además de la
-                    // lista, baja welcomes/mensajes nuevos de todas las conversaciones.
-                    await chatwalletxmtp.conversations.syncAll().catch(() => chatwalletxmtp.conversations.sync().catch(() => {}));
-                    // Device/history sync: recuperar historial servido por otras instalaciones (ver arranque).
-                    await chatwalletxmtp.preferences.sync().catch(() => {});
-                    // Recontar no-leídos de lo que llegó mientras el stream estuvo muerto (silencioso: solo badges).
-                    try { await reconcileUnreadFromStore(); await saveContacts(); } catch (e) { console.warn('reconcile en resync:', e); }
-                    renderContacts();
+                        // Refrescar lista de contactos. syncAll() es más fuerte que sync(): además de la
+                        // lista, baja welcomes/mensajes nuevos de todas las conversaciones.
+                        await chatwalletxmtp.conversations.syncAll().catch(() => chatwalletxmtp.conversations.sync().catch(() => {}));
+                        // Device/history sync: recuperar historial servido por otras instalaciones (ver arranque).
+                        await chatwalletxmtp.preferences.sync().catch(() => {});
+                        // Recontar no-leídos de lo que llegó mientras el stream estuvo muerto (silencioso: solo badges).
+                        try { await reconcileUnreadFromStore(); await saveContacts(); } catch (e) { console.warn('reconcile en resync:', e); }
+                        renderContacts();
+                    })(), 15000, 'resyncMessages');
                 } catch (e) {
                     console.warn('resyncMessages:', e);
+                    if (e && /^timeout:/.test(e.message)) recoverFromWedgedXmtpStream(e.message);
                 } finally {
                     isSyncingMessages = false;
                     if (manual) {
@@ -7444,6 +7472,18 @@
                 if (window.__updateRefreshBtn) window.__updateRefreshBtn();
             });
             window.addEventListener('focus', () => { if (!document.hidden) resyncMessages(); });
+
+            // Watchdog en background (solo APK): sin esto, un worker XMTP wedged podía dejar los push
+            // muertos indefinidamente hasta que el usuario abriera la app a mano (y a veces ni con eso,
+            // ver isSyncingMessages arriba). Cada 8 min con la app oculta, prueba un sync liviano con
+            // timeout corto; si se cuelga, recarga sola para levantar un worker WASM nuevo.
+            if (IS_NATIVE) {
+                setInterval(() => {
+                    if (!document.hidden || !chatwalletxmtp || isSyncingMessages || recoveringFromWedgedXmtp) return;
+                    withTimeout(chatwalletxmtp.conversations.sync(), 12000, 'watchdog background sync')
+                        .catch((e) => recoverFromWedgedXmtpStream(e.message));
+                }, 8 * 60 * 1000);
+            }
 
             if (IS_NATIVE) {
                 // Al volver al primer plano: limpiar avisos vistos y abrir el chat si se tocó uno.
