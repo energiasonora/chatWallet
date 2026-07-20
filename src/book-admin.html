@@ -25,6 +25,25 @@
             --pay: #2b9de3;
         }
 
+        /* ── Tema oscuro (toggle 🌙/☀️, default = tema del sistema) ── */
+        :root[data-theme="dark"] {
+            --bg: #0f0f0f;
+            --fg: #f2f2f2;
+            --fg-muted: #b3b3b3;
+            --fg-subtle: #7a7a7a;
+            --border: #2a2a2a;
+            --surface: #1b1b1b;
+            --warn: #fbbf24;
+        }
+
+        :root[data-theme="dark"] .badge.paid { background: #0b2e22; border-color: #155e46; color: #34d399; }
+        :root[data-theme="dark"] .badge.unpaid { background: #33230a; border-color: #7c5210; color: #fbbf24; }
+
+        input, textarea {
+            background: var(--bg);
+            color: var(--fg);
+        }
+
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
@@ -242,6 +261,7 @@
                 <div class="sub" id="updated-at">—</div>
             </div>
             <div class="top-actions">
+                <button class="ghost-btn" id="theme-btn" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
                 <button class="ghost-btn" onclick="loadAll()">↻ Actualizar</button>
                 <button class="ghost-btn" onclick="logout()">Salir</button>
             </div>
@@ -275,6 +295,21 @@
     </div>
 
     <script>
+        // Tema: elección guardada > preferencia del sistema (aplicar temprano, sin flash)
+        const THEME_KEY = 'book-admin-theme';
+        function applyTheme(t) {
+            document.documentElement.dataset.theme = t;
+            const btn = document.getElementById('theme-btn');
+            if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+        }
+        applyTheme(localStorage.getItem(THEME_KEY) ||
+            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+        function toggleTheme() {
+            const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem(THEME_KEY, t);
+            applyTheme(t);
+        }
+
         const API = 'https://api.chatwallet.org';
         const LS_KEY = 'book-admin-token';
         const STAGES = { 1: 'Creado', 2: 'Imprimiendo', 3: 'Enviado/PDF' };
