@@ -4,21 +4,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto para Soberanos — Libro</title>
+    <title>Cripto para Soberanos — Libro</title>
     <meta name="description"
-        content="Guía práctica para empezar de cero en crypto desde la soberanía: la semilla, la wallet, la blockchain, DeFi, privacidad y herencia. 251 páginas · digital y físico · pagá con ETH o Mercado Pago.">
+        content="Guía práctica para empezar de cero en cripto desde la soberanía: la semilla, la wallet, la blockchain, DeFi, privacidad y herencia. 251 páginas · digital y físico · pagá con ETH o Mercado Pago.">
     <link rel="canonical" href="https://chatwallet.org/book.html">
     <!-- Social cards: la tapa vive en src/static/img (se copia verbatim al build → URL estable sin hash) -->
     <meta property="og:type" content="book">
-    <meta property="og:title" content="Crypto para Soberanos — el libro">
+    <meta property="og:title" content="Cripto para Soberanos — el libro">
     <meta property="og:description"
-        content="Guía práctica para arrancar en crypto desde cero, con soberanía: 13 capítulos, 251 páginas. Digital $10 · físico $35 · pagá con ETH o Mercado Pago.">
+        content="Guía práctica para arrancar en cripto desde cero, con soberanía: 13 capítulos, 251 páginas. Digital $10 · físico $35 · pagá con ETH o Mercado Pago.">
     <meta property="og:url" content="https://chatwallet.org/book.html">
     <meta property="og:image" content="https://chatwallet.org/img/tapacpsES.jpg">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Crypto para Soberanos — el libro">
+    <meta name="twitter:title" content="Cripto para Soberanos — el libro">
     <meta name="twitter:description"
-        content="Guía práctica para arrancar en crypto desde cero, con soberanía: 13 capítulos, 251 páginas.">
+        content="Guía práctica para arrancar en cripto desde cero, con soberanía: 13 capítulos, 251 páginas.">
     <meta name="twitter:image" content="https://chatwallet.org/img/tapacpsES.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -975,7 +975,7 @@
         <!-- LIBRO -->
         <div class="cover-col">
             <div class="book-cover" onclick="openDemo()" role="button" title="Hojeá las primeras páginas">
-                <img id="book-cover-es" src="./img/tapacpsES.jpg" alt="Crypto para Soberanos">
+                <img id="book-cover-es" src="./img/tapacpsES.jpg" alt="Cripto para Soberanos">
                 <img id="book-cover-fr" src="./img/LIBROFRv2.jpg" alt="Crypto pour les Souverains" style="display:none;">
             </div>
             <button class="peek-hint" onclick="openDemo()">👀 Tocá la tapa y hojeá las primeras páginas</button>
@@ -986,8 +986,8 @@
         <!-- CONFIGURADOR -->
         <div class="config-col">
             <p class="kicker">Libro · digital y físico</p>
-            <h1>Crypto para <em>Soberanos</em></h1>
-            <p class="lead">Este libro es una guía práctica para empezar de cero en el mundo crypto, desde la
+            <h1>Cripto para <em>Soberanos</em></h1>
+            <p class="lead">Este libro es una guía práctica para empezar de cero en el mundo cripto, desde la
                 perspectiva soberana. Elegí cómo lo querés y pagá con tu wallet — o como prefieras.</p>
             <p class="specs">251 páginas · 13 capítulos: de la semilla y la wallet a DeFi, privacidad y herencia
                 soberana · <button type="button" onclick="openDemo()">ver el índice</button></p>
@@ -1093,7 +1093,7 @@
                     rel="noopener">FR</a>) · Contacto:
                 <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
             <!-- Bumpear en CADA deploy de book.html (trackeo de versiones de la página) -->
-            <p class="foot" id="book-version">v 1.01</p>
+            <p class="foot" id="book-version">v 1.02</p>
         </div>
     </div>
 
@@ -1309,7 +1309,7 @@
                 if (selectedPay !== 'mp') selectedPay = 'eth';
                 const method = selectedPay === 'mp' ? 'fiat' : 'crypto';
                 document.getElementById('method-pills').innerHTML =
-                    `<button type="button" class="pill${method === 'crypto' ? ' active' : ''}" data-method="crypto" onclick="selectMethod('crypto')">Crypto</button>` +
+                    `<button type="button" class="pill${method === 'crypto' ? ' active' : ''}" data-method="crypto" onclick="selectMethod('crypto')">Cripto</button>` +
                     `<button type="button" class="pill${method === 'fiat' ? ' active' : ''}" data-method="fiat" onclick="selectMethod('fiat')">Pesos · Mercado Pago</button>`;
                 // redes crypto (próximamente: BTC, BCH, XMR…)
                 document.getElementById('net-pills').innerHTML =
@@ -1411,7 +1411,7 @@
             const pages = all[selectedLang] || all.es;
             if (!pages || !pages.length) return;
             document.getElementById('demo-title').textContent =
-                selectedLang === 'fr' ? 'Premières pages · Crypto pour Souverains' : 'Primeras páginas · Crypto para Soberanos';
+                selectedLang === 'fr' ? 'Premières pages · Crypto pour Souverains' : 'Primeras páginas · Cripto para Soberanos';
             const cont = document.getElementById('demo-pages');
             cont.innerHTML = pages.map((u, i) => `<img src="${u}" loading="lazy" alt="página ${i + 1}">`).join('');
             cont.scrollTop = 0;
@@ -1984,8 +1984,8 @@
         const modal = createWeb3Modal({
             ethersConfig: defaultConfig({
                 metadata: {
-                    name: 'Crypto para Soberanos',
-                    description: 'Compra el libro con crypto',
+                    name: 'Cripto para Soberanos',
+                    description: 'Compra el libro con cripto',
                     url: window.location.origin,
                     icons: ['https://avatars.githubusercontent.com/u/37784886']
                 }

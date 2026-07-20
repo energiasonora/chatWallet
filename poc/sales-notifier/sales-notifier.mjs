@@ -128,7 +128,7 @@ async function poll() {
 
 // ── Main ──
 if (process.argv.includes('--test')) {
-  await notify('👋 Soy el notificador de ventas de Crypto para Soberanos. Por acá te aviso cada venta y pedido. Agendame como "📚 Ventas del libro".');
+  await notify('👋 Soy el notificador de ventas de Cripto para Soberanos. Por acá te aviso cada venta y pedido. Agendame como "📚 Ventas del libro".');
   console.log('Test OK');
   process.exit(0);
 }

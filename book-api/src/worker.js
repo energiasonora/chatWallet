@@ -216,7 +216,8 @@ async function download(url, env, C) {
     "UPDATE purchases SET downloads = downloads + 1, last_download_at = ? WHERE token = ?"
   ).bind(Date.now(), token).run();
 
-  const filename = servedFr ? "Crypto-pour-Souverains.pdf" : "Crypto-para-Soberanos.pdf";
+  // ES con i (como la tapa: "Cripto"); FR con y (grafía francesa correcta)
+  const filename = servedFr ? "Crypto-pour-Souverains.pdf" : "Cripto-para-Soberanos.pdf";
   return new Response(obj.body, {
     headers: {
       "Content-Type": "application/pdf",
@@ -311,7 +312,7 @@ async function mpCreatePreference(env, C, publicId, format) {
     body: JSON.stringify({
       items: [{
         id: format,
-        title: `Crypto para Soberanos — ${FORMAT_LABELS[format] || format}`,
+        title: `Cripto para Soberanos — ${FORMAT_LABELS[format] || format}`,
         quantity: 1,
         currency_id: "ARS",
         unit_price: ars,
