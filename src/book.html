@@ -26,6 +26,8 @@
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+    <!-- QR del pago con ChatWallet (misma versión que dapp.html) -->
+    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
 
     <style>
         /* Estética energiasonora.xyz: monocromo, bordes finos, Syne + DM Sans */
@@ -512,6 +514,63 @@
 
         .discount-msg.ok { color: var(--ok); font-weight: 500; }
         .discount-msg.err { color: #d97706; }
+
+        /* ── Pagar con ChatWallet (cw:2) ── */
+        .cw-pay-box {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            background: var(--surface);
+        }
+
+        .cw-pay-title {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: .95rem;
+            margin-bottom: 1rem;
+        }
+
+        .cw-qr {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .cw-qr canvas, .cw-qr svg {
+            border-radius: 8px;
+            max-width: 220px;
+            width: 100%;
+            height: auto;
+        }
+
+        .cw-pay-hint {
+            color: var(--fg-subtle);
+            font-size: .76rem;
+            line-height: 1.5;
+            margin: .85rem 0 0;
+        }
+
+        .cw-pay-status {
+            color: var(--fg-muted);
+            font-size: .82rem;
+            font-weight: 500;
+            margin: .85rem 0 0;
+        }
+
+        .cw-pay-cancel {
+            background: none;
+            border: none;
+            color: var(--fg-subtle);
+            font-size: .76rem;
+            text-decoration: underline;
+            cursor: pointer;
+            margin-top: .6rem;
+            padding: 0;
+        }
+
+        .cw-pay-cancel:hover { color: var(--fg); }
 
         /* ── Selectors ── */
         .sel {
@@ -1089,6 +1148,18 @@
                     wallet? <a href="./dapp.html">Creá una gratis con ChatWallet</a></p>
             </div>
 
+            <!-- Pagar con ChatWallet: QR/deep-link + espera de confirmación por XMTP -->
+            <div id="cw-pay-box" class="cw-pay-box" hidden>
+                <p class="cw-pay-title">Pagá desde tu ChatWallet</p>
+                <div id="cw-qr" class="cw-qr"></div>
+                <a href="#" id="cw-open-btn" class="cta" target="_blank" rel="noopener">Abrir ChatWallet →</a>
+                <p class="cw-pay-hint">¿Tenés el APK en este celular? Tocá el botón. Si no, escaneá el código con
+                    otro dispositivo que tenga ChatWallet.</p>
+                <p class="cw-pay-status" id="cw-pay-status">Esperando confirmación…</p>
+                <button type="button" class="cw-pay-cancel" id="cw-pay-cancel-btn"
+                    onclick="cancelChatWalletPurchase()">Cancelar</button>
+            </div>
+
             <div id="status-box"></div>
 
             <!-- RESULTADO (post-pago crypto) -->
@@ -1155,7 +1226,7 @@
                     rel="noopener">FR</a>) · Contacto:
                 <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
             <!-- Bumpear en CADA deploy de book.html (trackeo de versiones de la página) -->
-            <p class="foot" id="book-version">v 1.04</p>
+            <p class="foot" id="book-version">v 1.05</p>
         </div>
     </div>
 
@@ -1299,11 +1370,17 @@
         }
 
         function selectMethod(m) {
-            selectedPay = (m === 'fiat') ? 'mp' : 'eth';
+            selectedPay = m === 'fiat' ? 'mp' : m === 'chatwallet' ? 'chatwallet' : 'eth';
             setActivePill('method-pills', 'method', m);
+            // v1: pagar con ChatWallet solo soporta Arbitrum One (única red que ChatWallet
+            // trae por defecto además de testnets) — se fuerza la red y se oculta el selector.
+            if (m === 'chatwallet' && selectedNetwork !== 'arbitrum') {
+                selectedNetwork = 'arbitrum';
+                setActivePill('net-pills', 'net', 'arbitrum');
+            }
             document.getElementById('net-pills').style.display = m === 'crypto' ? 'flex' : 'none';
             document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
-            if (selectedPay === 'eth' && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
+            if ((selectedPay === 'eth' || selectedPay === 'chatwallet') && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
                 lastEthText = null;
                 fetchEthPrice();
             }
@@ -1362,7 +1439,7 @@
                 msg.className = 'discount-msg err';
             }
             updatePaybar();
-            if (selectedPay === 'eth') fetchEthPrice();
+            if (selectedPay === 'eth' || selectedPay === 'chatwallet') fetchEthPrice();
         }
 
         function clearDiscountCode() {
@@ -1374,7 +1451,7 @@
             document.getElementById('discount-apply-btn').style.display = 'inline';
             document.getElementById('discount-clear-btn').style.display = 'none';
             updatePaybar();
-            if (selectedPay === 'eth') fetchEthPrice();
+            if (selectedPay === 'eth' || selectedPay === 'chatwallet') fetchEthPrice();
         }
 
         // Si cambia el formato y el código ya no aplica (código restringido a
@@ -1425,15 +1502,19 @@
                 note.innerHTML = 'La edición física para <strong>España</strong> está en camino vía Amazon.es.';
             }
 
-            // Pago en dos niveles: método (crypto | fiat) y, si es crypto, la red.
-            // FR/ES físico van por Amazon (sin selector).
+            // Pago en tres niveles: método (crypto | chatwallet | fiat) y, si es crypto
+            // "cualquier wallet", la red. FR/ES físico van por Amazon (sin selector).
+            // v1: ChatWallet solo digital (el físico necesita cargar la dirección ANTES
+            // de pagar, atado hoy a handlePurchase — se extiende en un fast-follow).
             if (isCryptoFlow()) {
-                if (selectedPay !== 'mp') selectedPay = 'eth';
-                const method = selectedPay === 'mp' ? 'fiat' : 'crypto';
+                if (selectedPay === 'chatwallet' && physical) selectedPay = 'eth';
+                if (!['mp', 'chatwallet'].includes(selectedPay)) selectedPay = 'eth';
+                const method = selectedPay === 'mp' ? 'fiat' : selectedPay === 'chatwallet' ? 'chatwallet' : 'crypto';
                 document.getElementById('method-pills').innerHTML =
                     `<button type="button" class="pill${method === 'crypto' ? ' active' : ''}" data-method="crypto" onclick="selectMethod('crypto')">Cripto</button>` +
+                    (physical ? '' : `<button type="button" class="pill${method === 'chatwallet' ? ' active' : ''}" data-method="chatwallet" onclick="selectMethod('chatwallet')">ChatWallet</button>`) +
                     `<button type="button" class="pill${method === 'fiat' ? ' active' : ''}" data-method="fiat" onclick="selectMethod('fiat')">Pesos · Mercado Pago</button>`;
-                // redes crypto (próximamente: BTC, BCH, XMR…)
+                // redes crypto (próximamente: BTC, BCH, XMR…) — ChatWallet fuerza Arbitrum (única red que trae por defecto)
                 document.getElementById('net-pills').innerHTML =
                     `<button type="button" class="pill${selectedNetwork === 'arbitrum' ? ' active' : ''}" data-net="arbitrum" onclick="selectNet('arbitrum')">ETH · Arbitrum</button>` +
                     `<button type="button" class="pill${selectedNetwork === 'mainnet' ? ' active' : ''}" data-net="mainnet" onclick="selectNet('mainnet')">ETH · Mainnet</button>`;
@@ -1445,7 +1526,7 @@
             }
             document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
 
-            if (selectedPay === 'eth' && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
+            if ((selectedPay === 'eth' || selectedPay === 'chatwallet') && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
                 lastEthText = null;
                 fetchEthPrice();
             }
@@ -1460,6 +1541,11 @@
                 pbMain.innerHTML = `${strike}$${usd} <small>USD</small>`;
                 pbSub.textContent = lastEthText || '≈ … ETH';
                 mintBtn.textContent = 'Pagar con ETH';
+                mintBtn.disabled = false;
+            } else if (selectedPay === 'chatwallet') {
+                pbMain.innerHTML = `${strike}$${usd} <small>USD</small>`;
+                pbSub.textContent = lastEthText || '≈ … ETH';
+                mintBtn.textContent = 'Pagar con ChatWallet';
                 mintBtn.disabled = false;
             } else if (selectedPay === 'mp') {
                 pbMain.innerHTML = `${strike}$${usd} <small>USD</small>`;
@@ -1843,7 +1929,21 @@
                 return;
             }
 
-            // 5. Verificar con el Worker
+            // 5-6. Verificar con el Worker + éxito (compartido con el flujo ChatWallet)
+            await finalizePurchaseAfterTx(tx.hash, address, {
+                format: selectedFormat, net, lang: selectedLang, country: selectedCountry,
+                code: appliedDiscount?.code, ethAmountWei, priceUsd: getCurrentPriceUSD(),
+                blockLabel: `#${receipt.blockNumber}`,
+            });
+        }
+
+        // ── Verificación + éxito, compartida entre "cualquier wallet" y "ChatWallet" ──
+        // El snapshot se captura ANTES de la espera (crítico en el flujo ChatWallet,
+        // donde el comprador puede tardar en confirmar desde otro dispositivo y el
+        // formato/red/descuento elegidos en pantalla podrían cambiar mientras tanto).
+        async function finalizePurchaseAfterTx(txHash, address, snapshot) {
+            const { format, net, lang, country, code, ethAmountWei: weiAmount, priceUsd, blockLabel } = snapshot;
+
             setStatus('Verificando pago...');
             mintBtn.textContent = 'Verificando...';
 
@@ -1852,41 +1952,40 @@
                 const resp = await fetch(`${CONFIG.API_BASE}/verifyPayment`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ txHash: tx.hash, address, format: selectedFormat, network: net.key, lang: selectedLang, country: selectedCountry, code: appliedDiscount?.code || undefined }),
+                    body: JSON.stringify({ txHash, address, format, network: net.key, lang, country, code: code || undefined }),
                 });
                 const data = await resp.json();
                 if (!resp.ok || !data.token) {
                     setStatus(`Error del servidor: ${data.error || 'Respuesta inesperada'}`, true);
                     mintBtn.disabled = false; mintBtn.textContent = 'Intentar de nuevo';
-                    return;
+                    return false;
                 }
                 token = data.token;
             } catch (err) {
-                setStatus(`Tu pago fue enviado pero hubo un error al verificar. Guardá este Tx Hash y contactanos:<br><code>${tx.hash}</code>`, true);
+                setStatus(`Tu pago fue enviado pero hubo un error al verificar. Guardá este Tx Hash y contactanos:<br><code>${txHash}</code>`, true);
                 mintBtn.disabled = false; mintBtn.textContent = 'Error — contactar soporte';
-                return;
+                return false;
             }
 
-            // 6. ¡Éxito!
             clearStatus();
             launchConfetti();
 
             downloadLink.href = `${CONFIG.API_BASE}/download?token=${token}`;
             // Físico solo: no incluye la edición digital
-            downloadLink.style.display = selectedFormat === 'physical-only' ? 'none' : 'flex';
+            downloadLink.style.display = format === 'physical-only' ? 'none' : 'flex';
 
             const formatLabels = { digital: 'Digital', 'physical-only': 'Físico', physical: 'Físico + digital' };
-            document.getElementById('r-format').textContent = formatLabels[selectedFormat] || selectedFormat;
+            document.getElementById('r-format').textContent = formatLabels[format] || format;
             document.getElementById('r-network').textContent = net.name;
-            document.getElementById('r-amount').textContent = `${parseFloat(ethers.formatEther(ethAmountWei)).toFixed(6)} ETH ≈ $${getCurrentPriceUSD()}`;
-            document.getElementById('r-block').textContent = `#${receipt.blockNumber}`;
-            document.getElementById('r-hash').innerHTML = `<a href="${net.explorer}/tx/${tx.hash}" target="_blank">${tx.hash.slice(0, 12)}...${tx.hash.slice(-6)}</a>`;
+            document.getElementById('r-amount').textContent = `${parseFloat(ethers.formatEther(weiAmount)).toFixed(6)} ETH ≈ $${priceUsd}`;
+            document.getElementById('r-block').textContent = blockLabel;
+            document.getElementById('r-hash').innerHTML = `<a href="${net.explorer}/tx/${txHash}" target="_blank">${txHash.slice(0, 12)}...${txHash.slice(-6)}</a>`;
 
             mintBtn.textContent = '✓ Acceso concedido';
             resultSection.style.display = 'block';
 
             // Físico: crear el pedido con los datos cargados antes del pago (+ txHash)
-            if (isPhysical()) {
+            if (format !== 'digital') {
                 if (document.getElementById('sh-name').value.trim() && document.getElementById('sh-email').value.trim()) {
                     await submitShipping();
                 } else {
@@ -1901,6 +2000,143 @@
             }
 
             resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return true;
+        }
+
+        // ── Pagar con ChatWallet (cw:2 sobre XMTP) ──
+        // v1: solo digital + Arbitrum One (únicas garantías hoy: sin shipping-form
+        // previo entrelazado, y Mainnet no es red por defecto en ChatWallet).
+        let cwEphemeralWallet = null;
+        let cwXmtpClient = null;
+        let cwCancelResolve = null;
+
+        async function ensureCwXmtpClient() {
+            if (cwXmtpClient) return cwXmtpClient;
+            cwEphemeralWallet = ethers.Wallet.createRandom();
+            const identifier = cwEphemeralWallet.address.toLowerCase();
+            const xmtpSigner = {
+                type: 'EOA',
+                getIdentifier: () => ({ identifier, identifierKind: 0 }),
+                signMessage: async (msg) => ethers.getBytes(await cwEphemeralWallet.signMessage(msg)),
+            };
+            cwXmtpClient = await window.XmtpClient.create(xmtpSigner, { env: 'dev', dbEncryptionKey: ethers.randomBytes(32) });
+            return cwXmtpClient;
+        }
+
+        // Mismo criterio monocromo que la tapa: negro sobre blanco escanea mejor.
+        function renderCwQr(url) {
+            const mount = document.getElementById('cw-qr');
+            mount.innerHTML = '';
+            const qr = new QRCodeStyling({
+                width: 220, height: 220, margin: 12,
+                data: url,
+                dotsOptions: { color: '#0a0a0a', type: 'rounded' },
+                backgroundOptions: { color: '#ffffff' },
+                cornersSquareOptions: { type: 'extra-rounded', color: '#0a0a0a' },
+                cornersDotOptions: { type: 'dot', color: '#0a0a0a' },
+            });
+            qr.append(mount);
+        }
+
+        function cancelChatWalletPurchase() {
+            document.getElementById('cw-pay-box').hidden = true;
+            mintBtn.disabled = false;
+            updatePaybar();
+            if (cwCancelResolve) { cwCancelResolve({ kind: 'cancelled' }); cwCancelResolve = null; }
+        }
+
+        async function handlePurchaseChatWallet() {
+            if (isPhysical()) {
+                setStatus('Pagar con ChatWallet solo está disponible para la edición digital por ahora.', true);
+                return;
+            }
+            const net = NETWORKS.arbitrum; // v1: fijo a Arbitrum One
+            mintBtn.disabled = true;
+            mintBtn.textContent = 'Preparando...';
+            clearStatus();
+
+            if (!(await fetchEthPrice())) {
+                setStatus('No se pudo obtener el precio. Recargá la página.', true);
+                mintBtn.disabled = false; updatePaybar();
+                return;
+            }
+
+            // Snapshot ANTES de esperar: el comprador puede tardar en confirmar desde
+            // otro dispositivo y lo que se vea en pantalla mientras tanto no debe afectar
+            // lo que en definitiva se verifica (formato/precio/descuento ya pagados).
+            const snapshot = {
+                format: selectedFormat, net, lang: selectedLang, country: selectedCountry,
+                code: appliedDiscount?.code, ethAmountWei, priceUsd: getCurrentPriceUSD(),
+                blockLabel: 'confirmada ✓',
+            };
+
+            let client, stream;
+            try {
+                setStatus('Preparando canal de pago…');
+                client = await ensureCwXmtpClient();
+                await client.conversations.sync();
+                stream = await client.conversations.streamAllMessages();
+            } catch (e) {
+                setStatus(`No se pudo preparar el pago: ${e.message}`, true);
+                mintBtn.disabled = false; updatePaybar();
+                return;
+            }
+
+            const ref = cwEphemeralWallet.address.toLowerCase() + '-' + Date.now().toString(36);
+            const params = new URLSearchParams({
+                pay: '1', to: CONFIG.PAYMENT_ADDRESS, chainId: String(net.chainId),
+                value: ethAmountWei.toString(), memo: 'Cripto para Soberanos — Digital',
+                format: snapshot.format, lang: snapshot.lang, country: snapshot.country,
+                reply: cwEphemeralWallet.address, ref,
+            });
+            if (snapshot.code) params.set('code', snapshot.code);
+            const payUrl = `https://chatwallet.org/dapp?${params.toString()}`;
+
+            clearStatus();
+            const openBtn = document.getElementById('cw-open-btn');
+            openBtn.href = payUrl;
+            openBtn.onclick = (e) => { e.preventDefault(); window.open(payUrl, '_blank', 'noopener'); };
+            renderCwQr(payUrl);
+            document.getElementById('cw-pay-status').textContent = 'Esperando confirmación desde tu ChatWallet…';
+            document.getElementById('cw-pay-box').hidden = false;
+            document.getElementById('cw-pay-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            mintBtn.textContent = 'Esperando pago...';
+
+            const listenPromise = (async () => {
+                for await (const msg of stream) {
+                    if (!msg || typeof msg.content !== 'string') continue;
+                    let data;
+                    try { data = JSON.parse(msg.content); } catch (_) { continue; }
+                    if (data?.cw === 2 && data?.type === 'payment_result' && data?.ref === ref) return { kind: 'message', data };
+                }
+                return { kind: 'ended' };
+            })();
+            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ kind: 'timeout' }), 5 * 60 * 1000));
+            const cancelPromise = new Promise((resolve) => { cwCancelResolve = resolve; });
+
+            const result = await Promise.race([listenPromise, timeoutPromise, cancelPromise]);
+            cwCancelResolve = null;
+            try { stream.return && stream.return(); } catch (_) {}
+
+            if (result.kind === 'cancelled') return; // cancelChatWalletPurchase() ya reseteó la UI
+
+            document.getElementById('cw-pay-box').hidden = true;
+
+            if (result.kind === 'timeout' || result.kind === 'ended') {
+                setStatus('No recibimos la confirmación a tiempo. Podés reintentar o elegir otro método de pago.', true);
+                mintBtn.disabled = false; updatePaybar();
+                return;
+            }
+
+            const data = result.data;
+            if (data.error) {
+                setStatus(`El pago no se completó desde ChatWallet: ${data.error === 'user rejected' ? 'lo cancelaste.' : data.error}`, true);
+                mintBtn.disabled = false; updatePaybar();
+                return;
+            }
+            if (data.txHash && data.address) {
+                await finalizePurchaseAfterTx(data.txHash, data.address, snapshot);
+            }
         }
 
         // ── Envío de datos de contacto/envío ──
@@ -2089,6 +2325,8 @@
                 // Físico: datos de envío ANTES de pagar (el pago arranca desde el form)
                 if (isPhysical() && !completedTxHash) openCryptoShippingForm();
                 else handlePurchase();
+            } else if (selectedPay === 'chatwallet') {
+                handlePurchaseChatWallet();
             }
         });
         updateUI();
@@ -2170,6 +2408,12 @@
         });
 
         window.__web3modal = modal;
+    </script>
+
+    <!-- Pagar con ChatWallet (cw:2 sobre XMTP) — mismo patrón de import que dapp.html -->
+    <script type="module">
+        import { Client } from '@xmtp/browser-sdk';
+        window.XmtpClient = Client;
     </script>
 
     <!-- PWA Install Banner -->

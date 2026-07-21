@@ -1289,7 +1289,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.88 alpha</p>
+            <p class="text-sm text-gray-400">v 1.89 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2890,7 +2890,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.88</p>
+                    <p id="settingsVersionText">Versión 1.89</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -4126,6 +4126,16 @@
                     });
 
                     console.log("✅ Cliente XMTP creado.");
+
+                    // Wake push (Fase 2): la primera vez que este APK tiene token, re-emitir el
+                    // perfil a TODOS los contactos existentes para que lo aprendan sin esperar a
+                    // que reconecten un chat. Una sola vez (flag); best-effort.
+                    if (IS_NATIVE && getWakeTopic() && !localStorage.getItem('chatwallet-wake-broadcasted')) {
+                        broadcastProfile()
+                            .then(() => localStorage.setItem('chatwallet-wake-broadcasted', '1'))
+                            .catch(() => { });
+                    }
+
                     statusEl.textContent = "Conectado al chat.";
                     document.getElementById('xmtpErrorBadge')?.classList.add('hidden');
                     document.getElementById('headerXmtpErrorBadge')?.classList.add('hidden');
@@ -5280,9 +5290,32 @@
 
                         if (unread > 0) {
                             summary.totalNew += unread;
-                            summary.senders.push({ name: contacts[idx].name, count: unread });
+                            summary.senders.push({ name: contacts[idx].name, count: unread, address: addr, newest, preview: newestText });
                         }
                     } catch (e) { console.warn('reconcileUnread conv:', e); }
+                }
+
+                // Wake push (Fase 2): en background (APK) los mensajes recuperados por SYNC no
+                // pasan por el stream → sin esto quedaban guardados en silencio y el wake no
+                // producía notificación. Marca de agua lastNotifiedTimestamp por contacto para
+                // no repetir el aviso en wakes/resyncs sucesivos.
+                if (IS_NATIVE && document.hidden && NativeKeepAlive && summary.totalNew > 0) {
+                    for (const s of summary.senders) {
+                        try {
+                            const c = contacts.find(x => x.address && x.address.toLowerCase() === s.address.toLowerCase());
+                            if (!c || !(s.newest > getNotifiedTs(s.address))) continue;
+                            setNotifiedTs(s.address, s.newest);
+                            let avatar = null;
+                            if (c.avatar && c.avatar !== ANON_AVATAR) { try { avatar = await avatarToBase64(c.avatar); } catch (e) { } }
+                            await NativeKeepAlive.showMessage({
+                                title: c.name || s.name,
+                                body: s.count > 1 ? `${s.count} mensajes nuevos` : (s.preview || 'Mensaje nuevo'),
+                                address: c.address,
+                                avatar,
+                            });
+                            console.log('📣 Notificado (reconcile background):', c.name, s.count);
+                        } catch (e) { console.warn('notify reconcile:', e); }
+                    }
                 }
                 return summary;
             }
@@ -7428,6 +7461,8 @@
                                 if (contact.avatar && contact.avatar !== ANON_AVATAR) {
                                     avatar = await avatarToBase64(contact.avatar);
                                 }
+                                // marca de agua: que un reconcile posterior no re-avise esto mismo
+                                setNotifiedTs(address, message.sentAt ? message.sentAt.getTime() : Date.now());
                             }
                         }
                     } catch (e) { }
@@ -7435,11 +7470,65 @@
                 } catch (e) { console.warn('notifyNative:', e); }
             }
 
+            // ═══ WAKE PUSH (Fase 2): ntfy autohospedado en el nodo soberano ═══
+            // El emisor (cualquier ChatWallet, PWA incluida) hace un POST vacío al topic opaco
+            // del receptor tras enviarle un mensaje; el APK receptor mantiene una suscripción
+            // NATIVA liviana (KeepAliveService) y al recibir el aviso dispara resyncMessages().
+            // El server es SOLO optimización: si se cae, la Fase 1 (stream + watchdog) sigue igual.
+            const NTFY_BASE = 'https://ntfy.chatwallet.org';
+            const WAKE_TOKEN_KEY = 'chatwallet-wake-token';
+            // Token opaco = topic ntfy (capability URL). Solo el APK lo genera (la PWA no puede
+            // suscribirse en background); viaja a los contactos dentro del perfil soberano.
+            function getWakeTopic() {
+                if (!IS_NATIVE) return '';
+                let t = localStorage.getItem(WAKE_TOKEN_KEY);
+                if (!t) {
+                    const b = new Uint8Array(16);
+                    crypto.getRandomValues(b);
+                    t = 'cw' + [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+                    localStorage.setItem(WAKE_TOKEN_KEY, t);
+                }
+                return t;
+            }
+            // Marca de agua de "ya notifiqué hasta acá" por contacto, en localStorage PLANO:
+            // el objeto contacto no alcanza (si el watchdog recarga a mitad del resync, la
+            // memoria se pierde antes del saveContacts y el próximo wake re-avisa lo mismo).
+            const NOTIFIED_TS_KEY = 'chatwallet-notified-ts';
+            function getNotifiedTs(addr) {
+                try { return (JSON.parse(localStorage.getItem(NOTIFIED_TS_KEY) || '{}'))[addr.toLowerCase()] || 0; } catch (e) { return 0; }
+            }
+            function setNotifiedTs(addr, ts) {
+                try {
+                    const m = JSON.parse(localStorage.getItem(NOTIFIED_TS_KEY) || '{}');
+                    const k = addr.toLowerCase();
+                    if (ts > (m[k] || 0)) { m[k] = ts; localStorage.setItem(NOTIFIED_TS_KEY, JSON.stringify(m)); }
+                } catch (e) { }
+            }
+
+            // Aviso de wake al contacto (fire-and-forget, best-effort: si falla no pasa nada,
+            // su app sigue recibiendo por su propio stream/watchdog).
+            function pingWake(conversation) {
+                try {
+                    const addr = conversation?.peerAddress;
+                    if (!addr) return;
+                    const c = contacts.find(x => x.address && x.address.toLowerCase() === addr.toLowerCase());
+                    if (!c || !c.wakeTopic) return;
+                    const ctrl = new AbortController();
+                    const timer = setTimeout(() => ctrl.abort(), 4000);
+                    fetch(`${NTFY_BASE}/${encodeURIComponent(c.wakeTopic)}`, { method: 'POST', body: '', signal: ctrl.signal })
+                        .catch(() => { })
+                        .finally(() => clearTimeout(timer));
+                } catch (e) { }
+            }
+
             // El foreground service se arranca al iniciar el stream XMTP (app en primer plano);
             // NO se puede arrancar desde background en Android 12+. Ver startStreams().
             function startKeepAlive() {
                 console.log('KeepAlive: plugin disponible?', !!NativeKeepAlive);
                 if (NativeKeepAlive) { try { NativeKeepAlive.start(); } catch (e) { console.warn('startKeepAlive:', e); } }
+                if (NativeKeepAlive && NativeKeepAlive.configureWake) {
+                    try { NativeKeepAlive.configureWake({ topic: getWakeTopic(), base: NTFY_BASE }); } catch (e) { }
+                }
                 ensureBatteryUnrestricted();
             }
 
@@ -7497,6 +7586,12 @@
                 initNativeNotifications();
                 consumePendingChat(); // por si la app arrancó desde una notificación
                 consumePendingDeepLink(); // por si la app arrancó desde un App Link (chatwallet.org/dapp?...)
+                // Wake push (Fase 2): el suscriptor nativo avisa que llegó algo → resync. La
+                // notificación sale por el pipeline de siempre (stream onValue → notifyNative),
+                // y si el worker está wedged, el watchdog de resyncMessages recarga y recupera.
+                if (NativeKeepAlive && NativeKeepAlive.addListener) {
+                    try { NativeKeepAlive.addListener('wakeEvent', () => resyncMessages()); } catch (e) { }
+                }
             }
 
             // ===== Botón físico "atrás" (Android) =====
@@ -7858,6 +7953,99 @@
                 setTimeout(() => t.remove(), 4000);
             }
 
+            // ==========================================================================
+            // ChatWallet ↔ merchant payment protocol (cw:2) — "pagar con ChatWallet"
+            // Un merchant (p.ej. book.html) muestra un QR/deep-link
+            // https://chatwallet.org/dapp?pay=1&to=..&chainId=..&value=..&memo=..&reply=..&ref=..
+            // ChatWallet lo parsea, pide confirmación con wcApprove (no el bridge RPC
+            // genérico de cw:1 — acá NUNCA se ejecuta calldata arbitrario, solo un
+            // envío nativo a `to` por `value`), firma y transmite con currentWallet,
+            // y contesta el resultado por XMTP a la address `reply` del merchant.
+            // ==========================================================================
+            function parsePaymentRequestFromString(data) {
+                if (typeof data !== 'string') return null;
+                let url;
+                try { url = new URL(data); }
+                catch (_) { try { url = new URL(data, 'https://chatwallet.org/dapp'); } catch (_) { return null; } }
+                const q = url.searchParams;
+                if (q.get('pay') !== '1') return null;
+
+                const to = (q.get('to') || '').trim();
+                const chainId = Number(q.get('chainId') || '0');
+                const valueStr = q.get('value') || '';
+                const reply = (q.get('reply') || '').trim();
+                if (!ethers.isAddress(to) || !ethers.isAddress(reply)) return null;
+                if (!Number.isFinite(chainId) || chainId <= 0) return null;
+                let value;
+                try { value = BigInt(valueStr); } catch (_) { return null; }
+                if (value < 0n) return null;
+
+                return {
+                    to, chainId, value, reply,
+                    memo: q.get('memo') || '',
+                    format: q.get('format') || '',
+                    lang: q.get('lang') || '',
+                    country: q.get('country') || '',
+                    code: q.get('code') || '',
+                    ref: q.get('ref') || '',
+                };
+            }
+
+            async function handleIncomingPaymentRequest(payReq) {
+                if (!currentWallet) { alert('Primero desbloqueá tu wallet.'); return; }
+                if (!chatwalletxmtp) { alert('El chat (XMTP) todavía no está listo. Esperá unos segundos e intentá de nuevo.'); return; }
+
+                let conv;
+                try {
+                    await chatwalletxmtp.conversations.sync();
+                    conv = await chatwalletxmtp.conversations.createDmWithIdentifier({ identifier: payReq.reply, identifierKind: 0 });
+                } catch (e) {
+                    alert('No se pudo abrir el canal de pago: ' + (e.message || e));
+                    return;
+                }
+                const reply = (obj) => conv && conv.sendText(JSON.stringify(Object.assign({ cw: 2, type: 'payment_result', ref: payReq.ref }, obj)));
+
+                // Si ChatWallet está en otra red, buscar la entrada nativa (sin TOKEN_ADDRESS,
+                // no un token) que coincida con el chainId pedido y cambiar. Si no está
+                // configurada (p.ej. Mainnet, que hoy no es red por defecto), avisar y salir.
+                // OJO: NO se reusa switchNetwork() (la de la UI de "enviar") — esa además
+                // espera un refresco de saldo (updateBalance) y toca el menú de tokens,
+                // innecesario y lento para aprobar un pago. Acá solo se reapunta el provider.
+                try {
+                    const walletChainId = provider ? Number((await provider.getNetwork()).chainId) : null;
+                    if (walletChainId !== payReq.chainId) {
+                        const idx = optionsList.findIndex((n) => Number(n.TOKEN_CHAINID) === payReq.chainId && !n.TOKEN_ADDRESS);
+                        if (idx === -1) {
+                            wcToast(`⚠️ No tenés configurada la red del pago (chainId ${payReq.chainId}). Agregala en Configuración → Redes.`);
+                            return reply({ error: `network ${payReq.chainId} not configured` });
+                        }
+                        currentTokenIndex = idx;
+                        localStorage.setItem(SELECTED_NETWORK_KEY, currentTokenIndex.toString());
+                        provider = new ethers.JsonRpcProvider(optionsList[idx].API);
+                        updateChainName();
+                        updateBalance().catch(() => {}); // refresco de UI en segundo plano, no bloquea el pago
+                    }
+                } catch (e) {
+                    return reply({ error: 'network switch failed: ' + String(e.message || e) });
+                }
+
+                const valEth = ethers.formatEther(payReq.value);
+                const memoLine = payReq.memo ? `${payReq.memo}\n\n` : '';
+                const ok = await wcApprove('🛒 Confirmar compra',
+                    `${memoLine}Monto: ${valEth} ETH\nDestino: ${payReq.to.slice(0, 8)}…${payReq.to.slice(-6)}\n\nSe firmará y transmitirá con tu wallet.`,
+                    'Pagar');
+                if (!ok) return reply({ error: 'user rejected' });
+
+                try {
+                    const s = currentWallet.connect(provider);
+                    const resp = await s.sendTransaction({ to: payReq.to, value: payReq.value });
+                    wcToast('✅ Pago enviado');
+                    return reply({ txHash: resp.hash, address: currentWallet.address });
+                } catch (e) {
+                    return reply({ error: String(e.message || e) });
+                }
+            }
+
             function extractAddressFromData(data) {
                 try {
                     // The generated QR might be just the URL string, not a full URL object.
@@ -7906,6 +8094,12 @@
                 // ¿Es una solicitud de conexión de dApp (StealthPay) vía XMTP?
                 if (typeof data === 'string' && data.startsWith('chatwallet://wc')) {
                     await startWalletConnectSession(data);
+                    return;
+                }
+                // ¿Es una solicitud de pago de un merchant (cw:2)? (chatwallet.org/dapp?pay=1&...)
+                const payReq = parsePaymentRequestFromString(data);
+                if (payReq) {
+                    await handleIncomingPaymentRequest(payReq);
                     return;
                 }
                 // ¿Es una transacción fría sin firmar? (QR con prefijo CWT1|) → revisar y firmar
@@ -8095,6 +8289,14 @@
                 }
             });
             async function handleUrlParameters() {
+                // Solicitud de pago cw:2 (chatwallet.org/dapp?pay=1&...) abierta en frío,
+                // p.ej. tocada sin el APK instalado (PWA) o desde el propio scanner.
+                const payReq = parsePaymentRequestFromString(window.location.href);
+                if (payReq) {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    await handleIncomingPaymentRequest(payReq);
+                    return;
+                }
                 const urlParams = new URLSearchParams(window.location.search);
                 const addressFromUrl = urlParams.get('address');
                 if (addressFromUrl && ethers.isAddress(addressFromUrl)) {
@@ -8241,6 +8443,7 @@
                 try {
                     conversation.sendOptimistic(messageText);
                     await conversation.publishMessages();
+                    pingWake(conversation); // wake push: despertar el APK del contacto
                     return true;
                 } catch (error) {
                     console.error('Failed to send message:', error);
@@ -8331,6 +8534,7 @@
                             try {
                                 closeModal();
                                 await currentConversation.sendText(messageText);
+                                pingWake(currentConversation); // wake push: despertar el APK del contacto
                                 showToast(`Solicitud de ${amount} ${symbol} enviada ✓`, 'success');
                             } catch (error) {
                                 console.error('Error al enviar solicitud:', error);
@@ -8961,6 +9165,11 @@
                     updatedAt: Date.now(),
                 };
                 if (avatar) payload.avatarHash = await sha256Hex(avatar);
+                // wakeTopic va SIN firmar (como avatarHash): la autenticidad la da el propio canal
+                // XMTP (check remitente==DID en handleProfileMessage). Solo se incluye si existe
+                // (APK): ausente = "sin información", no borra el token que el contacto ya aprendió.
+                const wakeTopic = getWakeTopic();
+                if (wakeTopic) payload.wakeTopic = wakeTopic;
                 payload.sig = await currentWallet.signMessage(profileCanonical(payload));
                 return payload;
             }
@@ -9037,6 +9246,8 @@
                         if (profile.avatar) { contacts[idx].avatar = profile.avatar; contacts[idx].avatarHash = avatarHash; }
                         contacts[idx].links = profile.links || '';
                         contacts[idx].profileUpdatedAt = profile.updatedAt;
+                        // Wake push: topic ntfy del contacto (para despertarlo al mandarle mensajes).
+                        if (profile.wakeTopic) contacts[idx].wakeTopic = profile.wakeTopic;
                     } else {
                         const short = `${profile.did.slice(0, 6)}...${profile.did.slice(-4)}`;
                         contacts.push({
@@ -9047,6 +9258,7 @@
                             avatar: profile.avatar || ANON_AVATAR,
                             avatarHash,
                             links: profile.links || '',
+                            wakeTopic: profile.wakeTopic || '',
                             unreadCount: 0, status: 'offline', lastSeen: null,
                             profileUpdatedAt: profile.updatedAt,
                         });
@@ -9405,6 +9617,7 @@
                         } else {
                             sentMessage = await currentConversation.sendText(messageText);
                         }
+                        pingWake(currentConversation); // wake push: despertar el APK del contacto
 
                         const contactIndex = contacts.findIndex(c => c.address.toLowerCase() === currentConversation?.peerAddress?.toLowerCase());
                         if (contactIndex > -1) {
