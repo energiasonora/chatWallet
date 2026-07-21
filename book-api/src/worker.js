@@ -93,6 +93,45 @@ async function getMinAcceptableWei(C, net, priceUsd) {
   return ethers.parseEther(withTolerance.toFixed(8));
 }
 
+// ── Códigos de descuento ──
+// Devuelve la fila si el código es válido AHORA para ese formato, o null.
+// Único punto de verdad: lo usan /validateCode, /verifyPayment y /order.
+async function lookupDiscount(env, code, format) {
+  if (!code) return null;
+  const row = await env.DB.prepare("SELECT * FROM discount_codes WHERE code = ?")
+    .bind(String(code).trim().toUpperCase()).first();
+  if (!row || !row.active) return null;
+  const now = Date.now();
+  if (now < row.valid_from || now > row.valid_until) return null;
+  if (row.max_uses != null && row.uses >= row.max_uses) return null;
+  if (row.format && row.format !== format) return null;
+  return row;
+}
+
+function applyDiscount(priceUsd, discountRow) {
+  if (!discountRow) return priceUsd;
+  const pct = Math.min(100, Math.max(0, discountRow.discount_pct));
+  return Math.round(priceUsd * (1 - pct / 100) * 100) / 100;
+}
+
+// Incrementa el contador de usos (batch atómico junto al insert de la venta).
+function bumpDiscountUseStmt(env, code) {
+  return env.DB.prepare("UPDATE discount_codes SET uses = uses + 1 WHERE code = ?").bind(code);
+}
+
+async function validateCode(url, env) {
+  const code = url.searchParams.get("code");
+  const format = url.searchParams.get("format") || "digital";
+  const priceUsd = Number(url.searchParams.get("priceUsd")) || 0;
+  const row = await lookupDiscount(env, code, format);
+  if (!row) return json(200, { valid: false });
+  return json(200, {
+    valid: true,
+    discountPct: row.discount_pct,
+    priceUsd: applyDiscount(priceUsd, row),
+  });
+}
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -127,7 +166,7 @@ function json(status, data) {
 // ════════════════════════════════════════════════
 
 async function verifyPayment(req, env, C) {
-  const { txHash, address, format, network, lang } = await req.json().catch(() => ({}));
+  const { txHash, address, format, network, lang, code } = await req.json().catch(() => ({}));
   if (!txHash || !address) return json(400, { error: "txHash y address son requeridos" });
 
   const langOk = ["es", "fr"].includes(lang) ? lang : "es";
@@ -136,7 +175,12 @@ async function verifyPayment(req, env, C) {
   const net = C.NETWORKS[netKey];
   if (!net) return json(400, { error: "Red no soportada" });
 
-  const priceUsd = C.PRICES_USD[format] ?? C.PRICES_USD.digital;
+  const basePriceUsd = C.PRICES_USD[format] ?? C.PRICES_USD.digital;
+  // El % de descuento se recalcula ACÁ (server-side), nunca se confía en lo que
+  // mandó el navegador — el código puede haber caducado entre que se mostró el
+  // precio y que se firmó la tx.
+  const discountRow = await lookupDiscount(env, code, format);
+  const priceUsd = applyDiscount(basePriceUsd, discountRow);
 
   const addr = address.toLowerCase();
   const txH = txHash.toLowerCase();
@@ -182,15 +226,17 @@ async function verifyPayment(req, env, C) {
   const token = await generateToken(addr, env.TOKEN_SECRET);
   const now = Date.now();
 
-  await env.DB.batch([
+  const stmts = [
     env.DB.prepare(
-      `INSERT INTO purchases (token, address, tx_hash, downloads, amount_eth, block_number, network, format, lang, created_at, last_download_at)
-       VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, NULL)`
-    ).bind(token, addr, txH, ethers.formatEther(tx.value), receipt.blockNumber, netKey, format || null, langOk, now),
+      `INSERT INTO purchases (token, address, tx_hash, downloads, amount_eth, block_number, network, format, lang, created_at, last_download_at, discount_code)
+       VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, NULL, ?)`
+    ).bind(token, addr, txH, ethers.formatEther(tx.value), receipt.blockNumber, netKey, format || null, langOk, now, discountRow?.code || null),
     env.DB.prepare(
       `INSERT INTO used_tx_hashes (tx_hash, address, token, used_at) VALUES (?, ?, ?, ?)`
     ).bind(txH, addr, token, now),
-  ]);
+  ];
+  if (discountRow) stmts.push(bumpDiscountUseStmt(env, discountRow.code));
+  await env.DB.batch(stmts);
 
   return json(200, { success: true, token });
 }
@@ -246,19 +292,23 @@ async function createOrder(req, env, C) {
   const format = s(b.format, 30);
   // preferencia de entrega (AR físico): correo | coordinar (AMBA, entrega del autor)
   const deliveryPref = ["correo", "coordinar"].includes(b.delivery_pref) ? b.delivery_pref : null;
+  // código de descuento: se revalida server-side (el % que mandó el navegador no importa)
+  const discountRow = await lookupDiscount(env, s(b.code, 40), format);
 
   // reintentar ante la (improbable) colisión del public_id
   for (let attempt = 0; attempt < 3; attempt++) {
     const publicId = makeOrderId();
     try {
       await env.DB.prepare(
-        `INSERT INTO orders (public_id, stage, created_at, payment_method, format, country, lang, name, email, phone, address, city, cp, notes, tx_hash, wallet_address, delivery_pref)
-         VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO orders (public_id, stage, created_at, payment_method, format, country, lang, name, email, phone, address, city, cp, notes, tx_hash, wallet_address, delivery_pref, discount_code, discount_pct)
+         VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         publicId, Date.now(), paymentMethod, format, s(b.country, 10), s(b.lang, 10),
         name, email, s(b.phone, 60), s(b.address), s(b.city, 200), s(b.cp, 30), s(b.notes, 1000),
-        s(b.txHash, 80), s(b.walletAddress, 60), deliveryPref
+        s(b.txHash, 80), s(b.walletAddress, 60), deliveryPref,
+        discountRow?.code || null, discountRow?.discount_pct ?? null
       ).run();
+      if (discountRow) await bumpDiscountUseStmt(env, discountRow.code).run();
 
       // Mercado Pago: crear el checkout con el monto exacto en ARS.
       // Si falla (MP caído, sin cotización), el pedido igual queda creado y el
@@ -266,7 +316,7 @@ async function createOrder(req, env, C) {
       let initPoint = null;
       if (paymentMethod === "mercadopago" && env.MP_ACCESS_TOKEN) {
         try {
-          initPoint = await mpCreatePreference(env, C, publicId, format);
+          initPoint = await mpCreatePreference(env, C, publicId, format, discountRow);
         } catch (e) {
           console.log("MP preference falló:", String(e?.message || e));
         }
@@ -303,8 +353,9 @@ function mpApiBase(env) {
   return env.MP_API_BASE || "https://api.mercadopago.com";
 }
 
-async function mpCreatePreference(env, C, publicId, format) {
-  const usd = C.PRICES_USD[format] ?? C.PRICES_USD.digital;
+async function mpCreatePreference(env, C, publicId, format, discountRow) {
+  const baseUsd = C.PRICES_USD[format] ?? C.PRICES_USD.digital;
+  const usd = applyDiscount(baseUsd, discountRow);
   const ars = await getArsAmount(usd);
   const bookUrl = env.PUBLIC_BOOK_URL || "https://chatwallet.org/book.html";
   const trackUrl = `${bookUrl}?pedido=${publicId}`;
@@ -544,6 +595,46 @@ async function adminOrderStage(req, env) {
   return json(200, { success: true, stage: s });
 }
 
+// ── Panel: gestión de códigos de descuento ──
+async function adminListDiscounts(env) {
+  const { results } = await env.DB.prepare("SELECT * FROM discount_codes ORDER BY created_at DESC LIMIT 200").all();
+  return json(200, { codes: results || [] });
+}
+
+async function adminCreateDiscount(req, env) {
+  const b = await req.json().catch(() => ({}));
+  const code = String(b.code || "").trim().toUpperCase().slice(0, 40);
+  const pct = Number(b.discountPct);
+  const validFrom = Number(b.validFrom) || Date.now();
+  const validDays = Number(b.validDays);
+  if (!code || !pct || pct <= 0 || pct > 100 || !validDays || validDays <= 0)
+    return json(400, { error: "code, discountPct (1-100) y validDays (>0) son requeridos" });
+
+  const validUntil = validFrom + validDays * 86400000;
+  const format = ["digital", "physical", "physical-only"].includes(b.format) ? b.format : null;
+  const maxUses = b.maxUses ? Math.max(1, Number(b.maxUses)) : null;
+
+  try {
+    await env.DB.prepare(
+      `INSERT INTO discount_codes (code, discount_pct, valid_from, valid_until, format, max_uses, uses, active, note, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 1, ?, ?)`
+    ).bind(code, pct, validFrom, validUntil, format, maxUses, (b.note || "").slice(0, 300), Date.now()).run();
+    return json(200, { success: true, code });
+  } catch (e) {
+    if (String(e?.message || e).includes("UNIQUE")) return json(409, { error: "Ese código ya existe" });
+    throw e;
+  }
+}
+
+async function adminSetDiscountActive(req, env) {
+  const { code, active } = await req.json().catch(() => ({}));
+  if (!code) return json(400, { error: "code requerido" });
+  const r = await env.DB.prepare("UPDATE discount_codes SET active = ? WHERE code = ?")
+    .bind(active ? 1 : 0, String(code).toUpperCase()).run();
+  if (!r.meta.changes) return json(404, { error: "Código no encontrado" });
+  return json(200, { success: true });
+}
+
 // Reenviar (o probar) el email del pedido: { publicId, to?, kind? }.
 // `to` permite mandarlo a otra casilla (probar cómo se ve) sin tocar el pedido.
 async function adminSendOrderEmail(req, env) {
@@ -653,8 +744,12 @@ export default {
         if (request.method === "GET" && path === "/admin/events") return await adminEvents(url, env);
         if (request.method === "POST" && path === "/admin/orderStage") return await adminOrderStage(request, env);
         if (request.method === "POST" && path === "/admin/sendOrderEmail") return await adminSendOrderEmail(request, env);
+        if (request.method === "GET" && path === "/admin/discounts") return await adminListDiscounts(env);
+        if (request.method === "POST" && path === "/admin/discounts") return await adminCreateDiscount(request, env);
+        if (request.method === "POST" && path === "/admin/discounts/setActive") return await adminSetDiscountActive(request, env);
         return json(404, { error: "Endpoint no encontrado" });
       }
+      if (request.method === "GET" && path === "/validateCode") return await validateCode(url, env);
       if (request.method === "POST" && path === "/verifyPayment") return await verifyPayment(request, env, C);
       if (request.method === "POST" && path === "/order") return await createOrder(request, env, C);
       if (request.method === "POST" && path === "/mpWebhook") return await mpWebhook(request, url, env);

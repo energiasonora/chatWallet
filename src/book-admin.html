@@ -208,6 +208,42 @@
 
         .order-meta code { font-size: .72rem; background: var(--surface); padding: .1rem .35rem; border-radius: 5px; }
 
+        /* ── Códigos de descuento ── */
+        .discount-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            margin-bottom: .6rem;
+        }
+
+        .discount-form input, .discount-form select {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .5rem .7rem;
+            font-size: .82rem;
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+        }
+
+        .discount-form input:focus, .discount-form select:focus { outline: none; border-color: var(--fg); }
+
+        .dc-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .5rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: .6rem .9rem;
+            margin-bottom: .5rem;
+            font-size: .82rem;
+        }
+
+        .dc-row .code { font-family: monospace; font-weight: 700; }
+        .dc-row.expired, .dc-row.inactive { opacity: .55; }
+        .dc-row .spacer { flex: 1; }
+
         .order .links { margin-top: .6rem; font-size: .74rem; }
         .order .links a { color: var(--fg-subtle); }
 
@@ -291,6 +327,24 @@
         <h2>⛓️ Compras crypto <span class="count" id="purch-count"></span></h2>
         <div id="purchases-box"></div>
 
+        <h2>🎟️ Códigos de descuento <span class="count" id="discounts-count"></span></h2>
+        <div class="discount-form">
+            <input id="dc-code" placeholder="CÓDIGO (ej. AMIGO20)" style="text-transform:uppercase">
+            <input id="dc-pct" type="number" min="1" max="100" placeholder="% off" style="width:80px">
+            <input id="dc-days" type="number" min="1" placeholder="vigente (días)" style="width:120px">
+            <input id="dc-uses" type="number" min="1" placeholder="usos máx. (vacío=∞)" style="width:150px">
+            <select id="dc-format">
+                <option value="">Todos los formatos</option>
+                <option value="digital">Solo digital</option>
+                <option value="physical-only">Solo físico</option>
+                <option value="physical">Solo físico+digital</option>
+            </select>
+            <input id="dc-note" placeholder="nota interna (opcional)" style="flex:1;min-width:140px">
+            <button class="cta" style="width:auto;padding:.55rem 1.1rem" onclick="createDiscount()">Crear código</button>
+        </div>
+        <p class="empty" id="dc-msg"></p>
+        <div id="discounts-list"></div>
+
         <p class="foot">api.chatwallet.org · se actualiza solo cada 60s</p>
     </div>
 
@@ -358,14 +412,16 @@
 
         async function loadAll() {
             try {
-                const [ordersData, purchData, fundingData] = await Promise.all([
+                const [ordersData, purchData, fundingData, discountsData] = await Promise.all([
                     api('/admin/orders'),
                     api('/admin/purchases'),
                     fetch(API + '/funding').then((r) => r.json()).catch(() => null),
+                    api('/admin/discounts'),
                 ]);
                 renderStats(ordersData.orders, fundingData);
                 renderOrders(ordersData.orders);
                 renderPurchases(purchData.purchases);
+                renderDiscounts(discountsData.codes);
                 $('updated-at').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-AR');
             } catch (e) {
                 if (String(e.message) !== 'token inválido') $('updated-at').textContent = 'Error al actualizar: ' + e.message;
@@ -480,6 +536,68 @@
                     </tr>`;
                 }).join('')}
             </table></div>`;
+        }
+
+        // ── Códigos de descuento ──
+        const FMT_SHORT = { digital: 'Digital', physical: 'Físico+digital', 'physical-only': 'Físico' };
+
+        function renderDiscounts(codes) {
+            $('discounts-count').textContent = codes.length ? `· ${codes.length}` : '';
+            if (!codes.length) { $('discounts-list').innerHTML = '<p class="empty">Sin códigos creados todavía.</p>'; return; }
+            const now = Date.now();
+            $('discounts-list').innerHTML = codes.map((c) => {
+                const expired = now > c.valid_until;
+                const exhausted = c.max_uses != null && c.uses >= c.max_uses;
+                const inactive = !c.active;
+                const cls = inactive ? 'inactive' : (expired || exhausted) ? 'expired' : '';
+                const status = inactive ? '🚫 desactivado' : expired ? '⏱️ vencido' : exhausted ? '✋ agotado' : '✅ vigente';
+                return `<div class="dc-row ${cls}">
+                    <span class="code">${esc(c.code)}</span>
+                    <span class="badge">−${c.discount_pct}%</span>
+                    <span class="badge">${FMT_SHORT[c.format] || 'todos los formatos'}</span>
+                    <span class="badge">${status}</span>
+                    <span style="color:var(--fg-subtle)">${fdate(c.valid_from)} → ${fdate(c.valid_until)}</span>
+                    <span style="color:var(--fg-subtle)">usos: ${c.uses}${c.max_uses != null ? '/' + c.max_uses : ''}</span>
+                    ${c.note ? `<span style="color:var(--fg-subtle)">📝 ${esc(c.note)}</span>` : ''}
+                    <span class="spacer"></span>
+                    <button class="ghost-btn" onclick="toggleDiscount('${esc(c.code)}', ${c.active ? 0 : 1}, this)">${c.active ? 'Desactivar' : 'Reactivar'}</button>
+                </div>`;
+            }).join('');
+        }
+
+        async function createDiscount() {
+            const msg = $('dc-msg');
+            const code = $('dc-code').value.trim();
+            const discountPct = Number($('dc-pct').value);
+            const validDays = Number($('dc-days').value);
+            const maxUses = $('dc-uses').value ? Number($('dc-uses').value) : null;
+            const format = $('dc-format').value || null;
+            const note = $('dc-note').value.trim();
+            if (!code || !discountPct || !validDays) {
+                msg.textContent = 'Completá código, % y días de vigencia.';
+                return;
+            }
+            msg.textContent = 'Creando…';
+            try {
+                await api('/admin/discounts', { method: 'POST', body: JSON.stringify({ code, discountPct, validDays, maxUses, format, note }) });
+                msg.textContent = '';
+                ['dc-code', 'dc-pct', 'dc-days', 'dc-uses', 'dc-note'].forEach((id) => $(id).value = '');
+                $('dc-format').value = '';
+                loadAll();
+            } catch (e) {
+                msg.textContent = 'No se pudo crear: ' + e.message;
+            }
+        }
+
+        async function toggleDiscount(code, active, btn) {
+            btn.disabled = true;
+            try {
+                await api('/admin/discounts/setActive', { method: 'POST', body: JSON.stringify({ code, active: !!active }) });
+                loadAll();
+            } catch (e) {
+                btn.disabled = false;
+                alert('No se pudo actualizar: ' + e.message);
+            }
         }
 
         $('token-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });

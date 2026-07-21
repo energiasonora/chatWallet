@@ -465,6 +465,54 @@
 
         .specs button:hover { color: var(--fg); }
 
+        /* ── Código de descuento ── */
+        .discount-row {
+            display: flex;
+            gap: .5rem;
+            margin-bottom: .35rem;
+        }
+
+        .discount-input {
+            flex: 1;
+            min-width: 0;
+            padding: .55rem .8rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: .82rem;
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+        }
+
+        .discount-input:focus { outline: none; border-color: var(--fg); }
+        .discount-input:disabled { background: var(--surface); color: var(--fg-muted); }
+
+        .discount-apply {
+            border: 1px solid var(--border-strong);
+            background: none;
+            color: var(--fg);
+            border-radius: 999px;
+            padding: .55rem 1.1rem;
+            font-size: .82rem;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background .2s, color .2s;
+        }
+
+        .discount-apply:hover { background: var(--fg); color: var(--bg); }
+
+        .discount-msg {
+            font-size: .78rem;
+            color: var(--fg-subtle);
+            margin-bottom: 1rem;
+            min-height: 1.1em;
+        }
+
+        .discount-msg.ok { color: var(--ok); font-weight: 500; }
+        .discount-msg.err { color: #d97706; }
+
         /* ── Selectors ── */
         .sel {
             margin-bottom: 1.5rem;
@@ -1011,6 +1059,14 @@
                 </div>
             </div>
 
+            <!-- CÓDIGO DE DESCUENTO -->
+            <div class="discount-row">
+                <input type="text" id="discount-input" class="discount-input" placeholder="¿Tenés un código de descuento?" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();applyDiscountCode();}">
+                <button type="button" id="discount-apply-btn" class="discount-apply" onclick="applyDiscountCode()">Aplicar</button>
+                <button type="button" id="discount-clear-btn" class="discount-apply" onclick="clearDiscountCode()" style="display:none;">Quitar</button>
+            </div>
+            <p class="discount-msg" id="discount-msg"></p>
+
             <!-- PAÍS -->
             <div class="sel hidden" id="country-step">
                 <p class="sel-label">País de entrega</p>
@@ -1099,7 +1155,7 @@
                     rel="noopener">FR</a>) · Contacto:
                 <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
             <!-- Bumpear en CADA deploy de book.html (trackeo de versiones de la página) -->
-            <p class="foot" id="book-version">v 1.03</p>
+            <p class="foot" id="book-version">v 1.04</p>
         </div>
     </div>
 
@@ -1227,6 +1283,7 @@
             selectedFormat = f;
             setActivePill('format-pills', 'format', f);
             updateUI();
+            revalidateDiscountForFormat();
         }
 
         function selectCountry(c) {
@@ -1263,8 +1320,67 @@
             updatePaybar();
         }
 
-        function getCurrentPriceUSD() {
+        // ── Código de descuento (validado y RE-validado siempre server-side) ──
+        let appliedDiscount = null; // { code, pct }
+
+        function basePriceUSD() {
             return CONFIG.PRICES_USD[selectedFormat] ?? CONFIG.PRICES_USD.digital;
+        }
+
+        function getCurrentPriceUSD() {
+            const base = basePriceUSD();
+            return appliedDiscount ? Math.round(base * (1 - appliedDiscount.pct / 100) * 100) / 100 : base;
+        }
+
+        async function applyDiscountCode() {
+            const input = document.getElementById('discount-input');
+            const msg = document.getElementById('discount-msg');
+            const code = input.value.trim();
+            if (!code) return;
+            msg.textContent = 'Verificando…';
+            msg.className = 'discount-msg';
+            try {
+                const resp = await fetch(`${CONFIG.API_BASE}/validateCode?code=${encodeURIComponent(code)}&format=${selectedFormat}&priceUsd=${basePriceUSD()}`);
+                const data = await resp.json();
+                if (data.valid) {
+                    appliedDiscount = { code: code.toUpperCase(), pct: data.discountPct };
+                    msg.textContent = `✓ Código aplicado: −${data.discountPct}%`;
+                    msg.className = 'discount-msg ok';
+                    input.disabled = true;
+                    document.getElementById('discount-apply-btn').style.display = 'none';
+                    document.getElementById('discount-clear-btn').style.display = 'inline';
+                } else {
+                    appliedDiscount = null;
+                    msg.textContent = 'Código inválido, vencido o no aplica a este formato.';
+                    msg.className = 'discount-msg err';
+                    input.disabled = false;
+                    document.getElementById('discount-apply-btn').style.display = 'inline';
+                    document.getElementById('discount-clear-btn').style.display = 'none';
+                }
+            } catch (err) {
+                msg.textContent = 'No se pudo verificar el código, reintentá.';
+                msg.className = 'discount-msg err';
+            }
+            updatePaybar();
+            if (selectedPay === 'eth') fetchEthPrice();
+        }
+
+        function clearDiscountCode() {
+            appliedDiscount = null;
+            const input = document.getElementById('discount-input');
+            input.value = '';
+            input.disabled = false;
+            document.getElementById('discount-msg').textContent = '';
+            document.getElementById('discount-apply-btn').style.display = 'inline';
+            document.getElementById('discount-clear-btn').style.display = 'none';
+            updatePaybar();
+            if (selectedPay === 'eth') fetchEthPrice();
+        }
+
+        // Si cambia el formato y el código ya no aplica (código restringido a
+        // otro formato), lo re-validamos para no cobrar de menos silenciosamente.
+        function revalidateDiscountForFormat() {
+            if (appliedDiscount) applyDiscountCode.call(null); // reusa el input con el código ya tipeado
         }
 
         function isPhysical() {
@@ -1339,13 +1455,14 @@
         // ── Paybar: total + botón según el pago elegido ──
         function updatePaybar() {
             const usd = getCurrentPriceUSD();
+            const strike = appliedDiscount ? `<s style="opacity:.5;font-weight:400;font-size:.75em;margin-right:.35em">$${basePriceUSD()}</s>` : '';
             if (selectedPay === 'eth') {
-                pbMain.innerHTML = `$${usd} <small>USD</small>`;
+                pbMain.innerHTML = `${strike}$${usd} <small>USD</small>`;
                 pbSub.textContent = lastEthText || '≈ … ETH';
                 mintBtn.textContent = 'Pagar con ETH';
                 mintBtn.disabled = false;
             } else if (selectedPay === 'mp') {
-                pbMain.innerHTML = `$${usd} <small>USD</small>`;
+                pbMain.innerHTML = `${strike}$${usd} <small>USD</small>`;
                 pbSub.textContent = arsRate
                     ? `≈ $${Math.round(usd * arsRate).toLocaleString('es-AR')} ARS · Mercado Pago`
                     : 'el equivalente en pesos · Mercado Pago';
@@ -1735,7 +1852,7 @@
                 const resp = await fetch(`${CONFIG.API_BASE}/verifyPayment`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ txHash: tx.hash, address, format: selectedFormat, network: net.key, lang: selectedLang, country: selectedCountry }),
+                    body: JSON.stringify({ txHash: tx.hash, address, format: selectedFormat, network: net.key, lang: selectedLang, country: selectedCountry, code: appliedDiscount?.code || undefined }),
                 });
                 const data = await resp.json();
                 if (!resp.ok || !data.token) {
@@ -1863,6 +1980,7 @@
                 txHash: completedTxHash,
                 walletAddress: completedAddress || chatWallet || '',
                 delivery_pref: (isPhysical() && selectedCountry === 'ar') ? selectedDelivery : null,
+                code: appliedDiscount?.code || undefined,
             };
 
             const opts = {

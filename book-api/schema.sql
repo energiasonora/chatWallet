@@ -17,11 +17,29 @@ CREATE TABLE IF NOT EXISTS purchases (
   format           TEXT,          -- digital | physical (= físico+digital) | physical-only | pickup (legacy)
   lang             TEXT,          -- es | fr → qué edición del PDF sirve /download
   created_at       INTEGER,       -- epoch ms
-  last_download_at INTEGER        -- epoch ms
+  last_download_at INTEGER,       -- epoch ms
+  discount_code    TEXT           -- código de descuento aplicado (si hubo), para el panel/contabilidad
 );
 -- DB ya existente (prod): correr una vez → ALTER TABLE purchases ADD COLUMN lang TEXT;
+-- DB ya existente (prod): correr una vez → ALTER TABLE purchases ADD COLUMN discount_code TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_purchases_address ON purchases(address);
+
+-- Códigos de descuento. Se validan y aplican SIEMPRE server-side (nunca se
+-- confía en el % que manda el navegador): /validateCode (público, solo lectura)
+-- para que el frontend muestre el precio; /verifyPayment y /order recalculan.
+CREATE TABLE IF NOT EXISTS discount_codes (
+  code           TEXT PRIMARY KEY,   -- se guarda en mayúsculas
+  discount_pct   INTEGER NOT NULL,   -- 1-100
+  valid_from     INTEGER NOT NULL,   -- epoch ms
+  valid_until    INTEGER NOT NULL,   -- epoch ms
+  format         TEXT,               -- NULL = todos los formatos; o digital|physical|physical-only
+  max_uses       INTEGER,            -- NULL = sin límite
+  uses           INTEGER NOT NULL DEFAULT 0,
+  active         INTEGER NOT NULL DEFAULT 1,
+  note           TEXT,               -- uso interno (a quién/por qué), no se muestra al comprador
+  created_at     INTEGER NOT NULL
+);
 
 -- Anti-replay: un txHash sólo se puede canjear una vez.
 CREATE TABLE IF NOT EXISTS used_tx_hashes (
@@ -63,9 +81,12 @@ CREATE TABLE IF NOT EXISTS orders (
   download_token   TEXT,              -- token de /download emitido al acreditarse (si incluye PDF)
   delivery_pref    TEXT,              -- correo | coordinar (AMBA: entrega coordinada con el autor)
   tracking         TEXT,              -- código o URL de seguimiento del envío (lo carga el panel; visible en orderStatus)
-  email_sent_at    INTEGER            -- epoch ms del último email exitoso AL COMPRADOR (visible en el panel)
+  email_sent_at    INTEGER,           -- epoch ms del último email exitoso AL COMPRADOR (visible en el panel)
+  discount_code    TEXT,              -- código de descuento aplicado (si hubo)
+  discount_pct     INTEGER            -- % aplicado (guardado aparte: el código puede cambiar/desactivarse después)
 );
 -- DB ya existente (prod): correr una vez →
 --   ALTER TABLE orders ADD COLUMN paid_at INTEGER;
 --   ALTER TABLE orders ADD COLUMN delivery_pref TEXT; ALTER TABLE orders ADD COLUMN tracking TEXT;
 --   ALTER TABLE orders ADD COLUMN email_sent_at INTEGER;
+--   ALTER TABLE orders ADD COLUMN discount_code TEXT; ALTER TABLE orders ADD COLUMN discount_pct INTEGER;
