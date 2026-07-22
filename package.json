@@ -15,7 +15,6 @@
     "@capacitor/cli": "7",
     "@capacitor/core": "7",
     "@capacitor/local-notifications": "7",
-    "@ethereum-attestation-service/eas-sdk": "^2.9.0",
     "@ipld/unixfs": "^3.0.0",
     "@metamask/sdk": "^0.34.0",
     "@noble/secp256k1": "^2.3.0",

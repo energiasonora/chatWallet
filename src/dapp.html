@@ -1817,134 +1817,6 @@
                     <!-- FIN: ÁREA MODIFICADA -->
                 </div>
 
-                <!-- VISTA DE ATESTACIONES -->
-                <div id="attestationView" class="view flex-col h-full p-4 space-y-4">
-                    <h2 class="text-xl font-bold text-center">Crear Atestación</h2>
-
-                    <!-- Pestañas de Navegación -->
-                    <div class="flex border-b border-gray-700">
-                        <button data-tab="humanity"
-                            class="attestation-tab-btn flex-1 py-2 text-sm font-semibold border-b-2 border-indigo-500 text-white">Web
-                            of Trust</button>
-                        <button data-tab="agreement"
-                            class="attestation-tab-btn flex-1 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-400">Acuerdo</button>
-                        <button data-tab="authorship"
-                            class="attestation-tab-btn flex-1 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-400">Autoría</button>
-                    </div>
-
-                    <!-- Contenido de las Pestañas -->
-                    <div class="flex-grow overflow-y-auto">
-                        <!-- Pestaña: Web of Trust -->
-                        <div id="humanity-tab" class="attestation-tab-content space-y-4">
-                            <p class="text-xs text-gray-400">Atesta que una dirección pertenece a un humano y tu
-                                relación con él.</p>
-                            <div class="text-xs text-gray-500 -mt-2">
-                                <span>Esquema: </span>
-                                <a id="humanitySchemaLink" href="#" target="_blank" rel="noopener noreferrer"
-                                    class="font-mono text-indigo-400 hover:underline"></a>
-                            </div>
-                            <div class="relative">
-                                <input type="text" id="humanityRecipient" placeholder="Dirección del Destinatario"
-                                    class="w-full bg-gray-700 rounded-lg p-2 pr-10 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
-                                <button data-target-input="humanityRecipient"
-                                    class="attestation-contact-btn absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-indigo-400">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round">
-                                        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                                        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div class="flex items-center justify-between bg-gray-700 p-2 rounded-lg">
-                                <label for="isHuman" class="text-sm text-gray-300">¿Es Humano?</label>
-                                <input type="checkbox" id="isHuman" checked
-                                    class="form-checkbox h-5 w-5 text-indigo-600 bg-gray-800 border-gray-600 rounded focus:ring-indigo-500">
-                            </div>
-                            <div>
-                                <label for="trustLevel" class="block text-sm text-gray-400 mb-1">Nivel de Confianza
-                                    (0-100)</label>
-                                <input type="range" id="trustLevel" min="0" max="100" value="75"
-                                    class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
-                            </div>
-                            <input type="text" id="relationship" placeholder="Relación (ej. colega, amigo)"
-                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
-                            <button id="attestHumanityBtn"
-                                class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Atestar
-                                Humanidad</button>
-                        </div>
-
-                        <!-- Pestaña: Acuerdos Verbales -->
-                        <div id="agreement-tab" class="attestation-tab-content space-y-4 hidden">
-                            <p class="text-xs text-gray-400">Registra un acuerdo verbal o de chat en la cadena.</p>
-                            <div class="text-xs text-gray-500 -mt-2">
-                                <span>Esquema: </span>
-                                <a id="agreementSchemaLink" href="#" target="_blank" rel="noopener noreferrer"
-                                    class="font-mono text-indigo-400 hover:underline"></a>
-                            </div>
-                            <div class="relative">
-                                <input type="text" id="agreementRecipient" placeholder="Dirección del Destinatario"
-                                    class="w-full bg-gray-700 rounded-lg p-2 pr-10 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
-                                <button data-target-input="agreementRecipient"
-                                    class="attestation-contact-btn absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-indigo-400">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round">
-                                        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                                        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <input type="text" id="agreementHash" placeholder="Hash del Acuerdo (bytes32)"
-                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
-                            <input type="text" id="agreementUrl" placeholder="URL del Documento (opcional)"
-                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
-                            <input type="text" id="agreementType" placeholder="Tipo de Acuerdo (ej. Préstamo)"
-                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
-                            <button id="attestAgreementBtn"
-                                class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Atestar
-                                Acuerdo</button>
-                        </div>
-
-                        <!-- Pestaña: Prueba de Autoría -->
-                        <div id="authorship-tab" class="attestation-tab-content space-y-4 hidden">
-                            <p class="text-xs text-gray-400">Crea una prueba inmutable de autoría para un contenido
-                                digital.</p>
-                            <div class="text-xs text-gray-500 -mt-2">
-                                <span>Esquema: </span>
-                                <a id="authorshipSchemaLink" href="#" target="_blank" rel="noopener noreferrer"
-                                    class="font-mono text-indigo-400 hover:underline"></a>
-                            </div>
-                            <div class="relative">
-                                <input type="text" id="authorshipRecipient"
-                                    placeholder="Dirección del Destinatario (Autor)"
-                                    class="w-full bg-gray-700 rounded-lg p-2 pr-10 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
-                                <button data-target-input="authorshipRecipient"
-                                    class="attestation-contact-btn absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-indigo-400">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round">
-                                        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                                        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <input type="text" id="contentHash" placeholder="Hash del Contenido (bytes32)"
-                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
-                            <input type="text" id="authorshipTitle" placeholder="Título del Contenido"
-                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
-                            <input type="text" id="authorshipLicense" placeholder="Licencia (ej. CC-BY)"
-                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
-                            <input type="text" id="authorshipUrl" placeholder="URL del Contenido"
-                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
-                            <button id="attestAuthorshipBtn"
-                                class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Atestar
-                                Autoría</button>
-                        </div>
-                    </div>
-                    <div id="attestationStatus" class="text-center text-sm min-h-[2rem] p-2"></div>
-                </div>
-
                 <!-- VISTA DE HISTORIAL -->
                 <div id="historyView" class="view flex-col h-full space-y-4">
                     <div class="flex-shrink-0 text-center">
@@ -2063,18 +1935,6 @@
                     </div>
                 </div>
 
-                <!-- MODAL/POPOVER PARA SELECCIONAR CONTACTO EN ATESTACIÓN -->
-                <div id="attestationContactSelector"
-                    class="hidden absolute z-20 w-64 bg-gray-600 border border-gray-500 rounded-lg shadow-xl">
-                    <div class="p-2 border-b border-gray-500 flex justify-between items-center">
-                        <h4 class="text-sm font-semibold">Seleccionar Contacto</h4>
-                        <button id="closeAttestationContactSelector" class="text-xl leading-none">&times;</button>
-                    </div>
-                    <div id="attestationContactList" class="max-h-48 overflow-y-auto">
-                        <!-- La lista de contactos se poblará aquí -->
-                    </div>
-                </div>
-
             </main>
 
             <!-- Bottom Navigation Bar -->
@@ -2089,15 +1949,6 @@
                         <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
                     </svg>
                     <span class="text-xs" data-i18n-key="nav_wallet">Wallet</span>
-                </button>
-                <button data-view="attestationView"
-                    class="nav-btn transition-colors duration-200 hover:bg-gray-700/50 text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                        <path d="m9 12 2 2 4-4"></path>
-                    </svg>
-                    <span class="text-xs" data-i18n-key="nav_attest">Atestar</span>
                 </button>
                 <button data-view="historyView" id="historyNavBtn"
                     class="nav-btn transition-colors duration-200 hover:bg-gray-700/50 text-gray-400">
@@ -3091,16 +2942,8 @@
                         placeholder="https://my-website.com\nhttps://twitter.com/my-handle"></textarea>
                 </div>
 
-                <div>
-                    <h4 class="text-md font-semibold text-gray-300">Public Attestations/Badges</h4>
-                    <div id="userDidBadges"
-                        class="mt-2 text-sm text-gray-400 bg-gray-900/50 p-3 rounded-lg min-h-[50px]">
-                        <p>Your badges will appear here.</p>
-                    </div>
-                </div>
-
                 <!-- Sección de Documentos -->
-                <div>
+                <div id="didDocsSection">
                     <div class="flex justify-between items-center">
                         <h4 class="text-md font-semibold text-gray-300">Documentos Verificables</h4>
                     </div>
@@ -3165,8 +3008,6 @@
              Sin esto, init() corre antes del <script type="module"> (deferred) y falla con
              "ReferenceError: ethers is not defined" al cargar la billetera guardada. -->
         <script src="js/ethers-6.13.2.umd.min.js"></script>
-        <!-- EAS SDK -->
-        <script src="https://cdn.jsdelivr.net/npm/@ethereum-attestation-service/eas-sdk/dist/index.umd.js"></script>
 
 
         <script type="module">
@@ -3192,11 +3033,6 @@
             import EthCrypto from 'eth-crypto';
             window.EthCrypto = EthCrypto;
 
-            import { EAS, SchemaEncoder, } from "@ethereum-attestation-service/eas-sdk";
-            // import { EAS, NO_EXPIRATION, SchemaEncoder, } from "@ethereum-attestation-service/eas-sdk";
-            // const { EAS, SchemaEncoder } = window.eas;
-            window.EAS = EAS;
-            window.SchemaEncoder = SchemaEncoder;
 
 
             //   import { ethers, Wallet, isAddress, getBytes, formatEther, JsonRpcProvider, Contract,ZeroAddress } from 'ethers';
@@ -3717,24 +3553,11 @@
             const sendModalTokenName = document.getElementById('sendModalTokenName');
 
 
-            // Attestation View
-            const attestationTabs = document.querySelectorAll('.attestation-tab-btn');
-            const attestationContents = document.querySelectorAll('.attestation-tab-content');
-            const attestHumanityBtn = document.getElementById('attestHumanityBtn');
-            const attestAgreementBtn = document.getElementById('attestAgreementBtn');
-            const attestAuthorshipBtn = document.getElementById('attestAuthorshipBtn');
-            const attestationStatus = document.getElementById('attestationStatus');
-            const humanitySchemaLink = document.getElementById('humanitySchemaLink');
-            const agreementSchemaLink = document.getElementById('agreementSchemaLink');
-            const authorshipSchemaLink = document.getElementById('authorshipSchemaLink');
             const historyView = document.getElementById('historyView');
             const historyNetworkSelector = document.getElementById('historyNetworkSelector');
             const transactionList = document.getElementById('transactionList');
             const historyLoader = document.getElementById('historyLoader');
             const noHistoryMessage = document.getElementById('noHistoryMessage');
-            const HUMANITY_SCHEMA_UID = "0x35293aa6e1ea93a8e35c4b685c564459b36334a5ea753830c31558361e1633d7";
-            const AGREEMENT_SCHEMA_UID = "0x82a334c3025f345757e3a8b03882513a15e054f85ac5a82845e292095584203a";
-            const AUTHORSHIP_SCHEMA_UID = "0x4a021077e24b313c428a15314b74b1238823001427173e506b7282df16d0a2d3";
 
             // --- HISTORY VIEW FUNCTIONS ---
 
@@ -3974,9 +3797,6 @@
                     currentConversation = null;
                 }
 
-                if (viewId === 'attestationView') {
-                    updateSchemaLinks();
-                }
                 if (viewId === 'historyView') {
                     populateHistoryNetworkSelector();
                     fetchTransactionHistory();
@@ -7654,7 +7474,7 @@
                     }
                     // 4. Sidebar de contactos abierta
                     if (contactsSidebar && contactsSidebar.classList.contains('active')) { closeSidebar(); return; }
-                    // 5. Cualquier vista que no sea la principal (chat, historial, docs, atestaciones)
+                    // 5. Cualquier vista que no sea la principal (chat, historial, docs)
                     const activeView = document.querySelector('.view.active');
                     if (!activeView || activeView.id !== 'walletView') { showView('walletView'); return; }
                     // 6. Ya en la principal sin nada abierto → al fondo
@@ -9425,85 +9245,6 @@
             // --- FIN: PRESENCIA Y RECIBOS DE LECTURA ---
 
 
-            // --- INICIO: LÓGICA DE SELECCIÓN DE CONTACTOS PARA ATESTACIÓN ---
-            const attestationContactSelector = document.getElementById('attestationContactSelector');
-            const attestationContactList = document.getElementById('attestationContactList');
-            const closeAttestationContactSelector = document.getElementById('closeAttestationContactSelector');
-            let attestationTargetInput = null;
-
-            function openAttestationContactSelector(event) {
-                event.stopPropagation();
-                const button = event.currentTarget;
-                attestationTargetInput = document.getElementById(button.dataset.targetInput);
-
-                attestationContactList.innerHTML = ''; // Limpiar lista
-                if (contacts.length > 0) {
-                    contacts.forEach(contact => {
-                        const contactItem = document.createElement('button');
-                        contactItem.className = 'w-full text-left px-3 py-2 hover:bg-gray-500 transition-colors text-sm';
-                        contactItem.textContent = contact.name;
-                        contactItem.onclick = () => {
-                            if (attestationTargetInput) {
-                                attestationTargetInput.value = contact.address;
-                            }
-                            closeAttestationSelector();
-                        };
-                        attestationContactList.appendChild(contactItem);
-                    });
-                } else {
-                    attestationContactList.innerHTML = '<p class="p-3 text-xs text-gray-300">No hay contactos guardados.</p>';
-                }
-
-                // Posicionar y mostrar el selector
-                const rect = button.getBoundingClientRect();
-                const selectorWidth = attestationContactSelector.offsetWidth || 256; // Usar un ancho por defecto si es 0
-
-                attestationContactSelector.style.top = `${rect.bottom + window.scrollY + 5}px`;
-                // Alinear el borde derecho del selector con el borde derecho del botón
-                attestationContactSelector.style.left = `${rect.right + window.scrollX - selectorWidth}px`;
-                attestationContactSelector.classList.remove('hidden');
-            }
-
-            function updateSchemaLinks() {
-                const easScanBaseUrl = `https://sepolia.easscan.org/schema/view/`;
-                humanitySchemaLink.href = `${easScanBaseUrl}${HUMANITY_SCHEMA_UID}`;
-                agreementSchemaLink.href = `${easScanBaseUrl}${AGREEMENT_SCHEMA_UID}`;
-                authorshipSchemaLink.href = `${easScanBaseUrl}${AUTHORSHIP_SCHEMA_UID}`;
-
-                humanitySchemaLink.textContent = `${HUMANITY_SCHEMA_UID.slice(0, 6)}...${HUMANITY_SCHEMA_UID.slice(-4)}`;
-                agreementSchemaLink.textContent = `${AGREEMENT_SCHEMA_UID.slice(0, 6)}...${AGREEMENT_SCHEMA_UID.slice(-4)}`;
-                authorshipSchemaLink.textContent = `${AUTHORSHIP_SCHEMA_UID.slice(0, 6)}...${AUTHORSHIP_SCHEMA_UID.slice(-4)}`;
-            }
-
-            function closeAttestationSelector() {
-                attestationContactSelector.classList.add('hidden');
-                attestationTargetInput = null;
-            }
-
-            document.querySelectorAll('.attestation-contact-btn').forEach(btn => {
-                btn.addEventListener('click', openAttestationContactSelector);
-            });
-            closeAttestationContactSelector.addEventListener('click', closeAttestationSelector);
-
-            // --- INICIO: LÓGICA DE PESTAÑAS DE ATESTACIÓN ---
-            attestationTabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    const targetTabId = tab.dataset.tab;
-
-                    // Actualizar estilos de los botones de pestaña
-                    attestationTabs.forEach(btn => {
-                        btn.classList.remove('border-indigo-500', 'text-white');
-                        btn.classList.add('border-transparent', 'text-gray-400');
-                    });
-                    tab.classList.add('border-indigo-500', 'text-white');
-                    tab.classList.remove('border-transparent', 'text-gray-400');
-
-                    // Mostrar/Ocultar contenido de las pestañas
-                    attestationContents.forEach(content => {
-                        content.classList.toggle('hidden', content.id !== `${targetTabId}-tab`);
-                    });
-                });
-            });
             // --- Event Listeners ---
             createWalletButton.addEventListener('click', async () => {
                 const originalContent = createWalletButton.innerHTML;
@@ -9895,10 +9636,6 @@
             document.addEventListener('click', (e) => {
                 if (!tokenSelectorMenu.classList.contains('hidden') && !tokenSelectorMenu.contains(e.target)) {
                     tokenSelectorMenu.classList.add('hidden');
-                }
-                // Cerrar selector de contactos de atestación si se hace clic fuera
-                if (!attestationContactSelector.classList.contains('hidden') && !attestationContactSelector.contains(e.target)) {
-                    closeAttestationSelector();
                 }
             });
 
@@ -10456,7 +10193,6 @@
                     "scan_action": "Escanear",
                     "receive_action": "Recibir",
                     "nav_wallet": "Billetera",
-                    "nav_attest": "Atestar",
                     "nav_history": "Historial",
                     "balance_title": "Balance",
                     "send_modal_title": "Enviar",
@@ -10514,7 +10250,6 @@
                     "scan_action": "Scan",
                     "receive_action": "Receive",
                     "nav_wallet": "Wallet",
-                    "nav_attest": "Attest",
                     "nav_history": "History",
                     "balance_title": "Balance",
                     "send_modal_title": "Send",
@@ -10572,7 +10307,6 @@
                     "scan_action": "Scanner",
                     "receive_action": "Recevoir",
                     "nav_wallet": "Portefeuille",
-                    "nav_attest": "Attester",
                     "nav_history": "Historique",
                     "balance_title": "Solde",
                     "send_modal_title": "Envoyer",
@@ -12080,9 +11814,18 @@
             }
 
             // ── INIT ─────────────────────────────────────────────────────────────
-            // Render history whenever Docs tab becomes active
+            // Documentos Verificables (IPFS): OCULTO hasta terminar el path privado/compartir por XMTP.
+            // Reversible con un solo cambio: poner DOCS_ENABLED = true reactiva nav + sección del perfil DID.
+            // El backend (nodo IPFS soberano, gateway/backup.chatwallet.org) queda intacto.
+            const DOCS_ENABLED = false;
             const docsNavBtn = document.querySelector('[data-view="documentView"]');
-            if (docsNavBtn) {
+            const didDocsSection = document.getElementById('didDocsSection');
+            if (!DOCS_ENABLED) {
+                if (docsNavBtn) docsNavBtn.classList.add('hidden');
+                if (didDocsSection) didDocsSection.classList.add('hidden');
+            }
+            // Render history whenever Docs tab becomes active
+            if (DOCS_ENABLED && docsNavBtn) {
                 docsNavBtn.addEventListener('click', () => {
                     ipfsRenderHistory();
                     ipfsRenderQueue();
