@@ -1143,6 +1143,7 @@
             <div class="sel" id="pay-step">
                 <p class="sel-label">Pago</p>
                 <div class="pills" id="method-pills"></div>
+                <div class="pills" id="wallet-pills" style="margin-top:.5rem;"></div>
                 <div class="pills" id="net-pills" style="margin-top:.5rem;"></div>
                 <p class="micro" id="wallet-micro" style="text-align:left;">MetaMask, WalletConnect y más · ¿Sin
                     wallet? <a href="./dapp.html">Creá una gratis con ChatWallet</a></p>
@@ -1226,7 +1227,7 @@
                     rel="noopener">FR</a>) · Contacto:
                 <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
             <!-- Bumpear en CADA deploy de book.html (trackeo de versiones de la página) -->
-            <p class="foot" id="book-version">v 1.06</p>
+            <p class="foot" id="book-version">v 1.07</p>
         </div>
     </div>
 
@@ -1325,7 +1326,8 @@
         let selectedCountry = 'ar';       // ar | fr | es
         let selectedLang = 'es';          // es | fr
         let selectedNetwork = 'arbitrum'; // arbitrum | mainnet
-        let selectedPay = 'eth';          // eth | mp | amazon | none (según formato/país)
+        let selectedPay = 'eth';          // eth | chatwallet | mp | amazon | none (según formato/país)
+        let selectedWallet = 'anywallet'; // anywallet | chatwallet — sub-elección DENTRO de "Cripto"
         let shippingMode = 'crypto';      // crypto | mercadopago
         let arsRate = null;
         let completedTxHash = null;
@@ -1370,13 +1372,26 @@
         }
 
         function selectMethod(m) {
-            selectedPay = m === 'fiat' ? 'mp' : m === 'chatwallet' ? 'chatwallet' : 'eth';
+            selectedPay = m === 'fiat' ? 'mp' : (selectedWallet === 'chatwallet' ? 'chatwallet' : 'eth');
             setActivePill('method-pills', 'method', m);
-            // ChatWallet también elige red (Arbitrum/Mainnet): qué redes tiene configuradas
-            // cada usuario es cosa suya — dapp.html ya avisa si falta agregar la elegida.
-            document.getElementById('net-pills').style.display = (m === 'crypto' || m === 'chatwallet') ? 'flex' : 'none';
+            document.getElementById('wallet-pills').style.display = m === 'crypto' ? 'flex' : 'none';
+            document.getElementById('net-pills').style.display = m === 'crypto' ? 'flex' : 'none';
             document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
             if ((selectedPay === 'eth' || selectedPay === 'chatwallet') && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
+                lastEthText = null;
+                fetchEthPrice();
+            }
+            updatePaybar();
+        }
+
+        // Sub-elección DENTRO de "Cripto": con qué wallet pagar (cualquiera, vía
+        // Web3Modal, o directo con ChatWallet vía cw:2). Comparten red/precio/descuento.
+        function selectWallet(w) {
+            selectedWallet = w;
+            selectedPay = w === 'chatwallet' ? 'chatwallet' : 'eth';
+            setActivePill('wallet-pills', 'wallet', w);
+            document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
+            if (`${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
                 lastEthText = null;
                 fetchEthPrice();
             }
@@ -1498,27 +1513,33 @@
                 note.innerHTML = 'La edición física para <strong>España</strong> está en camino vía Amazon.es.';
             }
 
-            // Pago en tres niveles: método (crypto | chatwallet | fiat) y, si es crypto
-            // o ChatWallet, la red. FR/ES físico van por Amazon (sin selector).
+            // Pago en dos niveles: método (crypto | fiat); dentro de "Cripto", con qué
+            // wallet pagar (cualquiera vía Web3Modal, o directo con ChatWallet) y la red.
+            // FR/ES físico van por Amazon (sin selector).
             // v1: ChatWallet solo digital (el físico necesita cargar la dirección ANTES
             // de pagar, atado hoy a handlePurchase — se extiende en un fast-follow).
             if (isCryptoFlow()) {
-                if (selectedPay === 'chatwallet' && physical) selectedPay = 'eth';
-                if (!['mp', 'chatwallet'].includes(selectedPay)) selectedPay = 'eth';
-                const method = selectedPay === 'mp' ? 'fiat' : selectedPay === 'chatwallet' ? 'chatwallet' : 'crypto';
+                if (selectedWallet === 'chatwallet' && physical) selectedWallet = 'anywallet';
+                const method = selectedPay === 'mp' ? 'fiat' : 'crypto';
+                selectedPay = method === 'fiat' ? 'mp' : (selectedWallet === 'chatwallet' ? 'chatwallet' : 'eth');
                 document.getElementById('method-pills').innerHTML =
                     `<button type="button" class="pill${method === 'crypto' ? ' active' : ''}" data-method="crypto" onclick="selectMethod('crypto')">Cripto</button>` +
-                    (physical ? '' : `<button type="button" class="pill${method === 'chatwallet' ? ' active' : ''}" data-method="chatwallet" onclick="selectMethod('chatwallet')">ChatWallet</button>`) +
                     `<button type="button" class="pill${method === 'fiat' ? ' active' : ''}" data-method="fiat" onclick="selectMethod('fiat')">Pesos · Mercado Pago</button>`;
-                // redes crypto (próximamente: BTC, BCH, XMR…) — también aplica a ChatWallet;
+                // Billetera: dentro de "Cripto", cualquier wallet o ChatWallet directo.
+                document.getElementById('wallet-pills').innerHTML =
+                    `<button type="button" class="pill${selectedWallet === 'anywallet' ? ' active' : ''}" data-wallet="anywallet" onclick="selectWallet('anywallet')">Cualquier wallet</button>` +
+                    (physical ? '' : `<button type="button" class="pill${selectedWallet === 'chatwallet' ? ' active' : ''}" data-wallet="chatwallet" onclick="selectWallet('chatwallet')">ChatWallet</button>`);
+                document.getElementById('wallet-pills').style.display = method === 'crypto' ? 'flex' : 'none';
+                // redes crypto (próximamente: BTC, BCH, XMR…) — aplica a ambas billeteras;
                 // qué redes tiene agregadas cada usuario en su ChatWallet es cosa suya.
                 document.getElementById('net-pills').innerHTML =
                     `<button type="button" class="pill${selectedNetwork === 'arbitrum' ? ' active' : ''}" data-net="arbitrum" onclick="selectNet('arbitrum')">ETH · Arbitrum</button>` +
                     `<button type="button" class="pill${selectedNetwork === 'mainnet' ? ' active' : ''}" data-net="mainnet" onclick="selectNet('mainnet')">ETH · Mainnet</button>`;
-                document.getElementById('net-pills').style.display = (method === 'crypto' || method === 'chatwallet') ? 'flex' : 'none';
+                document.getElementById('net-pills').style.display = method === 'crypto' ? 'flex' : 'none';
                 document.getElementById('pay-step').classList.remove('hidden');
             } else {
                 selectedPay = (physical && selectedCountry === 'fr') ? 'amazon' : 'none';
+                document.getElementById('wallet-pills').style.display = 'none';
                 document.getElementById('pay-step').classList.add('hidden');
             }
             document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
