@@ -1289,7 +1289,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.92 alpha</p>
+            <p class="text-sm text-gray-400">v 1.93 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2851,8 +2851,9 @@
                 <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_chatbackup_desc">Historial
                     cifrado con tu llave, en tu nodo IPFS.
                     Se restaura solo con tu frase semilla.</p>
-                <div id="chatBackupStatus" class="bg-gray-900/50 p-3 rounded-lg text-xs text-gray-400 text-center">
-                    Aún no hay respaldo.</div>
+                <div id="chatBackupStatus" class="bg-gray-900/50 p-3 rounded-lg text-xs text-gray-400 text-center"
+                    data-i18n-key="settings_chatbackup_status_none">
+                    Aún no hay respaldo. Se crea solo al chatear.</div>
                 <div class="flex gap-2">
                     <button id="chatBackupNowBtn" data-i18n-key="settings_chatbackup_now"
                         class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
