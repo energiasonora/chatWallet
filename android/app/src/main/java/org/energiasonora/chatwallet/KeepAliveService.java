@@ -10,7 +10,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -52,6 +54,14 @@ public class KeepAliveService extends Service {
     // avisos que llegaron mientras la conexión estuvo caída (ntfy los cachea 3h).
     private volatile String lastEventId = null;
 
+    // Respaldo del wake: si el JS no confirma que manejó el aviso dentro de esta ventana
+    // (worker XMTP colgado o WebView congelado en background), el nativo postea la
+    // notificación genérica por su cuenta. Es el fix de v1.91: antes se confiaba en que
+    // "bridge vivo" == "el JS va a notificar", y un WebView congelado dejaba el wake mudo.
+    private static final long FALLBACK_DELAY_MS = 7000;
+    private final Handler fallbackHandler = new Handler(Looper.getMainLooper());
+    private final Runnable fallbackRunnable = this::postGenericNotification;
+
     private static volatile KeepAliveService instance = null;
 
     @Override
@@ -86,6 +96,7 @@ public class KeepAliveService extends Service {
     public void onDestroy() {
         running = false;
         instance = null;
+        fallbackHandler.removeCallbacks(fallbackRunnable);
         closeCurrentConn();
         super.onDestroy();
     }
@@ -115,11 +126,11 @@ public class KeepAliveService extends Service {
         subscriberThread.start();
     }
 
-    /** Loop de suscripción: GET {base}/{topic}/json (stream ndjson, keepalives cada 45s del
-     *  server). Reconexión con backoff exponencial 5s→60s; el readTimeout de 75s detecta
-     *  conexiones muertas (keepalive que no llegó). */
+    /** Loop de suscripción: GET {base}/{topic}/json (stream ndjson, keepalives cada 25s del
+     *  server). Reconexión con backoff exponencial 2s→60s; el readTimeout de 55s detecta
+     *  conexiones muertas (keepalive que no llegó) rápido para reconectar cuanto antes. */
     private void subscriberLoop() {
-        long backoffMs = 5000;
+        long backoffMs = 2000;
         while (running) {
             SharedPreferences prefs = getSharedPreferences(WAKE_PREFS, Context.MODE_PRIVATE);
             String topic = prefs.getString("topic", "");
@@ -135,13 +146,13 @@ public class KeepAliveService extends Service {
                 URL url = new URL(base + "/" + topic + "/json" + since);
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setConnectTimeout(15000);
-                conn.setReadTimeout(75000); // > keepalive de 45s del server
+                conn.setReadTimeout(55000); // > keepalive de 25s del server
                 conn.setRequestProperty("Accept", "application/x-ndjson");
                 currentConn = conn;
                 BufferedReader reader = new BufferedReader(
                         new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
                 Log.i(TAG, "Suscripto a ntfy (wake stream conectado)");
-                backoffMs = 5000; // conexión sana: resetear el backoff
+                backoffMs = 2000; // conexión sana: resetear el backoff
                 String line;
                 while (running && (line = reader.readLine()) != null) {
                     if (line.isEmpty()) continue;
@@ -171,11 +182,38 @@ public class KeepAliveService extends Service {
         }
     }
 
-    /** Llegó un aviso de wake: si el WebView está vivo, que sincronice y notifique con el
-     *  pipeline normal (nombre+avatar del contacto). Si no, notificación genérica. */
+    /** Llegó un aviso de wake. Estrategia (v1.91):
+     *  - Sin bridge/WebView vivo (proceso revivió pelado) → notificación genérica YA (el JS
+     *    no puede ayudar).
+     *  - Con bridge vivo → emitimos el evento al JS Y armamos un respaldo temporizado: el JS
+     *    tiene FALLBACK_DELAY_MS para sincronizar y, o bien postear la notificación rica
+     *    (showMessage), o confirmar que no hay nada nuevo (ackWake). Ambos cancelan el
+     *    respaldo vía markWakeHandled(). Si el JS NO confirma (worker XMTP colgado / WebView
+     *    congelado), el respaldo dispara y postea la genérica igual. Antes de v1.91 se
+     *    confiaba en que "bridge vivo == el JS notifica", y un WebView congelado dejaba el
+     *    wake mudo. */
     private void onWake() {
-        if (KeepAlivePlugin.emitWakeEvent()) return;
-        postGenericNotification();
+        boolean emitted = KeepAlivePlugin.emitWakeEvent();
+        if (!emitted) {
+            postGenericNotification();
+            return;
+        }
+        armFallback();
+    }
+
+    private void armFallback() {
+        fallbackHandler.removeCallbacks(fallbackRunnable);
+        fallbackHandler.postDelayed(fallbackRunnable, FALLBACK_DELAY_MS);
+    }
+
+    /** El JS confirmó que manejó el wake (posteó una notificación rica, o no había nada
+     *  nuevo): cancelar el respaldo pendiente y borrar la genérica si ya se había posteado
+     *  (para no dejar dos avisos cuando llega la versión rica tras un reload). Idempotente. */
+    public static void markWakeHandled() {
+        KeepAliveService s = instance;
+        if (s == null) return;
+        s.fallbackHandler.removeCallbacks(s.fallbackRunnable);
+        try { NotificationManagerCompat.from(s).cancel(WAKE_NOTIF_ID); } catch (Exception ignored) { }
     }
 
     private void postGenericNotification() {

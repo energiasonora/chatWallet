@@ -72,6 +72,14 @@ public class KeepAlivePlugin extends Plugin {
         }
     }
 
+    /** El JS confirma que manejó el wake (posteó notificación rica o no había nada nuevo).
+     *  Cancela el respaldo genérico nativo (fix v1.91). */
+    @PluginMethod
+    public void ackWake(PluginCall call) {
+        KeepAliveService.markWakeHandled();
+        call.resolve();
+    }
+
     /** Guarda topic/base del wake (ntfy) y reinicia el suscriptor nativo con la config nueva.
      *  Se llama en cada startKeepAlive: si la config no cambió, no se corta la conexión. */
     @PluginMethod
@@ -213,6 +221,8 @@ public class KeepAlivePlugin extends Plugin {
         } catch (SecurityException e) {
             // notificaciones deshabilitadas por el usuario; no es fatal
         }
+        // Se posteó una notificación rica → cancelar el respaldo genérico del wake (v1.91).
+        KeepAliveService.markWakeHandled();
         call.resolve();
     }
 

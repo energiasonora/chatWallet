@@ -1289,7 +1289,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.91 alpha</p>
+            <p class="text-sm text-gray-400">v 1.92 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2840,59 +2840,67 @@
                     data-i18n-key="forget_wallet_button">Olvidar
                     Billetera</button>
                 <hr class="border-gray-600">
-                <h2 class="text-md text-center font-semibold text-indigo-300">Gestionar Instalaciones</h2>
+                <h2 class="text-md text-center font-semibold text-indigo-300"
+                    data-i18n-key="settings_installations_title">Gestionar Instalaciones</h2>
                 <div id="installationsList"
                     class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
 
                 <hr class="border-gray-600">
-                <h2 class="text-md text-center font-semibold text-indigo-300">Respaldo soberano de chats</h2>
-                <p class="text-xs text-gray-500 text-center -mt-2">Historial cifrado con tu llave, en tu nodo IPFS.
+                <h2 class="text-md text-center font-semibold text-indigo-300"
+                    data-i18n-key="settings_chatbackup_title">Respaldo soberano de chats</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_chatbackup_desc">Historial
+                    cifrado con tu llave, en tu nodo IPFS.
                     Se restaura solo con tu frase semilla.</p>
                 <div id="chatBackupStatus" class="bg-gray-900/50 p-3 rounded-lg text-xs text-gray-400 text-center">
                     Aún no hay respaldo.</div>
                 <div class="flex gap-2">
-                    <button id="chatBackupNowBtn"
+                    <button id="chatBackupNowBtn" data-i18n-key="settings_chatbackup_now"
                         class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                         ☁ Respaldar ahora</button>
-                    <button id="chatBackupRestoreBtn"
+                    <button id="chatBackupRestoreBtn" data-i18n-key="settings_chatbackup_restore"
                         class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                         ⤓ Restaurar</button>
                 </div>
 
                 <hr class="border-gray-600">
-                <h2 class="text-md text-center font-semibold text-indigo-300">Llevar contactos a otro dispositivo</h2>
-                <p class="text-xs text-gray-500 text-center -mt-2">Por QR entre dos dispositivos, o copiando y pegando
+                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_contacts_title">
+                    Llevar contactos a otro dispositivo</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_contacts_desc">Por QR entre
+                    dos dispositivos, o copiando y pegando
                     el texto (mismo teléfono). No viaja ninguna llave.</p>
                 <div class="flex gap-2">
-                    <button id="exportContactsQrBtn"
+                    <button id="exportContactsQrBtn" data-i18n-key="settings_contacts_export"
                         class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                         ⇪ Exportar</button>
-                    <button id="importContactsQrBtn"
+                    <button id="importContactsQrBtn" data-i18n-key="settings_contacts_import"
                         class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                         ⇩ Importar</button>
                 </div>
 
                 <hr class="border-gray-600">
-                <h2 class="text-md text-center font-semibold text-indigo-300">Transacción fría ❄</h2>
-                <p class="text-xs text-gray-500 text-center -mt-2">Prepará una transacción para que la firme una
+                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_coldtx_title">
+                    Transacción fría ❄</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_coldtx_desc">Prepará una
+                    transacción para que la firme una
                     wallet en modo frío, y transmitila cuando te devuelvan el QR firmado.</p>
-                <button id="openColdTxPrepareBtn"
+                <button id="openColdTxPrepareBtn" data-i18n-key="settings_coldtx_button"
                     class="w-full px-4 py-2 font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                     ❄ Preparar transacción fría
                 </button>
 
                 <hr class="border-gray-600">
-                <h2 class="text-md text-center font-semibold text-indigo-300">Gestionar Redes</h2>
-                <button id="manageNetworksBtn"
+                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_networks_title">
+                    Gestionar Redes</h2>
+                <button id="manageNetworksBtn" data-i18n-key="settings_networks_button"
                     class="w-full mt-2 px-4 py-2 font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                     Abrir Gestor de Redes
                 </button>
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.91</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 1.92</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
-                        class="text-indigo-400 hover:underline block mt-1">
+                        class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
                     </a>
                 </div>
@@ -5611,11 +5619,13 @@
                 if (!el || !currentWallet) return;
                 try {
                     const meta = JSON.parse(localStorage.getItem(CHATBK_META_KEY()) || 'null');
-                    if (!meta) { el.textContent = 'Aún no hay respaldo. Se crea solo al chatear.'; return; }
-                    const when = formatTimestampForContactList(meta.ts) || new Date(meta.ts).toLocaleString('es-ES');
-                    el.innerHTML = `Último respaldo: <span class="text-gray-200">${when}</span> · ${meta.count} mensajes<br>` +
+                    if (!meta) { el.textContent = t('settings_chatbackup_status_none'); return; }
+                    const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+                    const localeMap = { es: 'es-ES', en: 'en-US', fr: 'fr-FR' };
+                    const when = formatTimestampForContactList(meta.ts) || new Date(meta.ts).toLocaleString(localeMap[lang] || 'es-ES');
+                    el.innerHTML = `${t('settings_chatbackup_last_backup')}: <span class="text-gray-200">${when}</span> · ${meta.count} ${t('settings_chatbackup_messages')}<br>` +
                         `<span class="font-mono text-[10px] text-gray-500 break-all">${meta.cid}</span>`;
-                } catch (e) { el.textContent = 'Aún no hay respaldo.'; }
+                } catch (e) { el.textContent = t('settings_chatbackup_status_none'); }
             }
 
             async function saveContacts() {
@@ -10457,7 +10467,26 @@
                     "send_button_modal": "Enviar",
                     "processing": "Procesando",
                     "view_transaction": "Ver Transacción",
-                    "close_button": "Cerrar"
+                    "close_button": "Cerrar",
+                    "settings_installations_title": "Gestionar Instalaciones",
+                    "settings_chatbackup_title": "Respaldo soberano de chats",
+                    "settings_chatbackup_desc": "Historial cifrado con tu llave, en tu nodo IPFS. Se restaura solo con tu frase semilla.",
+                    "settings_chatbackup_now": "☁ Respaldar ahora",
+                    "settings_chatbackup_restore": "⤓ Restaurar",
+                    "settings_chatbackup_status_none": "Aún no hay respaldo. Se crea solo al chatear.",
+                    "settings_chatbackup_last_backup": "Último respaldo",
+                    "settings_chatbackup_messages": "mensajes",
+                    "settings_contacts_title": "Llevar contactos a otro dispositivo",
+                    "settings_contacts_desc": "Por QR entre dos dispositivos, o copiando y pegando el texto (mismo teléfono). No viaja ninguna llave.",
+                    "settings_contacts_export": "⇪ Exportar",
+                    "settings_contacts_import": "⇩ Importar",
+                    "settings_coldtx_title": "Transacción fría ❄",
+                    "settings_coldtx_desc": "Prepará una transacción para que la firme una wallet en modo frío, y transmitila cuando te devuelvan el QR firmado.",
+                    "settings_coldtx_button": "❄ Preparar transacción fría",
+                    "settings_networks_title": "Gestionar Redes",
+                    "settings_networks_button": "Abrir Gestor de Redes",
+                    "settings_version_label": "Versión",
+                    "settings_github_link": "Ver en GitHub"
                 },
                 en: {
                     "language_label": "Language",
@@ -10496,7 +10525,26 @@
                     "send_button_modal": "Send",
                     "processing": "Processing",
                     "view_transaction": "View Transaction",
-                    "close_button": "Close"
+                    "close_button": "Close",
+                    "settings_installations_title": "Manage Installations",
+                    "settings_chatbackup_title": "Sovereign chat backup",
+                    "settings_chatbackup_desc": "History encrypted with your key, on your IPFS node. Restores automatically with your seed phrase.",
+                    "settings_chatbackup_now": "☁ Back up now",
+                    "settings_chatbackup_restore": "⤓ Restore",
+                    "settings_chatbackup_status_none": "No backup yet. Created automatically as you chat.",
+                    "settings_chatbackup_last_backup": "Last backup",
+                    "settings_chatbackup_messages": "messages",
+                    "settings_contacts_title": "Move contacts to another device",
+                    "settings_contacts_desc": "Via QR between two devices, or copy-paste the text (same phone). No key ever travels.",
+                    "settings_contacts_export": "⇪ Export",
+                    "settings_contacts_import": "⇩ Import",
+                    "settings_coldtx_title": "Cold transaction ❄",
+                    "settings_coldtx_desc": "Prepare a transaction for a cold-storage wallet to sign, then broadcast it once you get the signed QR back.",
+                    "settings_coldtx_button": "❄ Prepare cold transaction",
+                    "settings_networks_title": "Manage Networks",
+                    "settings_networks_button": "Open Network Manager",
+                    "settings_version_label": "Version",
+                    "settings_github_link": "View on GitHub"
                 },
                 fr: {
                     "language_label": "Langue",
@@ -10534,7 +10582,27 @@
                     "cancel_button": "Annuler",
                     "send_button_modal": "Envoyer",
                     "processing": "Traitement",
-                    "view_transaction": "Voir la Transaction"
+                    "view_transaction": "Voir la Transaction",
+                    "close_button": "Fermer",
+                    "settings_installations_title": "Gérer les Installations",
+                    "settings_chatbackup_title": "Sauvegarde souveraine des chats",
+                    "settings_chatbackup_desc": "Historique chiffré avec votre clé, sur votre nœud IPFS. Se restaure automatiquement avec votre phrase de récupération.",
+                    "settings_chatbackup_now": "☁ Sauvegarder maintenant",
+                    "settings_chatbackup_restore": "⤓ Restaurer",
+                    "settings_chatbackup_status_none": "Pas encore de sauvegarde. Créée automatiquement en discutant.",
+                    "settings_chatbackup_last_backup": "Dernière sauvegarde",
+                    "settings_chatbackup_messages": "messages",
+                    "settings_contacts_title": "Transférer les contacts vers un autre appareil",
+                    "settings_contacts_desc": "Par QR entre deux appareils, ou en copiant-collant le texte (même téléphone). Aucune clé ne voyage.",
+                    "settings_contacts_export": "⇪ Exporter",
+                    "settings_contacts_import": "⇩ Importer",
+                    "settings_coldtx_title": "Transaction à froid ❄",
+                    "settings_coldtx_desc": "Préparez une transaction pour qu'un portefeuille hors ligne la signe, puis diffusez-la une fois le QR signé récupéré.",
+                    "settings_coldtx_button": "❄ Préparer une transaction à froid",
+                    "settings_networks_title": "Gérer les Réseaux",
+                    "settings_networks_button": "Ouvrir le Gestionnaire de Réseaux",
+                    "settings_version_label": "Version",
+                    "settings_github_link": "Voir sur GitHub"
                 }
             };
 
@@ -10548,6 +10616,14 @@
                 });
             }
 
+            // Traducción puntual desde JS (texto generado dinámicamente, p.ej. el
+            // estado del respaldo de chats, que translateUI no toca porque no vive
+            // en un data-i18n-key fijo — cambia con cada respaldo).
+            function t(key) {
+                const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+                return (translations[lang] && translations[lang][key]) || translations['es'][key] || key;
+            }
+
             // --- Language Switcher Logic ---
             const LANGUAGE_STORAGE_KEY = 'chatwallet-lang';
 
@@ -10558,6 +10634,7 @@
                     selector.value = lang;
                 });
                 translateUI(lang);
+                if (typeof renderChatBackupStatus === 'function') renderChatBackupStatus();
             }
 
             function initializeLanguage() {
