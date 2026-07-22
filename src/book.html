@@ -1226,7 +1226,7 @@
                     rel="noopener">FR</a>) · Contacto:
                 <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
             <!-- Bumpear en CADA deploy de book.html (trackeo de versiones de la página) -->
-            <p class="foot" id="book-version">v 1.05</p>
+            <p class="foot" id="book-version">v 1.06</p>
         </div>
     </div>
 
@@ -1372,13 +1372,9 @@
         function selectMethod(m) {
             selectedPay = m === 'fiat' ? 'mp' : m === 'chatwallet' ? 'chatwallet' : 'eth';
             setActivePill('method-pills', 'method', m);
-            // v1: pagar con ChatWallet solo soporta Arbitrum One (única red que ChatWallet
-            // trae por defecto además de testnets) — se fuerza la red y se oculta el selector.
-            if (m === 'chatwallet' && selectedNetwork !== 'arbitrum') {
-                selectedNetwork = 'arbitrum';
-                setActivePill('net-pills', 'net', 'arbitrum');
-            }
-            document.getElementById('net-pills').style.display = m === 'crypto' ? 'flex' : 'none';
+            // ChatWallet también elige red (Arbitrum/Mainnet): qué redes tiene configuradas
+            // cada usuario es cosa suya — dapp.html ya avisa si falta agregar la elegida.
+            document.getElementById('net-pills').style.display = (m === 'crypto' || m === 'chatwallet') ? 'flex' : 'none';
             document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
             if ((selectedPay === 'eth' || selectedPay === 'chatwallet') && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
                 lastEthText = null;
@@ -1503,7 +1499,7 @@
             }
 
             // Pago en tres niveles: método (crypto | chatwallet | fiat) y, si es crypto
-            // "cualquier wallet", la red. FR/ES físico van por Amazon (sin selector).
+            // o ChatWallet, la red. FR/ES físico van por Amazon (sin selector).
             // v1: ChatWallet solo digital (el físico necesita cargar la dirección ANTES
             // de pagar, atado hoy a handlePurchase — se extiende en un fast-follow).
             if (isCryptoFlow()) {
@@ -1514,11 +1510,12 @@
                     `<button type="button" class="pill${method === 'crypto' ? ' active' : ''}" data-method="crypto" onclick="selectMethod('crypto')">Cripto</button>` +
                     (physical ? '' : `<button type="button" class="pill${method === 'chatwallet' ? ' active' : ''}" data-method="chatwallet" onclick="selectMethod('chatwallet')">ChatWallet</button>`) +
                     `<button type="button" class="pill${method === 'fiat' ? ' active' : ''}" data-method="fiat" onclick="selectMethod('fiat')">Pesos · Mercado Pago</button>`;
-                // redes crypto (próximamente: BTC, BCH, XMR…) — ChatWallet fuerza Arbitrum (única red que trae por defecto)
+                // redes crypto (próximamente: BTC, BCH, XMR…) — también aplica a ChatWallet;
+                // qué redes tiene agregadas cada usuario en su ChatWallet es cosa suya.
                 document.getElementById('net-pills').innerHTML =
                     `<button type="button" class="pill${selectedNetwork === 'arbitrum' ? ' active' : ''}" data-net="arbitrum" onclick="selectNet('arbitrum')">ETH · Arbitrum</button>` +
                     `<button type="button" class="pill${selectedNetwork === 'mainnet' ? ' active' : ''}" data-net="mainnet" onclick="selectNet('mainnet')">ETH · Mainnet</button>`;
-                document.getElementById('net-pills').style.display = method === 'crypto' ? 'flex' : 'none';
+                document.getElementById('net-pills').style.display = (method === 'crypto' || method === 'chatwallet') ? 'flex' : 'none';
                 document.getElementById('pay-step').classList.remove('hidden');
             } else {
                 selectedPay = (physical && selectedCountry === 'fr') ? 'amazon' : 'none';
@@ -2050,7 +2047,7 @@
                 setStatus('Pagar con ChatWallet solo está disponible para la edición digital por ahora.', true);
                 return;
             }
-            const net = NETWORKS.arbitrum; // v1: fijo a Arbitrum One
+            const net = NETWORKS[selectedNetwork];
             mintBtn.disabled = true;
             mintBtn.textContent = 'Preparando...';
             clearStatus();
