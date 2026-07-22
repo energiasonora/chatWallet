@@ -1289,7 +1289,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.90 alpha</p>
+            <p class="text-sm text-gray-400">v 1.91 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2890,7 +2890,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText">Versión 1.90</p>
+                    <p id="settingsVersionText">Versión 1.91</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1">
                         Ver en GitHub
@@ -7587,10 +7587,29 @@
                 consumePendingChat(); // por si la app arrancó desde una notificación
                 consumePendingDeepLink(); // por si la app arrancó desde un App Link (chatwallet.org/dapp?...)
                 // Wake push (Fase 2): el suscriptor nativo avisa que llegó algo → resync. La
-                // notificación sale por el pipeline de siempre (stream onValue → notifyNative),
-                // y si el worker está wedged, el watchdog de resyncMessages recarga y recupera.
+                // notificación sale por el pipeline de siempre (stream onValue → notifyNative /
+                // reconcile), y si el worker está wedged, el watchdog de resyncMessages recarga.
+                // v1.91: confirmar al nativo (ackWake) que manejamos el wake, para que cancele
+                // su notificación de respaldo. Si estamos en foreground, confirmar YA (el usuario
+                // ve los mensajes en vivo). Si el resync se cuelga/recarga y nunca llega el ack,
+                // el respaldo nativo dispara la notificación genérica igual — ese es el fix.
                 if (NativeKeepAlive && NativeKeepAlive.addListener) {
-                    try { NativeKeepAlive.addListener('wakeEvent', () => resyncMessages()); } catch (e) { }
+                    const ackWake = () => { if (NativeKeepAlive.ackWake) { try { NativeKeepAlive.ackWake(); } catch (e) { } } };
+                    try {
+                        NativeKeepAlive.addListener('wakeEvent', async () => {
+                            const fg = !document.hidden;
+                            if (fg) ackWake(); // foreground: cancelar el respaldo ya (se ve en vivo)
+                            try {
+                                await resyncMessages();
+                            } finally {
+                                // Solo confirmar si terminamos de verdad. Si resyncMessages se
+                                // colgó y disparó un reload (worker wedged), NO confirmamos: que
+                                // el respaldo nativo dispare la genérica; tras el reload el
+                                // reconcile del arranque postea la versión rica y la reemplaza.
+                                if (!fg && !recoveringFromWedgedXmtp) ackWake();
+                            }
+                        });
+                    } catch (e) { }
                 }
             }
 
@@ -7957,11 +7976,72 @@
             // ChatWallet ↔ merchant payment protocol (cw:2) — "pagar con ChatWallet"
             // Un merchant (p.ej. book.html) muestra un QR/deep-link
             // https://chatwallet.org/dapp?pay=1&to=..&chainId=..&value=..&memo=..&reply=..&ref=..
-            // ChatWallet lo parsea, pide confirmación con wcApprove (no el bridge RPC
-            // genérico de cw:1 — acá NUNCA se ejecuta calldata arbitrario, solo un
-            // envío nativo a `to` por `value`), firma y transmite con currentWallet,
-            // y contesta el resultado por XMTP a la address `reply` del merchant.
+            // ChatWallet lo parsea, pide confirmación con un modal PROPIO (no wcApprove —
+            // acá hace falta mostrar el estado DESPUÉS de aprobar: enviando/error/éxito,
+            // porque a diferencia de personal_sign/eth_sendTransaction de cw:1 esto puede
+            // fallar de formas que el usuario necesita VER, p.ej. fondos insuficientes).
+            // NUNCA se ejecuta calldata arbitrario, solo un envío nativo a `to` por `value`,
+            // firma y transmite con currentWallet, y contesta el resultado por XMTP a la
+            // address `reply` del merchant.
             // ==========================================================================
+
+            // Modal de pago: título/cuerpo + Rechazar/Pagar: al aprobar, la UI pasa a un
+            // estado "enviando" (spinner) y termina en éxito (se cierra solo) o error
+            // (queda abierto con el motivo, no se pierde silenciosamente como con un toast).
+            function wcPaymentModal(title, body, confirmLabel) {
+                const ov = document.createElement('div');
+                ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;';
+                ov.innerHTML = `<div style="background:#111827;color:#fff;border:1px solid #374151;border-radius:16px;max-width:360px;width:100%;padding:22px;font-family:system-ui,sans-serif;box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+                    <div id="pm-title" style="font-weight:800;font-size:1.05rem;margin-bottom:10px;"></div>
+                    <div id="pm-body" style="font-size:0.82rem;color:#cbd5e1;white-space:pre-wrap;line-height:1.5;margin-bottom:14px;word-break:break-word;"></div>
+                    <div id="pm-status" style="font-size:0.8rem;min-height:1.3em;margin-bottom:14px;display:none;align-items:center;"></div>
+                    <div id="pm-actions" style="display:flex;gap:10px;">
+                        <button id="pm-no" style="flex:1;padding:10px;border-radius:10px;border:1px solid #374151;background:transparent;color:#9ca3af;font-weight:700;cursor:pointer;">Rechazar</button>
+                        <button id="pm-yes" style="flex:1;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#7c5cff,#5b8cff);color:#fff;font-weight:800;cursor:pointer;"></button>
+                    </div></div>`;
+                ov.querySelector('#pm-title').textContent = '💬 ' + title;
+                ov.querySelector('#pm-body').textContent = body;
+                ov.querySelector('#pm-yes').textContent = confirmLabel || 'Aprobar';
+                document.body.appendChild(ov);
+
+                const statusEl = ov.querySelector('#pm-status');
+                const setSending = (msg) => {
+                    statusEl.style.display = 'flex';
+                    statusEl.innerHTML = `<span class="spinner"></span><span style="color:#cbd5e1;">${msg}</span>`;
+                };
+                const setError = (msg) => {
+                    statusEl.style.display = 'flex';
+                    statusEl.innerHTML = `<span style="color:#f87171;">⚠️ ${msg}</span>`;
+                    ov.querySelector('#pm-actions').innerHTML =
+                        '<button id="pm-close" style="flex:1;padding:10px;border-radius:10px;border:none;background:#dc2626;color:#fff;font-weight:800;cursor:pointer;">Cerrar</button>';
+                    return new Promise((resolve) => { ov.querySelector('#pm-close').onclick = () => { ov.remove(); resolve(); }; });
+                };
+                const setSuccess = (msg) => {
+                    statusEl.style.display = 'flex';
+                    statusEl.innerHTML = `<span style="color:#34d399;">✅ ${msg}</span>`;
+                    ov.querySelector('#pm-actions').style.display = 'none';
+                    setTimeout(() => ov.remove(), 1800);
+                };
+
+                const decision = new Promise((resolve) => {
+                    ov.querySelector('#pm-yes').onclick = () => {
+                        ov.querySelector('#pm-actions').style.display = 'none';
+                        resolve(true);
+                    };
+                    ov.querySelector('#pm-no').onclick = () => { ov.remove(); resolve(false); };
+                });
+                return { decision, setSending, setError, setSuccess };
+            }
+
+            // Traduce errores comunes de ethers a algo legible (mismo criterio que el
+            // modal de envío normal, ver setTxStatus).
+            function friendlyTxError(e) {
+                if (e?.code === 'INSUFFICIENT_FUNDS' || /insufficient funds/i.test(e?.message || ''))
+                    return 'Fondos insuficientes para cubrir el pago + gas en esta red.';
+                if (e?.code === 'ACTION_REJECTED' || e?.code === 4001) return 'Cancelaste la firma.';
+                return String(e?.message || e).slice(0, 140);
+            }
+
             function parsePaymentRequestFromString(data) {
                 if (typeof data !== 'string') return null;
                 let url;
@@ -8031,17 +8111,26 @@
 
                 const valEth = ethers.formatEther(payReq.value);
                 const memoLine = payReq.memo ? `${payReq.memo}\n\n` : '';
-                const ok = await wcApprove('🛒 Confirmar compra',
+                const modal = wcPaymentModal('🛒 Confirmar compra',
                     `${memoLine}Monto: ${valEth} ETH\nDestino: ${payReq.to.slice(0, 8)}…${payReq.to.slice(-6)}\n\nSe firmará y transmitirá con tu wallet.`,
                     'Pagar');
+                const ok = await modal.decision;
                 if (!ok) return reply({ error: 'user rejected' });
 
+                // A partir de acá el pago queda VISIBLE en el modal (enviando/éxito/error)
+                // en vez de intentarlo en silencio — antes, si fallaba (p.ej. fondos
+                // insuficientes), el usuario no veía nada del lado de ChatWallet.
+                modal.setSending('Enviando pago…');
                 try {
                     const s = currentWallet.connect(provider);
                     const resp = await s.sendTransaction({ to: payReq.to, value: payReq.value });
-                    wcToast('✅ Pago enviado');
+                    modal.setSuccess('Pago enviado');
                     return reply({ txHash: resp.hash, address: currentWallet.address });
                 } catch (e) {
+                    // NO esperar a que el usuario cierre el modal para responder: el
+                    // merchant (book.html, quizás en otro dispositivo) no debe quedar
+                    // colgado esperando a que ALGUIEN toque "Cerrar" acá.
+                    modal.setError(friendlyTxError(e));
                     return reply({ error: String(e.message || e) });
                 }
             }
