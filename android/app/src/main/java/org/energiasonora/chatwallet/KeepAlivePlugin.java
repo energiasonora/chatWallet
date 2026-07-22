@@ -47,6 +47,49 @@ public class KeepAlivePlugin extends Plugin {
     public static volatile String pendingChatAddress = null;
     // URL de App Link pendiente de procesar (la setea MainActivity al abrir chatwallet.org/dapp?...).
     public static volatile String pendingDeepLink = null;
+    // Instancia viva del plugin (para que KeepAliveService pueda emitir eventos al WebView).
+    private static volatile KeepAlivePlugin instance = null;
+
+    @Override
+    public void load() {
+        super.load();
+        instance = this;
+    }
+
+    /**
+     * Wake push (Fase 2): avisa al WebView que llegó algo (el JS hace resync y notifica por
+     * el pipeline normal). Devuelve false si no hay bridge vivo → el service postea la
+     * notificación genérica como fallback.
+     */
+    public static boolean emitWakeEvent() {
+        KeepAlivePlugin p = instance;
+        if (p == null || p.getBridge() == null || p.getBridge().getWebView() == null) return false;
+        try {
+            p.notifyListeners("wakeEvent", new JSObject());
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Guarda topic/base del wake (ntfy) y reinicia el suscriptor nativo con la config nueva.
+     *  Se llama en cada startKeepAlive: si la config no cambió, no se corta la conexión. */
+    @PluginMethod
+    public void configureWake(PluginCall call) {
+        String topic = call.getString("topic", "");
+        String base = call.getString("base", "");
+        if (topic == null) topic = "";
+        if (base == null) base = "";
+        android.content.SharedPreferences prefs =
+                getContext().getSharedPreferences(KeepAliveService.WAKE_PREFS, Context.MODE_PRIVATE);
+        boolean changed = !topic.equals(prefs.getString("topic", ""))
+                || !base.equals(prefs.getString("base", ""));
+        if (changed) {
+            prefs.edit().putString("topic", topic).putString("base", base).apply();
+        }
+        KeepAliveService.pokeSubscriber(changed);
+        call.resolve();
+    }
 
     @PluginMethod
     public void start(PluginCall call) {
