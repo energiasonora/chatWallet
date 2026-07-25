@@ -41,7 +41,10 @@ import java.nio.charset.StandardCharsets;
  * Al server ntfy solo viaja el topic opaco (token aleatorio), nunca address ni inbox ID.
  */
 public class KeepAliveService extends Service {
-    public static final String CHANNEL_ID = "chatwallet_keepalive";
+    // v2: canal con IMPORTANCE_MIN (sin ícono en la barra, colapsado). El canal v1 quedó
+    // en LOW y Android NO deja rebajarle la importancia en caliente → id nuevo + borrar el viejo.
+    public static final String CHANNEL_ID = "chatwallet_keepalive_v2";
+    private static final String OLD_CHANNEL_ID = "chatwallet_keepalive";
     public static final int NOTIF_ID = 7777;
     public static final int WAKE_NOTIF_ID = 7779;
     private static final String TAG = "ChatWalletWake";
@@ -73,13 +76,20 @@ public class KeepAliveService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        // Tap → abre la app (antes no tenía contentIntent y no hacía nada).
+        Intent openApp = new Intent(this, MainActivity.class);
+        int fgPiFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) fgPiFlags |= PendingIntent.FLAG_IMMUTABLE;
+        PendingIntent openAppPi = PendingIntent.getActivity(this, NOTIF_ID, openApp, fgPiFlags);
+
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("ChatWallet activo")
-                .setContentText("Escuchando mensajes cifrados (E2E) en segundo plano")
+                .setContentTitle("ChatWallet")
+                .setContentText("Recibiendo mensajes cifrados (E2E)")
                 .setSmallIcon(R.drawable.ic_stat_notify)
                 .setColor(android.graphics.Color.rgb(0x4F, 0x46, 0xE5))
                 .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setContentIntent(openAppPi)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
                 .build();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // Android 14+ exige tipo
@@ -254,14 +264,17 @@ public class KeepAliveService extends Service {
 
     private void createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm == null) return;
+            // Borrar el canal v1 (LOW) para que no quede duplicado en Ajustes → Notificaciones.
+            nm.deleteNotificationChannel(OLD_CHANNEL_ID);
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
                     "ChatWallet en segundo plano",
-                    NotificationManager.IMPORTANCE_LOW);
+                    NotificationManager.IMPORTANCE_MIN);
             channel.setDescription("Mantiene la conexión para recibir mensajes con la app cerrada");
             channel.setShowBadge(false);
-            NotificationManager nm = getSystemService(NotificationManager.class);
-            if (nm != null) nm.createNotificationChannel(channel);
+            nm.createNotificationChannel(channel);
         }
     }
 
