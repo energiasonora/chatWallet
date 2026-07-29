@@ -2715,6 +2715,23 @@
                 </div>
 
                 <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_scanner_title">
+                    Escáner QR</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_scanner_desc">Si el escáner no
+                    enfoca o no lee nada, puede haber elegido la cámara equivocada.</p>
+                <button id="resetScannerCameraBtn" data-i18n-key="settings_scanner_reset"
+                    class="w-full px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                    ⟳ Volver a detectar la cámara</button>
+
+                <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_blocked_title">
+                    Contactos bloqueados</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_blocked_desc">Sus mensajes se
+                    descartan sin avisarte. Desbloquear no recupera lo que ya se descartó.</p>
+                <div id="blockedContactsList"
+                    class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
+
+                <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_contacts_title">
                     Llevar contactos a otro dispositivo</h2>
                 <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_contacts_desc">Por QR entre
@@ -2750,7 +2767,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 1.92</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 1.95</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3013,7 +3030,7 @@
         <script type="module">
             // import { ContentTypeId } from "@xmtp/content-type-primitives";
             // window.ContentTypeId = ContentTypeId;
-            import { Client, getInboxIdForIdentifier } from '@xmtp/browser-sdk';
+            import { Client, getInboxIdForIdentifier, ConsentState } from '@xmtp/browser-sdk';
 
             // import { Client, ContentTypeId } from '@xmtp/browser-sdk';
             import { ReadReceiptCodec } from '@xmtp/content-type-read-receipt';
@@ -3024,6 +3041,7 @@
             window.Client = Client;
             // v6 no tiene Client.getInboxIdForAddress estático; el reemplazo es esta función suelta.
             window.getInboxIdForIdentifier = getInboxIdForIdentifier;
+            window.ConsentState = ConsentState;
             window.ReadReceiptCodec = ReadReceiptCodec;
             window.ReactionCodec = ReactionCodec;
             window.ReplyCodec = ReplyCodec;
@@ -4725,6 +4743,123 @@
             }
 
             // ─────────────────────────────────────────────────────────────
+            //  CONTACTOS BORRADOS / BLOQUEADOS — "lápidas"
+            //
+            //  Borrar un contacto solo lo sacaba del array `contacts`. Al
+            //  reabrir la wallet volvía, porque hay CUATRO vías que crean
+            //  contactos solas: el reconcile de no-leídos (recorre todas las
+            //  conversaciones XMTP), el restore del respaldo soberano (mergea
+            //  la agenda del blob), el stream en vivo y los broadcasts de
+            //  perfil DID. Peor: al re-crearse era "contacto nuevo", con la
+            //  marca de lectura en 0 → TODO su historial contaba como no leído.
+            //
+            //  Estas lápidas son la memoria de lo que el usuario borró:
+            //    · borrado (at): oculta lo viejo, pero un mensaje POSTERIOR al
+            //      borrado lo trae de vuelta — nunca perdemos en silencio un
+            //      mensaje real de alguien que se borró por error.
+            //    · bloqueado:    no vuelve nunca, ni con mensajes nuevos, y
+            //      además marca la conversación XMTP como Denied (eso sí viaja
+            //      a tus otras instalaciones por preferences.sync).
+            //
+            //  Van cifradas con la misma llave que la agenda: con quién dejaste
+            //  de hablar es metadata tan sensible como la agenda misma.
+            // ─────────────────────────────────────────────────────────────
+            const TOMBSTONES_STORAGE_KEY = 'xmtp-chat-tombstones';
+            let tombstones = {}; // { '0xabc…' (minúscula): { at: <ms>, blocked: <bool> } }
+
+            async function loadTombstones() {
+                tombstones = {};
+                const stored = localStorage.getItem(TOMBSTONES_STORAGE_KEY);
+                if (!stored) return;
+                try {
+                    tombstones = (await decryptContacts(stored)) || {};
+                } catch (e) {
+                    // Ilegible (llave distinta / blob corrupto): arrancar sin lápidas es seguro
+                    // — reaparecen contactos, no se pierde nada.
+                    console.warn('No se pudieron leer los contactos borrados:', e);
+                    tombstones = {};
+                }
+            }
+
+            async function saveTombstones() {
+                try {
+                    if (!currentWallet || !currentWallet.signingKey) return;
+                    const publicKey = currentWallet.signingKey.publicKey;
+                    const encrypted = await EthCrypto.encryptWithPublicKey(
+                        publicKey.substring(2), JSON.stringify(tombstones)
+                    );
+                    localStorage.setItem(TOMBSTONES_STORAGE_KEY, EthCrypto.cipher.stringify(encrypted));
+                } catch (e) {
+                    console.error('No se pudieron guardar los contactos borrados:', e);
+                }
+            }
+
+            // ¿Hay que suprimir a esta dirección? `msgTs` = timestamp del mensaje que la trae
+            // de vuelta (0 si la resurrección no viene de un mensaje: perfil, restore, reconcile).
+            function isSuppressedContact(address, msgTs = 0) {
+                if (!address) return false;
+                const t = tombstones[address.toLowerCase()];
+                if (!t) return false;
+                if (t.blocked) return true;
+                return !(msgTs > (t.at || 0)); // borrado: solo lo posterior al borrado resucita
+            }
+
+            function isBlockedContact(address) {
+                return !!(address && tombstones[address.toLowerCase()]?.blocked);
+            }
+
+            async function setTombstone(address, { blocked = false } = {}) {
+                if (!address) return;
+                tombstones[address.toLowerCase()] = { at: Date.now(), blocked };
+                await saveTombstones();
+            }
+
+            // El usuario lo re-agrega a mano (formulario, QR, importación): la lápida se levanta.
+            async function clearTombstone(address) {
+                if (!address) return;
+                const key = address.toLowerCase();
+                if (!tombstones[key]) return;
+                const wasBlocked = tombstones[key].blocked;
+                delete tombstones[key];
+                await saveTombstones();
+                if (wasBlocked) await setXmtpConsent(address, 'allowed');
+            }
+
+            // Consent XMTP (best-effort): persiste en la DB de XMTP y se sincroniza con tus
+            // otras instalaciones, así bloquear en el celu también bloquea en el navegador.
+            async function setXmtpConsent(address, state) {
+                if (!chatwalletxmtp || !address) return;
+                try {
+                    const target = String(address).toLowerCase();
+                    const convs = await chatwalletxmtp.conversations.list();
+                    for (const conv of convs) {
+                        let addr = null;
+                        try { addr = await getAddressFromInboxId(await conv.peerInboxId()); } catch (e) { continue; }
+                        if (!addr || addr.toLowerCase() !== target) continue;
+                        const value = state === 'allowed'
+                            ? (window.ConsentState?.Allowed ?? 1)
+                            : (window.ConsentState?.Denied ?? 2);
+                        await conv.updateConsentState(value);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('consent XMTP (no bloquea el borrado):', e);
+                }
+            }
+
+            // Borrar/bloquear de verdad: saca el contacto, deja la lápida, purga sus mensajes
+            // del store local (si no, el respaldo soberano los vuelve a subir y el restore
+            // los reinyecta) y, al bloquear, marca la conversación como Denied.
+            async function removeContactByAddress(address, { blocked = false } = {}) {
+                const idx = contacts.findIndex(c => c.address.toLowerCase() === address.toLowerCase());
+                if (idx > -1) contacts.splice(idx, 1);
+                await setTombstone(address, { blocked });
+                try { await msgStoreDeleteByPeer(address); } catch (e) { console.warn('purga de mensajes:', e); }
+                if (blocked) await setXmtpConsent(address, 'denied');
+                await saveContacts();
+            }
+
+            // ─────────────────────────────────────────────────────────────
             //  Exportar / Importar CONTACTOS por QR o texto pegado.
             //  Payload: CWC1|base64url(deflate-raw(JSON [[nombre,address,pubKey],…]))
             //  (CWC0| = sin comprimir, fallback si no hay CompressionStream).
@@ -4798,6 +4933,7 @@
                             address, unreadCount: 0, lastMessage: null, lastMessageTimestamp: 0,
                             status: 'offline', lastSeen: null, avatar: ANON_AVATAR, pubKey,
                         });
+                        await clearTombstone(address); // importado a propósito → levanta el borrado/bloqueo
                         added++;
                     } else {
                         let changed = false;
@@ -5022,6 +5158,9 @@
             }
 
             async function loadContacts() {
+                // Antes que nada: la memoria de lo que el usuario borró/bloqueó. Todas las vías
+                // que crean contactos solos la consultan, así que tiene que estar cargada primero.
+                await loadTombstones();
                 const storedContacts = localStorage.getItem(CONTACTS_STORAGE_KEY);
                 if (storedContacts) {
                     try {
@@ -5072,16 +5211,14 @@
                         let msgs = [];
                         try { msgs = await conv.messages({ limit: 1000n }); } catch (e) { continue; }
 
-                        // Respaldo soberano: esta pasada ya recorre todas las conversaciones con la
-                        // address resuelta → backfill del store propio de mensajes (dedup por id).
-                        captureXmtpMessages(msgs, addr, chatwalletxmtp.inboxId);
-
                         let idx = contacts.findIndex(c => c.address.toLowerCase() === addr.toLowerCase());
                         // Marca de agua de lectura: si el contacto nunca la tuvo (primera corrida con este código),
                         // asumimos leído todo hasta el último mensaje conocido para no inflar el badge de golpe.
+                        // Si fue borrado y vuelve por un mensaje nuevo, la marca es el momento del
+                        // borrado: se cuenta como no leído lo posterior, no su historial entero.
                         const watermark = idx > -1
                             ? (contacts[idx].lastReadTimestamp ?? (contacts[idx].lastMessageTimestamp || 0))
-                            : 0;
+                            : (tombstones[addr.toLowerCase()]?.at || 0);
 
                         let newest = 0, newestText = null, unread = 0;
                         for (const m of msgs) {
@@ -5100,12 +5237,24 @@
                             if (inbound && ts > watermark) unread++;
                         }
 
+                        // Borrado/bloqueado: no revivirlo por recorrer sus conversaciones viejas.
+                        // `newest` = mensaje más reciente de la conversación; si es posterior al
+                        // borrado (y no está bloqueado) sí vuelve, con lo nuevo únicamente.
+                        if (idx === -1 && isSuppressedContact(addr, newest)) continue;
+                        if (isBlockedContact(addr)) continue;
+
+                        // Respaldo soberano: esta pasada ya recorre todas las conversaciones con la
+                        // address resuelta → backfill del store propio de mensajes (dedup por id).
+                        // Va DESPUÉS del filtro: capturar mensajes de un contacto borrado sería
+                        // volver a llenar el store que el borrado acaba de purgar.
+                        captureXmtpMessages(msgs, addr, chatwalletxmtp.inboxId);
+
                         if (idx === -1) {
                             const shortAddress = addr.startsWith('0x') ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr.slice(0, 10) + '...';
                             contacts.push({
                                 name: shortAddress, address: addr, unreadCount: unread,
                                 lastMessage: newestText, lastMessageTimestamp: newest,
-                                status: 'offline', lastSeen: null, lastReadTimestamp: 0, avatar: ANON_AVATAR
+                                status: 'offline', lastSeen: null, lastReadTimestamp: watermark, avatar: ANON_AVATAR
                             });
                             idx = contacts.length - 1;
                         } else {
@@ -5209,6 +5358,26 @@
                     const req = tx.objectStore('messages').index('peer').getAll(peer.toLowerCase());
                     req.onsuccess = () => resolve((req.result || []).sort((a, b) => a.ts - b.ts));
                     req.onerror = () => reject(req.error);
+                });
+            }
+
+            // Purga los mensajes de un peer (al borrar/bloquear un contacto). Sin esto el
+            // respaldo soberano los vuelve a subir y el restore recrea el contacto borrado.
+            async function msgStoreDeleteByPeer(peer) {
+                const db = await msgStoreOpen();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('messages', 'readwrite');
+                    const req = tx.objectStore('messages').index('peer').openKeyCursor(IDBKeyRange.only(peer.toLowerCase()));
+                    let deleted = 0;
+                    req.onsuccess = () => {
+                        const cur = req.result;
+                        if (!cur) return;
+                        tx.objectStore('messages').delete(cur.primaryKey);
+                        deleted++;
+                        cur.continue();
+                    };
+                    tx.oncomplete = () => resolve(deleted);
+                    tx.onerror = () => reject(tx.error);
                 });
             }
 
@@ -5390,12 +5559,16 @@
                         throw new Error('El respaldo no corresponde a esta cuenta');
                     }
 
-                    const added = await msgStorePut(data.messages || []);
+                    // El respaldo es anterior al borrado: sus mensajes NO deben volver a entrar
+                    // para las direcciones borradas/bloqueadas (si no, el contacto revive solo).
+                    const restorable = (data.messages || []).filter(m => !isSuppressedContact(m.peer, m.ts || 0));
+                    const added = await msgStorePut(restorable);
 
                     // Mergear contactos: agregar los que faltan, completar nombre/último mensaje.
                     let contactsChanged = false;
                     for (const bc of (data.contacts || [])) {
                         if (!bc.address) continue;
+                        if (isSuppressedContact(bc.address, bc.lastMessageTimestamp || 0)) continue;
                         const idx = contacts.findIndex(c => c.address.toLowerCase() === bc.address.toLowerCase());
                         if (idx === -1) {
                             contacts.push({
@@ -5435,6 +5608,39 @@
             }
 
             // ── Estado en Configuración ──────────────────────────────────────
+            // ── Bloqueados en Configuración (única salida del bloqueo) ───────
+            function renderBlockedContacts() {
+                const el = document.getElementById('blockedContactsList');
+                if (!el) return;
+                const blocked = Object.entries(tombstones).filter(([, t]) => t.blocked);
+                el.innerHTML = '';
+                if (!blocked.length) {
+                    const p = document.createElement('p');
+                    p.className = 'text-xs text-gray-500 text-center';
+                    p.textContent = t('settings_blocked_none');
+                    el.appendChild(p);
+                    return;
+                }
+                for (const [address] of blocked) {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between gap-2';
+                    const addr = document.createElement('span');
+                    addr.className = 'font-mono text-xs text-gray-400 truncate';
+                    addr.textContent = `${address.slice(0, 6)}…${address.slice(-4)}`;
+                    const btn = document.createElement('button');
+                    btn.className = 'text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded flex-shrink-0';
+                    btn.textContent = t('settings_blocked_unblock');
+                    btn.addEventListener('click', async () => {
+                        await clearTombstone(address);
+                        renderBlockedContacts();
+                        showToast(t('settings_blocked_unblocked'), 'success');
+                    });
+                    row.appendChild(addr);
+                    row.appendChild(btn);
+                    el.appendChild(row);
+                }
+            }
+
             function renderChatBackupStatus() {
                 const el = document.getElementById('chatBackupStatus');
                 if (!el || !currentWallet) return;
@@ -5516,13 +5722,16 @@
                             <button data-address="${contact.address}" class="edit-contact-btn p-2 text-gray-500 hover:text-indigo-400 transition">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                             </button>
-                            <button data-address="${contact.address}" class="delete-contact-btn p-2 text-gray-500 hover:text-red-400 transition">
+                            <button data-address="${contact.address}" class="block-contact-btn p-2 text-gray-500 hover:text-orange-400 transition" title="Bloquear">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                            </button>
+                            <button data-address="${contact.address}" class="delete-contact-btn p-2 text-gray-500 hover:text-red-400 transition" title="Eliminar">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                             </button>
                         </div>
                     `;
                         contactEl.addEventListener('click', async (e) => {
-                            if (e.target.closest('.edit-contact-btn') || e.target.closest('.delete-contact-btn')) {
+                            if (e.target.closest('.edit-contact-btn') || e.target.closest('.delete-contact-btn') || e.target.closest('.block-contact-btn')) {
                                 return;
                             }
                             // Tap en el avatar → mostrar el DID del contacto en vez de abrir el chat.
@@ -5554,13 +5763,25 @@
                     btn.addEventListener('click', async (e) => {
                         e.stopPropagation();
                         const address = e.currentTarget.dataset.address;
-                        const index = contacts.findIndex(c => c.address === address);
-                        if (index > -1) {
-                            const contact = contacts[index];
-                            if (confirm(`¿Seguro que quieres eliminar a ${contact.name}?`)) {
-                                contacts.splice(index, 1);
-                                await saveContacts();
-                            }
+                        const contact = contacts.find(c => c.address === address);
+                        if (!contact) return;
+                        if (confirm(`¿Eliminar a ${contact.name}?\n\nSe borran el chat y su historial de este dispositivo. Si esa dirección te escribe un mensaje nuevo, el contacto vuelve a aparecer (para eso está "Bloquear").`)) {
+                            await removeContactByAddress(address, { blocked: false });
+                            showToast(`${contact.name} eliminado.`, 'success');
+                        }
+                    });
+                });
+
+                document.querySelectorAll('.block-contact-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const address = e.currentTarget.dataset.address;
+                        const contact = contacts.find(c => c.address === address);
+                        if (!contact) return;
+                        if (confirm(`¿Bloquear a ${contact.name}?\n\nSe borran el chat y su historial, y no vuelve a aparecer nunca: sus mensajes se descartan sin avisarte. Podés desbloquearlo en Configuración.`)) {
+                            await removeContactByAddress(address, { blocked: true });
+                            renderBlockedContacts();
+                            showToast(`${contact.name} bloqueado.`, 'success');
                         }
                     });
                 });
@@ -5614,6 +5835,7 @@
                         lastSeen: null
                     };
                     contacts.push(newContact);
+                    await clearTombstone(address); // lo agregás a mano → levanta el borrado/bloqueo
                 }
 
                 await saveContacts();
@@ -6074,7 +6296,21 @@
                                     console.warn("Fallo al resolver dirección de contacto:", e);
                                 }
 
+                                if (contactAddress && isBlockedContact(contactAddress)) {
+                                    // Bloqueado: se descarta entero (ni store, ni contacto, ni notificación).
+                                    console.log("🚫 Mensaje descartado de una dirección bloqueada:", contactAddress);
+                                    return;
+                                }
+                                if (contactAddress && isSuppressedContact(contactAddress, messageTimestamp)) {
+                                    // Borrado: mensaje anterior al borrado (backfill/resync) → sigue oculto.
+                                    return;
+                                }
                                 if (contactAddress) {
+                                    // Mensaje POSTERIOR al borrado: el contacto vuelve. Se levanta la lápida
+                                    // para que el reconcile no lo vuelva a filtrar.
+                                    const wasDeletedAt = tombstones[contactAddress.toLowerCase()]?.at || 0;
+                                    if (wasDeletedAt) await clearTombstone(contactAddress);
+
                                     // Respaldo soberano: persistir el mensaje en el store propio (dedup por id).
                                     captureXmtpMessages([message], contactAddress, chatwalletxmtp.inboxId);
 
@@ -6109,7 +6345,9 @@
                                             lastSeen: null,
                                             // Si es entrante y no lo leíste, marca en 0 para que el reconcile lo siga contando;
                                             // si lo abriste/lo enviaste vos, queda como leído hasta este mensaje.
-                                            lastReadTimestamp: (!isSentByMe && !isChatOpen) ? 0 : messageTimestamp
+                                            // Si vuelve de un borrado, la marca es el momento del borrado: no se
+                                            // cuenta como no leído todo el historial que ya habías descartado.
+                                            lastReadTimestamp: (!isSentByMe && !isChatOpen) ? wasDeletedAt : messageTimestamp
                                         });
                                     }
                                 } else if (!isSentByMe) {
@@ -7530,9 +7768,38 @@
             // → el QR queda borroso y no decodifica jamás. Sondeamos una vez las cámaras
             // traseras, elegimos la primera con autofoco continuo y cacheamos el deviceId.
             const SCANNER_CAMERA_KEY = 'cw-scanner-camera-v1';
+            // Un sondeo fallido (permiso a medias, o WebViews que devuelven capabilities vacías)
+            // cacheaba 'auto' PARA SIEMPRE: el único camino que borraba el caché era un start()
+            // fallido CON deviceId, y con 'auto' no hay deviceId. Resultado: ese teléfono quedaba
+            // con la lotería de facingMode de por vida (= la ultrawide sin foco) y sin forma de
+            // resetearlo. Ahora el 'auto' vence y hay un botón en Configuración.
+            const SCANNER_AUTO_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
+
+            // → { probe: true } = hay que sondear; { probe: false, id } = usar lo cacheado
+            //   (id null = "no hay mejor opción", queda el facingMode genérico).
+            function readScannerCameraCache() {
+                const raw = localStorage.getItem(SCANNER_CAMERA_KEY);
+                if (!raw) return { probe: true };
+                // Formato v1.84: string pelado (deviceId o 'auto'). El 'auto' viejo era eterno,
+                // así que lo tratamos como "sondear de nuevo" una única vez.
+                if (raw[0] !== '{') return raw === 'auto' ? { probe: true } : { probe: false, id: raw };
+                try {
+                    const o = JSON.parse(raw);
+                    if (o.id) return { probe: false, id: o.id };
+                    return (Date.now() - (o.at || 0) > SCANNER_AUTO_TTL_MS)
+                        ? { probe: true } : { probe: false, id: null };
+                } catch (e) { return { probe: true }; }
+            }
+
+            // Configuración → "Volver a detectar la cámara" (salida manual si quedó mal elegida).
+            function resetScannerCamera() {
+                localStorage.removeItem(SCANNER_CAMERA_KEY);
+                showToast(t('settings_scanner_reset_done'), 'success');
+            }
+
             async function pickScannerCamera() {
-                const cached = localStorage.getItem(SCANNER_CAMERA_KEY);
-                if (cached) return cached === 'auto' ? null : cached;
+                const cached = readScannerCameraCache();
+                if (!cached.probe) return cached.id;
                 let chosen = null;
                 try {
                     // Primer getUserMedia: dispara el permiso y habilita labels/capabilities
@@ -7550,8 +7817,9 @@
                             if (facing === 'environment' && hasAF) { chosen = cam.deviceId; break; }
                         } catch (e) { /* cámara ocupada/prohibida: probar la siguiente */ }
                     }
-                    // 'auto' = no encontramos mejor opción; queda el facingMode de siempre
-                    localStorage.setItem(SCANNER_CAMERA_KEY, chosen || 'auto');
+                    // id null = no encontramos mejor opción; queda el facingMode de siempre, pero
+                    // con fecha: a los 7 días se vuelve a sondear por si fue un fallo transitorio.
+                    localStorage.setItem(SCANNER_CAMERA_KEY, JSON.stringify({ id: chosen, at: Date.now() }));
                 } catch (e) { /* sin permiso todavía: que falle después en start() con su alert */ }
                 return chosen;
             }
@@ -8116,6 +8384,7 @@
                     const shortName = `${address.slice(0, 6)}...${address.slice(-4)}`;
                     const newContact = { name: shortName, address: address, unreadCount: 0, status: 'offline', lastSeen: null, avatar: ANON_AVATAR, pubKey: pubKey || null };
                     contacts.push(newContact);
+                    await clearTombstone(address); // escaneaste su QR a propósito → levanta el borrado/bloqueo
                     saveContacts();
                     await startChatWithContact(newContact);
                 }
@@ -8143,6 +8412,7 @@
                     const shortName = `${from.slice(0, 6)}...${from.slice(-4)}`;
                     contact = { name: shortName, address: from, unreadCount: 0, status: 'offline', lastSeen: null, avatar: ANON_AVATAR, pubKey: fromPk || null };
                     contacts.push(contact);
+                    await clearTombstone(from); // escaneaste su mensaje a propósito → levanta el borrado/bloqueo
                     saveContacts();
                 } else if (fromPk && contact.pubKey !== fromPk) {
                     // El mensaje trae la pública del emisor → habilita responder sin escaneo extra.
@@ -9168,6 +9438,10 @@
                         contacts[idx].profileUpdatedAt = profile.updatedAt;
                         // Wake push: topic ntfy del contacto (para despertarlo al mandarle mensajes).
                         if (profile.wakeTopic) contacts[idx].wakeTopic = profile.wakeTopic;
+                    } else if (isSuppressedContact(profile.did)) {
+                        // Borrado/bloqueado: un broadcast de perfil NO es motivo para revivirlo
+                        // (era la vía por la que las wallets olvidadas se re-agregaban solas).
+                        return;
                     } else {
                         const short = `${profile.did.slice(0, 6)}...${profile.did.slice(-4)}`;
                         contacts.push({
@@ -9504,8 +9778,11 @@
                     settingsModal.classList.add('flex');
                     listInstallations();
                     renderChatBackupStatus();
+                    renderBlockedContacts();
                 });
             }
+
+            document.getElementById('resetScannerCameraBtn')?.addEventListener('click', resetScannerCamera);
 
             // Respaldo soberano de chats: acciones manuales desde Configuración.
             const chatBackupNowBtn = document.getElementById('chatBackupNowBtn');
@@ -10213,6 +10490,15 @@
                     "settings_chatbackup_status_none": "Aún no hay respaldo. Se crea solo al chatear.",
                     "settings_chatbackup_last_backup": "Último respaldo",
                     "settings_chatbackup_messages": "mensajes",
+                    "settings_scanner_title": "Escáner QR",
+                    "settings_scanner_desc": "Si el escáner no enfoca o no lee nada, puede haber elegido la cámara equivocada.",
+                    "settings_scanner_reset": "⟳ Volver a detectar la cámara",
+                    "settings_scanner_reset_done": "Listo: se volverá a elegir la cámara al abrir el escáner.",
+                    "settings_blocked_title": "Contactos bloqueados",
+                    "settings_blocked_desc": "Sus mensajes se descartan sin avisarte. Desbloquear no recupera lo que ya se descartó.",
+                    "settings_blocked_none": "No bloqueaste a nadie.",
+                    "settings_blocked_unblock": "Desbloquear",
+                    "settings_blocked_unblocked": "Contacto desbloqueado.",
                     "settings_contacts_title": "Llevar contactos a otro dispositivo",
                     "settings_contacts_desc": "Por QR entre dos dispositivos, o copiando y pegando el texto (mismo teléfono). No viaja ninguna llave.",
                     "settings_contacts_export": "⇪ Exportar",
@@ -10270,6 +10556,15 @@
                     "settings_chatbackup_status_none": "No backup yet. Created automatically as you chat.",
                     "settings_chatbackup_last_backup": "Last backup",
                     "settings_chatbackup_messages": "messages",
+                    "settings_scanner_title": "QR scanner",
+                    "settings_scanner_desc": "If the scanner won't focus or reads nothing, it may have picked the wrong camera.",
+                    "settings_scanner_reset": "⟳ Detect the camera again",
+                    "settings_scanner_reset_done": "Done: the camera will be picked again next time you open the scanner.",
+                    "settings_blocked_title": "Blocked contacts",
+                    "settings_blocked_desc": "Their messages are discarded silently. Unblocking does not recover what was already discarded.",
+                    "settings_blocked_none": "You haven't blocked anyone.",
+                    "settings_blocked_unblock": "Unblock",
+                    "settings_blocked_unblocked": "Contact unblocked.",
                     "settings_contacts_title": "Move contacts to another device",
                     "settings_contacts_desc": "Via QR between two devices, or copy-paste the text (same phone). No key ever travels.",
                     "settings_contacts_export": "⇪ Export",
@@ -10327,6 +10622,15 @@
                     "settings_chatbackup_status_none": "Pas encore de sauvegarde. Créée automatiquement en discutant.",
                     "settings_chatbackup_last_backup": "Dernière sauvegarde",
                     "settings_chatbackup_messages": "messages",
+                    "settings_scanner_title": "Scanner QR",
+                    "settings_scanner_desc": "Si le scanner ne fait pas la mise au point ou ne lit rien, il a peut-être choisi la mauvaise caméra.",
+                    "settings_scanner_reset": "⟳ Redétecter la caméra",
+                    "settings_scanner_reset_done": "C'est fait : la caméra sera choisie à nouveau à la prochaine ouverture du scanner.",
+                    "settings_blocked_title": "Contacts bloqués",
+                    "settings_blocked_desc": "Leurs messages sont supprimés sans avertissement. Débloquer ne récupère pas ce qui a déjà été supprimé.",
+                    "settings_blocked_none": "Vous n'avez bloqué personne.",
+                    "settings_blocked_unblock": "Débloquer",
+                    "settings_blocked_unblocked": "Contact débloqué.",
                     "settings_contacts_title": "Transférer les contacts vers un autre appareil",
                     "settings_contacts_desc": "Par QR entre deux appareils, ou en copiant-collant le texte (même téléphone). Aucune clé ne voyage.",
                     "settings_contacts_export": "⇪ Exporter",

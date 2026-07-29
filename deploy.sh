@@ -28,8 +28,13 @@ sed -i '' -E "s/(const CACHE_NAME = ')[^']+(';)/\1chatwallet-cache-${NEW_NUM}\2/
 echo "✦ Service worker cache: chatwallet-cache-${NEW_NUM}"
 
 # ── 2b. Mantener TODO junto en la misma versión (PWA + APK) ──
-# Línea "Versión X.YY" del panel de ajustes
-sed -i '' -E "s/(Versión )${CUR_NUM}/\1${NEW_NUM}/" "$DAPP"
+# Línea "Versión X.YY" del panel de ajustes. OJO: se ancla al id, NO al texto "Versión",
+# porque desde la i18n (v1.93) hay un <span> en el medio ("Versión</span> 1.95") y el patrón
+# viejo dejó de matchear en silencio: la versión del panel quedó congelada en 1.92 mientras
+# el resto subía. No es cosmético — getCurrentVersion() lee de ahí, así que el auto-updater
+# se creía desactualizado para siempre y ofrecía bajar el APK que ya tenías instalado.
+sed -i '' -E "s|(id=\"settingsVersionText\".*)${CUR_NUM}|\1${NEW_NUM}|" "$DAPP"
+grep -q "id=\"settingsVersionText\".*${NEW_NUM}" "$DAPP" || { echo "✗ No se pudo bumpear la versión del panel de ajustes (¿cambió el markup?)"; exit 1; }
 # APK: versionName = misma versión; versionCode se incrementa (Android lo exige creciente)
 if [ -f "$GRADLE" ]; then
   sed -i '' -E "s/(versionName )\"[0-9]+\.[0-9]+\"/\1\"${NEW_NUM}\"/" "$GRADLE"
