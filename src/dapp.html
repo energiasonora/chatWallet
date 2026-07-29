@@ -1289,7 +1289,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.96 alpha</p>
+            <p class="text-sm text-gray-400">v 1.97 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2697,6 +2697,18 @@
                     class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
 
                 <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="wc_conn_title">
+                    Conexiones activas</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="wc_conn_desc">Apps vinculadas a tu
+                    wallet por XMTP para pedirte firmas. Tu llave privada nunca sale de acá.</p>
+                <div id="wcSessionsList"
+                    class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
+                <h3 class="text-xs text-center font-semibold text-gray-400 mt-2" data-i18n-key="wc_activity_title">
+                    Actividad reciente</h3>
+                <div id="wcActivityList"
+                    class="bg-gray-900/50 p-2 rounded-lg text-xs space-y-1 max-h-32 overflow-y-auto"></div>
+
+                <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300"
                     data-i18n-key="settings_chatbackup_title">Respaldo soberano de chats</h2>
                 <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_chatbackup_desc">Historial
@@ -2767,7 +2779,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 1.96</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 1.97</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -6203,6 +6215,10 @@
 
                 console.log("Iniciando streams de XMTP (Mensajes y Conversaciones)...");
 
+                // Rehidratar las sesiones cw:1 aprobadas ANTES de abrir el stream, para que
+                // los pedidos de firma que lleguen tras un reinicio del worker no se descarten.
+                if (typeof wcRestoreSessions === 'function') wcRestoreSessions();
+
                 // Stream para todos los mensajes (incluyendo los de nuevas conversaciones)
                 try {
                     messageStream = await chatwalletxmtp.conversations.streamAllMessages({
@@ -7991,7 +8007,11 @@
                     const dm = await chatwalletxmtp.conversations.createDmWithIdentifier({ identifier: inbox, identifierKind: 0 });
                     let peerInboxId = null;
                     try { peerInboxId = await dm.peerInboxId(); } catch (_) {}
-                    if (peerInboxId) { wcApprovedInboxes.add(peerInboxId); wcSessionChain.set(peerInboxId, chainId); }
+                    // Persistir la sesión (sobrevive recargas/reinicios del worker) + registrarla.
+                    if (peerInboxId) {
+                        wcAddSession({ ethInbox: inbox, peerInboxId, chainId });
+                        wcLogActivity({ kind: 'connect', peerInboxId, summary: wcShortId(inbox), result: 'approved' });
+                    }
                     // browser-sdk v6: texto plano va con sendText() — send() espera EncodedContent
                     await dm.sendText(JSON.stringify({ cw: 1, type: 'connect', address: currentWallet.address, chainId }));
                     wcToast('✅ Conectado a la dApp. Sus solicitudes aparecerán acá.');
@@ -8008,13 +8028,16 @@
                 const conv = await chatwalletxmtp.conversations.getConversationById(message.conversationId);
                 const reply = (obj) => conv && conv.sendText(JSON.stringify(Object.assign({ cw: 1, id }, obj)));
 
+                const pid = message.senderInboxId;
                 try {
                     if (data.method === 'personal_sign') {
                         const msg = data.params?.[0] ?? '';
+                        const resumen = String(msg).replace(/\s+/g, ' ').slice(0, 60);
                         const ok = await wcApprove('Firmar mensaje',
                             `La dApp pide firmar este mensaje:\n\n"${String(msg).slice(0, 180)}"\n\nEsto NO envía fondos.`, 'Firmar');
-                        if (!ok) return reply({ type: 'error', error: 'user rejected' });
+                        if (!ok) { wcLogActivity({ kind: 'sign', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected' }); }
                         const sig = await currentWallet.signMessage(msg);
+                        wcLogActivity({ kind: 'sign', peerInboxId: pid, summary: resumen, result: 'approved' });
                         return reply({ type: 'result', result: sig });
                     }
                     if (data.method === 'eth_sendTransaction') {
@@ -8025,18 +8048,22 @@
                         const walletChainId = Number((await provider.getNetwork()).chainId);
                         if (tx.chainId && Number(tx.chainId) !== walletChainId) {
                             wcToast(`⚠️ La dApp pide la red ${tx.chainId} pero ChatWallet está en la ${walletChainId}. Cambiá de red y reintentá.`);
+                            wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: 'red incorrecta (chainId ' + tx.chainId + ')', result: 'error' });
                             return reply({ type: 'error', error: `wrong network: wallet on chain ${walletChainId}, dApp requested ${tx.chainId}` });
                         }
                         const valEth = tx.value ? ethers.formatEther(BigInt(tx.value)) : '0';
+                        const resumen = '→ ' + wcShortId(tx.to) + ' · ' + valEth + ' ETH';
                         const ok = await wcApprove('Enviar transacción',
                             `La dApp pide ENVIAR una transacción:\n\nA: ${tx.to}\nValor: ${valEth} ETH\nchainId: ${tx.chainId}\n\nSe firmará y transmitirá con tu wallet.`, 'Enviar');
-                        if (!ok) return reply({ type: 'error', error: 'user rejected' });
+                        if (!ok) { wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected' }); }
                         const s = currentWallet.connect(provider);
                         const resp = await s.sendTransaction({ to: tx.to, data: tx.data || '0x', value: tx.value ? BigInt(tx.value) : 0n });
+                        wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: resumen, result: 'approved' });
                         return reply({ type: 'result', result: resp.hash });
                     }
                     return reply({ type: 'error', error: 'unsupported method ' + data.method });
                 } catch (e) {
+                    wcLogActivity({ kind: (data.method === 'eth_sendTransaction' ? 'tx' : 'sign'), peerInboxId: pid, summary: String(e.message || e).slice(0, 60), result: 'error' });
                     return reply({ type: 'error', error: String(e.message || e) });
                 }
             }
@@ -8069,6 +8096,84 @@
                 t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99999;background:#111827;color:#fff;border:1px solid #374151;border-radius:12px;padding:12px 18px;font-family:system-ui,sans-serif;font-size:0.85rem;box-shadow:0 12px 30px rgba(0,0,0,0.5);';
                 t.textContent = msg; document.body.appendChild(t);
                 setTimeout(() => t.remove(), 4000);
+            }
+
+            // ── Sesiones cw:1: persistencia + visibilidad ────────────────────────────
+            // Antes las sesiones vivían SOLO en memoria (wcApprovedInboxes): si el APK se
+            // recargaba / pasaba a segundo plano / el worker XMTP se reiniciaba, el set
+            // quedaba vacío y los pedidos de firma que llegaban después se descartaban en
+            // SILENCIO (el `return` de handleWalletConnectRpc). Ahora se persisten y se
+            // restauran, y se muestran en Configuración → Conexiones activas + un registro
+            // de actividad, para que se pueda VER el canal y qué se firmó.
+            const WC_SESSIONS_KEY = 'chatwallet-wc-sessions';
+            const WC_ACTIVITY_KEY = 'chatwallet-wc-activity';
+            function wcLoadSessions() { try { return JSON.parse(localStorage.getItem(WC_SESSIONS_KEY) || '[]'); } catch (_) { return []; } }
+            function wcSaveSessions(a) { try { localStorage.setItem(WC_SESSIONS_KEY, JSON.stringify(a)); } catch (_) { } }
+            function wcEthInboxFor(peerInboxId) { const s = wcLoadSessions().find(x => x.peerInboxId === peerInboxId); return s ? s.ethInbox : ''; }
+            function wcShortId(x) { x = String(x || ''); return x.length > 14 ? x.slice(0, 8) + '…' + x.slice(-4) : x; }
+            function wcAddSession(s) {
+                const list = wcLoadSessions().filter(x => x.peerInboxId !== s.peerInboxId);
+                list.unshift({ ethInbox: s.ethInbox, peerInboxId: s.peerInboxId, chainId: s.chainId, connectedAt: Date.now() });
+                wcSaveSessions(list);
+                if (s.peerInboxId) { wcApprovedInboxes.add(s.peerInboxId); wcSessionChain.set(s.peerInboxId, s.chainId); }
+                renderWcSessions();
+            }
+            function wcRemoveSession(peerInboxId) {
+                wcSaveSessions(wcLoadSessions().filter(x => x.peerInboxId !== peerInboxId));
+                wcApprovedInboxes.delete(peerInboxId); wcSessionChain.delete(peerInboxId);
+                renderWcSessions();
+            }
+            // Re-hidrata los sets en memoria desde storage. Llamado al (re)iniciar el stream
+            // de XMTP, así una sesión aprobada sobrevive a recargas y reinicios del worker.
+            function wcRestoreSessions() {
+                try {
+                    for (const s of wcLoadSessions()) {
+                        if (s.peerInboxId) { wcApprovedInboxes.add(s.peerInboxId); wcSessionChain.set(s.peerInboxId, s.chainId); }
+                    }
+                } catch (_) { }
+            }
+            function wcLogActivity(entry) {
+                try {
+                    const list = JSON.parse(localStorage.getItem(WC_ACTIVITY_KEY) || '[]');
+                    list.unshift(Object.assign({ ts: Date.now() }, entry));
+                    localStorage.setItem(WC_ACTIVITY_KEY, JSON.stringify(list.slice(0, 50)));
+                } catch (_) { }
+                renderWcActivity();
+            }
+            function renderWcSessions() {
+                const el = document.getElementById('wcSessionsList'); if (!el) return;
+                const list = wcLoadSessions();
+                el.innerHTML = '';
+                if (!list.length) { el.innerHTML = '<p class="text-gray-500 text-xs">' + t('wc_conn_none') + '</p>'; return; }
+                for (const s of list) {
+                    const row = document.createElement('div'); row.className = 'flex items-center justify-between gap-2';
+                    const info = document.createElement('div'); info.className = 'min-w-0';
+                    const a = document.createElement('div'); a.className = 'font-mono text-xs text-indigo-300 truncate'; a.textContent = wcShortId(s.ethInbox);
+                    const b = document.createElement('div'); b.className = 'text-[10px] text-gray-500'; b.textContent = 'chainId ' + (s.chainId || '?') + ' · ' + new Date(s.connectedAt).toLocaleString();
+                    info.appendChild(a); info.appendChild(b);
+                    const btn = document.createElement('button');
+                    btn.className = 'px-2 py-1 text-xs font-semibold text-red-300 bg-red-900/40 border border-red-800 rounded hover:bg-red-800/50 flex-none';
+                    btn.textContent = t('wc_disconnect');
+                    btn.onclick = () => { wcRemoveSession(s.peerInboxId); wcLogActivity({ kind: 'disconnect', peerInboxId: s.peerInboxId, result: 'approved' }); wcToast('🔌 ' + t('wc_disconnect')); };
+                    row.appendChild(info); row.appendChild(btn); el.appendChild(row);
+                }
+            }
+            function renderWcActivity() {
+                const el = document.getElementById('wcActivityList'); if (!el) return;
+                let list = []; try { list = JSON.parse(localStorage.getItem(WC_ACTIVITY_KEY) || '[]'); } catch (_) { }
+                el.innerHTML = '';
+                if (!list.length) { el.innerHTML = '<p class="text-gray-500 text-xs">' + t('wc_activity_none') + '</p>'; return; }
+                const kindLabel = k => k === 'sign' ? t('wc_act_sign') : k === 'tx' ? t('wc_act_tx') : k === 'connect' ? t('wc_act_connect') : t('wc_disconnect');
+                const resInfo = r => r === 'approved' ? [t('wc_res_approved'), 'text-green-400'] : r === 'rejected' ? [t('wc_res_rejected'), 'text-yellow-400'] : [t('wc_res_error'), 'text-red-400'];
+                for (const e of list.slice(0, 20)) {
+                    const row = document.createElement('div'); row.className = 'flex justify-between gap-2';
+                    const left = document.createElement('span'); left.className = 'text-gray-300 truncate';
+                    left.textContent = kindLabel(e.kind) + (e.summary ? ' · ' + e.summary : '');
+                    left.title = new Date(e.ts).toLocaleString();
+                    const [rtxt, rcls] = resInfo(e.result);
+                    const right = document.createElement('span'); right.className = rcls + ' flex-none'; right.textContent = rtxt;
+                    row.appendChild(left); row.appendChild(right); el.appendChild(row);
+                }
             }
 
             // ==========================================================================
@@ -9779,6 +9884,8 @@
                     listInstallations();
                     renderChatBackupStatus();
                     renderBlockedContacts();
+                    renderWcSessions();
+                    renderWcActivity();
                 });
             }
 
@@ -10508,6 +10615,18 @@
                     "settings_coldtx_button": "❄ Preparar transacción fría",
                     "settings_networks_title": "Gestionar Redes",
                     "settings_networks_button": "Abrir Gestor de Redes",
+                    "wc_conn_title": "Conexiones activas",
+                    "wc_conn_desc": "Apps vinculadas a tu wallet por XMTP para pedirte firmas. Tu llave privada nunca sale de acá.",
+                    "wc_conn_none": "No hay conexiones activas.",
+                    "wc_disconnect": "Desconectar",
+                    "wc_activity_title": "Actividad reciente",
+                    "wc_activity_none": "Sin actividad todavía.",
+                    "wc_act_sign": "Firma de mensaje",
+                    "wc_act_tx": "Transacción",
+                    "wc_act_connect": "Conexión",
+                    "wc_res_approved": "aprobada",
+                    "wc_res_rejected": "rechazada",
+                    "wc_res_error": "error",
                     "settings_version_label": "Versión",
                     "settings_github_link": "Ver en GitHub"
                 },
@@ -10574,6 +10693,18 @@
                     "settings_coldtx_button": "❄ Prepare cold transaction",
                     "settings_networks_title": "Manage Networks",
                     "settings_networks_button": "Open Network Manager",
+                    "wc_conn_title": "Active connections",
+                    "wc_conn_desc": "Apps linked to your wallet over XMTP to request signatures. Your private key never leaves here.",
+                    "wc_conn_none": "No active connections.",
+                    "wc_disconnect": "Disconnect",
+                    "wc_activity_title": "Recent activity",
+                    "wc_activity_none": "No activity yet.",
+                    "wc_act_sign": "Message signature",
+                    "wc_act_tx": "Transaction",
+                    "wc_act_connect": "Connection",
+                    "wc_res_approved": "approved",
+                    "wc_res_rejected": "rejected",
+                    "wc_res_error": "error",
                     "settings_version_label": "Version",
                     "settings_github_link": "View on GitHub"
                 },
@@ -10640,6 +10771,18 @@
                     "settings_coldtx_button": "❄ Préparer une transaction à froid",
                     "settings_networks_title": "Gérer les Réseaux",
                     "settings_networks_button": "Ouvrir le Gestionnaire de Réseaux",
+                    "wc_conn_title": "Connexions actives",
+                    "wc_conn_desc": "Apps liées à votre portefeuille via XMTP pour demander des signatures. Votre clé privée ne quitte jamais cet appareil.",
+                    "wc_conn_none": "Aucune connexion active.",
+                    "wc_disconnect": "Déconnecter",
+                    "wc_activity_title": "Activité récente",
+                    "wc_activity_none": "Aucune activité pour l'instant.",
+                    "wc_act_sign": "Signature de message",
+                    "wc_act_tx": "Transaction",
+                    "wc_act_connect": "Connexion",
+                    "wc_res_approved": "approuvée",
+                    "wc_res_rejected": "rejetée",
+                    "wc_res_error": "erreur",
                     "settings_version_label": "Version",
                     "settings_github_link": "Voir sur GitHub"
                 }
