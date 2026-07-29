@@ -836,6 +836,59 @@
         #messagesContainer {
             min-height: 0;
             overflow-x: hidden;
+            overscroll-behavior-y: contain;
+        }
+
+        /* ── Pull-to-refresh del chat ────────────────────
+           Píldora con spinner que baja al tirar del hilo hacia abajo.
+           Vive dentro de #chatView (position: relative) y se posiciona
+           sobre el borde superior de #messagesContainer. */
+        #chatPullRefresh {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            z-index: 30;
+            width: 34px;
+            height: 34px;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            background: rgba(31, 41, 55, 0.95);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, 0);
+        }
+
+        #chatPullRefresh .cpr-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #818cf8;
+            border-top-color: transparent;
+            border-radius: 9999px;
+        }
+
+        #chatPullRefresh.ready .cpr-spinner,
+        #chatPullRefresh.loading .cpr-spinner {
+            animation: cpr-spin 0.8s linear infinite;
+        }
+
+        @keyframes cpr-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        body.theme-light #chatPullRefresh {
+            background: #ffffff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+        }
+
+        body.theme-light #chatPullRefresh .cpr-spinner {
+            border-color: #4f46e5;
+            border-top-color: transparent;
         }
 
         /* ── QR Code in Wallet View ─────────────────────── */
@@ -1289,7 +1342,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.97 alpha</p>
+            <p class="text-sm text-gray-400">v 1.98 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2779,7 +2832,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 1.97</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 1.98</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3204,6 +3257,8 @@
             var chatwalletxmtp = null;
             var currentWallet = null;
             var currentConversation = null;
+            var currentChatContact = null;   // contacto del chat abierto (para recargar el hilo)
+            var chatOpenToken = 0;           // invalida cargas de chats que ya no están en pantalla
             var userAddress = null;
             var signer = null;
             var stream = null;
@@ -5959,6 +6014,10 @@
 
             // --- Chat ---
             async function startChatWithContact(contact) {
+                currentChatContact = contact;   // lo usa el pull-to-refresh para recargar el hilo
+                // Cada apertura invalida las cargas anteriores: si abrís B mientras A todavía
+                // sincroniza, la carga de A ya no pisa la pantalla (era otra fuente de hilos raros/vacíos).
+                chatOpenToken++;
                 const contactIndex = contacts.findIndex(c => c.address.toLowerCase() === contact.address.toLowerCase());
                 if (contactIndex > -1) {
                     contacts[contactIndex].unreadCount = 0;
@@ -6410,9 +6469,16 @@
                 }
             }
 
-            async function startOrLoadConversation(recipientAddress) {
+            async function startOrLoadConversation(recipientAddress, waited = 0) {
+                const token = chatOpenToken;
                 // Si está inicializando, esperamos un poco o mostramos el estado
                 if (!chatwalletxmtp && isXmtpInitializing) {
+                    // Espera ACOTADA: antes reintentaba para siempre y el chat quedaba con el
+                    // spinner "Iniciando chat..." eternamente si XMTP nunca terminaba de arrancar.
+                    if (waited >= 45) {
+                        showChatLoadError('El chat está tardando en iniciar.', new Error('timeout: init de XMTP'));
+                        return;
+                    }
                     console.log("Esperando a que XMTP inicialice...");
                     messagesContainer.innerHTML = `
                     <div class="flex flex-col items-center justify-center h-full">
@@ -6420,8 +6486,10 @@
                         <p class="text-gray-400 text-sm">Iniciando chat...</p>
                     </div>`;
 
-                    // Reintentar en un momento
-                    setTimeout(() => startOrLoadConversation(recipientAddress), 1000);
+                    // Reintentar en un momento (si seguimos en el mismo chat)
+                    setTimeout(() => {
+                        if (token === chatOpenToken) startOrLoadConversation(recipientAddress, waited + 1);
+                    }, 1000);
                     return;
                 }
 
@@ -6443,8 +6511,9 @@
                     console.warn('not an eth address, trying to resolve from inboxId');
                     try {
                         console.log(`Intentando createDm(${recipientAddress})...`);
-                        const newConversation = await chatwalletxmtp.conversations.createDm(recipientAddress);
+                        const newConversation = await withTimeout(chatwalletxmtp.conversations.createDm(recipientAddress), 20000, 'createDm');
                         console.log("✅ Conversación obtenida por InboxId:", newConversation.id);
+                        if (token !== chatOpenToken) return;   // ya se abrió otro chat
                         currentConversation = newConversation;
                         await loadAndStreamMessages(currentConversation);
                         await processMessageQueue();
@@ -6452,21 +6521,24 @@
                         statusEl.textContent = `Error: No se pudo iniciar la conversación.`;
                         console.error("Error en createDm (InboxId):", e);
                         currentConversation = null;
-                        messagesContainer.innerHTML = '';
+                        if (token === chatOpenToken) showChatLoadError('No se pudo abrir la conversación.', e);
                     }
                     return;
                 }
                 else {
                     try {
                         console.log(`Sincronizando conversaciones antes de crear DM con ${recipientAddress}...`);
-                        await chatwalletxmtp.conversations.sync();
+                        // Con timeout: si el worker WASM está dormido, sync() no vuelve nunca y el
+                        // chat se quedaba colgado en el loader (o en blanco) para siempre.
+                        await withTimeout(chatwalletxmtp.conversations.sync(), 20000, 'conversations.sync (abrir chat)');
 
                         console.log(`Intentando createDmWithIdentifier(${recipientAddress.toLowerCase()})...`);
-                        const newConversation = await chatwalletxmtp.conversations.createDmWithIdentifier({
+                        const newConversation = await withTimeout(chatwalletxmtp.conversations.createDmWithIdentifier({
                             identifier: recipientAddress.toLowerCase(),
                             identifierKind: 0 // Ethereum
-                        });
+                        }), 20000, 'createDmWithIdentifier');
                         console.log("✅ Conversación creada/obtenida:", newConversation.id);
+                        if (token !== chatOpenToken) return;   // ya se abrió otro chat
                         currentConversation = newConversation;
                         if (!currentConversation.peerAddress) {
                             console.log("Asignando peerAddress manualmente.");
@@ -6478,7 +6550,7 @@
                         statusEl.textContent = `Error: No se pudo iniciar la conversación. ¿Está la dirección en la red?`;
                         console.error("Error en createDmWithIdentifier:", e);
                         currentConversation = null;
-                        messagesContainer.innerHTML = '';
+                        if (token === chatOpenToken) showChatLoadError('No se pudo abrir la conversación.', e);
                     }
                 }
             }
@@ -6498,21 +6570,48 @@
                 }
             }
 
-            async function loadAndStreamMessages(conv) {
-                if (!conv) return;
+            // Estado de "no se pudo cargar el chat": en vez de dejar el hilo EN BLANCO (que era lo
+            // que pasaba y parecía un cuelgue), se explica qué pasó y se ofrece reintentar.
+            // El mismo reintento se dispara tirando del hilo hacia abajo (pull-to-refresh).
+            function showChatLoadError(title, error) {
+                if (!messagesContainer) return;
+                const detail = error && error.message ? String(error.message) : '';
+                const timedOut = /^timeout:/.test(detail);
                 messagesContainer.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full">
-                    <div class="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                    <p class="text-gray-400 text-sm">Sincronizando...</p>
+                <div class="flex flex-col items-center justify-center h-full p-4 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-10 h-10 text-yellow-400 mb-2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <p class="text-yellow-400 font-semibold">${title}</p>
+                    <p class="text-gray-400 text-xs mt-1">${timedOut ? 'La sincronización tardó demasiado.' : 'Hubo un problema al sincronizar.'} Deslizá hacia abajo o tocá el botón para reintentar.</p>
+                    <div class="flex items-center gap-2 mt-4">
+                        <button type="button" onclick="window.reloadCurrentChat && window.reloadCurrentChat()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs transition">Reintentar</button>
+                        ${timedOut ? '<button type="button" onclick="location.reload()" class="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs transition">Recargar app</button>' : ''}
+                    </div>
+                    ${detail ? `<p class="text-gray-600 text-[10px] mt-3 break-all">${detail}</p>` : ''}
                 </div>`;
-                processedMessages.clear();
+            }
+
+            // keepVisible: en una recarga manual (pull-to-refresh) no borramos el hilo hasta tener
+            // los mensajes nuevos, así un fallo de red no deja la pantalla vacía.
+            async function loadAndStreamMessages(conv, { keepVisible = false } = {}) {
+                if (!conv) return;
+                const token = chatOpenToken;
+                if (!keepVisible) {
+                    messagesContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full">
+                        <div class="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                        <p class="text-gray-400 text-sm">Sincronizando...</p>
+                    </div>`;
+                    processedMessages.clear();
+                }
                 handshakeShownInChat = false;
                 cancelReply();
                 hideReactionPicker();
 
                 try {
                     console.log("Sincronizando mensajes para conversación...", conv.id);
-                    await conv.sync();
+                    // Con timeout: el worker WASM de XMTP puede quedar wedged y sync() no vuelve nunca
+                    // (era la otra cara del "se cuelga y no muestra nada").
+                    await withTimeout(conv.sync(), 20000, 'conv.sync (cargar chat)');
                     // limit alto: sin él, messages() trunca al default del SDK y se "pierde" historial viejo.
                     const existingMessages = await conv.messages({ limit: 1000n });
                     console.log(`✅ ${existingMessages.length} mensajes recuperados de la base de datos local.`);
@@ -6546,6 +6645,9 @@
                     }
                     entries.sort((a, b) => a.ts - b.ts);
 
+                    if (token !== chatOpenToken) return;   // mientras cargábamos se abrió otro chat
+                    // Recién acá (ya con los mensajes en la mano) se tira el hilo viejo.
+                    processedMessages.clear();
                     messagesContainer.innerHTML = '';
                     if (entries.length === 0) {
                         messagesContainer.innerHTML = `
@@ -6557,7 +6659,13 @@
                     if (window.__updateRefreshBtn) window.__updateRefreshBtn();
                 } catch (error) {
                     console.error("Error al cargar mensajes:", error);
-                    messagesContainer.innerHTML = `<p class="text-center text-red-400">Error al cargar: ${error.message}`;
+                    if (token !== chatOpenToken) return;
+                    // En recarga manual con mensajes ya en pantalla: no los borramos, solo avisamos.
+                    if (keepVisible && messagesContainer.querySelector('.message-bubble')) {
+                        showToast('No se pudieron actualizar los mensajes. Reintentá en un momento.', 'error');
+                    } else {
+                        showChatLoadError('No se pudieron cargar los mensajes.', error);
+                    }
                 }
             }
 
@@ -6661,6 +6769,127 @@
                 messagesContainer.addEventListener('scroll', onScroll, { passive: true });
                 // no-op para compatibilidad con las llamadas existentes.
                 window.__updateRefreshBtn = () => { };
+            })();
+
+            // ══════════════════════════════════════════════════════════════════
+            //  PULL-TO-REFRESH DEL CHAT
+            //  A veces el hilo quedaba en blanco o colgado (worker XMTP dormido,
+            //  sync que nunca vuelve, stream muerto). Tirando hacia abajo desde
+            //  arriba del hilo se recargan los mensajes, con loader visible.
+            //  Es el mismo camino que usa el botón "Reintentar" del cartel de error.
+            // ══════════════════════════════════════════════════════════════════
+            let isReloadingChat = false;
+            async function reloadCurrentChat() {
+                if (isReloadingChat) return;
+                const contact = currentChatContact;
+                if (!contact) return;
+                isReloadingChat = true;
+                try {
+                    if (isOffline) { renderOfflineThread(contact); return; }
+                    if (currentConversation) {
+                        await loadAndStreamMessages(currentConversation, { keepVisible: true });
+                        // Además reabre los streams y refresca la lista (en background, sin bloquear el gesto).
+                        resyncMessages();
+                    } else {
+                        // No hay conversación: es justo el caso del chat en blanco. Se rearma desde cero.
+                        await startOrLoadConversation(contact.address);
+                    }
+                } catch (e) {
+                    console.warn('reloadCurrentChat:', e);
+                } finally {
+                    isReloadingChat = false;
+                }
+            }
+            window.reloadCurrentChat = reloadCurrentChat;
+
+            (function wirePullToRefresh() {
+                if (!messagesContainer) return;
+                const THRESHOLD = 64;   // px de arrastre (ya amortiguado) para disparar
+                const MAX = 96;         // tope del recorrido de la píldora
+                let pill = null, startY = 0, startX = 0, pulling = false, offset = 0, active = false;
+
+                function getPill() {
+                    if (pill) return pill;
+                    pill = document.createElement('div');
+                    pill.id = 'chatPullRefresh';
+                    pill.innerHTML = '<div class="cpr-spinner"></div>';
+                    (chatView || document.body).appendChild(pill);
+                    return pill;
+                }
+                function place(px, animate) {
+                    const p = getPill();
+                    // Centrada sobre el hilo (en apaisado el hilo es sólo la mitad izquierda).
+                    p.style.left = (messagesContainer.offsetLeft + messagesContainer.offsetWidth / 2) + 'px';
+                    p.style.top = messagesContainer.offsetTop + 'px';
+                    p.style.transition = animate ? 'transform .18s ease-out, opacity .18s ease-out' : 'none';
+                    p.style.opacity = Math.min(1, px / (THRESHOLD * 0.6));
+                    p.style.transform = `translate(-50%, ${px}px)`;
+                }
+                function hidePill() {
+                    if (!pill) return;
+                    pill.classList.remove('ready', 'loading');
+                    pill.style.transition = 'transform .2s ease-out, opacity .2s ease-out';
+                    pill.style.opacity = '0';
+                    pill.style.transform = 'translate(-50%, 0)';
+                }
+                async function trigger() {
+                    const p = getPill();
+                    p.classList.remove('ready');
+                    p.classList.add('loading');
+                    place(THRESHOLD, true);
+                    if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) { } }
+                    try { await reloadCurrentChat(); } finally { hidePill(); }
+                }
+
+                messagesContainer.addEventListener('touchstart', (e) => {
+                    if (e.touches.length !== 1 || isReloadingChat) { active = false; return; }
+                    // Sólo si el hilo ya está arriba del todo.
+                    active = messagesContainer.scrollTop <= 0;
+                    const t = e.touches[0];
+                    startY = t.clientY; startX = t.clientX; pulling = false; offset = 0;
+                }, { passive: true });
+
+                messagesContainer.addEventListener('touchmove', (e) => {
+                    if (!active || e.touches.length !== 1) return;
+                    const t = e.touches[0];
+                    const dy = t.clientY - startY, dx = t.clientX - startX;
+                    if (!pulling) {
+                        // Vertical hacia abajo y dominante: no robarle el gesto al swipe-responder.
+                        if (dy > 10 && dy > Math.abs(dx) * 1.4 && messagesContainer.scrollTop <= 0) pulling = true;
+                        else if (Math.abs(dx) > 10 || dy < -6) { active = false; return; }
+                        else return;
+                    }
+                    if (dy <= 0) { offset = 0; place(0, false); return; }
+                    // Resistencia: el recorrido se va frenando.
+                    offset = Math.min(MAX, dy * 0.45);
+                    place(offset, false);
+                    getPill().classList.toggle('ready', offset >= THRESHOLD);
+                    if (e.cancelable) e.preventDefault();   // evita el rebote/scroll del WebView
+                }, { passive: false });
+
+                const end = () => {
+                    if (!pulling) { active = false; return; }
+                    pulling = false; active = false;
+                    if (offset >= THRESHOLD) trigger();
+                    else hidePill();
+                    offset = 0;
+                };
+                messagesContainer.addEventListener('touchend', end);
+                messagesContainer.addEventListener('touchcancel', end);
+
+                // Escritorio (y verificación por CDP): rueda hacia arriba estando arriba del todo.
+                let wheelAcc = 0, wheelTimer = null;
+                messagesContainer.addEventListener('wheel', (e) => {
+                    if (isReloadingChat || messagesContainer.scrollTop > 0 || e.deltaY >= 0) { wheelAcc = 0; return; }
+                    wheelAcc += -e.deltaY;
+                    place(Math.min(MAX, wheelAcc * 0.45), false);
+                    getPill().classList.toggle('ready', wheelAcc * 0.45 >= THRESHOLD);
+                    clearTimeout(wheelTimer);
+                    wheelTimer = setTimeout(() => {
+                        if (wheelAcc * 0.45 >= THRESHOLD) trigger(); else hidePill();
+                        wheelAcc = 0;
+                    }, 140);
+                }, { passive: true });
             })();
 
             function isHandshakeMessage(content) {
