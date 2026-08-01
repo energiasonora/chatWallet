@@ -50,7 +50,10 @@ echo "✦ Build con Node $(node -v)…"
 # Las páginas de /tools son didácticas y se copian verbatim desde src/static/tools
 # (vía parcel-reporter-static-files-copy), NO como entries de Parcel: así no se les
 # reescriben los links relativos entre sí.
-yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html \
+# OJO: book-admin.html DEBE estar en esta lista. Es autocontenida (todo inline), pero si
+# no es entry, Parcel la considera salida huérfana con la cache compartida y la BORRA de
+# public/ en el siguiente deploy → el panel de ventas se cae con 404 sin avisar.
+yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html src/book-admin.html \
   --dist-dir public --public-url ./ --cache-dir .parcel-cache-build
 
 # ── 4. Deploy (Node 20, donde está firebase CLI) ──
@@ -58,5 +61,27 @@ nvm use 20.19.0 >/dev/null
 echo "✦ Deploy con Node $(node -v)…"
 firebase deploy --only hosting
 
+# ── 5. Verificación post-deploy ──
+# Una página que desaparece de public/ NO rompe el build ni el deploy: se cae en silencio
+# con 404 (le pasó a book-admin.html entre el 20/7 y el 1/8 de 2026). Si le pasa a book.html
+# se pierden ventas sin que nadie se entere, así que acá se chequea a mano.
 echo ""
+echo "✦ Verificando páginas críticas en producción…"
+FALLOS=0
+for RUTA in / /book.html /dapp.html /manifiesto.html /book-admin.html /tools/index.html; do
+  CODIGO=$(curl -s -o /dev/null -w '%{http_code}' "https://chatwallet.org${RUTA}" || echo "000")
+  if [ "$CODIGO" = "200" ]; then
+    echo "   ✓ ${RUTA} (${CODIGO})"
+  else
+    echo "   ✗ ${RUTA} (${CODIGO})  ← NO está publicada"
+    FALLOS=$((FALLOS + 1))
+  fi
+done
+
+echo ""
+if [ "$FALLOS" -gt 0 ]; then
+  echo "⚠️  Publicado v${NEW_NUM} PERO ${FALLOS} página(s) quedaron caídas."
+  echo "   Casi siempre es que falta como entry en el 'yarn parcel build' de arriba."
+  exit 1
+fi
 echo "✅ Publicado v${NEW_NUM} → https://chatwallet.org  (hard-refresh o reinstalar PWA para tomar el SW nuevo)"
