@@ -213,6 +213,21 @@
         }
 
         /* ── Cita dentro de una respuesta (reply) ── */
+        /* Autor de la burbuja en un chat de grupo (solo mensajes ajenos) */
+        .msg-sender {
+            display: block;
+            font-weight: 700;
+            font-size: .72rem;
+            line-height: 1;
+            margin-bottom: .3rem;
+            color: #a5b4fc;
+        }
+
+        body.theme-light .msg-sender { color: #4f46e5; }
+
+        /* Nombres dentro de una línea de sistema del grupo ("X agregó a Y") */
+        .sys-name { font-weight: 600; }
+
         .reply-quote {
             border-left: 3px solid rgba(255, 255, 255, .45);
             background: rgba(0, 0, 0, .18);
@@ -1042,6 +1057,46 @@
             background-color: #e5e7eb;
         }
 
+        /* ── El QR siempre entero, centrado y sin recortes ────────────────
+           #walletView centraba su contenido con flex a secas. Cuando el alto
+           disponible es MENOR que el contenido (ventana a media pantalla, o el
+           reflow al cerrar los avisos), un flex centrado desborda por LOS DOS
+           lados: la mitad de arriba se va fuera del contenedor y queda
+           inalcanzable — el QR aparecía comido desde el borde superior.
+           Dos capas de defensa:
+           1) el QR se achica para entrar en el alto que queda (la misma idea
+              que ya se usaba en apaisado), así entra entero casi siempre;
+           2) si aun así no entra, la vista scrollea y el centrado pasa a ser
+              por márgenes auto, que sí respetan el borde de arriba (mismo
+              patrón que los modales de más arriba). */
+        #walletView.active {
+            overflow-y: auto;
+            justify-content: flex-start;
+        }
+
+        #walletView>.flex-grow {
+            justify-content: flex-start;
+        }
+
+        #qr-code-wrapper {
+            margin-top: auto;
+        }
+
+        #walletView .relative.text-center {
+            margin-bottom: auto;
+        }
+
+        /* 100svh = alto real en móvil (descuenta la barra del navegador). Lo que
+           se resta es el cromado fijo: header, nav del footer, padding del main,
+           la address debajo del QR, el bloque de balance y la fila de botones.
+           --cw-notice-h lo mide JS (ver el ResizeObserver de #noticeStack): los
+           avisos aparecen y desaparecen, así que su alto no puede ser una
+           constante — sin esto, con los dos avisos abiertos el QR no se enteraba
+           de que le quedaban ~120px menos. */
+        #qr-code-wrapper>div {
+            max-width: clamp(150px, calc(100svh - 430px - var(--cw-notice-h, 0px)), 280px);
+        }
+
         /* ── Wallet en horizontal (celu apaisado) ─────────────────────────
            Mitad izquierda: QR completo con la address/copiar debajo (como está).
            Mitad derecha: arriba red + balance + gas + smartwallet, abajo los
@@ -1074,12 +1129,17 @@
                 grid-column: 1;
                 height: 100%;
                 padding: 0.25rem 0;
+                /* En el grid apaisado el margin:auto del modo vertical empujaría
+                   la celda hacia abajo en vez de centrarla. */
+                margin-top: 0;
             }
 
             /* El QR se achica para entrar COMPLETO en la altura disponible
-               (260px no entran en un celu apaisado) */
+               (260px no entran en un celu apaisado). --cw-notice-h descuenta los
+               avisos abiertos: en apaisado sobran ~120px de alto y sin esto el QR
+               se comía el borde de arriba con los dos banners visibles. */
             #qr-code-wrapper>div {
-                max-width: min(260px, calc(100vh - 205px));
+                max-width: clamp(110px, calc(100vh - 205px - var(--cw-notice-h, 0px)), 260px);
             }
 
             /* Bloque red + balance + gas + smartwallet: arriba a la derecha */
@@ -1087,6 +1147,7 @@
                 grid-row: 1;
                 grid-column: 2;
                 margin-top: 0;
+                margin-bottom: 0;
             }
 
             /* Botones: abajo a la derecha */
@@ -1342,7 +1403,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 1.99 alpha</p>
+            <p class="text-sm text-gray-400">v 2.00 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1571,15 +1632,42 @@
 
         </header>
 
-        <!-- Aviso de backup pendiente: rojo y EN EL FLUJO del layout (hijo del flex-col
-             #app-shell entre header y contenido → empuja el contenido, NO lo tapa ni se
-             superpone). Persistente en todas las vistas hasta confirmar "He guardado mis claves". -->
-        <div id="backupNagBanner"
-            class="hidden items-center justify-between gap-3 bg-red-600 text-white px-4 py-2 cursor-pointer shrink-0">
-            <span class="text-sm font-semibold">⚠️ <span data-i18n-key="backup_nag_text">Respaldá tu frase secreta: sin
-                    backup, perder este dispositivo es perder tu billetera.</span></span>
-            <span class="bg-white text-red-700 px-3 py-1 rounded text-sm font-bold shrink-0"
-                data-i18n-key="backup_nag_cta">Respaldar</span>
+        <!-- ── Pila de avisos ────────────────────────────────────────────────────────
+             Los dos avisos de la app (backup pendiente / instalar la PWA) viven acá:
+             a ancho completo, apilados bajo el header y EN EL FLUJO del layout (hijos del
+             flex-col #app-shell entre header y contenido → empujan el contenido, NO lo
+             tapan ni se superponen). El de la PWA vivía flotando cerca del footer, tapando
+             la nav; ahora los dos hablan el mismo idioma visual y los dos se pueden cerrar. -->
+        <div id="noticeStack" class="shrink-0">
+            <!-- Backup pendiente. Persistente en todas las vistas hasta confirmar "He guardado
+                 mis claves"; la ✕ lo silencia solo por esta sesión (ver dismissBackupNag). -->
+            <div id="backupNagBanner"
+                class="hidden items-center gap-3 bg-red-600 text-white px-4 py-2 shrink-0">
+                <span class="text-sm font-semibold flex-grow min-w-0">⚠️ <span data-i18n-key="backup_nag_text">Respaldá tu frase secreta: sin
+                        backup, perder este dispositivo es perder tu billetera.</span></span>
+                <button type="button" id="backupNagCta"
+                    class="bg-white text-red-700 px-3 py-1 rounded text-sm font-bold shrink-0"
+                    data-i18n-key="backup_nag_cta">Respaldar</button>
+                <button type="button" id="backupNagDismiss" title="Ocultar"
+                    class="text-white/80 hover:text-white text-2xl leading-none shrink-0 px-1">&times;</button>
+            </div>
+
+            <!-- Instalar la PWA. La ✕ acá sí es definitiva: es una sugerencia, no una advertencia. -->
+            <div id="pwaInstallBanner"
+                class="hidden items-center gap-3 bg-indigo-600 text-white px-4 py-2 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="shrink-0">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" x2="12" y1="15" y2="3" />
+                </svg>
+                <span id="pwaInstallText" class="text-sm font-medium flex-grow min-w-0">Instalar ChatWallet (PWA)</span>
+                <button type="button" id="pwaInstallBtn"
+                    class="bg-white text-indigo-600 px-3 py-1 rounded text-sm font-bold shrink-0">Instalar</button>
+                <button type="button" id="pwaDismissBtn" title="Ocultar"
+                    class="text-white/80 hover:text-white text-2xl leading-none shrink-0 px-1">&times;</button>
+            </div>
         </div>
 
         <!-- Main Content -->
@@ -1761,6 +1849,18 @@
                         </div>
                         <!-- Botones de acción en el header del chat -->
                         <div class="flex items-center space-x-2 ml-2 flex-shrink-0">
+                            <!-- Solo en grupos: reemplaza a enviar/solicitar (que necesitan un peer) -->
+                            <button id="groupInfoBtn" title="Info del grupo"
+                                class="hidden p-2 bg-indigo-600 hover:bg-indigo-700 rounded-full transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                    <circle cx="9" cy="7" r="4" />
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                </svg>
+                            </button>
                             <button id="headerSendBtn" title="Enviar Crypto"
                                 class="p-2 bg-indigo-600 hover:bg-indigo-700 rounded-full transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
@@ -2052,6 +2152,17 @@
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                             <polyline points="7 10 12 15 17 10" />
                             <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                    </button>
+                    <button id="newGroupBtnSidebar" title="Nuevo grupo"
+                        class="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <line x1="19" y1="8" x2="19" y2="14" />
+                            <line x1="22" y1="11" x2="16" y2="11" />
                         </svg>
                     </button>
                     <button id="addContactBtnSidebar" title="Añadir Contacto"
@@ -2625,6 +2736,78 @@
             </div>
         </div>
 
+        <!-- Modal Nuevo Grupo -->
+        <div id="newGroupModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-40">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
+                <h3 class="text-lg font-bold">Nuevo grupo</h3>
+                <div>
+                    <label for="newGroupName" class="block text-sm text-gray-400 mb-1">Nombre del grupo</label>
+                    <input type="text" id="newGroupName" maxlength="60" placeholder="Ej: Soberanos"
+                        class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">
+                        Miembros <span id="newGroupCount" class="text-gray-500">(0 seleccionados)</span>
+                    </label>
+                    <div id="newGroupMembers"
+                        class="max-h-56 overflow-y-auto bg-gray-900/50 rounded-lg p-2 space-y-1"></div>
+                    <p class="text-[11px] text-gray-500 mt-1">
+                        Solo aparecen contactos con dirección Ethereum: el grupo es un chat XMTP cifrado
+                        de punta a punta y necesita la identidad de cada miembro.
+                    </p>
+                </div>
+                <p id="newGroupStatus" class="text-xs min-h-[1rem] text-gray-400"></p>
+                <div class="flex justify-end space-x-3 pt-1">
+                    <button type="button" id="cancelNewGroup"
+                        class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500">Cancelar</button>
+                    <button type="button" id="createGroupBtn"
+                        class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Crear grupo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Info del Grupo -->
+        <div id="groupInfoModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-[55]">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
+                <div class="flex justify-between items-start gap-2">
+                    <div class="min-w-0">
+                        <h3 id="groupInfoName" class="text-lg font-bold truncate">Grupo</h3>
+                        <p id="groupInfoMeta" class="text-xs text-gray-400"></p>
+                    </div>
+                    <button id="closeGroupInfo" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+                </div>
+
+                <div id="groupInfoAdminBox" class="hidden space-y-2">
+                    <label for="groupRenameInput" class="block text-sm text-gray-400">Nombre del grupo</label>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="groupRenameInput" maxlength="60"
+                            class="flex-grow bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button id="groupRenameBtn"
+                            class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm flex-shrink-0">Guardar</button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-400 mb-1">Miembros</p>
+                    <div id="groupMembersList" class="max-h-52 overflow-y-auto bg-gray-900/50 rounded-lg p-2 space-y-1"></div>
+                </div>
+
+                <div id="groupAddBox" class="hidden">
+                    <p class="text-sm text-gray-400 mb-1">Añadir contactos</p>
+                    <div id="groupAddCandidates" class="max-h-40 overflow-y-auto bg-gray-900/50 rounded-lg p-2 space-y-1"></div>
+                    <button id="groupAddMembersBtn"
+                        class="mt-2 w-full px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm">Añadir seleccionados</button>
+                </div>
+
+                <p id="groupInfoStatus" class="text-xs min-h-[1rem] text-gray-400"></p>
+
+                <button id="leaveGroupBtn"
+                    class="w-full px-4 py-2 rounded-lg bg-red-700/80 hover:bg-red-700 text-white text-sm font-semibold">
+                    Salir del grupo
+                </button>
+            </div>
+        </div>
+
         <!-- Modal Comprar Cuota IPFS -->
         <div id="ipfsQuotaModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-[60]">
             <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
@@ -2832,7 +3015,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 1.99</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.00</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3266,6 +3449,25 @@
             var contacts = [];
             var provider = null; // Ethers provider
             const processedMessages = new Set();
+
+            // ═══════════════════ CHATS GRUPALES ═══════════════════
+            // Un grupo vive en la MISMA lista `contacts` que los DMs, como pseudo-contacto:
+            //   { isGroup: true, groupId: '<conversationId>', address: 'group:<conversationId>', name, … }
+            // La clave sintética en `address` es deliberada: así todo lo que ya está keyeado por
+            // address (no-leídos, previews, marca de lectura, lápidas, respaldo soberano, orden de
+            // la lista) sigue funcionando sin tocarlo. Ninguna clave de grupo pasa isAddress(),
+            // así que los caminos de wallet/pago no la confunden nunca con una dirección real.
+            const GROUP_KEY_PREFIX = 'group:';
+            const isGroupKey = (addr) => typeof addr === 'string' && addr.startsWith(GROUP_KEY_PREFIX);
+            const groupKeyOf = (convId) => GROUP_KEY_PREFIX + convId;
+            const groupIdFromKey = (key) => isGroupKey(key) ? key.slice(GROUP_KEY_PREFIX.length) : null;
+            // Group tiene addMembers(); Dm no. Es la distinción más barata y estable del SDK.
+            const convIsGroup = (conv) => !!conv && typeof conv.addMembers === 'function';
+            // Avatar por defecto de grupo (SVG inline: sin red, sirve igual en el APK).
+            const GROUP_AVATAR = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="20" fill="#4f46e5"/><g fill="#fff"><circle cx="15" cy="16" r="4.6"/><circle cx="26" cy="17" r="3.6"/><path d="M6 31c0-4.4 4-7.4 9-7.4s9 3 9 7.4z"/><path d="M24.5 31c0-3.2-1.4-5.6-3.6-7 1.5-.9 3.3-1.2 5.1-1.2 4 0 7 2.4 7 5.9V31z"/></g></svg>`);
+            // Grupo abierto en pantalla (equivalente de currentChatContact para el panel de info).
+            let currentGroup = null;
             // En un DM 1:1 XMTP puede haber más de un evento de sistema "Contacto iniciado" (grupos MLS
             // subyacentes stitcheados). Mostramos solo el primero por chat; este flag se resetea al abrir.
             let handshakeShownInChat = false;
@@ -3881,6 +4083,7 @@
                 if (viewId !== 'chatView') {
                     console.log('no es chatView, resetear currentConversation a null');
                     currentConversation = null;
+                    currentGroup = null;   // si no, el próximo DM renderizaría nombres de autor
                 }
 
                 if (viewId === 'historyView') {
@@ -4070,6 +4273,9 @@
                     // bajar el respaldo cifrado del nodo IPFS y restaurar historial + contactos.
                     await restoreChatBackupIfNeeded();
                     loadOfflineThreads();
+                    // Grupos: los que existen en XMTP pero todavía no en la lista de chats
+                    // (recién creados desde otro dispositivo, o restore en instalación nueva).
+                    try { if (await syncGroupsFromXmtp()) await saveContacts(); } catch (e) { console.warn('syncGroups al arrancar:', e); }
                     // Detectar y contar los mensajes que llegaron mientras la app estuvo cerrada/offline.
                     try {
                         const missed = await reconcileUnreadFromStore();
@@ -4869,6 +5075,12 @@
                 const t = tombstones[address.toLowerCase()];
                 if (!t) return false;
                 if (t.blocked) return true;
+                // Grupo del que te fuiste: la salida es DEFINITIVA aunque XMTP te siga contando
+                // como miembro. Un usuario sin permisos de admin no puede sacarse del grupo MLS
+                // (requestRemoval() es solo un pedido), así que sus mensajes siguen llegando: con
+                // la regla de "borrado" (lo posterior resucita) el grupo volvía a la lista con el
+                // mensaje siguiente. Se deshace desde Configuración.
+                if (t.left) return true;
                 return !(msgTs > (t.at || 0)); // borrado: solo lo posterior al borrado resucita
             }
 
@@ -4876,9 +5088,10 @@
                 return !!(address && tombstones[address.toLowerCase()]?.blocked);
             }
 
-            async function setTombstone(address, { blocked = false } = {}) {
+            async function setTombstone(address, { blocked = false, left = false, name = '' } = {}) {
                 if (!address) return;
-                tombstones[address.toLowerCase()] = { at: Date.now(), blocked };
+                // `name` solo para grupos: la lista de Configuración no puede mostrar "group:a1b2…"
+                tombstones[address.toLowerCase()] = { at: Date.now(), blocked, left, name: name || undefined };
                 await saveTombstones();
             }
 
@@ -4918,10 +5131,10 @@
             // Borrar/bloquear de verdad: saca el contacto, deja la lápida, purga sus mensajes
             // del store local (si no, el respaldo soberano los vuelve a subir y el restore
             // los reinyecta) y, al bloquear, marca la conversación como Denied.
-            async function removeContactByAddress(address, { blocked = false } = {}) {
+            async function removeContactByAddress(address, { blocked = false, left = false, name = '' } = {}) {
                 const idx = contacts.findIndex(c => c.address.toLowerCase() === address.toLowerCase());
                 if (idx > -1) contacts.splice(idx, 1);
-                await setTombstone(address, { blocked });
+                await setTombstone(address, { blocked, left, name });
                 try { await msgStoreDeleteByPeer(address); } catch (e) { console.warn('purga de mensajes:', e); }
                 if (blocked) await setXmtpConsent(address, 'denied');
                 await saveContacts();
@@ -5062,14 +5275,16 @@
             }
 
             async function openExportContactsModal() {
-                if (!contacts.length) { showToast('No hay contactos para exportar.', 'error'); return; }
+                // Solo contactos reales: un grupo no es transferible por QR (la membresía es del inbox).
+                const exportable = contacts.filter(c => !c.isGroup);
+                if (!exportable.length) { showToast('No hay contactos para exportar.', 'error'); return; }
                 exportContactsPages = [];
-                for (let i = 0; i < contacts.length; i += CONTACTS_QR_CHUNK) {
-                    exportContactsPages.push(await encodeContactsPayload(contacts.slice(i, i + CONTACTS_QR_CHUNK)));
+                for (let i = 0; i < exportable.length; i += CONTACTS_QR_CHUNK) {
+                    exportContactsPages.push(await encodeContactsPayload(exportable.slice(i, i + CONTACTS_QR_CHUNK)));
                 }
                 exportContactsPage = 0;
                 document.getElementById('exportContactsCount').textContent =
-                    `${contacts.length} contacto${contacts.length !== 1 ? 's' : ''}` +
+                    `${exportable.length} contacto${exportable.length !== 1 ? 's' : ''}` +
                     (exportContactsPages.length > 1 ? ` en ${exportContactsPages.length} QRs (escanealos en cualquier orden)` : '');
                 renderExportContactsPage();
                 const modal = document.getElementById('exportContactsModal');
@@ -5274,8 +5489,16 @@
                 const SKIP = new Set(['readReceipt', 'read-receipt', 'presence', 'profile', 'group_updated', 'reaction']);
                 for (const conv of convs) {
                     try {
+                        // Clave de chat: address del peer (DM) o 'group:<convId>' (grupo).
+                        const isG = convIsGroup(conv);
                         let addr = null;
-                        try { addr = await getAddressFromInboxId(await conv.peerInboxId()); } catch (e) { }
+                        if (isG) {
+                            // Grupo del que te fuiste / te sacaron: no vuelve por recorrer conversaciones.
+                            try { if (!(await conv.isActive())) continue; } catch (e) { }
+                            addr = groupKeyOf(conv.id);
+                        } else {
+                            try { addr = await getAddressFromInboxId(await conv.peerInboxId()); } catch (e) { }
+                        }
                         if (!addr) continue;
 
                         let msgs = [];
@@ -5319,7 +5542,15 @@
                         // volver a llenar el store que el borrado acaba de purgar.
                         captureXmtpMessages(msgs, addr, chatwalletxmtp.inboxId);
 
-                        if (idx === -1) {
+                        if (idx === -1 && isG) {
+                            // Grupo que todavía no está en la lista (te agregaron estando offline).
+                            upsertGroupContact(conv, {
+                                unreadCount: unread, lastMessage: newestText,
+                                lastMessageTimestamp: newest, lastReadTimestamp: watermark
+                            });
+                            summary.changed = true;
+                            idx = contacts.length - 1;
+                        } else if (idx === -1) {
                             const shortAddress = addr.startsWith('0x') ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr.slice(0, 10) + '...';
                             contacts.push({
                                 name: shortAddress, address: addr, unreadCount: unread,
@@ -5329,6 +5560,12 @@
                             summary.changed = true;
                             idx = contacts.length - 1;
                         } else {
+                            // El nombre/imagen del grupo son metadata compartida: puede haber cambiado.
+                            if (isG) {
+                                const before = contacts[idx].name;
+                                upsertGroupContact(conv);
+                                if (before !== contacts[idx].name) summary.changed = true;
+                            }
                             if (contacts[idx].lastReadTimestamp === undefined) contacts[idx].lastReadTimestamp = watermark;
                             if (newest > (contacts[idx].lastMessageTimestamp || 0)) {
                                 contacts[idx].lastMessage = newestText;
@@ -5366,9 +5603,9 @@
                             if (!c || !(s.newest > getNotifiedTs(s.address))) continue;
                             setNotifiedTs(s.address, s.newest);
                             let avatar = null;
-                            if (c.avatar && c.avatar !== ANON_AVATAR) { try { avatar = await avatarToBase64(c.avatar); } catch (e) { } }
+                            if (c.avatar && c.avatar !== ANON_AVATAR && c.avatar !== GROUP_AVATAR) { try { avatar = await avatarToBase64(c.avatar); } catch (e) { } }
                             await NativeKeepAlive.showMessage({
-                                title: c.name || s.name,
+                                title: c.isGroup ? `👥 ${c.name || s.name}` : (c.name || s.name),
                                 body: s.count > 1 ? `${s.count} mensajes nuevos` : (s.preview || 'Mensaje nuevo'),
                                 address: c.address,
                                 avatar,
@@ -5499,6 +5736,9 @@
                     typeId,
                     content,
                     ts: message.sentAt ? message.sentAt.getTime() : Date.now(),
+                    // En un grupo el autor no se deduce del hilo: sin esto, al restaurar desde el
+                    // respaldo todas las burbujas ajenas quedarían sin nombre.
+                    sender: message.senderInboxId || null,
                 };
             }
 
@@ -5524,6 +5764,7 @@
                     contentType: { typeId: r.typeId || 'text' },
                     sentAt: new Date(r.ts),
                     sentAtNs: r.ts, // autoDetectDate maneja ms
+                    senderInboxId: r.sender || null, // autor (grupos); null en registros viejos
                 };
             }
 
@@ -5565,6 +5806,10 @@
                         lastMessage: c.lastMessage, lastMessageTimestamp: c.lastMessageTimestamp,
                         lastReadTimestamp: c.lastReadTimestamp,
                         pubKey: c.pubKey || undefined, // handshake offline: sin esto, el QR frío pide re-escanear identidad
+                        // Grupos: sin estas dos, al restaurar quedaba una fila que al abrirla
+                        // intentaba un DM contra la cadena "group:…" y explotaba.
+                        isGroup: c.isGroup || undefined,
+                        groupId: c.groupId || undefined,
                     }));
                     const payload = new TextEncoder().encode(JSON.stringify({
                         v: 1,
@@ -5653,13 +5898,19 @@
                         if (isSuppressedContact(bc.address, bc.lastMessageTimestamp || 0)) continue;
                         const idx = contacts.findIndex(c => c.address.toLowerCase() === bc.address.toLowerCase());
                         if (idx === -1) {
+                            const bcIsGroup = !!bc.isGroup && !!bc.groupId;
                             contacts.push({
                                 name: bc.name || bc.address.slice(0, 10) + '...', address: bc.address,
                                 unreadCount: 0, lastMessage: bc.lastMessage || null,
                                 lastMessageTimestamp: bc.lastMessageTimestamp || 0,
                                 lastReadTimestamp: bc.lastReadTimestamp ?? (bc.lastMessageTimestamp || 0),
-                                status: 'offline', lastSeen: null, avatar: ANON_AVATAR,
+                                status: 'offline', lastSeen: null,
+                                avatar: bcIsGroup ? GROUP_AVATAR : ANON_AVATAR,
                                 pubKey: bc.pubKey || null,
+                                // La membresía MLS del grupo viaja con el inbox, no con el respaldo:
+                                // al sincronizar, la instalación nueva recupera la conversación sola.
+                                isGroup: bcIsGroup || undefined,
+                                groupId: bcIsGroup ? bc.groupId : undefined,
                             });
                             contactsChanged = true;
                         } else {
@@ -5694,7 +5945,9 @@
             function renderBlockedContacts() {
                 const el = document.getElementById('blockedContactsList');
                 if (!el) return;
-                const blocked = Object.entries(tombstones).filter(([, t]) => t.blocked);
+                // Además de los bloqueados, los grupos de los que te fuiste: como la salida es
+                // definitiva (ver isSuppressedContact), esta lista es la única forma de volver.
+                const blocked = Object.entries(tombstones).filter(([, t]) => t.blocked || t.left);
                 el.innerHTML = '';
                 if (!blocked.length) {
                     const p = document.createElement('p');
@@ -5703,19 +5956,26 @@
                     el.appendChild(p);
                     return;
                 }
-                for (const [address] of blocked) {
+                for (const [address, tomb] of blocked) {
                     const row = document.createElement('div');
                     row.className = 'flex items-center justify-between gap-2';
                     const addr = document.createElement('span');
                     addr.className = 'font-mono text-xs text-gray-400 truncate';
-                    addr.textContent = `${address.slice(0, 6)}…${address.slice(-4)}`;
+                    // Un grupo no tiene address legible: se muestra su nombre.
+                    addr.textContent = tomb.left
+                        ? `👥 ${tomb.name || 'Grupo'}`
+                        : `${address.slice(0, 6)}…${address.slice(-4)}`;
                     const btn = document.createElement('button');
                     btn.className = 'text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded flex-shrink-0';
-                    btn.textContent = t('settings_blocked_unblock');
+                    btn.textContent = tomb.left ? 'Volver a mostrar' : t('settings_blocked_unblock');
                     btn.addEventListener('click', async () => {
                         await clearTombstone(address);
+                        // Grupo: sin este barrido no reaparece hasta el próximo resync/arranque.
+                        if (tomb.left) {
+                            try { if (await syncGroupsFromXmtp()) await saveContacts(); } catch (e) { console.warn('recuperar grupo:', e); }
+                        }
                         renderBlockedContacts();
-                        showToast(t('settings_blocked_unblocked'), 'success');
+                        showToast(tomb.left ? 'Grupo restaurado.' : t('settings_blocked_unblocked'), 'success');
                     });
                     row.appendChild(addr);
                     row.appendChild(btn);
@@ -5750,6 +6010,368 @@
                 }
             }
 
+            // ═════════════════ GRUPOS: modelo y operaciones ═════════════════
+
+            // Devuelve el pseudo-contacto del grupo (o undefined).
+            function findGroupContact(groupId) {
+                const key = groupKeyOf(groupId).toLowerCase();
+                return contacts.find(c => c.isGroup && c.address.toLowerCase() === key);
+            }
+
+            // Crea/actualiza el pseudo-contacto a partir de una conversación de grupo de XMTP.
+            // Es la ÚNICA puerta de entrada de un grupo a la lista de chats: cualquier camino
+            // nuevo (stream, reconcile, creación local, resync) tiene que pasar por acá.
+            function upsertGroupContact(conv, extra = {}) {
+                if (!convIsGroup(conv)) return null;
+                const key = groupKeyOf(conv.id);
+                let c = findGroupContact(conv.id);
+                if (!c) {
+                    c = {
+                        isGroup: true,
+                        groupId: conv.id,
+                        address: key,
+                        name: conv.name || 'Grupo',
+                        avatar: conv.imageUrl || GROUP_AVATAR,
+                        unreadCount: 0,
+                        lastMessage: null,
+                        lastMessageTimestamp: conv.createdAt ? conv.createdAt.getTime() : Date.now(),
+                        lastReadTimestamp: 0,
+                        status: 'offline',
+                        lastSeen: null,
+                        memberCount: 0
+                    };
+                    contacts.push(c);
+                } else {
+                    // El nombre/imagen del grupo son metadata compartida: mandan los de XMTP.
+                    if (conv.name) c.name = conv.name;
+                    if (conv.imageUrl) c.avatar = conv.imageUrl;
+                    if (!c.avatar) c.avatar = GROUP_AVATAR;
+                    c.groupId = conv.id;
+                }
+                Object.assign(c, extra);
+                return c;
+            }
+
+            // Direcciones ETH de los miembros (resuelve inboxId → address, con la caché de siempre).
+            async function groupMemberAddresses(conv) {
+                if (!convIsGroup(conv)) return [];
+                let members = [];
+                try { members = await conv.members(); } catch (e) { return []; }
+                const out = [];
+                for (const m of members) {
+                    const inboxId = m.inboxId || m.inbox_id;
+                    if (!inboxId) continue;
+                    let addr = null;
+                    // El propio GroupMember suele traer los identifiers: evita un round-trip por miembro.
+                    const ids = m.accountIdentifiers || m.accountAddresses || m.identifiers;
+                    if (ids && ids.length) {
+                        const first = ids[0];
+                        addr = typeof first === 'string' ? first : (first.identifier || first.address || first.accountAddress);
+                    }
+                    if (!addr) { try { addr = await getAddressFromInboxId(inboxId); } catch (e) { } }
+                    out.push({ inboxId, address: addr || null });
+                }
+                return out;
+            }
+
+            // Nombre a mostrar para el autor de un mensaje dentro de un grupo.
+            // Cachea inboxId → etiqueta para no re-resolver en cada burbuja.
+            const groupSenderLabelCache = new Map();
+            function groupSenderLabel(inboxId) {
+                if (!inboxId) return 'Alguien';
+                if (chatwalletxmtp && inboxId === chatwalletxmtp.inboxId) return 'Vos';
+                if (groupSenderLabelCache.has(inboxId)) return groupSenderLabelCache.get(inboxId);
+                const fallback = inboxId.slice(0, 8) + '…';
+                groupSenderLabelCache.set(inboxId, fallback);
+                // Resolución asíncrona: al volver, repinta las burbujas que quedaron con el fallback.
+                getAddressFromInboxId(inboxId).then(addr => {
+                    if (!addr) return;
+                    const c = contacts.find(x => !x.isGroup && x.address && x.address.toLowerCase() === addr.toLowerCase());
+                    const label = c ? c.name : (addr.startsWith('0x') ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr.slice(0, 10) + '…');
+                    if (groupSenderLabelCache.get(inboxId) === label) return;
+                    groupSenderLabelCache.set(inboxId, label);
+                    document.querySelectorAll(`.msg-sender[data-inbox="${inboxId}"], .sys-name[data-inbox="${inboxId}"]`)
+                        .forEach(el => { el.textContent = label; });
+                }).catch(() => { });
+                return fallback;
+            }
+
+            // Trae de XMTP los grupos que todavía no están en la lista de chats (o que cambiaron
+            // de nombre). Corre en el arranque y en cada resync: sin esto, un grupo al que te
+            // agregan desde otro dispositivo no aparece hasta que alguien escriba en él.
+            async function syncGroupsFromXmtp() {
+                if (!chatwalletxmtp) return false;
+                let convs = [];
+                try { convs = await chatwalletxmtp.conversations.list(); } catch (e) { return false; }
+                let changed = false;
+                for (const conv of convs) {
+                    if (!convIsGroup(conv)) continue;
+                    // Grupos de los que te fuiste / te sacaron: no se resucitan solos.
+                    if (isSuppressedContact(groupKeyOf(conv.id))) continue;
+                    try { if (!(await conv.isActive())) continue; } catch (e) { }
+                    const before = findGroupContact(conv.id);
+                    const beforeName = before?.name, beforeCount = before?.memberCount;
+                    const c = upsertGroupContact(conv);
+                    // Cantidad de miembros para la fila de la lista: sin esto solo se sabía al
+                    // abrir el grupo (la fila mostraba 👥 pelado hasta la primera visita).
+                    try { c.memberCount = (await conv.members()).length; } catch (e) { }
+                    if (!before || beforeName !== c.name || beforeCount !== c.memberCount) changed = true;
+                }
+                return changed;
+            }
+
+            // Crea el grupo en XMTP y lo abre. `addresses` son direcciones ETH de contactos.
+            async function createGroupChat(name, addresses) {
+                if (!chatwalletxmtp) throw new Error('El chat todavía no está listo.');
+                const identifiers = addresses.map(a => ({ identifier: a.toLowerCase(), identifierKind: 0 }));
+                const conv = await withTimeout(
+                    chatwalletxmtp.conversations.createGroupWithIdentifiers(identifiers, {
+                        groupName: name,
+                        groupImageUrlSquare: ''
+                    }), 30000, 'createGroupWithIdentifiers');
+                // El SDK no siempre refleja el nombre en el objeto recién creado.
+                try { if (conv.name !== name) await conv.updateName(name); } catch (e) { console.warn('updateName al crear:', e); }
+                const c = upsertGroupContact(conv, { name, memberCount: addresses.length + 1, lastMessageTimestamp: Date.now() });
+                await saveContacts();
+                return { conv, contact: c };
+            }
+
+            // Aviso de wake a TODOS los miembros del grupo (menos yo). Best-effort, en paralelo:
+            // sin esto, en un grupo solo se despertaría el APK de quien tenga el chat abierto.
+            async function pingWakeGroup(conv) {
+                try {
+                    if (!convIsGroup(conv)) return;
+                    const members = await groupMemberAddresses(conv);
+                    const seen = new Set();
+                    for (const m of members) {
+                        if (!m.address) continue;
+                        if (chatwalletxmtp && m.inboxId === chatwalletxmtp.inboxId) continue;
+                        const c = contacts.find(x => !x.isGroup && x.address && x.address.toLowerCase() === m.address.toLowerCase());
+                        if (!c || !c.wakeTopic || seen.has(c.wakeTopic)) continue;
+                        seen.add(c.wakeTopic);
+                        const ctrl = new AbortController();
+                        const timer = setTimeout(() => ctrl.abort(), 4000);
+                        fetch(`${NTFY_BASE}/${encodeURIComponent(c.wakeTopic)}`, { method: 'POST', body: '', signal: ctrl.signal })
+                            .catch(() => { }).finally(() => clearTimeout(timer));
+                    }
+                } catch (e) { console.warn('pingWakeGroup:', e); }
+            }
+
+            // Salir de un grupo: primero en XMTP (para que el resto lo vea), después local.
+            // Se deja lápida, así el reconcile/stream no lo resucitan solos.
+            async function leaveGroupChat(contact) {
+                if (!contact || !contact.isGroup) return;
+                try {
+                    const conv = await chatwalletxmtp?.conversations.getConversationById(contact.groupId);
+                    if (conv) {
+                        // Un admin/superadmin puede sacarse a sí mismo; el resto pide la baja.
+                        try { await conv.removeMembers([chatwalletxmtp.inboxId]); }
+                        catch (e) {
+                            console.warn('removeMembers(self) falló, pidiendo baja:', e);
+                            try { await conv.requestRemoval(); } catch (e2) { console.warn('requestRemoval:', e2); }
+                        }
+                    }
+                } catch (e) { console.warn('leaveGroupChat (XMTP):', e); }
+                chatKeyByConvId.delete(contact.groupId);
+                await removeContactByAddress(contact.address, { left: true, name: contact.name });
+            }
+
+            // ── Modal: Nuevo grupo ──────────────────────────────────────────
+            const newGroupSelection = new Set();   // addresses (lowercase) elegidas
+
+            function openNewGroupModal() {
+                if (isOffline) { showToast('Los grupos necesitan conexión: el modo frío es 1 a 1.', 'info'); return; }
+                newGroupSelection.clear();
+                const nameEl = document.getElementById('newGroupName');
+                const statusEl2 = document.getElementById('newGroupStatus');
+                if (nameEl) nameEl.value = '';
+                if (statusEl2) statusEl2.textContent = '';
+                renderNewGroupMembers();
+                const m = document.getElementById('newGroupModal');
+                m.classList.remove('hidden'); m.classList.add('flex');
+                closeSidebar();
+            }
+
+            function closeNewGroupModal() {
+                const m = document.getElementById('newGroupModal');
+                m.classList.add('hidden'); m.classList.remove('flex');
+            }
+
+            // Candidatos = contactos reales con dirección ETH. Se excluyen los grupos (no se
+            // anidan) y las stealth meta-addresses (no son una identidad XMTP).
+            function groupCandidateContacts() {
+                return contacts.filter(c => !c.isGroup && c.address && ethers.isAddress(c.address));
+            }
+
+            function renderNewGroupMembers() {
+                const box = document.getElementById('newGroupMembers');
+                const countEl = document.getElementById('newGroupCount');
+                if (!box) return;
+                const cands = groupCandidateContacts();
+                box.innerHTML = '';
+                if (cands.length === 0) {
+                    box.innerHTML = `<p class="text-xs text-gray-500 p-2">No tenés contactos con dirección Ethereum todavía.</p>`;
+                } else {
+                    for (const c of cands) {
+                        const row = document.createElement('label');
+                        row.className = 'flex items-center gap-2 p-2 rounded hover:bg-gray-700/60 cursor-pointer';
+                        const cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.className = 'accent-indigo-500 flex-shrink-0';
+                        cb.checked = newGroupSelection.has(c.address.toLowerCase());
+                        cb.addEventListener('change', () => {
+                            const k = c.address.toLowerCase();
+                            if (cb.checked) newGroupSelection.add(k); else newGroupSelection.delete(k);
+                            if (countEl) countEl.textContent = `(${newGroupSelection.size} seleccionados)`;
+                        });
+                        const img = document.createElement('img');
+                        img.src = c.avatar || ANON_AVATAR;
+                        img.className = 'w-7 h-7 rounded-full object-cover flex-shrink-0';
+                        const span = document.createElement('span');
+                        span.className = 'text-sm truncate';
+                        span.textContent = c.name;
+                        row.append(cb, img, span);
+                        box.appendChild(row);
+                    }
+                }
+                if (countEl) countEl.textContent = `(${newGroupSelection.size} seleccionados)`;
+            }
+
+            async function handleCreateGroup() {
+                const nameEl = document.getElementById('newGroupName');
+                const statusEl2 = document.getElementById('newGroupStatus');
+                const btn = document.getElementById('createGroupBtn');
+                const name = (nameEl?.value || '').trim();
+                if (!name) { if (statusEl2) statusEl2.textContent = 'Poné un nombre al grupo.'; return; }
+                if (newGroupSelection.size === 0) { if (statusEl2) statusEl2.textContent = 'Elegí al menos un contacto.'; return; }
+                if (btn) btn.disabled = true;
+                if (statusEl2) { statusEl2.className = 'text-xs min-h-[1rem] text-gray-400'; statusEl2.textContent = 'Creando el grupo…'; }
+                try {
+                    const { contact } = await createGroupChat(name, [...newGroupSelection]);
+                    closeNewGroupModal();
+                    showToast(`👥 Grupo "${name}" creado.`, 'success');
+                    await startChatWithContact(contact);
+                } catch (e) {
+                    console.error('createGroup:', e);
+                    if (statusEl2) {
+                        statusEl2.className = 'text-xs min-h-[1rem] text-red-400';
+                        // Causa nº1: alguien de la lista no tiene identidad XMTP (nunca abrió ChatWallet).
+                        statusEl2.textContent = /not.*regist|identity|inbox/i.test(String(e.message || e))
+                            ? 'Alguno de los contactos todavía no tiene chat activo (nunca abrió ChatWallet).'
+                            : `No se pudo crear el grupo: ${e.message || e}`;
+                    }
+                } finally {
+                    if (btn) btn.disabled = false;
+                }
+            }
+
+            // ── Modal: Info del grupo ───────────────────────────────────────
+            const groupAddSelection = new Set();
+
+            async function openGroupInfo() {
+                if (!currentGroup) return;
+                groupAddSelection.clear();
+                const m = document.getElementById('groupInfoModal');
+                m.classList.remove('hidden'); m.classList.add('flex');
+                document.getElementById('groupInfoStatus').textContent = '';
+                await renderGroupInfo();
+            }
+
+            function closeGroupInfoModal() {
+                const m = document.getElementById('groupInfoModal');
+                m.classList.add('hidden'); m.classList.remove('flex');
+            }
+
+            async function renderGroupInfo() {
+                if (!currentGroup) return;
+                const conv = await chatwalletxmtp?.conversations.getConversationById(currentGroup.groupId);
+                if (!conv) { document.getElementById('groupInfoStatus').textContent = 'El grupo no está disponible.'; return; }
+                try { await conv.sync(); } catch (e) { }
+
+                const myInbox = chatwalletxmtp.inboxId;
+                let admins = [], superAdmins = [];
+                try { admins = await conv.listAdmins(); } catch (e) { }
+                try { superAdmins = await conv.listSuperAdmins(); } catch (e) { }
+                const isAdminSet = new Set([...(admins || []), ...(superAdmins || [])]);
+                const iAmAdmin = isAdminSet.has(myInbox);
+
+                const members = await groupMemberAddresses(conv);
+                document.getElementById('groupInfoName').textContent = conv.name || currentGroup.name || 'Grupo';
+                document.getElementById('groupInfoMeta').textContent =
+                    `${members.length} ${members.length === 1 ? 'miembro' : 'miembros'}${iAmAdmin ? ' · sos admin' : ''}`;
+
+                // Renombrar: solo admins (XMTP rechaza el update si no lo sos).
+                const adminBox = document.getElementById('groupInfoAdminBox');
+                adminBox.classList.toggle('hidden', !iAmAdmin);
+                if (iAmAdmin) document.getElementById('groupRenameInput').value = conv.name || '';
+
+                // Lista de miembros
+                const list = document.getElementById('groupMembersList');
+                list.innerHTML = '';
+                for (const m of members) {
+                    const isMe = m.inboxId === myInbox;
+                    const c = m.address ? contacts.find(x => !x.isGroup && x.address && x.address.toLowerCase() === m.address.toLowerCase()) : null;
+                    const label = isMe ? 'Vos'
+                        : (c ? c.name : (m.address ? `${m.address.slice(0, 6)}…${m.address.slice(-4)}` : m.inboxId.slice(0, 10) + '…'));
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-2 p-2 rounded';
+                    const img = document.createElement('img');
+                    img.src = (c && c.avatar) || ANON_AVATAR;
+                    img.className = 'w-7 h-7 rounded-full object-cover flex-shrink-0';
+                    const span = document.createElement('span');
+                    span.className = 'text-sm truncate flex-grow';
+                    span.textContent = label + (isAdminSet.has(m.inboxId) ? ' · admin' : '');
+                    row.append(img, span);
+                    // Sacar miembros: solo admins, y nunca a uno mismo por acá (para eso está "Salir").
+                    if (iAmAdmin && !isMe) {
+                        const del = document.createElement('button');
+                        del.className = 'p-1 text-gray-500 hover:text-red-400 flex-shrink-0';
+                        del.title = 'Quitar del grupo';
+                        del.textContent = '✕';
+                        del.onclick = async () => {
+                            if (!confirm(`¿Quitar a ${label} del grupo?`)) return;
+                            const st = document.getElementById('groupInfoStatus');
+                            st.textContent = 'Quitando…';
+                            try { await conv.removeMembers([m.inboxId]); st.textContent = ''; await renderGroupInfo(); updateGroupHeaderSubtitle(conv); }
+                            catch (e) { st.textContent = `No se pudo quitar: ${e.message || e}`; }
+                        };
+                        row.appendChild(del);
+                    }
+                    list.appendChild(row);
+                }
+
+                // Añadir contactos que todavía no están en el grupo (solo admins).
+                const addBox = document.getElementById('groupAddBox');
+                addBox.classList.toggle('hidden', !iAmAdmin);
+                if (iAmAdmin) {
+                    const present = new Set(members.map(m => (m.address || '').toLowerCase()).filter(Boolean));
+                    const cands = groupCandidateContacts().filter(c => !present.has(c.address.toLowerCase()));
+                    const box = document.getElementById('groupAddCandidates');
+                    box.innerHTML = '';
+                    if (cands.length === 0) {
+                        box.innerHTML = `<p class="text-xs text-gray-500 p-2">Todos tus contactos ya están en el grupo.</p>`;
+                    } else {
+                        for (const c of cands) {
+                            const row = document.createElement('label');
+                            row.className = 'flex items-center gap-2 p-2 rounded hover:bg-gray-700/60 cursor-pointer';
+                            const cb = document.createElement('input');
+                            cb.type = 'checkbox';
+                            cb.className = 'accent-indigo-500 flex-shrink-0';
+                            cb.checked = groupAddSelection.has(c.address.toLowerCase());
+                            cb.addEventListener('change', () => {
+                                const k = c.address.toLowerCase();
+                                if (cb.checked) groupAddSelection.add(k); else groupAddSelection.delete(k);
+                            });
+                            const span = document.createElement('span');
+                            span.className = 'text-sm truncate';
+                            span.textContent = c.name;
+                            row.append(cb, span);
+                            box.appendChild(row);
+                        }
+                    }
+                }
+            }
+
             function renderContacts() {
                 contacts.sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
 
@@ -5778,16 +6400,35 @@
                         const selfAlias = (contact.selfAlias && contact.selfAlias !== contact.name) ? contact.selfAlias : '';
                         // Ocupamos el espacio del "en línea/offline" con el nombre propio del contacto,
                         // coloreado por estado; si no hay alias, un punto del mismo color cumple la función.
-                        const statusBit = selfAlias
-                            ? `<span class="${statusColor} font-medium">${selfAlias}</span> · `
-                            : `<span class="${statusColor}">●</span> `;
+                        // Un grupo no tiene "en línea": ahí va la cantidad de miembros.
+                        const isG = !!contact.isGroup;
+                        const statusBit = isG
+                            ? `<span class="text-indigo-400">👥${contact.memberCount ? ' ' + contact.memberCount : ''}</span> · `
+                            : (selfAlias
+                                ? `<span class="${statusColor} font-medium">${selfAlias}</span> · `
+                                : `<span class="${statusColor}">●</span> `);
 
                         const contactEl = document.createElement('div');
                         contactEl.className = 'contact-item flex items-center p-3 bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-700 transition gap-3 mb-2';
+                        // Un grupo no se edita ni se bloquea como contacto: solo se sale (y eso es
+                        // exactamente lo que hace su botón de borrar).
+                        const rowActions = isG
+                            ? `<button data-address="${contact.address}" class="leave-group-btn p-2 text-gray-500 hover:text-red-400 transition" title="Salir del grupo">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                            </button>`
+                            : `<button data-address="${contact.address}" class="edit-contact-btn p-2 text-gray-500 hover:text-indigo-400 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                            </button>
+                            <button data-address="${contact.address}" class="block-contact-btn p-2 text-gray-500 hover:text-orange-400 transition" title="Bloquear">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                            </button>
+                            <button data-address="${contact.address}" class="delete-contact-btn p-2 text-gray-500 hover:text-red-400 transition" title="Eliminar">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                            </button>`;
                         contactEl.innerHTML = `
                         <div class="flex-shrink-0">
-                            <div class="contact-avatar-btn user-avatar w-10 h-10 text-xs cursor-pointer" title="Ver DID">
-                                <img src="${contact.avatar || ANON_AVATAR}" alt="${contact.name}">
+                            <div class="contact-avatar-btn user-avatar w-10 h-10 text-xs cursor-pointer" title="${isG ? 'Abrir grupo' : 'Ver DID'}">
+                                <img src="${contact.avatar || (isG ? GROUP_AVATAR : ANON_AVATAR)}" alt="${contact.name}">
                             </div>
                         </div>
                         <div class="flex-grow overflow-hidden">
@@ -5801,23 +6442,17 @@
                             </div>
                         </div>
                         <div class="flex-shrink-0 flex items-center">
-                            <button data-address="${contact.address}" class="edit-contact-btn p-2 text-gray-500 hover:text-indigo-400 transition">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                            </button>
-                            <button data-address="${contact.address}" class="block-contact-btn p-2 text-gray-500 hover:text-orange-400 transition" title="Bloquear">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-                            </button>
-                            <button data-address="${contact.address}" class="delete-contact-btn p-2 text-gray-500 hover:text-red-400 transition" title="Eliminar">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                            </button>
+                            ${rowActions}
                         </div>
                     `;
                         contactEl.addEventListener('click', async (e) => {
-                            if (e.target.closest('.edit-contact-btn') || e.target.closest('.delete-contact-btn') || e.target.closest('.block-contact-btn')) {
+                            if (e.target.closest('.edit-contact-btn') || e.target.closest('.delete-contact-btn') ||
+                                e.target.closest('.block-contact-btn') || e.target.closest('.leave-group-btn')) {
                                 return;
                             }
                             // Tap en el avatar → mostrar el DID del contacto en vez de abrir el chat.
-                            if (e.target.closest('.contact-avatar-btn')) {
+                            // En un grupo no hay DID que mostrar: el tap abre el grupo como el resto de la fila.
+                            if (!isG && e.target.closest('.contact-avatar-btn')) {
                                 showUserInfo(contact.address);
                                 return;
                             }
@@ -5829,6 +6464,23 @@
                     });
                 }
 
+
+                document.querySelectorAll('.leave-group-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const address = e.currentTarget.dataset.address;
+                        const contact = contacts.find(c => c.address === address);
+                        if (!contact) return;
+                        if (!confirm(`¿Salir de "${contact.name}"?\n\nSe borran el chat y su historial de este dispositivo, y dejás de recibir sus mensajes.`)) return;
+                        try {
+                            await leaveGroupChat(contact);
+                            showToast(`Saliste de "${contact.name}".`, 'success');
+                        } catch (err) {
+                            console.error('salir del grupo:', err);
+                            showToast('No se pudo salir del grupo.', 'error');
+                        }
+                    });
+                });
 
                 document.querySelectorAll('.edit-contact-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -5954,11 +6606,14 @@
             }
 
             function exportContacts() {
-                if (contacts.length === 0) {
+                // Los grupos no se exportan: la membresía es del inbox (MLS), no de la agenda.
+                // Importarlos en otro dispositivo dejaría filas que no abren ningún chat.
+                const exportable = contacts.filter(c => !c.isGroup);
+                if (exportable.length === 0) {
                     alert("No hay contactos para exportar.");
                     return;
                 }
-                const dataStr = JSON.stringify(contacts, null, 2);
+                const dataStr = JSON.stringify(exportable, null, 2);
                 const dataBlob = new Blob([dataStr], { type: "application/json" });
                 const url = URL.createObjectURL(dataBlob);
                 const a = document.createElement('a');
@@ -6042,9 +6697,37 @@
                 chattingWithEl.textContent = contact.name;
                 const chatHeaderAvatar = document.getElementById('chatHeaderAvatar');
                 if (chatHeaderAvatar) {
-                    chatHeaderAvatar.src = contact.avatar || ANON_AVATAR;
+                    chatHeaderAvatar.src = contact.avatar || (contact.isGroup ? GROUP_AVATAR : ANON_AVATAR);
                 }
-                updateChatHeaderStatus(contact);
+                // Grupo: el header no habla de "en línea/últ. vez" (eso es de un peer, no de N),
+                // y los botones de pagar/solicitar no aplican a un chat de varios.
+                currentGroup = contact.isGroup ? contact : null;
+                applyGroupChatChrome(contact);
+                if (!contact.isGroup) updateChatHeaderStatus(contact);
+
+                // ── Grupo: sin modo offline (el circuito por QR es 1:1). ──
+                if (contact.isGroup) {
+                    if (isOffline) {
+                        showToast('Los grupos necesitan conexión: el modo frío es 1 a 1.', 'info');
+                        return;
+                    }
+                    messagesContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full">
+                        <div class="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                        <p class="text-gray-400 text-sm">Cargando...</p>
+                    </div>`;
+                    showView('chatView');
+                    chatNewestSeenTs = 0;
+                    currentOfflineContact = null;
+                    await startOrLoadGroupConversation(contact.groupId);
+                    const gi = contacts.findIndex(c => c.address.toLowerCase() === contact.address.toLowerCase());
+                    if (gi > -1 && chatNewestSeenTs > 0) {
+                        contacts[gi].lastReadTimestamp = Math.max(chatNewestSeenTs, contacts[gi].lastReadTimestamp || 0);
+                    }
+                    updateGroupHeaderSubtitle(currentConversation);
+                    await saveContacts();
+                    return;
+                }
 
                 // ── Modo OFFLINE: sin XMTP. Se muestra el hilo local y se compone por QR. ──
                 if (isOffline) {
@@ -6208,6 +6891,45 @@
             const inboxAddressCache = new Map();
             const inboxAddressPending = new Map();
 
+            // ── Clave de chat de un mensaje del stream ────────────────────────────────
+            // Todo lo que la app indexa por "con quién" (no-leídos, preview, respaldo, lápidas)
+            // necesita una clave. En un DM es la address del peer; en un grupo, 'group:<convId>'
+            // (el remitente cambia mensaje a mensaje, así que el remitente NO puede ser la clave).
+            // Se cachea por conversationId: sin esto habría un round-trip al worker por mensaje.
+            const chatKeyByConvId = new Map();   // convId → { key, isGroup }
+            async function resolveChatKey(message, isSentByMe) {
+                const convId = message.conversationId;
+                const cached = convId ? chatKeyByConvId.get(convId) : null;
+                if (cached) {
+                    // Los grupos igual necesitan el objeto conversación (para altas/renombres);
+                    // getConversationById pega en la DB local, no en la red.
+                    if (!cached.isGroup) return cached;
+                    let gconv = null;
+                    try { gconv = await chatwalletxmtp.conversations.getConversationById(convId); } catch (e) { }
+                    return { key: cached.key, isGroup: true, conv: gconv };
+                }
+                let conv = null;
+                try { conv = await chatwalletxmtp.conversations.getConversationById(convId); } catch (e) { }
+                if (convIsGroup(conv)) {
+                    const entry = { key: groupKeyOf(convId), isGroup: true, conv };
+                    chatKeyByConvId.set(convId, { key: entry.key, isGroup: true });
+                    return entry;
+                }
+                // DM: si lo mandé yo, el "otro" es el peer de la conversación; si lo recibí,
+                // es directamente el remitente (evita resolver la conversación entera).
+                let addr = null;
+                try {
+                    if (isSentByMe) {
+                        if (conv) addr = await getAddressFromInboxId(await conv.peerInboxId());
+                    } else {
+                        addr = await getAddressFromInboxId(message.senderInboxId);
+                    }
+                } catch (e) { console.warn('Fallo al resolver dirección de contacto:', e); }
+                const entry = { key: addr, isGroup: false, conv };
+                if (convId && addr) chatKeyByConvId.set(convId, { key: addr, isGroup: false });
+                return entry;
+            }
+
             async function getAddressFromInboxId(inboxId) {
                 if (!inboxId) return null;
                 if (inboxAddressCache.has(inboxId)) return inboxAddressCache.get(inboxId);
@@ -6349,13 +7071,7 @@
                                 if (message.contentType.typeId === 'reaction') {
                                     if (isChatOpen) addMessageToUI(message, isSentByMe ? 'sent' : 'received');
                                     try {
-                                        let reactPeer = null;
-                                        if (isSentByMe) {
-                                            const conv = await chatwalletxmtp.conversations.getConversationById(message.conversationId);
-                                            if (conv) reactPeer = await getAddressFromInboxId(await conv.peerInboxId());
-                                        } else {
-                                            reactPeer = await getAddressFromInboxId(message.senderInboxId);
-                                        }
+                                        const { key: reactPeer } = await resolveChatKey(message, isSentByMe);
                                         if (reactPeer) captureXmtpMessages([message], reactPeer, chatwalletxmtp.inboxId);
                                     } catch (e) { console.warn('No se pudo persistir la reacción:', e); }
                                     if (!isSentByMe && isChatOpen) playNewMessageSound();
@@ -6387,21 +7103,15 @@
                                 }
 
                                 const messageTimestamp = message.sentAt ? message.sentAt.getTime() : new Date().getTime();
-                                let contactAddress = null;
-
-                                try {
-                                    if (isSentByMe) {
-                                        // Si lo envié yo, resolvemos quién es el otro participante de esa conversación
-                                        const conv = await chatwalletxmtp.conversations.getConversationById(message.conversationId);
-                                        if (conv) {
-                                            const peerInboxId = await conv.peerInboxId();
-                                            contactAddress = await getAddressFromInboxId(peerInboxId);
-                                        }
-                                    } else {
-                                        contactAddress = await getAddressFromInboxId(message.senderInboxId);
-                                    }
-                                } catch (e) {
-                                    console.warn("Fallo al resolver dirección de contacto:", e);
+                                // `contactAddress` es la CLAVE DE CHAT: address del peer en un DM,
+                                // 'group:<convId>' en un grupo. Todo lo de abajo (lápidas, respaldo,
+                                // no-leídos, preview) opera sobre esa clave sin distinguir cuál es.
+                                const chatKey = await resolveChatKey(message, isSentByMe);
+                                const contactAddress = chatKey.key;
+                                const inGroup = chatKey.isGroup;
+                                // Un grupo nuevo (te acaban de agregar) entra a la lista de chats acá.
+                                if (inGroup && chatKey.conv && !isSuppressedContact(contactAddress, messageTimestamp)) {
+                                    upsertGroupContact(chatKey.conv);
                                 }
 
                                 if (contactAddress && isBlockedContact(contactAddress)) {
@@ -6426,10 +7136,13 @@
                                     // tiene mi perfil (y por lo tanto no me puede despertar), se lo mando.
                                     // Va sobre mensajes REALES: los 'profile' salen por el return de arriba,
                                     // así que no hay ida y vuelta infinita de perfiles.
-                                    if (!isSentByMe) maybeSendProfile(null, contactAddress, message.conversationId);
+                                    // En un grupo no aplica: el perfil se manda al DM del autor, no al grupo
+                                    // (mandarlo al grupo se lo mostraría a todos y no crea el DM que hace falta).
+                                    if (!isSentByMe && !inGroup) maybeSendProfile(null, contactAddress, message.conversationId);
 
-                                    // Asignar peerAddress si falta y el chat está abierto
-                                    if (isChatOpen && !currentConversation.peerAddress) {
+                                    // Asignar peerAddress si falta y el chat está abierto (solo DMs:
+                                    // un grupo no tiene peer, y ponerle uno rompería el envío de pagos).
+                                    if (isChatOpen && !inGroup && !currentConversation.peerAddress) {
                                         currentConversation.peerAddress = contactAddress;
                                     }
 
@@ -6445,7 +7158,7 @@
                                             // Chat abierto: se está leyendo en vivo → avanzar la marca de lectura.
                                             contacts[contactIndex].lastReadTimestamp = messageTimestamp;
                                         }
-                                    } else {
+                                    } else if (!inGroup) {
                                         // Nuevo contacto (tanto si me escriben como si escribí yo desde otro dispositivo)
                                         console.log("Añadiendo nuevo contacto desde mensaje:", contactAddress);
                                         const shortAddress = contactAddress.startsWith('0x') ? `${contactAddress.slice(0, 6)}...${contactAddress.slice(-4)}` : contactAddress.slice(0, 10) + '...';
@@ -6470,11 +7183,15 @@
 
                                 if (!isSentByMe) {
                                     playNewMessageSound();
+                                    // En un grupo la notificación se titula con el grupo (y el cuerpo
+                                    // lleva el autor): "Nuevo mensaje de <fulano>" a secas no diría
+                                    // en qué chat entrar.
+                                    const groupCtx = inGroup ? { groupKey: contactAddress, groupName: (findGroupContact(chatKey.conv?.id || groupIdFromKey(contactAddress))?.name || 'Grupo') } : null;
                                     if (!isChatOpen) {
-                                        showNotification(message);
+                                        showNotification(message, groupCtx);
                                     }
                                     // APK: notificación nativa cuando la app está en segundo plano/cerrada
-                                    notifyNative(message);
+                                    notifyNative(message, groupCtx);
                                 }
 
                                 await saveContacts();
@@ -6492,6 +7209,14 @@
                             try {
                                 await conversation.sync();
                                 console.log("✅ Nueva conversación sincronizada.");
+                                // Grupo al que me acaban de agregar: entra a la lista de chats YA,
+                                // sin esperar a que alguien escriba en él.
+                                if (convIsGroup(conversation) && !isSuppressedContact(groupKeyOf(conversation.id))) {
+                                    const gc = upsertGroupContact(conversation, { lastMessageTimestamp: Date.now() });
+                                    try { gc.memberCount = (await conversation.members()).length; } catch (e) { }
+                                    await saveContacts();
+                                    showToast(`👥 Te agregaron al grupo "${conversation.name || 'Grupo'}"`, 'info');
+                                }
                             } catch (e) {
                                 console.warn("Error sincronizando nueva conversación:", e);
                             }
@@ -6505,6 +7230,67 @@
                     startKeepAlive();
                 } catch (e) {
                     console.error("Fallo al iniciar streams de XMTP:", e);
+                }
+            }
+
+            // Ajusta el "cromado" del chat según sea grupo o DM: en un grupo no hay peer al que
+            // pagarle ni solicitarle, así que esos botones se ocultan (si no, apuntaban a
+            // currentConversation.peerAddress, que en un grupo es undefined).
+            function applyGroupChatChrome(contact) {
+                const isG = !!(contact && contact.isGroup);
+                const sendBtn = document.getElementById('headerSendBtn');
+                const reqBtn = document.getElementById('headerRequestBtn');
+                const infoBtn = document.getElementById('groupInfoBtn');
+                if (sendBtn) sendBtn.classList.toggle('hidden', isG);
+                if (reqBtn) reqBtn.classList.toggle('hidden', isG);
+                if (infoBtn) infoBtn.classList.toggle('hidden', !isG);
+                if (isG && chatStatusIndicator) chatStatusIndicator.innerHTML = '';
+            }
+
+            // Subtítulo del header de un grupo: cantidad de miembros (en lugar de "en línea").
+            async function updateGroupHeaderSubtitle(conv) {
+                if (!convIsGroup(conv) || !chatStatusIndicator) return;
+                try {
+                    const members = await conv.members();
+                    const n = members.length;
+                    chatStatusIndicator.innerHTML = `<span class="text-gray-400">👥 ${n} ${n === 1 ? 'miembro' : 'miembros'}</span>`;
+                    const c = findGroupContact(conv.id);
+                    if (c && c.memberCount !== n) { c.memberCount = n; saveContacts().catch(() => { }); }
+                } catch (e) { chatStatusIndicator.innerHTML = ''; }
+            }
+
+            // Abre (o recupera) la conversación de grupo por su conversationId.
+            async function startOrLoadGroupConversation(groupId, waited = 0) {
+                const token = chatOpenToken;
+                if (!chatwalletxmtp && isXmtpInitializing) {
+                    if (waited >= 45) {
+                        showChatLoadError('El chat está tardando en iniciar.', new Error('timeout: init de XMTP'));
+                        return;
+                    }
+                    setTimeout(() => { if (token === chatOpenToken) startOrLoadGroupConversation(groupId, waited + 1); }, 1000);
+                    return;
+                }
+                if (!chatwalletxmtp) {
+                    showChatLoadError('El chat no está listo.', new Error('XMTP no inicializado'));
+                    return;
+                }
+                try {
+                    let conv = await chatwalletxmtp.conversations.getConversationById(groupId);
+                    if (!conv) {
+                        // Puede no estar todavía en la base local (grupo creado desde otro dispositivo).
+                        await withTimeout(chatwalletxmtp.conversations.sync(), 20000, 'conversations.sync (abrir grupo)');
+                        conv = await chatwalletxmtp.conversations.getConversationById(groupId);
+                    }
+                    if (!conv) throw new Error('El grupo no está disponible en este dispositivo.');
+                    if (token !== chatOpenToken) return;
+                    currentConversation = conv;
+                    upsertGroupContact(conv);
+                    await loadAndStreamMessages(currentConversation);
+                    await processMessageQueue();
+                } catch (e) {
+                    console.error('Error abriendo grupo:', e);
+                    currentConversation = null;
+                    if (token === chatOpenToken) showChatLoadError('No se pudo abrir el grupo.', e);
                 }
             }
 
@@ -6657,7 +7443,9 @@
 
                     // Respaldo soberano: los mensajes que XMTP ya no puede descifrar (instalación nueva)
                     // viven en el store propio. Se renderiza la UNIÓN (XMTP ∪ store) en orden cronológico.
-                    let peerAddr = conv.peerAddress || null;
+                    // Clave del store: la address del peer en un DM, la clave sintética del grupo
+                    // en un grupo. Así el respaldo soberano cubre los dos por el mismo camino.
+                    let peerAddr = convIsGroup(conv) ? groupKeyOf(conv.id) : (conv.peerAddress || null);
                     if (!peerAddr) {
                         try { peerAddr = await getAddressFromInboxId(await conv.peerInboxId()); } catch (e) { }
                     }
@@ -6774,6 +7562,9 @@
                         await chatwalletxmtp.conversations.syncAll().catch(() => chatwalletxmtp.conversations.sync().catch(() => {}));
                         // Device/history sync: recuperar historial servido por otras instalaciones (ver arranque).
                         await chatwalletxmtp.preferences.sync().catch(() => {});
+                        // Grupos nuevos (te agregaron desde otro dispositivo / estando cerrado):
+                        // sin esta pasada no aparecen en la lista hasta que alguien escriba en ellos.
+                        try { await syncGroupsFromXmtp(); } catch (e) { console.warn('syncGroups en resync:', e); }
                         // Recontar no-leídos de lo que llegó mientras el stream estuvo muerto (silencioso: solo badges).
                         try { await reconcileUnreadFromStore(); await saveContacts(); } catch (e) { console.warn('reconcile en resync:', e); }
                         renderContacts();
@@ -7131,7 +7922,9 @@
                 const contact = currentConversation?.peerAddress
                     ? contacts.find(c => c.address && c.address.toLowerCase() === currentConversation.peerAddress.toLowerCase())
                     : null;
-                nameEl.textContent = info.type === 'sent' ? 'Vos' : (contact?.name || 'Contacto');
+                nameEl.textContent = info.type === 'sent'
+                    ? 'Vos'
+                    : (currentGroup ? groupSenderLabel(info.sender) : (contact?.name || 'Contacto'));
                 textEl.textContent = info.text;
                 bar.classList.remove('hidden');
                 bar.classList.add('flex');
@@ -7246,6 +8039,51 @@
                     } catch (error) {
                         console.error("No se pudo parsear el mensaje de transacción", error);
                     }
+                } else if (currentGroup && isHandshakeMessage(messageContent)) {
+                    // En un GRUPO estos eventos sí importan (quién entró, quién salió) y hay más de
+                    // uno por hilo: se renderizan todos, con texto de grupo. (En un DM son ruido de
+                    // MLS y se muestra solo el primero: ver la rama de abajo.)
+                    const g = JSON.parse(messageContent);
+                    const added = (g.addedInboxes || []).map(x => x.inboxId).filter(Boolean);
+                    const removed = (g.removedInboxes || []).map(x => x.inboxId).filter(Boolean);
+                    const changed = (g.metadataFieldChanges || []).map(x => x.fieldName).filter(Boolean);
+                    // Un group_updated sin nada accionable (creación del grupo) no aporta una línea.
+                    if (!added.length && !removed.length && !changed.length) return;
+
+                    messageRow.className = 'handshake-message';
+                    const contentSpan = document.createElement('span');
+                    contentSpan.className = 'content';
+                    // Los nombres van en <span data-inbox>: cuando la resolución inboxId→contacto
+                    // termina (es asíncrona), groupSenderLabel los repinta en su lugar.
+                    const nameNode = (inboxId) => {
+                        const s = document.createElement('span');
+                        s.className = 'sys-name';
+                        s.dataset.inbox = inboxId || '';
+                        s.textContent = groupSenderLabel(inboxId);
+                        return s;
+                    };
+                    const appendNames = (ids) => {
+                        ids.forEach((id, i) => {
+                            if (i) contentSpan.appendChild(document.createTextNode(', '));
+                            contentSpan.appendChild(nameNode(id));
+                        });
+                    };
+                    contentSpan.appendChild(document.createTextNode('👥 '));
+                    contentSpan.appendChild(nameNode(g.initiatedByInboxId));
+                    let wrote = false;
+                    if (added.length) { contentSpan.appendChild(document.createTextNode(' agregó a ')); appendNames(added); wrote = true; }
+                    if (removed.length) {
+                        contentSpan.appendChild(document.createTextNode(wrote ? ' y quitó a ' : ' quitó a '));
+                        appendNames(removed); wrote = true;
+                    }
+                    if (!wrote) contentSpan.appendChild(document.createTextNode(' cambió los datos del grupo'));
+                    const gDate = autoDetectDate(message.sentAtNs);
+                    if (gDate) {
+                        contentSpan.appendChild(document.createTextNode(
+                            ` · ${gDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} ${gDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`));
+                    }
+                    messageRow.appendChild(contentSpan);
+
                 } else if (isHandshakeMessage(messageContent)) {
                     // Solo el primer evento de sistema por chat. Los demás (stitching de grupos MLS) no se
                     // muestran para no ensuciar el UX, pero se loguean con su id+contenido por si sirve para debug.
@@ -7300,6 +8138,16 @@
                     const messageContainer = document.createElement('div');
                     messageContainer.className = `message-bubble ${type}`;
 
+                    // Grupo: sobre cada burbuja ajena, quién la escribió. En un DM sobra (ya se
+                    // sabe quién es el otro) y ensuciaría el hilo, así que solo va en grupos.
+                    if (currentGroup && type === 'received') {
+                        const senderSpan = document.createElement('span');
+                        senderSpan.className = 'msg-sender';
+                        senderSpan.dataset.inbox = message.senderInboxId || '';
+                        senderSpan.textContent = groupSenderLabel(message.senderInboxId);
+                        messageContainer.appendChild(senderSpan);
+                    }
+
                     // Cita del mensaje original (si esto es una respuesta). Tap en la cita salta al original.
                     if (replyInfo && replyInfo.reference) {
                         const quote = document.createElement('div');
@@ -7310,8 +8158,10 @@
                         const peerContact = currentConversation?.peerAddress
                             ? contacts.find(c => c.address && c.address.toLowerCase() === currentConversation.peerAddress.toLowerCase())
                             : null;
+                        // En un grupo el autor citado es el del mensaje original, no "el contacto".
                         nameSpan.textContent = original
-                            ? (original.type === 'sent' ? 'Vos' : (peerContact?.name || 'Contacto'))
+                            ? (original.type === 'sent' ? 'Vos'
+                                : (currentGroup ? groupSenderLabel(original.sender) : (peerContact?.name || 'Contacto')))
                             : 'Mensaje anterior';
                         const textDiv = document.createElement('div');
                         textDiv.className = 'rq-text';
@@ -7361,7 +8211,7 @@
 
                     // Registrar el texto (para citas de futuras respuestas) y habilitar gestos:
                     // long-press / doble tap → reacciones; swipe horizontal → responder.
-                    msgTextById.set(message.id, { text: messageContent, type });
+                    msgTextById.set(message.id, { text: messageContent, type, sender: message.senderInboxId || null });
                     attachMessageGestures(messageRow, messageContainer, message.id);
                 }
 
@@ -7793,15 +8643,31 @@
             // Dispara una notificación nativa SOLO en APK y SOLO con la app en segundo plano
             // (si está abierta ya hay banner + sonido). Muestra nombre+avatar si el contacto
             // los tiene configurados; si no, address recortada + gatito anónimo.
-            async function notifyNative(message) {
+            async function notifyNative(message, groupCtx = null) {
                 if (!NativeKeepAlive || !document.hidden) return;
                 try {
                     let title = 'Nuevo mensaje';
-                    const body = (typeof message.content === 'string' || message.contentType?.typeId === 'reply')
+                    let body = (typeof message.content === 'string' || message.contentType?.typeId === 'reply')
                         ? xmtpMessagePreview(message)
                         : 'Mensaje (multimedia)';
                     let address = null;
                     let avatar = null;
+                    // Grupo: el título es el grupo y el cuerpo lleva el autor delante. `address` va
+                    // con la clave del grupo para que el tap abra ESE chat y la marca de agua de
+                    // "ya notifiqué" se lleve por grupo, no por remitente.
+                    if (groupCtx) {
+                        title = groupCtx.groupName || 'Grupo';
+                        const who = groupSenderLabel(message.senderInboxId);
+                        body = `${who}: ${body}`;
+                        address = groupCtx.groupKey;
+                        const gc = findGroupContact(groupIdFromKey(groupCtx.groupKey));
+                        if (gc && gc.avatar && gc.avatar !== GROUP_AVATAR) {
+                            try { avatar = await avatarToBase64(gc.avatar); } catch (e) { }
+                        }
+                        setNotifiedTs(groupCtx.groupKey, message.sentAt ? message.sentAt.getTime() : Date.now());
+                        await NativeKeepAlive.showMessage({ title, body, address, avatar });
+                        return;
+                    }
                     try {
                         address = await getAddressFromInboxId(message.senderInboxId);
                         if (address) {
@@ -8010,7 +8876,7 @@
                 });
             }
 
-            async function showNotification(message = null) {
+            async function showNotification(message = null, groupCtx = null) {
                 console.log("showNotification llamada", message ? "con mensaje" : "sin mensaje");
                 if (notificationTimeout) clearTimeout(notificationTimeout);
 
@@ -8022,6 +8888,23 @@
                         ? xmtpMessagePreview(message)
                         : 'Mensaje (Multimedia/Sistema)';
                     notificationSender.textContent = "Nuevo mensaje de...";
+
+                    // Grupo: el banner nombra al grupo y al autor, y el tap abre el grupo
+                    // (no el DM con quien escribió, que es lo que haría el camino de abajo).
+                    if (groupCtx) {
+                        const who = groupSenderLabel(message.senderInboxId);
+                        notificationSender.textContent = `👥 ${groupCtx.groupName || 'Grupo'} · ${who}`;
+                        notificationBanner.onclick = async () => {
+                            const gc = findGroupContact(groupIdFromKey(groupCtx.groupKey));
+                            if (gc) { closeSidebar(); await startChatWithContact(gc); }
+                            hideNotification();
+                        };
+                        notificationBanner.classList.remove('hidden');
+                        void notificationBanner.offsetWidth;
+                        notificationBanner.classList.remove('opacity-0', '-translate-y-12');
+                        notificationTimeout = setTimeout(hideNotification, 5000);
+                        return;
+                    }
 
                     // Resolución asíncrona para no bloquear el banner
                     getAddressFromInboxId(message.senderInboxId).then(senderAddress => {
@@ -8261,19 +9144,19 @@
             const wcSessionChain = new Map();       // peerInboxId -> requested chainId
 
             async function startWalletConnectSession(uri) {
-                if (!currentWallet) { alert('Primero desbloqueá tu wallet.'); return; }
-                if (!chatwalletxmtp) { alert('El chat (XMTP) todavía no está listo. Esperá unos segundos e intentá de nuevo.'); return; }
+                if (!currentWallet) { alert(t('wc_need_unlock')); return; }
+                if (!chatwalletxmtp) { alert(t('wc_xmtp_not_ready')); return; }
                 let inbox = '', chainId = 0;
                 try {
                     const q = new URLSearchParams(uri.split('?')[1] || '');
                     inbox = (q.get('inbox') || '').toLowerCase();
                     chainId = Number(q.get('chain') || '0');
                 } catch (_) {}
-                if (!/^0x[0-9a-fA-F]{40}$/.test(inbox)) { alert('QR de conexión inválido.'); return; }
+                if (!/^0x[0-9a-fA-F]{40}$/.test(inbox)) { alert(t('wc_bad_qr')); return; }
 
-                const ok = await wcApprove('Conectar con dApp',
-                    `Una dApp quiere vincularse a tu ChatWallet vía XMTP para pedirte firmas y envíos.\n\nInbox: ${inbox.slice(0, 10)}…${inbox.slice(-6)}\nRed (chainId): ${chainId || '?'}\n\nTu clave privada nunca sale de ChatWallet.`,
-                    'Conectar');
+                const ok = await wcApprove(t('wc_connect_title'),
+                    t('wc_connect_body', { inbox: inbox.slice(0, 10) + '…' + inbox.slice(-6), chain: chainId || '?' }),
+                    t('wc_connect_cta'));
                 if (!ok) return;
 
                 try {
@@ -8288,9 +9171,9 @@
                     }
                     // browser-sdk v6: texto plano va con sendText() — send() espera EncodedContent
                     await dm.sendText(JSON.stringify({ cw: 1, type: 'connect', address: currentWallet.address, chainId }));
-                    wcToast('✅ Conectado a la dApp. Sus solicitudes aparecerán acá.');
+                    wcToast(t('wc_connected_toast'));
                 } catch (e) {
-                    alert('No se pudo conectar: ' + (e.message || e));
+                    alert(t('wc_connect_err', { e: (e.message || e) }));
                 }
             }
 
@@ -8300,6 +9183,10 @@
                 if (data.type !== 'rpc') return;
                 const id = data.id;
                 const conv = await chatwalletxmtp.conversations.getConversationById(message.conversationId);
+                // Las sesiones cw:1 se aprueban contra un DM. Un pedido de firma llegado por un
+                // GRUPO no vale: bastaría con meter a la dApp aprobada en un grupo para pedir
+                // firmas desde un canal que el usuario nunca aprobó.
+                if (convIsGroup(conv)) return;
                 const reply = (obj) => conv && conv.sendText(JSON.stringify(Object.assign({ cw: 1, id }, obj)));
 
                 const pid = message.senderInboxId;
@@ -8307,8 +9194,8 @@
                     if (data.method === 'personal_sign') {
                         const msg = data.params?.[0] ?? '';
                         const resumen = String(msg).replace(/\s+/g, ' ').slice(0, 60);
-                        const ok = await wcApprove('Firmar mensaje',
-                            `La dApp pide firmar este mensaje:\n\n"${String(msg).slice(0, 180)}"\n\nEsto NO envía fondos.`, 'Firmar');
+                        const ok = await wcApprove(t('wc_sign_title'),
+                            t('wc_sign_body', { msg: String(msg).slice(0, 180) }), t('wc_sign_cta'));
                         if (!ok) { wcLogActivity({ kind: 'sign', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected' }); }
                         const sig = await currentWallet.signMessage(msg);
                         wcLogActivity({ kind: 'sign', peerInboxId: pid, summary: resumen, result: 'approved' });
@@ -8321,14 +9208,14 @@
                         // si la dApp pide otra cadena, rechazar antes de molestar al usuario.
                         const walletChainId = Number((await provider.getNetwork()).chainId);
                         if (tx.chainId && Number(tx.chainId) !== walletChainId) {
-                            wcToast(`⚠️ La dApp pide la red ${tx.chainId} pero ChatWallet está en la ${walletChainId}. Cambiá de red y reintentá.`);
-                            wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: 'red incorrecta (chainId ' + tx.chainId + ')', result: 'error' });
+                            wcToast(t('wc_wrong_net', { req: tx.chainId, cur: walletChainId }));
+                            wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: t('wc_wrong_net_log', { chain: tx.chainId }), result: 'error' });
                             return reply({ type: 'error', error: `wrong network: wallet on chain ${walletChainId}, dApp requested ${tx.chainId}` });
                         }
                         const valEth = tx.value ? ethers.formatEther(BigInt(tx.value)) : '0';
                         const resumen = '→ ' + wcShortId(tx.to) + ' · ' + valEth + ' ETH';
-                        const ok = await wcApprove('Enviar transacción',
-                            `La dApp pide ENVIAR una transacción:\n\nA: ${tx.to}\nValor: ${valEth} ETH\nchainId: ${tx.chainId}\n\nSe firmará y transmitirá con tu wallet.`, 'Enviar');
+                        const ok = await wcApprove(t('wc_tx_title'),
+                            t('wc_tx_body', { to: tx.to, value: valEth, chain: tx.chainId }), t('wc_tx_cta'));
                         if (!ok) { wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected' }); }
                         const s = currentWallet.connect(provider);
                         const resp = await s.sendTransaction({ to: tx.to, data: tx.data || '0x', value: tx.value ? BigInt(tx.value) : 0n });
@@ -8353,12 +9240,13 @@
                         <div id="wc-title" style="font-weight:800;font-size:1.05rem;margin-bottom:10px;"></div>
                         <div id="wc-body" style="font-size:0.82rem;color:#cbd5e1;white-space:pre-wrap;line-height:1.5;margin-bottom:18px;word-break:break-word;"></div>
                         <div style="display:flex;gap:10px;">
-                            <button id="wc-no" style="flex:1;padding:10px;border-radius:10px;border:1px solid #374151;background:transparent;color:#9ca3af;font-weight:700;cursor:pointer;">Rechazar</button>
+                            <button id="wc-no" style="flex:1;padding:10px;border-radius:10px;border:1px solid #374151;background:transparent;color:#9ca3af;font-weight:700;cursor:pointer;"></button>
                             <button id="wc-yes" style="flex:1;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#7c5cff,#5b8cff);color:#fff;font-weight:800;cursor:pointer;"></button>
                         </div></div>`;
                     ov.querySelector('#wc-title').textContent = '💬 ' + title;
                     ov.querySelector('#wc-body').textContent = body;
-                    ov.querySelector('#wc-yes').textContent = confirmLabel || 'Aprobar';
+                    ov.querySelector('#wc-no').textContent = t('wc_reject');
+                    ov.querySelector('#wc-yes').textContent = confirmLabel || t('wc_approve');
                     document.body.appendChild(ov);
                     ov.querySelector('#wc-yes').onclick = () => { ov.remove(); resolve(true); };
                     ov.querySelector('#wc-no').onclick = () => { ov.remove(); resolve(false); };
@@ -8474,12 +9362,13 @@
                     <div id="pm-body" style="font-size:0.82rem;color:#cbd5e1;white-space:pre-wrap;line-height:1.5;margin-bottom:14px;word-break:break-word;"></div>
                     <div id="pm-status" style="font-size:0.8rem;min-height:1.3em;margin-bottom:14px;display:none;align-items:center;"></div>
                     <div id="pm-actions" style="display:flex;gap:10px;">
-                        <button id="pm-no" style="flex:1;padding:10px;border-radius:10px;border:1px solid #374151;background:transparent;color:#9ca3af;font-weight:700;cursor:pointer;">Rechazar</button>
+                        <button id="pm-no" style="flex:1;padding:10px;border-radius:10px;border:1px solid #374151;background:transparent;color:#9ca3af;font-weight:700;cursor:pointer;"></button>
                         <button id="pm-yes" style="flex:1;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#7c5cff,#5b8cff);color:#fff;font-weight:800;cursor:pointer;"></button>
                     </div></div>`;
                 ov.querySelector('#pm-title').textContent = '💬 ' + title;
                 ov.querySelector('#pm-body').textContent = body;
-                ov.querySelector('#pm-yes').textContent = confirmLabel || 'Aprobar';
+                ov.querySelector('#pm-no').textContent = t('wc_reject');
+                ov.querySelector('#pm-yes').textContent = confirmLabel || t('wc_approve');
                 document.body.appendChild(ov);
 
                 const statusEl = ov.querySelector('#pm-status');
@@ -8491,7 +9380,7 @@
                     statusEl.style.display = 'flex';
                     statusEl.innerHTML = `<span style="color:#f87171;">⚠️ ${msg}</span>`;
                     ov.querySelector('#pm-actions').innerHTML =
-                        '<button id="pm-close" style="flex:1;padding:10px;border-radius:10px;border:none;background:#dc2626;color:#fff;font-weight:800;cursor:pointer;">Cerrar</button>';
+                        '<button id="pm-close" style="flex:1;padding:10px;border-radius:10px;border:none;background:#dc2626;color:#fff;font-weight:800;cursor:pointer;">' + t('wc_close') + '</button>';
                     return new Promise((resolve) => { ov.querySelector('#pm-close').onclick = () => { ov.remove(); resolve(); }; });
                 };
                 const setSuccess = (msg) => {
@@ -8515,8 +9404,8 @@
             // modal de envío normal, ver setTxStatus).
             function friendlyTxError(e) {
                 if (e?.code === 'INSUFFICIENT_FUNDS' || /insufficient funds/i.test(e?.message || ''))
-                    return 'Fondos insuficientes para cubrir el pago + gas en esta red.';
-                if (e?.code === 'ACTION_REJECTED' || e?.code === 4001) return 'Cancelaste la firma.';
+                    return t('wc_err_funds');
+                if (e?.code === 'ACTION_REJECTED' || e?.code === 4001) return t('wc_err_rejected');
                 return String(e?.message || e).slice(0, 140);
             }
 
@@ -8550,15 +9439,15 @@
             }
 
             async function handleIncomingPaymentRequest(payReq) {
-                if (!currentWallet) { alert('Primero desbloqueá tu wallet.'); return; }
-                if (!chatwalletxmtp) { alert('El chat (XMTP) todavía no está listo. Esperá unos segundos e intentá de nuevo.'); return; }
+                if (!currentWallet) { alert(t('wc_need_unlock')); return; }
+                if (!chatwalletxmtp) { alert(t('wc_xmtp_not_ready')); return; }
 
                 let conv;
                 try {
                     await chatwalletxmtp.conversations.sync();
                     conv = await chatwalletxmtp.conversations.createDmWithIdentifier({ identifier: payReq.reply, identifierKind: 0 });
                 } catch (e) {
-                    alert('No se pudo abrir el canal de pago: ' + (e.message || e));
+                    alert(t('wc_pay_channel_err', { e: (e.message || e) }));
                     return;
                 }
                 const reply = (obj) => conv && conv.sendText(JSON.stringify(Object.assign({ cw: 2, type: 'payment_result', ref: payReq.ref }, obj)));
@@ -8574,7 +9463,7 @@
                     if (walletChainId !== payReq.chainId) {
                         const idx = optionsList.findIndex((n) => Number(n.TOKEN_CHAINID) === payReq.chainId && !n.TOKEN_ADDRESS);
                         if (idx === -1) {
-                            wcToast(`⚠️ No tenés configurada la red del pago (chainId ${payReq.chainId}). Agregala en Configuración → Redes.`);
+                            wcToast(t('wc_pay_net_missing', { chain: payReq.chainId }));
                             return reply({ error: `network ${payReq.chainId} not configured` });
                         }
                         currentTokenIndex = idx;
@@ -8589,20 +9478,20 @@
 
                 const valEth = ethers.formatEther(payReq.value);
                 const memoLine = payReq.memo ? `${payReq.memo}\n\n` : '';
-                const modal = wcPaymentModal('🛒 Confirmar compra',
-                    `${memoLine}Monto: ${valEth} ETH\nDestino: ${payReq.to.slice(0, 8)}…${payReq.to.slice(-6)}\n\nSe firmará y transmitirá con tu wallet.`,
-                    'Pagar');
+                const modal = wcPaymentModal('🛒 ' + t('wc_pay_title'),
+                    memoLine + t('wc_pay_body', { value: valEth, to: payReq.to.slice(0, 8) + '…' + payReq.to.slice(-6) }),
+                    t('wc_pay_cta'));
                 const ok = await modal.decision;
                 if (!ok) return reply({ error: 'user rejected' });
 
                 // A partir de acá el pago queda VISIBLE en el modal (enviando/éxito/error)
                 // en vez de intentarlo en silencio — antes, si fallaba (p.ej. fondos
                 // insuficientes), el usuario no veía nada del lado de ChatWallet.
-                modal.setSending('Enviando pago…');
+                modal.setSending(t('wc_pay_sending'));
                 try {
                     const s = currentWallet.connect(provider);
                     const resp = await s.sendTransaction({ to: payReq.to, value: payReq.value });
-                    modal.setSuccess('Pago enviado');
+                    modal.setSuccess(t('wc_pay_sent'));
                     return reply({ txHash: resp.hash, address: currentWallet.address });
                 } catch (e) {
                     // NO esperar a que el usuario cierre el modal para responder: el
@@ -9790,6 +10679,9 @@
                     try { convs = await chatwalletxmtp.conversations.list(); } catch (e) { convs = []; }
                     let ok = 0;
                     for (const conv of convs) {
+                        // El perfil es una tarjeta 1:1 (alias, avatar, wake topic). Mandarlo a un
+                        // grupo lo repartiría a todos sus miembros sin que nadie lo haya pedido.
+                        if (convIsGroup(conv)) continue;
                         try { await conv.send(encoded); ok++; } catch (e) { /* best-effort por conversación */ }
                     }
                     // Todos acaban de recibirlo: reiniciar el reloj del reenvío automático.
@@ -10078,6 +10970,9 @@
             const chatHeaderInfo = document.getElementById('chatHeaderInfo');
             if (chatHeaderInfo) {
                 chatHeaderInfo.addEventListener('click', () => {
+                    // En un grupo el header abre la ficha del GRUPO (miembros, admin, salir);
+                    // en un DM, el DID del contacto como siempre.
+                    if (currentGroup) { openGroupInfo(); return; }
                     if (currentConversation && currentConversation.peerAddress) {
                         showUserInfo(currentConversation.peerAddress);
                     }
@@ -10141,12 +11036,23 @@
                         } else {
                             sentMessage = await currentConversation.sendText(messageText);
                         }
-                        pingWake(currentConversation); // wake push: despertar el APK del contacto
-                        // Y de paso le mandamos NUESTRO perfil (lleva nuestro wake topic) si le falta:
-                        // así el próximo mensaje que él nos mande sí nos va a poder despertar.
-                        maybeSendProfile(currentConversation, currentConversation?.peerAddress);
+                        if (convIsGroup(currentConversation)) {
+                            // Grupo: hay que despertar a TODOS los miembros, no a un peer.
+                            pingWakeGroup(currentConversation);
+                        } else {
+                            pingWake(currentConversation); // wake push: despertar el APK del contacto
+                            // Y de paso le mandamos NUESTRO perfil (lleva nuestro wake topic) si le falta:
+                            // así el próximo mensaje que él nos mande sí nos va a poder despertar.
+                            maybeSendProfile(currentConversation, currentConversation?.peerAddress);
+                        }
 
-                        const contactIndex = contacts.findIndex(c => c.address.toLowerCase() === currentConversation?.peerAddress?.toLowerCase());
+                        // Clave del chat al que pertenece lo que acabo de mandar (DM o grupo).
+                        const chatKey = convIsGroup(currentConversation)
+                            ? groupKeyOf(currentConversation.id)
+                            : currentConversation?.peerAddress;
+                        const contactIndex = chatKey
+                            ? contacts.findIndex(c => c.address.toLowerCase() === chatKey.toLowerCase())
+                            : -1;
                         if (contactIndex > -1) {
                             contacts[contactIndex].lastMessage = messageText;
                             contacts[contactIndex].lastMessageTimestamp = Date.now();
@@ -10171,6 +11077,75 @@
             }
             if (addContactBtnSidebar) addContactBtnSidebar.addEventListener('click', openAddContactModal);
             if (cancelAddContact) cancelAddContact.addEventListener('click', closeContactModal);
+
+            // ── Grupos: nuevo grupo / info del grupo ──────────────────────────
+            document.getElementById('newGroupBtnSidebar')?.addEventListener('click', openNewGroupModal);
+            document.getElementById('cancelNewGroup')?.addEventListener('click', closeNewGroupModal);
+            document.getElementById('createGroupBtn')?.addEventListener('click', handleCreateGroup);
+            document.getElementById('groupInfoBtn')?.addEventListener('click', openGroupInfo);
+            document.getElementById('closeGroupInfo')?.addEventListener('click', closeGroupInfoModal);
+
+            document.getElementById('groupRenameBtn')?.addEventListener('click', async () => {
+                if (!currentGroup) return;
+                const input = document.getElementById('groupRenameInput');
+                const st = document.getElementById('groupInfoStatus');
+                const name = (input?.value || '').trim();
+                if (!name) { st.textContent = 'El nombre no puede quedar vacío.'; return; }
+                st.textContent = 'Guardando…';
+                try {
+                    const conv = await chatwalletxmtp.conversations.getConversationById(currentGroup.groupId);
+                    await conv.updateName(name);
+                    currentGroup.name = name;
+                    const c = findGroupContact(currentGroup.groupId);
+                    if (c) c.name = name;
+                    chattingWithEl.textContent = name;
+                    await saveContacts();
+                    st.textContent = '';
+                    showToast('Nombre del grupo actualizado.', 'success');
+                    await renderGroupInfo();
+                } catch (e) {
+                    st.textContent = `No se pudo renombrar: ${e.message || e}`;
+                }
+            });
+
+            document.getElementById('groupAddMembersBtn')?.addEventListener('click', async () => {
+                if (!currentGroup || groupAddSelection.size === 0) return;
+                const st = document.getElementById('groupInfoStatus');
+                st.textContent = 'Añadiendo…';
+                try {
+                    const conv = await chatwalletxmtp.conversations.getConversationById(currentGroup.groupId);
+                    await conv.addMembersByIdentifiers([...groupAddSelection].map(a => ({ identifier: a, identifierKind: 0 })));
+                    groupAddSelection.clear();
+                    st.textContent = '';
+                    showToast('Miembros añadidos.', 'success');
+                    await renderGroupInfo();
+                    updateGroupHeaderSubtitle(conv);
+                } catch (e) {
+                    st.textContent = /not.*regist|identity|inbox/i.test(String(e.message || e))
+                        ? 'Alguno de esos contactos todavía no tiene chat activo.'
+                        : `No se pudo añadir: ${e.message || e}`;
+                }
+            });
+
+            document.getElementById('leaveGroupBtn')?.addEventListener('click', async () => {
+                if (!currentGroup) return;
+                const g = currentGroup;
+                if (!confirm(`¿Salir de "${g.name}"?\n\nSe borran el chat y su historial de este dispositivo, y dejás de recibir sus mensajes.`)) return;
+                const st = document.getElementById('groupInfoStatus');
+                st.textContent = 'Saliendo…';
+                try {
+                    await leaveGroupChat(g);
+                    closeGroupInfoModal();
+                    currentGroup = null;
+                    currentConversation = null;
+                    currentChatContact = null;
+                    showView('walletView');
+                    openSidebar();
+                    showToast(`Saliste de "${g.name}".`, 'success');
+                } catch (e) {
+                    st.textContent = `No se pudo salir: ${e.message || e}`;
+                }
+            });
 
             const scanForContactBtn = document.getElementById('scanForContactAddressBtn');
             if (scanForContactBtn) {
@@ -10575,6 +11550,8 @@
                 if (wallet && wallet.mnemonic && wallet.mnemonic.phrase) {
                     localStorage.setItem(WALLET_MNEMONIC_KEY, wallet.mnemonic.phrase);
                     localStorage.removeItem(WALLET_BACKUP_DONE_KEY); // wallet nueva: backup pendiente
+                    // Silenciar el aviso de la wallet anterior no puede silenciar el de la nueva.
+                    sessionStorage.removeItem(BACKUP_NAG_DISMISSED_KEY);
                 }
             }
 
@@ -10596,10 +11573,19 @@
                 return null;
             }
 
-            // Banner amarillo persistente: wallet creada acá + frase disponible + backup sin confirmar.
+            // El ✕ del aviso de backup lo silencia SOLO por esta sesión (sessionStorage, no
+            // localStorage): "perdés el dispositivo, perdés la billetera" no es una sugerencia
+            // que se pueda apagar para siempre con un tap. Vuelve en el próximo arranque y se
+            // va de verdad al confirmar "He guardado mis claves".
+            const BACKUP_NAG_DISMISSED_KEY = 'cw-backup-nag-dismissed';
+
+            // Banner rojo persistente: wallet creada acá + frase disponible + backup sin confirmar.
             function updateBackupNagBanner() {
                 if (!backupNagBanner) return;
-                const show = !!currentWallet && !localStorage.getItem(WALLET_BACKUP_DONE_KEY) && !!getStoredMnemonic();
+                const show = !!currentWallet
+                    && !localStorage.getItem(WALLET_BACKUP_DONE_KEY)
+                    && !sessionStorage.getItem(BACKUP_NAG_DISMISSED_KEY)
+                    && !!getStoredMnemonic();
                 backupNagBanner.classList.toggle('hidden', !show);
                 backupNagBanner.classList.toggle('flex', show);
             }
@@ -10657,7 +11643,19 @@
             });
             cancelBackupBtn.addEventListener('click', doCloseBackupModal);
             closeBackupModal.addEventListener('click', doCloseBackupModal);
-            if (backupNagBanner) backupNagBanner.addEventListener('click', () => openBackupModal());
+            // Antes el div ENTERO abría el modal. Ahora que hay un ✕ adentro eso no sirve: el
+            // tap de cerrar caía también en el contenedor y abría el backup que querías esquivar.
+            // El área clickeable es el texto + el botón "Respaldar"; la ✕ va por su cuenta.
+            document.getElementById('backupNagCta')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openBackupModal();
+            });
+            backupNagBanner?.querySelector('span')?.addEventListener('click', () => openBackupModal());
+            document.getElementById('backupNagDismiss')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sessionStorage.setItem(BACKUP_NAG_DISMISSED_KEY, '1');
+                updateBackupNagBanner();
+            });
             showBackupKeysBtn.addEventListener('click', () => {
                 document.getElementById('backupWarningView').classList.add('hidden');
                 document.getElementById('backupKeysView').classList.remove('hidden');
@@ -10934,6 +11932,34 @@
                     "wc_res_approved": "aprobada",
                     "wc_res_rejected": "rechazada",
                     "wc_res_error": "error",
+                    "wc_reject": "Rechazar",
+                    "wc_approve": "Aprobar",
+                    "wc_close": "Cerrar",
+                    "wc_need_unlock": "Primero desbloqueá tu wallet.",
+                    "wc_xmtp_not_ready": "El chat (XMTP) todavía no está listo. Esperá unos segundos e intentá de nuevo.",
+                    "wc_bad_qr": "QR de conexión inválido.",
+                    "wc_connect_title": "Conectar con dApp",
+                    "wc_connect_body": "Una dApp quiere vincularse a tu ChatWallet vía XMTP para pedirte firmas y envíos.\n\nInbox: {inbox}\nRed (chainId): {chain}\n\nTu clave privada nunca sale de ChatWallet.",
+                    "wc_connect_cta": "Conectar",
+                    "wc_connected_toast": "✅ Conectado a la dApp. Sus solicitudes aparecerán acá.",
+                    "wc_connect_err": "No se pudo conectar: {e}",
+                    "wc_sign_title": "Firmar mensaje",
+                    "wc_sign_body": "La dApp pide firmar este mensaje:\n\n\"{msg}\"\n\nEsto NO envía fondos.",
+                    "wc_sign_cta": "Firmar",
+                    "wc_tx_title": "Enviar transacción",
+                    "wc_tx_body": "La dApp pide ENVIAR una transacción:\n\nA: {to}\nValor: {value} ETH\nchainId: {chain}\n\nSe firmará y transmitirá con tu wallet.",
+                    "wc_tx_cta": "Enviar",
+                    "wc_wrong_net": "⚠️ La dApp pide la red {req} pero ChatWallet está en la {cur}. Cambiá de red y reintentá.",
+                    "wc_wrong_net_log": "red incorrecta (chainId {chain})",
+                    "wc_pay_channel_err": "No se pudo abrir el canal de pago: {e}",
+                    "wc_pay_net_missing": "⚠️ No tenés configurada la red del pago (chainId {chain}). Agregala en Configuración → Redes.",
+                    "wc_pay_title": "Confirmar compra",
+                    "wc_pay_body": "Monto: {value} ETH\nDestino: {to}\n\nSe firmará y transmitirá con tu wallet.",
+                    "wc_pay_cta": "Pagar",
+                    "wc_pay_sending": "Enviando pago…",
+                    "wc_pay_sent": "Pago enviado",
+                    "wc_err_funds": "Fondos insuficientes para cubrir el pago + gas en esta red.",
+                    "wc_err_rejected": "Cancelaste la firma.",
                     "settings_version_label": "Versión",
                     "settings_github_link": "Ver en GitHub"
                 },
@@ -11012,6 +12038,34 @@
                     "wc_res_approved": "approved",
                     "wc_res_rejected": "rejected",
                     "wc_res_error": "error",
+                    "wc_reject": "Reject",
+                    "wc_approve": "Approve",
+                    "wc_close": "Close",
+                    "wc_need_unlock": "Unlock your wallet first.",
+                    "wc_xmtp_not_ready": "Chat (XMTP) is not ready yet. Wait a few seconds and try again.",
+                    "wc_bad_qr": "Invalid connection QR.",
+                    "wc_connect_title": "Connect to dApp",
+                    "wc_connect_body": "A dApp wants to link to your ChatWallet over XMTP to request signatures and transactions.\n\nInbox: {inbox}\nNetwork (chainId): {chain}\n\nYour private key never leaves ChatWallet.",
+                    "wc_connect_cta": "Connect",
+                    "wc_connected_toast": "✅ Connected to the dApp. Its requests will show up here.",
+                    "wc_connect_err": "Could not connect: {e}",
+                    "wc_sign_title": "Sign message",
+                    "wc_sign_body": "The dApp asks you to sign this message:\n\n\"{msg}\"\n\nThis does NOT send funds.",
+                    "wc_sign_cta": "Sign",
+                    "wc_tx_title": "Send transaction",
+                    "wc_tx_body": "The dApp asks to SEND a transaction:\n\nTo: {to}\nValue: {value} ETH\nchainId: {chain}\n\nIt will be signed and broadcast with your wallet.",
+                    "wc_tx_cta": "Send",
+                    "wc_wrong_net": "⚠️ The dApp asks for network {req} but ChatWallet is on {cur}. Switch networks and try again.",
+                    "wc_wrong_net_log": "wrong network (chainId {chain})",
+                    "wc_pay_channel_err": "Could not open the payment channel: {e}",
+                    "wc_pay_net_missing": "⚠️ The payment network (chainId {chain}) is not configured. Add it in Settings → Networks.",
+                    "wc_pay_title": "Confirm purchase",
+                    "wc_pay_body": "Amount: {value} ETH\nTo: {to}\n\nIt will be signed and broadcast with your wallet.",
+                    "wc_pay_cta": "Pay",
+                    "wc_pay_sending": "Sending payment…",
+                    "wc_pay_sent": "Payment sent",
+                    "wc_err_funds": "Not enough funds to cover the payment + gas on this network.",
+                    "wc_err_rejected": "You cancelled the signature.",
                     "settings_version_label": "Version",
                     "settings_github_link": "View on GitHub"
                 },
@@ -11088,6 +12142,34 @@
                     "wc_act_tx": "Transaction",
                     "wc_act_connect": "Connexion",
                     "wc_res_approved": "approuvée",
+                    "wc_reject": "Refuser",
+                    "wc_approve": "Approuver",
+                    "wc_close": "Fermer",
+                    "wc_need_unlock": "Déverrouillez d'abord votre portefeuille.",
+                    "wc_xmtp_not_ready": "Le chat (XMTP) n'est pas encore prêt. Attendez quelques secondes et réessayez.",
+                    "wc_bad_qr": "QR de connexion invalide.",
+                    "wc_connect_title": "Se connecter à la dApp",
+                    "wc_connect_body": "Une dApp veut se lier à votre ChatWallet via XMTP pour vous demander des signatures et des envois.\n\nInbox : {inbox}\nRéseau (chainId) : {chain}\n\nVotre clé privée ne quitte jamais ChatWallet.",
+                    "wc_connect_cta": "Connecter",
+                    "wc_connected_toast": "✅ Connecté à la dApp. Ses demandes apparaîtront ici.",
+                    "wc_connect_err": "Connexion impossible : {e}",
+                    "wc_sign_title": "Signer le message",
+                    "wc_sign_body": "La dApp demande de signer ce message :\n\n« {msg} »\n\nCela n'envoie PAS de fonds.",
+                    "wc_sign_cta": "Signer",
+                    "wc_tx_title": "Envoyer la transaction",
+                    "wc_tx_body": "La dApp demande d'ENVOYER une transaction :\n\nÀ : {to}\nValeur : {value} ETH\nchainId : {chain}\n\nElle sera signée et diffusée avec votre portefeuille.",
+                    "wc_tx_cta": "Envoyer",
+                    "wc_wrong_net": "⚠️ La dApp demande le réseau {req} mais ChatWallet est sur {cur}. Changez de réseau et réessayez.",
+                    "wc_wrong_net_log": "réseau incorrect (chainId {chain})",
+                    "wc_pay_channel_err": "Impossible d'ouvrir le canal de paiement : {e}",
+                    "wc_pay_net_missing": "⚠️ Le réseau du paiement (chainId {chain}) n'est pas configuré. Ajoutez-le dans Configuration → Réseaux.",
+                    "wc_pay_title": "Confirmer l'achat",
+                    "wc_pay_body": "Montant : {value} ETH\nDestinataire : {to}\n\nElle sera signée et diffusée avec votre portefeuille.",
+                    "wc_pay_cta": "Payer",
+                    "wc_pay_sending": "Envoi du paiement…",
+                    "wc_pay_sent": "Paiement envoyé",
+                    "wc_err_funds": "Fonds insuffisants pour couvrir le paiement + le gas sur ce réseau.",
+                    "wc_err_rejected": "Vous avez annulé la signature.",
                     "wc_res_rejected": "rejetée",
                     "wc_res_error": "erreur",
                     "settings_version_label": "Version",
@@ -11108,9 +12190,13 @@
             // Traducción puntual desde JS (texto generado dinámicamente, p.ej. el
             // estado del respaldo de chats, que translateUI no toca porque no vive
             // en un data-i18n-key fijo — cambia con cada respaldo).
-            function t(key) {
+            // Acepta un segundo argumento opcional con variables: t('wc_sign_err', {e: msg})
+            // reemplaza cada {clave} del texto traducido.
+            function t(key, vars) {
                 const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
-                return (translations[lang] && translations[lang][key]) || translations['es'][key] || key;
+                let s = (translations[lang] && translations[lang][key]) || translations['es'][key] || key;
+                if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+                return s;
             }
 
             // --- Language Switcher Logic ---
@@ -12593,21 +13679,39 @@
 
         </script>
 
-    <!-- PWA Install Banner -->
-    <!-- z-30: por debajo de los modales (z-40/z-50) para no tapar sus botones -->
-    <div id="pwaInstallBanner" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-11/12 max-w-md bg-indigo-600 text-white p-3 rounded-lg shadow-xl z-30 flex items-center justify-between hidden">
-        <div class="flex items-center space-x-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-            <span class="text-sm font-medium">Instalar ChatWallet (PWA)</span>
-        </div>
-        <div class="flex items-center space-x-3">
-            <button id="pwaInstallBtn" class="bg-white text-indigo-600 px-3 py-1 rounded text-sm font-bold shadow hover:bg-gray-100 transition">Instalar</button>
-            <button id="pwaDismissBtn" class="text-white hover:text-gray-200 text-2xl leading-none">&times;</button>
-        </div>
-    </div>
+    <!-- (El banner de instalación de la PWA se movió a #noticeStack, bajo el header:
+         acá abajo flotaba sobre el contenido y tapaba la nav del footer.) -->
 
     <script>
+        // Alto real de la pila de avisos → --cw-notice-h. Lo consume el cálculo del
+        // tamaño del QR (ver #qr-code-wrapper>div): con los avisos abiertos hay ~120px
+        // menos de alto útil, y el QR tiene que enterarse para no desbordar.
+        (function trackNoticeStackHeight() {
+            const stack = document.getElementById('noticeStack');
+            if (!stack) return;
+            const apply = () => document.documentElement.style.setProperty(
+                '--cw-notice-h', Math.round(stack.getBoundingClientRect().height) + 'px');
+            apply();
+            if (window.ResizeObserver) new ResizeObserver(apply).observe(stack);
+            window.addEventListener('resize', apply);
+        })();
+
         let deferredPrompt;
+        // Ocultado a mano por el usuario: es una sugerencia, no una advertencia → no vuelve.
+        const PWA_BANNER_DISMISSED_KEY = 'cw-pwa-banner-dismissed';
+        const pwaBanner = () => document.getElementById('pwaInstallBanner');
+        function showPwaBanner() {
+            const el = pwaBanner();
+            if (!el) return;
+            el.classList.remove('hidden');
+            el.classList.add('flex');   // el banner vive en un flex-row: sin esto queda invisible
+        }
+        function hidePwaBanner() {
+            const el = pwaBanner();
+            if (!el) return;
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        }
         // Corriendo ya instalada (PWA standalone o APK/Capacitor) el banner no tiene sentido
         // y beforeinstallprompt no dispara: no mostrar nada.
         const pwaRunningStandalone = window.matchMedia('(display-mode: standalone)').matches
@@ -12621,13 +13725,13 @@
             // Stash the event so it can be triggered later.
             deferredPrompt = e;
             // Update UI notify the user they can install the PWA
-            if (!pwaRunningStandalone) document.getElementById('pwaInstallBanner').classList.remove('hidden');
+            if (!pwaRunningStandalone && !localStorage.getItem(PWA_BANNER_DISMISSED_KEY)) showPwaBanner();
         });
 
         document.getElementById('pwaInstallBtn').addEventListener('click', async () => {
             if(deferredPrompt) {
                 // Hide the app provided install promotion
-                document.getElementById('pwaInstallBanner').classList.add('hidden');
+                hidePwaBanner();
                 deferredPrompt.prompt();
                 // Wait for the user to respond to the prompt
                 const { outcome } = await deferredPrompt.userChoice;
@@ -12637,19 +13741,20 @@
             } else {
                 // El navegador no ofrece instalación ahora (prompt ya usado/descartado, ya instalada,
                 // o browser sin soporte): explicar en vez de fallar en silencio.
-                document.querySelector('#pwaInstallBanner span').textContent =
+                document.getElementById('pwaInstallText').textContent =
                     'Instalación manual: menú ⋮ del navegador → "Instalar app" / "Añadir a pantalla de inicio". Si ya está instalada, desinstalá la anterior primero.';
             }
         });
 
         document.getElementById('pwaDismissBtn').addEventListener('click', () => {
-            document.getElementById('pwaInstallBanner').classList.add('hidden');
+            localStorage.setItem(PWA_BANNER_DISMISSED_KEY, '1');
+            hidePwaBanner();
         });
 
         window.addEventListener('appinstalled', () => {
             // Clear the deferredPrompt so it can be garbage collected
             deferredPrompt = null;
-            document.getElementById('pwaInstallBanner').classList.add('hidden');
+            hidePwaBanner();
             console.log('PWA was installed');
         });
     </script>
