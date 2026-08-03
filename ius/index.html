@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ius Naturalis — Atestación soberana de documentos</title>
+<meta name="description" content="Firmá, atestiguá y anclá tus documentos de autodeterminación en IPFS pagando desde tu propia wallet, a través de la red descentralizada Crust.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --noche:#0D0716;          /* fondo violeta-negro */
+    --noche-2:#150C24;        /* paneles */
+    --noche-3:#1D1130;        /* superficies elevadas */
+    --violeta:#8B5CF6;        /* el ser vivo */
+    --violeta-hondo:#5B21B6;
+    --lavanda:#C7B5F1;
+    --marfil:#F0EBF9;         /* texto principal */
+    --bruma:#8E82A6;          /* texto secundario */
+    --oro:#C9A15E;            /* sello del anclaje consumado */
+    --linea:rgba(139,92,246,.22);
+    --error:#F08A8A;
+    --ok:#8BE0B4;
+    --aviso:#E9C46A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--noche);
+    color:var(--marfil);
+    font-family:'Sora',system-ui,sans-serif;
+    font-weight:300;
+    line-height:1.6;
+    min-height:100vh;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(91,33,182,.28), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 85% 110%, rgba(139,92,246,.10), transparent 60%);
+    background-attachment:fixed;
+  }
+  ::selection{background:var(--violeta-hondo);color:var(--marfil)}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;align-items:center;justify-content:space-between;gap:1rem;
+    padding:1.1rem clamp(1rem,4vw,3rem);
+    border-bottom:1px solid var(--linea);
+    position:sticky;top:0;z-index:40;
+    background:rgba(13,7,22,.82);backdrop-filter:blur(12px);
+  }
+  .marca{display:flex;align-items:center;gap:.7rem;text-decoration:none;color:var(--marfil)}
+  .marca svg{width:34px;height:34px;flex:none}
+  .marca .nombre{font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:600;letter-spacing:.06em}
+  .marca .nombre em{font-style:italic;color:var(--lavanda)}
+  .hdr-acciones{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;justify-content:flex-end}
+  select#red,select#idioma{
+    background:var(--noche-3);color:var(--lavanda);border:1px solid var(--linea);
+    border-radius:.5rem;padding:.5rem .7rem;font-family:'Sora';font-size:.8rem;cursor:pointer;
+  }
+  select#idioma{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.05em}
+  .btn{
+    font-family:'Sora';font-weight:500;font-size:.85rem;letter-spacing:.02em;
+    border:1px solid var(--violeta);color:var(--marfil);background:transparent;
+    border-radius:.6rem;padding:.55rem 1.1rem;cursor:pointer;
+    transition:background .25s,box-shadow .25s,transform .15s;
+  }
+  .btn:hover{background:rgba(139,92,246,.16)}
+  .btn:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--lavanda);outline-offset:2px}
+  .btn.lleno{background:var(--violeta);border-color:var(--violeta)}
+  .btn.lleno:hover{background:#9d75f8;box-shadow:0 0 24px rgba(139,92,246,.45)}
+  .btn.oro{border-color:var(--oro);color:var(--oro)}
+  .btn.oro:hover{background:rgba(201,161,94,.12)}
+  .btn.tenue{border-color:var(--linea);color:var(--bruma);font-weight:400;font-size:.78rem;padding:.4rem .8rem}
+  .btn.tenue:hover{background:var(--noche-3);color:var(--lavanda)}
+  .btn:disabled{opacity:.38;cursor:not-allowed;box-shadow:none}
+  .btn:disabled:hover{background:transparent}
+  .btn.lleno:disabled:hover{background:var(--violeta)}
+  .cuenta{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--lavanda);
+    border:1px solid var(--linea);border-radius:.6rem;padding:.5rem .8rem;background:var(--noche-3)}
+
+  /* ---------- hero ---------- */
+  .hero{
+    display:grid;place-items:center;text-align:center;
+    padding:clamp(2.5rem,7vh,5rem) 1.2rem 2rem;
+  }
+  #flor .flor-viva{width:min(300px,64vw);height:auto;margin-bottom:1.6rem}
+  .flor-viva circle{
+    fill:none;stroke:var(--violeta);stroke-width:1.1;
+    opacity:.28;transition:opacity 1.2s ease,stroke 1.2s ease,filter 1.2s ease;
+  }
+  .flor-viva .marco{stroke:var(--lavanda);opacity:.35;stroke-width:.8}
+  .flor-viva.respira{animation:respirar 7s ease-in-out infinite}
+  @keyframes respirar{0%,100%{transform:scale(1)}50%{transform:scale(1.025)}}
+  /* iluminación por etapas */
+  .flor-viva.p1 .g-centro circle{opacity:1;stroke:var(--lavanda);filter:drop-shadow(0 0 5px rgba(199,181,241,.8))}
+  .flor-viva.p2 .g-anillo1 circle{opacity:.95;filter:drop-shadow(0 0 4px rgba(139,92,246,.7))}
+  .flor-viva.p3 .g-anillo2 circle{opacity:.9;filter:drop-shadow(0 0 4px rgba(139,92,246,.6))}
+  .flor-viva.p4 circle{opacity:1;stroke:var(--lavanda);filter:drop-shadow(0 0 6px rgba(139,92,246,.75))}
+  .flor-viva.p5 circle{stroke:var(--oro);opacity:1;filter:drop-shadow(0 0 6px rgba(201,161,94,.65))}
+  .hero h1{
+    font-family:'Cormorant Garamond',serif;font-weight:500;
+    font-size:clamp(2.6rem,7vw,4.6rem);letter-spacing:.05em;line-height:1.05;
+  }
+  .hero h1 em{font-style:italic;color:var(--lavanda)}
+  .hero .lema{
+    margin-top:.9rem;max-width:40rem;color:var(--bruma);font-size:clamp(.95rem,2vw,1.05rem);
+  }
+  .hero .lema strong{color:var(--lavanda);font-weight:500}
+
+  /* ---------- rito (pasos) ---------- */
+  main{max-width:860px;margin:0 auto;padding:0 1.2rem 5rem}
+  .rito{display:flex;flex-direction:column;gap:1rem}
+  .paso{
+    border:1px solid var(--linea);border-radius:1rem;background:var(--noche-2);
+    padding:1.4rem 1.5rem;transition:border-color .4s,box-shadow .4s,opacity .4s;
+  }
+  .paso.activo{border-color:var(--violeta);box-shadow:0 0 0 1px var(--violeta),0 8px 40px -18px rgba(139,92,246,.55)}
+  .paso.hecho{border-color:rgba(201,161,94,.55)}
+  .paso-cab{display:flex;align-items:baseline;gap:.9rem}
+  .paso-num{
+    font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.5rem;color:var(--violeta);
+    min-width:1.6rem;text-align:center;
+  }
+  .paso.hecho .paso-num{color:var(--oro)}
+  .paso h2{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:1.45rem;letter-spacing:.02em}
+  .paso p.desc{color:var(--bruma);font-size:.88rem;margin:.35rem 0 1rem;max-width:44rem}
+  .paso .cuerpo{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+  .sello{margin-left:auto;color:var(--oro);font-size:.8rem;letter-spacing:.08em;display:none;
+    font-family:'Sora';font-weight:500}
+  .paso.hecho .sello{display:inline}
+
+  /* dropzone */
+  .zona{
+    border:1.5px dashed var(--linea);border-radius:.8rem;padding:1.6rem;width:100%;
+    text-align:center;color:var(--bruma);cursor:pointer;transition:border-color .3s,background .3s;
+    font-size:.9rem;
+  }
+  .zona:hover,.zona.sobre{border-color:var(--violeta);background:rgba(139,92,246,.07);color:var(--lavanda)}
+  .zona strong{color:var(--lavanda);font-weight:500}
+  input[type=file]{display:none}
+  .archivo-info{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--lavanda);
+    word-break:break-all;width:100%}
+  .huella{width:100%;background:var(--noche-3);border:1px solid var(--linea);border-radius:.6rem;
+    padding:.7rem .9rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;word-break:break-all;color:var(--lavanda)}
+  .huella .etq{color:var(--bruma);font-family:'Sora';font-size:.68rem;letter-spacing:.12em;
+    text-transform:uppercase;display:block;margin-bottom:.25rem}
+
+  /* toggle privacidad */
+  .privacidad{width:100%;display:flex;flex-direction:column;gap:.5rem;
+    background:var(--noche-3);border:1px solid var(--linea);border-radius:.7rem;padding:.9rem 1rem}
+  .privacidad .fila{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+  .segmento{display:inline-flex;border:1px solid var(--linea);border-radius:.6rem;overflow:hidden}
+  .segmento button{
+    font-family:'Sora';font-size:.78rem;padding:.4rem .9rem;background:transparent;color:var(--bruma);
+    border:none;cursor:pointer;transition:background .2s,color .2s;
+  }
+  .segmento button.sel{background:var(--violeta);color:var(--marfil)}
+  .privacidad .nota{font-size:.76rem;color:var(--bruma)}
+  .privacidad .nota.publico{color:var(--aviso)}
+
+  .cid-caja{
+    width:100%;background:var(--noche-3);border:1px solid var(--linea);border-radius:.6rem;
+    padding:.8rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;word-break:break-all;
+  }
+  .cid-caja .etq{color:var(--bruma);font-family:'Sora';font-size:.7rem;letter-spacing:.12em;
+    text-transform:uppercase;display:block;margin-bottom:.3rem}
+
+  /* declaración */
+  textarea#declaracion{
+    width:100%;min-height:5.5rem;resize:vertical;background:var(--noche-3);color:var(--marfil);
+    border:1px solid var(--linea);border-radius:.7rem;padding:.8rem 1rem;
+    font-family:'Cormorant Garamond',serif;font-size:1.05rem;line-height:1.5;
+  }
+  textarea#declaracion::placeholder{color:var(--bruma);font-style:italic}
+  .plantillas{display:flex;gap:.5rem;flex-wrap:wrap;width:100%}
+  .plantillas button{
+    font-family:'Sora';font-size:.72rem;color:var(--lavanda);background:transparent;
+    border:1px solid var(--linea);border-radius:99px;padding:.3rem .8rem;cursor:pointer;transition:background .2s}
+  .plantillas button:hover{background:rgba(139,92,246,.12)}
+
+  .precio{font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:var(--marfil)}
+  .precio .u{font-size:1rem;color:var(--lavanda)}
+  .estado{font-size:.82rem;color:var(--bruma);width:100%}
+  .estado.err{color:var(--error)}
+  .estado.ok{color:var(--ok)}
+  .estado.aviso{color:var(--aviso)}
+  .girando{display:inline-block;width:.9em;height:.9em;border:2px solid var(--linea);
+    border-top-color:var(--violeta);border-radius:50%;animation:girar 1s linear infinite;
+    vertical-align:-.12em;margin-right:.4em}
+  @keyframes girar{to{transform:rotate(360deg)}}
+
+  /* ---------- registro ---------- */
+  .registro{margin-top:3.5rem}
+  .registro-cab{display:flex;align-items:baseline;gap:1rem;border-bottom:1px solid var(--linea);
+    padding-bottom:.7rem;margin-bottom:1.2rem;flex-wrap:wrap}
+  .registro h2{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:1.9rem}
+  .registro .sub{color:var(--bruma);font-size:.82rem}
+  .registro .reg-acciones{margin-left:auto;display:flex;gap:.5rem}
+  .doc{
+    border:1px solid var(--linea);border-radius:.9rem;padding:1.1rem 1.3rem;margin-bottom:.9rem;
+    background:linear-gradient(180deg,var(--noche-2),var(--noche));
+    display:grid;gap:.5rem;
+  }
+  .doc .titulo{font-weight:500;font-size:.95rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+  .doc .titulo .chip{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--oro);
+    border:1px solid rgba(201,161,94,.5);border-radius:99px;padding:.12rem .55rem}
+  .doc .titulo .chip.priv{color:var(--lavanda);border-color:var(--linea)}
+  .doc .declaracion{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.02rem;color:var(--marfil);
+    border-left:2px solid var(--linea);padding-left:.8rem}
+  .doc .cid{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--lavanda);word-break:break-all}
+  .doc .meta{font-size:.73rem;color:var(--bruma)}
+  .doc .enlaces{display:flex;gap:1rem;flex-wrap:wrap;font-size:.78rem;align-items:center}
+  .doc .enlaces a,.doc .enlaces button{color:var(--lavanda);text-decoration:none;border:none;background:none;
+    border-bottom:1px solid var(--linea);cursor:pointer;font-family:'Sora';font-size:.78rem;padding:0 0 .1rem}
+  .doc .enlaces a:hover,.doc .enlaces button:hover{color:var(--marfil);border-color:var(--violeta)}
+  .vacio{color:var(--bruma);font-size:.88rem;text-align:center;padding:2rem 1rem;
+    border:1px dashed var(--linea);border-radius:.9rem}
+
+  /* ---------- verificador ---------- */
+  .verificador{margin-top:3rem;border:1px solid var(--linea);border-radius:1rem;background:var(--noche-2);padding:1.4rem 1.5rem}
+  .verificador h2{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:1.5rem;margin-bottom:.3rem}
+  .verificador p{color:var(--bruma);font-size:.85rem;margin-bottom:.9rem}
+  .verificador textarea{width:100%;min-height:6rem;resize:vertical;background:var(--noche-3);color:var(--lavanda);
+    border:1px solid var(--linea);border-radius:.7rem;padding:.8rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+  .verificador .cuerpo{display:flex;gap:.7rem;flex-wrap:wrap;margin-top:.8rem;align-items:center}
+  .veredicto{width:100%;font-size:.85rem;margin-top:.4rem}
+  .veredicto.ok{color:var(--ok)}
+  .veredicto.err{color:var(--error)}
+  .veredicto .det{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bruma);display:block;margin-top:.3rem}
+
+  footer{
+    border-top:1px solid var(--linea);padding:2rem clamp(1rem,4vw,3rem) 3rem;
+    color:var(--bruma);font-size:.75rem;max-width:860px;margin:0 auto;
+  }
+  footer a{color:var(--lavanda);text-decoration:none}
+  footer .contratos{font-family:'JetBrains Mono',monospace;font-size:.68rem;word-break:break-all;margin-top:.6rem;line-height:1.9}
+
+  /* ---------- versión ---------- */
+  .version{
+    font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--bruma);
+    border:1px solid var(--linea);border-radius:99px;padding:.08rem .5rem;align-self:center;
+    letter-spacing:.04em;
+  }
+  footer .version-pie{color:var(--lavanda);font-family:'JetBrains Mono',monospace;font-size:.68rem}
+
+  /* ---------- identidad conectada (paso II) ---------- */
+  .ident{
+    width:100%;background:var(--noche-3);border:1px solid var(--linea);border-radius:.6rem;
+    padding:.6rem .85rem;font-size:.78rem;color:var(--bruma);display:flex;gap:.55rem;
+    align-items:center;flex-wrap:wrap;margin-bottom:1rem;
+  }
+  .ident .ident-addr{font-family:'JetBrains Mono',monospace;color:var(--lavanda);word-break:break-all;font-size:.74rem}
+  .ident .ident-modo{
+    margin-left:auto;font-size:.64rem;letter-spacing:.06em;text-transform:uppercase;
+    border:1px solid rgba(201,161,94,.4);border-radius:99px;padding:.12rem .55rem;color:var(--oro);white-space:nowrap;
+  }
+  .ident.local .ident-modo{color:var(--lavanda);border-color:var(--linea)}
+
+  /* ---------- modal de wallet ---------- */
+  .modal-fondo{
+    position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:1.2rem;
+    background:rgba(6,3,12,.74);backdrop-filter:blur(6px);
+  }
+  .modal-fondo[hidden]{display:none}
+  .modal{
+    width:min(420px,100%);background:var(--noche-2);border:1px solid var(--linea);border-radius:1.1rem;
+    padding:1.4rem;box-shadow:0 30px 80px -30px rgba(0,0,0,.85);animation:emerger .28s ease;
+  }
+  @keyframes emerger{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  .modal-cab{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+  .modal-cab h3{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:1.5rem}
+  .modal-x{background:none;border:none;color:var(--bruma);font-size:1rem;cursor:pointer;padding:.25rem .45rem;border-radius:.45rem}
+  .modal-x:hover{color:var(--marfil);background:var(--noche-3)}
+  .modal-sub{color:var(--bruma);font-size:.82rem;margin:.3rem 0 1rem}
+  .wallet-lista{display:flex;flex-direction:column;gap:.55rem}
+  .wallet-item{
+    display:flex;align-items:center;gap:.85rem;width:100%;text-align:left;
+    background:var(--noche-3);border:1px solid var(--linea);border-radius:.75rem;padding:.75rem .9rem;
+    cursor:pointer;transition:border-color .2s,background .2s;font-family:'Sora';color:var(--marfil);font-size:.9rem;
+  }
+  .wallet-item:hover{border-color:var(--violeta);background:rgba(139,92,246,.1)}
+  .wallet-item .ico{width:32px;height:32px;border-radius:.5rem;flex:none;display:grid;place-items:center;
+    background:var(--noche);overflow:hidden;font-size:1.1rem}
+  .wallet-item .ico img{width:100%;height:100%;object-fit:contain}
+  .wallet-item .txt{display:flex;flex-direction:column;line-height:1.25}
+  .wallet-item .txt small{color:var(--bruma);font-size:.7rem;font-weight:300}
+  .wallet-item.destacado{border-color:rgba(201,161,94,.5)}
+  .wallet-item.destacado .ico{color:var(--oro)}
+  .wallet-item.destacado:hover{border-color:var(--oro);background:rgba(201,161,94,.1)}
+  .modal-pie{color:var(--bruma);font-size:.72rem;margin-top:1rem;text-align:center;line-height:1.6}
+
+  @media (prefers-reduced-motion:reduce){
+    .flor-viva.respira{animation:none}
+    .modal{animation:none}
+    .girando{animation-duration:2s}
+    html{scroll-behavior:auto}
+  }
+  @media (max-width:560px){
+    .paso{padding:1.1rem 1rem}
+    .hdr-acciones .btn{padding:.5rem .8rem;font-size:.78rem}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="marca" href="#" aria-label="Ius Naturalis">
+    <span id="logo-mini"></span>
+    <span class="nombre">Ius <em>Naturalis</em></span>
+    <span class="version" id="version" title="Versión"></span>
+  </a>
+  <div class="hdr-acciones">
+    <select id="idioma" aria-label="Idioma / Language / Langue">
+      <option value="es">ES</option>
+      <option value="en">EN</option>
+      <option value="fr">FR</option>
+    </select>
+    <select id="red" data-i18n-aria="net_aria" aria-label="Red de anclaje">
+      <option value="42161">Arbitrum One · ETH</option>
+      <option value="1">Ethereum · ETH</option>
+      <option value="137">Polygon · POL</option>
+    </select>
+    <button class="btn lleno" id="btn-conectar" data-i18n="connect">Conectar wallet</button>
+    <span class="cuenta" id="cuenta" hidden></span>
+  </div>
+</header>
+
+<section class="hero">
+  <div id="flor" aria-hidden="true"></div>
+  <h1>Ius <em>Naturalis</em></h1>
+  <p class="lema" data-i18n="hero_lema" data-i18n-html>Firmá, <strong>atestiguá</strong> y anclá tus documentos de autodeterminación en <strong>IPFS</strong> a través de la red descentralizada <strong>Crust</strong>. Sin cuentas, sin intermediarios: tu wallet firma, tu wallet paga, la red conserva. La atestación es tuya y verificable por cualquiera, para siempre.</p>
+</section>
+
+<main>
+  <div class="rito" id="rito">
+
+    <article class="paso activo" id="paso1">
+      <div class="paso-cab"><span class="paso-num">I</span><h2 data-i18n="s1_title">Presencia</h2><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <p class="desc" data-i18n="s1_desc">Conectá tu wallet web3 (MetaMask, Rabby u otra compatible). Tu dirección es tu única identidad ante la red — nadie más la emite ni la revoca.</p>
+      <div class="cuerpo">
+        <button class="btn lleno" id="btn-conectar2" data-i18n="connect">Conectar wallet</button>
+        <span class="estado" id="estado1"></span>
+      </div>
+    </article>
+
+    <article class="paso" id="paso2">
+      <div class="paso-cab"><span class="paso-num">II</span><h2 data-i18n="s2_title">Firma</h2><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <p class="desc" data-i18n="s2_desc">Firmá tu propia dirección. Esa firma —y nada más— te autentica ante los gateways IPFS de Crust (W3Auth). No es una transacción: no tiene costo.</p>
+      <div class="ident" id="ident2" hidden>
+        <span data-i18n="ident_signing_as">Firmás como</span>
+        <span class="ident-addr" id="ident2-addr"></span>
+        <span class="ident-modo" id="ident2-modo"></span>
+      </div>
+      <div class="cuerpo">
+        <button class="btn" id="btn-firmar" data-i18n="s2_btn" disabled>Firmar identidad</button>
+        <span class="estado" id="estado2"></span>
+      </div>
+    </article>
+
+    <article class="paso" id="paso3">
+      <div class="paso-cab"><span class="paso-num">III</span><h2 data-i18n="s3_title">Palabra</h2><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <p class="desc" data-i18n="s3_desc">Elegí tu documento PDF. Antes de que nada salga de tu equipo verás su huella criptográfica local (SHA-256). Decidí si querés que sea público o cifrado, y subilo al gateway IPFS para obtener su CID.</p>
+      <div class="cuerpo">
+        <label class="zona" id="zona" tabindex="0" role="button" data-i18n-aria="drop_aria" aria-label="Elegir o soltar un PDF">
+          <span data-i18n="drop" data-i18n-html>Soltá tu PDF acá, o <strong>elegí un archivo</strong></span>
+          <input type="file" id="archivo" accept="application/pdf">
+        </label>
+        <span class="archivo-info" id="archivo-info"></span>
+        <div class="huella" id="huella-caja" hidden><span class="etq" data-i18n="fp_label">Huella local · SHA-256</span><span id="huella-txt"></span></div>
+
+        <div class="privacidad" id="privacidad" hidden>
+          <div class="fila">
+            <span style="font-size:.8rem;color:var(--lavanda)" data-i18n="vis_label">Visibilidad del documento:</span>
+            <div class="segmento" role="group" data-i18n-aria="vis_label" aria-label="Visibilidad">
+              <button type="button" id="vis-privado" class="sel" data-i18n="vis_priv" aria-pressed="true">🔒 Cifrado</button>
+              <button type="button" id="vis-publico" data-i18n="vis_pub" aria-pressed="false">🌐 Público</button>
+            </div>
+          </div>
+          <span class="nota" id="privacidad-nota"></span>
+        </div>
+
+        <button class="btn" id="btn-subir" data-i18n="s3_btn" disabled>Subir a IPFS</button>
+        <span class="estado" id="estado3"></span>
+        <div class="cid-caja" id="cid-caja" hidden><span class="etq" data-i18n="cid_label">CID del documento</span><span id="cid-txt"></span></div>
+      </div>
+    </article>
+
+    <article class="paso" id="paso4">
+      <div class="paso-cab"><span class="paso-num">IV</span><h2 data-i18n="s4_title">Atestación</h2><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <p class="desc" data-i18n="s4_desc">Este es el acto soberano: declarás y firmás. Tu firma ata tu identidad, la huella del documento y la fecha en una atestación portable que <em>cualquiera</em> puede verificar sin depender de esta web ni de Crust. No tiene costo.</p>
+      <div class="cuerpo">
+        <div class="plantillas" id="plantillas">
+          <button type="button" data-tk="tpl1_txt" data-i18n="tpl1">Documento propio</button>
+          <button type="button" data-tk="tpl2_txt" data-i18n="tpl2">Prueba de existencia</button>
+          <button type="button" data-tk="tpl3_txt" data-i18n="tpl3">Declaración de voluntad</button>
+        </div>
+        <textarea id="declaracion" data-i18n-ph="decl_ph" placeholder=""></textarea>
+        <button class="btn" id="btn-atestiguar" data-i18n="s4_btn" disabled>Firmar atestación</button>
+        <span class="estado" id="estado4"></span>
+      </div>
+    </article>
+
+    <article class="paso" id="paso5">
+      <div class="paso-cab"><span class="paso-num">V</span><h2 data-i18n="s5_title">Anclaje</h2><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <p class="desc" data-i18n="s5_desc">Pagá el anclaje desde tu propia wallet llamando al contrato <em>StorageOrder</em> de Crust. Los nodos de la red replican tu documento y prueban on-chain que lo conservan. Se paga una sola vez.</p>
+      <div class="cuerpo">
+        <span class="precio" id="precio" hidden></span>
+        <button class="btn oro" id="btn-anclar" data-i18n="s5_btn" disabled>Anclar en la red</button>
+        <span class="estado" id="estado5"></span>
+      </div>
+    </article>
+
+  </div>
+
+  <section class="registro" id="registro-sec">
+    <div class="registro-cab">
+      <h2 data-i18n="reg_title">Registro</h2>
+      <span class="sub" id="registro-sub" data-i18n="reg_sub">documentos atestiguados por esta wallet</span>
+      <span class="reg-acciones">
+        <button class="btn tenue" id="btn-exportar-todo" data-i18n="reg_export" hidden>Exportar registro</button>
+        <button class="btn tenue" id="btn-importar" data-i18n="reg_import">Importar</button>
+        <input type="file" id="importar-archivo" accept="application/json">
+      </span>
+    </div>
+    <div id="lista-docs"></div>
+  </section>
+
+  <section class="verificador">
+    <h2 data-i18n="verif_title">Verificar una atestación</h2>
+    <p data-i18n="verif_desc">Pegá el certificado (JSON) de una atestación de cualquiera para comprobar quién la firmó y sobre qué documento. La verificación es 100% local y offline.</p>
+    <textarea id="verif-entrada" placeholder='{ "norma": "ius-naturalis/atestacion/1", ... }'></textarea>
+    <div class="cuerpo">
+      <button class="btn" id="btn-verificar" data-i18n="verif_btn">Verificar firma</button>
+      <span class="veredicto" id="veredicto"></span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p data-i18n="footer_text" data-i18n-html><strong>Ius Naturalis</strong> es una interfaz soberana: no custodia fondos, no guarda tus archivos y no requiere cuenta. La subida usa los gateways públicos <a href="https://wiki.crust.network/docs/en/buildIPFSWeb3AuthGW" target="_blank" rel="noopener">IPFS W3Auth</a> de Crust Network y el pago llama directamente a los contratos StorageOrder desplegados por Crust. Verificá siempre las direcciones antes de firmar.</p>
+  <p class="contratos">
+    Ethereum · 0x6e9469673257e21b3e75bb9292c9ab009bc481d4<br>
+    Arbitrum One · 0x6E9469673257E21B3E75bb9292c9aB009bc481D4<br>
+    Polygon · 0xE1E8ff8e51DA7066CB1009a4c1dE68AE2d095655
+  </p>
+  <p style="margin-top:.9rem">Ius Naturalis <span class="version-pie" id="version-pie"></span></p>
+</footer>
+
+<div class="modal-fondo" id="modal-wallet" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <div class="modal-cab">
+      <h3 id="modal-titulo" data-i18n="modal_title">Elegí tu wallet</h3>
+      <button class="modal-x" id="modal-cerrar" data-i18n-aria="close" aria-label="Cerrar">✕</button>
+    </div>
+    <p class="modal-sub" data-i18n="modal_sub">Conectá con la billetera soberana de tu elección. Tu wallet firma y paga; nadie más interviene.</p>
+    <div class="wallet-lista" id="wallet-lista"></div>
+    <p class="modal-pie" data-i18n="modal_foot">¿No tenés wallet? Necesitás una billetera web3 compatible con EVM (chatWallet, MetaMask, Rabby…).</p>
+  </div>
+</div>
+
+<div class="modal-fondo" id="pair-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pair-titulo">
+    <div class="modal-cab">
+      <h3 id="pair-titulo" data-i18n="pair_title">Firmá en tu celular</h3>
+      <button class="modal-x" id="pair-cerrar" data-i18n-aria="close" aria-label="Cerrar">✕</button>
+    </div>
+    <p class="modal-sub" data-i18n="pair_sub">Escaneá este código con tu app chatWallet. Desde ahí vas a firmar y anclar; en esta pantalla solo preparás.</p>
+    <div id="pair-qr" style="display:grid;place-items:center;margin:1rem 0"></div>
+    <div id="pair-uri" style="font-family:'JetBrains Mono',monospace;font-size:.68rem;text-align:center;color:var(--bruma);word-break:break-all"></div>
+    <p class="estado" id="pair-status" style="text-align:center;margin-top:.9rem;justify-content:center"></p>
+  </div>
+</div>
+
+<script src="/js/ethers-6.13.2.umd.min.js"></script>
+<script src="/js/qr-code-styling.js"></script>
+<script>
+/* ================= i18n (es / en / fr) ================= */
+window.IusI18n = (function(){
+  const D = {
+  es:{
+    connect:'Conectar wallet', net_aria:'Red de anclaje', close:'Cerrar', done:'✦ cumplido',
+    hero_lema:'Firmá, <strong>atestiguá</strong> y anclá tus documentos de autodeterminación en <strong>IPFS</strong> a través de la red descentralizada <strong>Crust</strong>. Sin cuentas, sin intermediarios: tu wallet firma, tu wallet paga, la red conserva. La atestación es tuya y verificable por cualquiera, para siempre.',
+    s1_title:'Presencia', s1_desc:'Conectá tu wallet web3 (MetaMask, Rabby u otra compatible). Tu dirección es tu única identidad ante la red — nadie más la emite ni la revoca.',
+    s2_title:'Firma', s2_desc:'Firmá tu propia dirección. Esa firma —y nada más— te autentica ante los gateways IPFS de Crust (W3Auth). No es una transacción: no tiene costo.', s2_btn:'Firmar identidad',
+    s3_title:'Palabra', s3_desc:'Elegí tu documento PDF. Antes de que nada salga de tu equipo verás su huella criptográfica local (SHA-256). Decidí si querés que sea público o cifrado, y subilo al gateway IPFS para obtener su CID.',
+    drop:'Soltá tu PDF acá, o <strong>elegí un archivo</strong>', drop_aria:'Elegir o soltar un PDF',
+    fp_label:'Huella local · SHA-256', vis_label:'Visibilidad del documento:', vis_priv:'🔒 Cifrado', vis_pub:'🌐 Público',
+    s3_btn:'Subir a IPFS', cid_label:'CID del documento',
+    s4_title:'Atestación', s4_desc:'Este es el acto soberano: declarás y firmás. Tu firma ata tu identidad, la huella del documento y la fecha en una atestación portable que <em>cualquiera</em> puede verificar sin depender de esta web ni de Crust. No tiene costo.',
+    tpl1:'Documento propio', tpl2:'Prueba de existencia', tpl3:'Declaración de voluntad',
+    tpl1_txt:'Declaro este documento como propio y verdadero, en ejercicio de mi soberanía individual.',
+    tpl2_txt:'Atestiguo la existencia y autenticidad de este documento en la fecha indicada.',
+    tpl3_txt:'Declaro esta voluntad como libre, informada y sin coacción.',
+    decl_ph:'Escribí tu declaración… (por ejemplo: «Declaro esta acta como propia y verdadera»)', s4_btn:'Firmar atestación',
+    s5_title:'Anclaje', s5_desc:'Pagá el anclaje desde tu propia wallet llamando al contrato <em>StorageOrder</em> de Crust. Los nodos de la red replican tu documento y prueban on-chain que lo conservan. Se paga una sola vez.', s5_btn:'Anclar en la red',
+    reg_title:'Registro', reg_sub:'documentos atestiguados por esta wallet', reg_export:'Exportar registro', reg_import:'Importar',
+    reg_empty:'Aún no hay documentos atestiguados. El primero abre el registro.',
+    verif_title:'Verificar una atestación', verif_desc:'Pegá el certificado (JSON) de una atestación de cualquiera para comprobar quién la firmó y sobre qué documento. La verificación es 100% local y offline.', verif_btn:'Verificar firma',
+    footer_text:'<strong>Ius Naturalis</strong> es una interfaz soberana: no custodia fondos, no guarda tus archivos y no requiere cuenta. La subida usa los gateways públicos <a href="https://wiki.crust.network/docs/en/buildIPFSWeb3AuthGW" target="_blank" rel="noopener">IPFS W3Auth</a> de Crust Network y el pago llama directamente a los contratos StorageOrder desplegados por Crust. Verificá siempre las direcciones antes de firmar.',
+    modal_title:'Elegí tu wallet', modal_sub:'Conectá con la billetera soberana de tu elección. Tu wallet firma y paga; nadie más interviene.', modal_foot:'¿No tenés wallet? Necesitás una billetera web3 compatible con EVM (chatWallet, MetaMask, Rabby…).',
+    cw_detected:'billetera soberana detectada', cw_phone:'firmar en mi celular (APK)', cw_hint:'Para firmar desde tu celular (APK) vamos a habilitar el puente por QR. Por ahora, abrí ius.chatwallet.org desde el navegador interno de chatWallet.', w_browser:'Wallet del navegador', w_browser_sub:'MetaMask u otra inyectada',
+    pair_title:'Firmá en tu celular', pair_sub:'Escaneá este código con tu app chatWallet. Desde el celular firmás y anclás; en esta pantalla solo preparás.', pair_gen:'Generando sesión…', pair_scan:'Esperando a que chatWallet escanee…', pair_linking:'Abriendo canal seguro con tu chatWallet…', pair_linked:'chatWallet vinculada ✓', pair_linked_addr:'✦ chatWallet vinculada — {addr}', pair_err:'No se pudo vincular: {e}', st_xmtp_load_err:'No se pudo cargar XMTP: {e}',
+    ident_signing_as:'Firmás como', ident_remote:'📡 en tu celular · chatWallet', ident_local:'wallet de este navegador',
+    st_sign_wait_remote:'Aprobá la firma en tu chatWallet (en el celular). Si no aparece nada, abrí la app y revisá que el canal siga activo.', st_att_wait_remote:'Aprobá la atestación en tu chatWallet (en el celular)…', st_key_wait_remote:'Aprobá en tu chatWallet (en el celular) para derivar la clave de cifrado…',
+    st_wallet_no:'No se detectó una wallet web3. Instalá MetaMask, Rabby u otra wallet compatible y recargá la página. En el celular, abrí esta página desde el navegador interno de tu wallet.',
+    st_wallet_wait:'Esperando aprobación en {name}…', st_wallet_ok:'Wallet presente: {addr}', st_wallet_err:'No se pudo conectar: {e}',
+    st_sign_wait:'Firmá el mensaje en tu wallet (es tu propia dirección, sin costo)…', st_sign_ok:'Identidad firmada. Los gateways de Crust ya te reconocen.', st_sign_err:'Firma rechazada o fallida: {e}',
+    st_key_wait:'Derivá tu clave de cifrado: firmá el mensaje en tu wallet (sin costo)…',
+    st_only_pdf:'El registro acepta únicamente documentos PDF.', st_fp_calc:'Calculando huella local…', st_fp_ok:'Huella calculada. Elegí la visibilidad y subí.', st_read_err:'No se pudo leer el archivo: {e}',
+    vis_note_priv:'Cifrado: solo tu wallet puede descifrarlo. Se ancla el documento cifrado; nadie más lee su contenido.', vis_note_pub:'⚠ Público: cualquiera con el CID podrá leer el documento, de forma permanente. No subas datos sensibles en este modo.',
+    st_encrypting:'Cifrando el documento en tu equipo…', st_prep_err:'No se pudo preparar el documento: {e}', st_uploading:'Subiendo a {gw}…',
+    what_enc:'Documento cifrado', what_plain:'Documento', st_uploaded:'{what} en IPFS ({size}).',
+    st_upload_err:'No se pudo subir el documento. Último error: {e}. Los gateways públicos a veces se saturan: probá de nuevo en unos minutos.',
+    st_decl_empty:'Escribí tu declaración antes de firmar.', st_att_wait:'Firmá tu atestación en la wallet (sin costo)…', st_att_ok:'Atestación firmada y verificable. Ahora anclala para hacerla permanente.', st_att_err:'Atestación no firmada: {e}',
+    st_price_wait:'Consultando precio en el contrato de Crust…', st_price_ok:'Precio del anclaje en {net}. Se paga una sola vez, desde tu wallet, directo al mercado de almacenamiento.', st_price_err:'No se pudo cotizar: {e}',
+    st_tx_wait:'Confirmá la transacción en tu wallet…', st_tx_sent:'Transacción enviada. Esperando confirmación…', st_anchored:'Anclaje consumado. Los nodos de Crust ya están replicando tu documento.', st_anchor_err:'El anclaje no se completó: {e}',
+    msg_title:'Ius Naturalis — Atestación soberana', msg_intro:'Declaro y atestiguo el documento identificado a continuación.',
+    msg_doc:'Documento', msg_sha:'SHA-256 (contenido)', msg_cid:'CID', msg_decl:'Declaración', msg_signer:'Firmante', msg_net:'Red de anclaje', msg_date:'Fecha', w_encrypted:'cifrado', w_public:'público',
+    doc_anchored:'anclado · {net}', chip_enc:'🔒 cifrado', chip_pub:'🌐 público',
+    doc_decrypt:'Descargar y descifrar', doc_view:'Ver documento', doc_replicas:'Réplicas en la red', doc_tx:'Transacción', doc_cert:'Descargar certificado',
+    decrypt_connect:'Conectá tu wallet para descifrar.', decrypt_dl_err:'no se pudo bajar el documento cifrado', decrypt_err:'No se pudo descifrar: {e}\n\nRecordá que solo la wallet que cifró el documento puede abrirlo.',
+    import_added:'{n} atestación(es) importada(s).', import_none:'No había atestaciones nuevas para importar.', import_err:'No se pudo importar: {e}',
+    verif_bad_json:'No es un JSON válido.', verif_no_sig:'El certificado no tiene mensaje y firma.',
+    verif_ok:'✦ Firma válida. La atestación fue firmada por su declarante.', verif_mismatch:'✗ La firma es válida pero NO corresponde al firmante declarado. Posible manipulación.', verif_invalid:'Firma inválida o corrupta: {e}',
+    lbl_signer:'Firmante', lbl_doc:'Documento', lbl_cid:'CID', lbl_date:'Fecha', lbl_recovered:'Recuperada', lbl_declared:'Declarada'
+  },
+  en:{
+    connect:'Connect wallet', net_aria:'Anchoring network', close:'Close', done:'✦ done',
+    hero_lema:'Sign, <strong>attest</strong> and anchor your self-determination documents on <strong>IPFS</strong> through the decentralized <strong>Crust</strong> network. No accounts, no middlemen: your wallet signs, your wallet pays, the network keeps. The attestation is yours and verifiable by anyone, forever.',
+    s1_title:'Presence', s1_desc:'Connect your web3 wallet (MetaMask, Rabby or any compatible one). Your address is your only identity before the network — no one else issues or revokes it.',
+    s2_title:'Signature', s2_desc:'Sign your own address. That signature —and nothing else— authenticates you to Crust\'s IPFS gateways (W3Auth). It is not a transaction: no cost.', s2_btn:'Sign identity',
+    s3_title:'Word', s3_desc:'Choose your PDF document. Before anything leaves your device you\'ll see its local cryptographic fingerprint (SHA-256). Decide whether it should be public or encrypted, and upload it to the IPFS gateway to get its CID.',
+    drop:'Drop your PDF here, or <strong>choose a file</strong>', drop_aria:'Choose or drop a PDF',
+    fp_label:'Local fingerprint · SHA-256', vis_label:'Document visibility:', vis_priv:'🔒 Encrypted', vis_pub:'🌐 Public',
+    s3_btn:'Upload to IPFS', cid_label:'Document CID',
+    s4_title:'Attestation', s4_desc:'This is the sovereign act: you declare and sign. Your signature binds your identity, the document fingerprint and the date into a portable attestation that <em>anyone</em> can verify without relying on this site or on Crust. No cost.',
+    tpl1:'My own document', tpl2:'Proof of existence', tpl3:'Declaration of will',
+    tpl1_txt:'I declare this document as my own and true, in exercise of my individual sovereignty.',
+    tpl2_txt:'I attest to the existence and authenticity of this document on the date indicated.',
+    tpl3_txt:'I declare this will as free, informed and without coercion.',
+    decl_ph:'Write your declaration… (e.g.: "I declare this record as my own and true")', s4_btn:'Sign attestation',
+    s5_title:'Anchoring', s5_desc:'Pay for the anchoring from your own wallet by calling Crust\'s <em>StorageOrder</em> contract. The network nodes replicate your document and prove on-chain that they keep it. Paid once.', s5_btn:'Anchor on the network',
+    reg_title:'Registry', reg_sub:'documents attested by this wallet', reg_export:'Export registry', reg_import:'Import',
+    reg_empty:'No documents attested yet. The first one opens the registry.',
+    verif_title:'Verify an attestation', verif_desc:'Paste anyone\'s attestation certificate (JSON) to check who signed it and over which document. Verification is 100% local and offline.', verif_btn:'Verify signature',
+    footer_text:'<strong>Ius Naturalis</strong> is a sovereign interface: it holds no funds, stores no files and requires no account. Uploads use Crust Network\'s public <a href="https://wiki.crust.network/docs/en/buildIPFSWeb3AuthGW" target="_blank" rel="noopener">IPFS W3Auth</a> gateways and payment calls the StorageOrder contracts deployed by Crust directly. Always verify addresses before signing.',
+    modal_title:'Choose your wallet', modal_sub:'Connect with the sovereign wallet of your choice. Your wallet signs and pays; no one else intervenes.', modal_foot:'No wallet? You need an EVM-compatible web3 wallet (chatWallet, MetaMask, Rabby…).',
+    cw_detected:'sovereign wallet detected', cw_phone:'sign on my phone (APK)', cw_hint:'To sign from your phone (APK) we\'ll enable the QR bridge. For now, open ius.chatwallet.org from chatWallet\'s in-app browser.', w_browser:'Browser wallet', w_browser_sub:'MetaMask or other injected',
+    pair_title:'Sign on your phone', pair_sub:'Scan this code with your chatWallet app. You sign and anchor from the phone; this screen only prepares.', pair_gen:'Generating session…', pair_scan:'Waiting for chatWallet to scan…', pair_linking:'Opening a secure channel with your chatWallet…', pair_linked:'chatWallet linked ✓', pair_linked_addr:'✦ chatWallet linked — {addr}', pair_err:'Could not pair: {e}', st_xmtp_load_err:'Could not load XMTP: {e}',
+    ident_signing_as:'Signing as', ident_remote:'📡 on your phone · chatWallet', ident_local:'wallet in this browser',
+    st_sign_wait_remote:'Approve the signature in your chatWallet (on the phone). If nothing shows up, open the app and check the channel is still active.', st_att_wait_remote:'Approve the attestation in your chatWallet (on the phone)…', st_key_wait_remote:'Approve in your chatWallet (on the phone) to derive the encryption key…',
+    st_wallet_no:'No web3 wallet detected. Install MetaMask, Rabby or another compatible wallet and reload the page. On mobile, open this page from your wallet\'s in-app browser.',
+    st_wallet_wait:'Waiting for approval in {name}…', st_wallet_ok:'Wallet present: {addr}', st_wallet_err:'Could not connect: {e}',
+    st_sign_wait:'Sign the message in your wallet (it\'s your own address, no cost)…', st_sign_ok:'Identity signed. Crust gateways now recognize you.', st_sign_err:'Signature rejected or failed: {e}',
+    st_key_wait:'Derive your encryption key: sign the message in your wallet (no cost)…',
+    st_only_pdf:'The registry only accepts PDF documents.', st_fp_calc:'Computing local fingerprint…', st_fp_ok:'Fingerprint computed. Choose visibility and upload.', st_read_err:'Could not read the file: {e}',
+    vis_note_priv:'Encrypted: only your wallet can decrypt it. The encrypted document is anchored; no one else reads its content.', vis_note_pub:'⚠ Public: anyone with the CID will be able to read the document, permanently. Do not upload sensitive data in this mode.',
+    st_encrypting:'Encrypting the document on your device…', st_prep_err:'Could not prepare the document: {e}', st_uploading:'Uploading to {gw}…',
+    what_enc:'Encrypted document', what_plain:'Document', st_uploaded:'{what} on IPFS ({size}).',
+    st_upload_err:'Could not upload the document. Last error: {e}. Public gateways sometimes get saturated: try again in a few minutes.',
+    st_decl_empty:'Write your declaration before signing.', st_att_wait:'Sign your attestation in the wallet (no cost)…', st_att_ok:'Attestation signed and verifiable. Now anchor it to make it permanent.', st_att_err:'Attestation not signed: {e}',
+    st_price_wait:'Querying the price on Crust\'s contract…', st_price_ok:'Anchoring price on {net}. Paid once, from your wallet, straight to the storage market.', st_price_err:'Could not get a quote: {e}',
+    st_tx_wait:'Confirm the transaction in your wallet…', st_tx_sent:'Transaction sent. Waiting for confirmation…', st_anchored:'Anchoring complete. Crust nodes are already replicating your document.', st_anchor_err:'The anchoring did not complete: {e}',
+    msg_title:'Ius Naturalis — Sovereign attestation', msg_intro:'I declare and attest the document identified below.',
+    msg_doc:'Document', msg_sha:'SHA-256 (content)', msg_cid:'CID', msg_decl:'Declaration', msg_signer:'Signer', msg_net:'Anchoring network', msg_date:'Date', w_encrypted:'encrypted', w_public:'public',
+    doc_anchored:'anchored · {net}', chip_enc:'🔒 encrypted', chip_pub:'🌐 public',
+    doc_decrypt:'Download & decrypt', doc_view:'View document', doc_replicas:'Replicas on the network', doc_tx:'Transaction', doc_cert:'Download certificate',
+    decrypt_connect:'Connect your wallet to decrypt.', decrypt_dl_err:'could not fetch the encrypted document', decrypt_err:'Could not decrypt: {e}\n\nRemember that only the wallet that encrypted the document can open it.',
+    import_added:'{n} attestation(s) imported.', import_none:'No new attestations to import.', import_err:'Could not import: {e}',
+    verif_bad_json:'Not a valid JSON.', verif_no_sig:'The certificate has no message and signature.',
+    verif_ok:'✦ Valid signature. The attestation was signed by its declarant.', verif_mismatch:'✗ The signature is valid but does NOT match the declared signer. Possible tampering.', verif_invalid:'Invalid or corrupt signature: {e}',
+    lbl_signer:'Signer', lbl_doc:'Document', lbl_cid:'CID', lbl_date:'Date', lbl_recovered:'Recovered', lbl_declared:'Declared'
+  },
+  fr:{
+    connect:'Connecter le portefeuille', net_aria:'Réseau d\'ancrage', close:'Fermer', done:'✦ accompli',
+    hero_lema:'Signez, <strong>attestez</strong> et ancrez vos documents d\'autodétermination sur <strong>IPFS</strong> via le réseau décentralisé <strong>Crust</strong>. Sans comptes, sans intermédiaires : votre portefeuille signe, votre portefeuille paie, le réseau conserve. L\'attestation est la vôtre et vérifiable par tous, pour toujours.',
+    s1_title:'Présence', s1_desc:'Connectez votre portefeuille web3 (MetaMask, Rabby ou autre compatible). Votre adresse est votre seule identité devant le réseau — personne d\'autre ne l\'émet ni ne la révoque.',
+    s2_title:'Signature', s2_desc:'Signez votre propre adresse. Cette signature —et rien d\'autre— vous authentifie auprès des passerelles IPFS de Crust (W3Auth). Ce n\'est pas une transaction : sans coût.', s2_btn:'Signer l\'identité',
+    s3_title:'Parole', s3_desc:'Choisissez votre document PDF. Avant que quoi que ce soit ne quitte votre appareil, vous verrez son empreinte cryptographique locale (SHA-256). Décidez s\'il doit être public ou chiffré, et téléversez-le vers la passerelle IPFS pour obtenir son CID.',
+    drop:'Déposez votre PDF ici, ou <strong>choisissez un fichier</strong>', drop_aria:'Choisir ou déposer un PDF',
+    fp_label:'Empreinte locale · SHA-256', vis_label:'Visibilité du document :', vis_priv:'🔒 Chiffré', vis_pub:'🌐 Public',
+    s3_btn:'Téléverser sur IPFS', cid_label:'CID du document',
+    s4_title:'Attestation', s4_desc:'C\'est l\'acte souverain : vous déclarez et signez. Votre signature lie votre identité, l\'empreinte du document et la date dans une attestation portable que <em>quiconque</em> peut vérifier sans dépendre de ce site ni de Crust. Sans coût.',
+    tpl1:'Document personnel', tpl2:'Preuve d\'existence', tpl3:'Déclaration de volonté',
+    tpl1_txt:'Je déclare ce document comme mien et véridique, dans l\'exercice de ma souveraineté individuelle.',
+    tpl2_txt:'J\'atteste l\'existence et l\'authenticité de ce document à la date indiquée.',
+    tpl3_txt:'Je déclare cette volonté libre, éclairée et sans contrainte.',
+    decl_ph:'Écrivez votre déclaration… (par ex. : « Je déclare cet acte comme mien et véridique »)', s4_btn:'Signer l\'attestation',
+    s5_title:'Ancrage', s5_desc:'Payez l\'ancrage depuis votre propre portefeuille en appelant le contrat <em>StorageOrder</em> de Crust. Les nœuds du réseau répliquent votre document et prouvent on-chain qu\'ils le conservent. Payé une seule fois.', s5_btn:'Ancrer sur le réseau',
+    reg_title:'Registre', reg_sub:'documents attestés par ce portefeuille', reg_export:'Exporter le registre', reg_import:'Importer',
+    reg_empty:'Aucun document attesté pour l\'instant. Le premier ouvre le registre.',
+    verif_title:'Vérifier une attestation', verif_desc:'Collez le certificat (JSON) d\'une attestation de n\'importe qui pour vérifier qui l\'a signée et sur quel document. La vérification est 100% locale et hors ligne.', verif_btn:'Vérifier la signature',
+    footer_text:'<strong>Ius Naturalis</strong> est une interface souveraine : elle ne détient aucun fonds, ne stocke aucun fichier et ne requiert aucun compte. Le téléversement utilise les passerelles publiques <a href="https://wiki.crust.network/docs/en/buildIPFSWeb3AuthGW" target="_blank" rel="noopener">IPFS W3Auth</a> de Crust Network et le paiement appelle directement les contrats StorageOrder déployés par Crust. Vérifiez toujours les adresses avant de signer.',
+    modal_title:'Choisissez votre portefeuille', modal_sub:'Connectez-vous avec le portefeuille souverain de votre choix. Votre portefeuille signe et paie ; personne d\'autre n\'intervient.', modal_foot:'Pas de portefeuille ? Il vous faut un portefeuille web3 compatible EVM (chatWallet, MetaMask, Rabby…).',
+    cw_detected:'portefeuille souverain détecté', cw_phone:'signer sur mon téléphone (APK)', cw_hint:'Pour signer depuis votre téléphone (APK), nous activerons le pont par QR. Pour l\'instant, ouvrez ius.chatwallet.org depuis le navigateur intégré de chatWallet.', w_browser:'Portefeuille du navigateur', w_browser_sub:'MetaMask ou autre injecté',
+    pair_title:'Signez sur votre téléphone', pair_sub:'Scannez ce code avec votre app chatWallet. Vous signez et ancrez depuis le téléphone ; cet écran ne fait que préparer.', pair_gen:'Génération de la session…', pair_scan:'En attente du scan de chatWallet…', pair_linking:'Ouverture d\'un canal sécurisé avec votre chatWallet…', pair_linked:'chatWallet liée ✓', pair_linked_addr:'✦ chatWallet liée — {addr}', pair_err:'Appairage impossible : {e}', st_xmtp_load_err:'Chargement XMTP impossible : {e}',
+    ident_signing_as:'Vous signez en tant que', ident_remote:'📡 sur votre téléphone · chatWallet', ident_local:'portefeuille de ce navigateur',
+    st_sign_wait_remote:'Approuvez la signature dans votre chatWallet (sur le téléphone). Si rien n\'apparaît, ouvrez l\'app et vérifiez que le canal est toujours actif.', st_att_wait_remote:'Approuvez l\'attestation dans votre chatWallet (sur le téléphone)…', st_key_wait_remote:'Approuvez dans votre chatWallet (sur le téléphone) pour dériver la clé de chiffrement…',
+    st_wallet_no:'Aucun portefeuille web3 détecté. Installez MetaMask, Rabby ou un autre portefeuille compatible et rechargez la page. Sur mobile, ouvrez cette page depuis le navigateur intégré de votre portefeuille.',
+    st_wallet_wait:'En attente d\'approbation dans {name}…', st_wallet_ok:'Portefeuille présent : {addr}', st_wallet_err:'Connexion impossible : {e}',
+    st_sign_wait:'Signez le message dans votre portefeuille (c\'est votre propre adresse, sans coût)…', st_sign_ok:'Identité signée. Les passerelles de Crust vous reconnaissent.', st_sign_err:'Signature refusée ou échouée : {e}',
+    st_key_wait:'Dérivez votre clé de chiffrement : signez le message dans votre portefeuille (sans coût)…',
+    st_only_pdf:'Le registre n\'accepte que des documents PDF.', st_fp_calc:'Calcul de l\'empreinte locale…', st_fp_ok:'Empreinte calculée. Choisissez la visibilité et téléversez.', st_read_err:'Lecture du fichier impossible : {e}',
+    vis_note_priv:'Chiffré : seul votre portefeuille peut le déchiffrer. Le document chiffré est ancré ; personne d\'autre ne lit son contenu.', vis_note_pub:'⚠ Public : quiconque possède le CID pourra lire le document, de façon permanente. Ne téléversez pas de données sensibles dans ce mode.',
+    st_encrypting:'Chiffrement du document sur votre appareil…', st_prep_err:'Préparation du document impossible : {e}', st_uploading:'Téléversement vers {gw}…',
+    what_enc:'Document chiffré', what_plain:'Document', st_uploaded:'{what} sur IPFS ({size}).',
+    st_upload_err:'Téléversement du document impossible. Dernière erreur : {e}. Les passerelles publiques sont parfois saturées : réessayez dans quelques minutes.',
+    st_decl_empty:'Écrivez votre déclaration avant de signer.', st_att_wait:'Signez votre attestation dans le portefeuille (sans coût)…', st_att_ok:'Attestation signée et vérifiable. Ancrez-la maintenant pour la rendre permanente.', st_att_err:'Attestation non signée : {e}',
+    st_price_wait:'Consultation du prix sur le contrat de Crust…', st_price_ok:'Prix de l\'ancrage sur {net}. Payé une seule fois, depuis votre portefeuille, directement au marché du stockage.', st_price_err:'Devis impossible : {e}',
+    st_tx_wait:'Confirmez la transaction dans votre portefeuille…', st_tx_sent:'Transaction envoyée. En attente de confirmation…', st_anchored:'Ancrage accompli. Les nœuds de Crust répliquent déjà votre document.', st_anchor_err:'L\'ancrage ne s\'est pas terminé : {e}',
+    msg_title:'Ius Naturalis — Attestation souveraine', msg_intro:'Je déclare et atteste le document identifié ci-dessous.',
+    msg_doc:'Document', msg_sha:'SHA-256 (contenu)', msg_cid:'CID', msg_decl:'Déclaration', msg_signer:'Signataire', msg_net:'Réseau d\'ancrage', msg_date:'Date', w_encrypted:'chiffré', w_public:'public',
+    doc_anchored:'ancré · {net}', chip_enc:'🔒 chiffré', chip_pub:'🌐 public',
+    doc_decrypt:'Télécharger et déchiffrer', doc_view:'Voir le document', doc_replicas:'Répliques sur le réseau', doc_tx:'Transaction', doc_cert:'Télécharger le certificat',
+    decrypt_connect:'Connectez votre portefeuille pour déchiffrer.', decrypt_dl_err:'impossible de récupérer le document chiffré', decrypt_err:'Déchiffrement impossible : {e}\n\nRappelez-vous que seul le portefeuille qui a chiffré le document peut l\'ouvrir.',
+    import_added:'{n} attestation(s) importée(s).', import_none:'Aucune nouvelle attestation à importer.', import_err:'Import impossible : {e}',
+    verif_bad_json:'JSON invalide.', verif_no_sig:'Le certificat n\'a ni message ni signature.',
+    verif_ok:'✦ Signature valide. L\'attestation a été signée par son déclarant.', verif_mismatch:'✗ La signature est valide mais NE correspond PAS au signataire déclaré. Falsification possible.', verif_invalid:'Signature invalide ou corrompue : {e}',
+    lbl_signer:'Signataire', lbl_doc:'Document', lbl_cid:'CID', lbl_date:'Date', lbl_recovered:'Récupérée', lbl_declared:'Déclarée'
+  }};
+  let LANG = (localStorage.getItem('ius:lang')||'').toLowerCase();
+  if(!D[LANG]){ const nav=(navigator.language||'es').slice(0,2).toLowerCase(); LANG = D[nav]?nav:'es'; }
+  function t(key, vars){
+    let s = (D[LANG]&&D[LANG][key]!=null) ? D[LANG][key] : (D.es[key]!=null ? D.es[key] : key);
+    if(vars) for(const k in vars) s = s.split('{'+k+'}').join(vars[k]);
+    return s;
+  }
+  function applyI18n(){
+    document.documentElement.lang = LANG;
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const k=el.getAttribute('data-i18n');
+      if(el.hasAttribute('data-i18n-html')) el.innerHTML=t(k); else el.textContent=t(k);
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el=> el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph'))));
+    document.querySelectorAll('[data-i18n-aria]').forEach(el=> el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria'))));
+    document.querySelectorAll('[data-tk]').forEach(el=> el.setAttribute('data-t', t(el.getAttribute('data-tk'))));
+  }
+  function setLang(l){ if(!D[l])return; LANG=l; try{localStorage.setItem('ius:lang',l);}catch(_){}; applyI18n(); if(typeof window.iusOnLangChange==='function') window.iusOnLangChange(); }
+  window.t = t;
+  const sel = document.getElementById('idioma');
+  if(sel){ sel.value = LANG; sel.addEventListener('change', e=>setLang(e.target.value)); }
+  applyI18n();
+  return { t, applyI18n, setLang, lang:()=>LANG };
+})();
+</script>
+<script>
+(function(){
+  "use strict";
+
+  /* ================= flor de la vida ================= */
+  function flor(size, interactiva){
+    const r = 28, s = Math.sin(Math.PI/3)*r;
+    const anillo1 = [], anillo2 = [];
+    for(let k=0;k<6;k++){
+      const a = k*Math.PI/3;
+      anillo1.push([r*Math.cos(a), r*Math.sin(a)]);
+      anillo2.push([2*r*Math.cos(a), 2*r*Math.sin(a)]);
+      const b = a + Math.PI/6;
+      anillo2.push([2*s*Math.cos(b), 2*s*Math.sin(b)]);
+    }
+    const c = (x,y)=>`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r}"/>`;
+    return `<svg class="flor-viva${interactiva?' respira':''}" ${interactiva?'id="flor-svg"':''} viewBox="-92 -92 184 184" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <circle class="marco" cx="0" cy="0" r="88"/>
+      <g class="g-centro">${c(0,0)}</g>
+      <g class="g-anillo1">${anillo1.map(p=>c(p[0],p[1])).join('')}</g>
+      <g class="g-anillo2">${anillo2.map(p=>c(p[0],p[1])).join('')}</g>
+    </svg>`;
+  }
+  document.getElementById('flor').innerHTML = flor(300, true);
+  document.getElementById('logo-mini').innerHTML = flor(34, false);
+  const florSvg = document.getElementById('flor-svg');
+
+  /* ================= configuración ================= */
+  const CADENAS = {
+    1:     { nombre:'Ethereum',    simbolo:'ETH', contrato:'0x6e9469673257e21b3e75bb9292c9ab009bc481d4',
+             hexId:'0x1',   explorer:'https://etherscan.io/tx/', rpc:'https://eth.llamarpc.com', addParams:null },
+    42161: { nombre:'Arbitrum One',simbolo:'ETH', contrato:'0x6E9469673257E21B3E75bb9292c9aB009bc481D4',
+             hexId:'0xa4b1',explorer:'https://arbiscan.io/tx/', rpc:'https://arb1.arbitrum.io/rpc',
+             addParams:{ chainId:'0xa4b1', chainName:'Arbitrum One',
+               nativeCurrency:{name:'Ether',symbol:'ETH',decimals:18},
+               rpcUrls:['https://arb1.arbitrum.io/rpc'], blockExplorerUrls:['https://arbiscan.io'] } },
+    137:   { nombre:'Polygon',     simbolo:'POL', contrato:'0xE1E8ff8e51DA7066CB1009a4c1dE68AE2d095655',
+             hexId:'0x89',  explorer:'https://polygonscan.com/tx/', rpc:'https://polygon-rpc.com',
+             addParams:{ chainId:'0x89', chainName:'Polygon Mainnet',
+               nativeCurrency:{name:'POL',symbol:'POL',decimals:18},
+               rpcUrls:['https://polygon-rpc.com'], blockExplorerUrls:['https://polygonscan.com'] } },
+  };
+  const ABI_V1 = [
+    "function getPrice(uint size) public view returns (uint price)",
+    "function placeOrder(string cid, uint size) external payable",
+    "event Order(address customer, address merchant, string cid, uint size, uint price)"
+  ];
+  const ABI_V2 = [
+    "function getPrice(uint size, bool isPermanent) public view returns (uint price)",
+    "function placeOrder(string cid, uint size, bool isPermanent) external payable"
+  ];
+  const GATEWAYS = ['https://gw.crustfiles.app','https://crustipfs.xyz'];
+  const NORMA = 'ius-naturalis/atestacion/1';
+  const VERSION = '0.5.0';
+
+  /* ================= estado ================= */
+  const S = {
+    eip1193:null, provider:null, signer:null, cuenta:null, chainId:null, remoto:false,
+    auth:null,               // header W3Auth
+    claveAES:null,           // CryptoKey derivada de la wallet
+    archivo:null,            // File original elegido
+    sha256:null,             // huella del PLANTEXTO
+    cifrado:true,            // visibilidad elegida
+    cid:null, tam:null,      // resultado de la subida (del blob subido)
+    precio:null, abiV2:false,
+    atestacion:null,         // { mensaje, firma, fecha, declaracion }
+    docs:[],
+  };
+
+  const $ = id => document.getElementById(id);
+  const pasos = [null, $('paso1'), $('paso2'), $('paso3'), $('paso4'), $('paso5')];
+
+  function estado(n, msj, tipo, spinner){
+    const el = $('estado'+n);
+    el.className = 'estado' + (tipo ? ' '+tipo : '');
+    el.innerHTML = (spinner ? '<span class="girando"></span>' : '') + msj;
+  }
+  function cumplir(n){
+    pasos[n].classList.remove('activo'); pasos[n].classList.add('hecho');
+    if(pasos[n+1]) pasos[n+1].classList.add('activo');
+    florSvg.classList.add('p'+n);
+  }
+  const abreviar = a => a.slice(0,6)+'…'+a.slice(-4);
+  const bytesLindos = b => b>1048576 ? (b/1048576).toFixed(2)+' MB' : (b/1024).toFixed(1)+' KB';
+  const hex = buf => [...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,'0')).join('');
+
+  /* ================= detección de wallet (EIP-6963 + inyectada) ================= */
+  const proveedores = [];
+  window.addEventListener('eip6963:announceProvider', e=>{
+    if(!proveedores.some(p=>p.info.uuid===e.detail.info.uuid)) proveedores.push(e.detail);
+  });
+  window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+  function detectarChatWallet(){
+    const p = proveedores.find(x=>/chat\s*wallet/i.test(x.info.name||'') || /chatwallet/i.test(x.info.rdns||''));
+    if(p) return p.provider;
+    if(window.ethereum && (window.ethereum.isChatWallet || window.ethereum.isChatwallet)) return window.ethereum;
+    if(window.chatwallet && typeof window.chatwallet.request === 'function') return window.chatwallet;
+    return null;
+  }
+
+  /* ================= modal de selección de wallet ================= */
+  function botonWallet({nombre, sub, icono, emoji, destacado, accion}){
+    const b = document.createElement('button');
+    b.className = 'wallet-item' + (destacado ? ' destacado' : '');
+    const ico = icono ? `<img src="${icono}" alt="">` : escapar(emoji || '◈');
+    b.innerHTML = `<span class="ico">${ico}</span><span class="txt">${escapar(nombre)}${sub?`<small>${escapar(sub)}</small>`:''}</span>`;
+    b.addEventListener('click', ()=>{ cerrarModal(); accion(); });
+    return b;
+  }
+  function abrirModalWallet(){
+    window.dispatchEvent(new Event('eip6963:requestProvider')); // recoger wallets tardías
+    const lista = $('wallet-lista');
+    lista.innerHTML = '';
+    const items = [];
+
+    const cw = detectarChatWallet();
+    items.push(botonWallet({
+      nombre:'chatWallet', emoji:'✦', destacado:true,
+      sub: cw ? t('cw_detected') : t('cw_phone'),
+      accion: cw ? ()=>conectarCon(cw,'chatWallet')
+                 : ()=>connectViaChatWallet()
+    }));
+
+    proveedores
+      .filter(x=>!/chat\s*wallet/i.test(x.info.name||''))
+      .forEach(x=>items.push(botonWallet({
+        nombre:x.info.name, icono:x.info.icon,
+        accion:()=>conectarCon(x.provider, x.info.name)
+      })));
+
+    if(!proveedores.length && window.ethereum){
+      items.push(botonWallet({
+        nombre:t('w_browser'), sub:t('w_browser_sub'), emoji:'🦊',
+        accion:()=>conectarCon(window.ethereum, t('w_browser'))
+      }));
+    }
+
+    items.forEach(el=>lista.appendChild(el));
+    $('modal-wallet').hidden = false;
+    const primero = lista.querySelector('.wallet-item'); if(primero) primero.focus();
+  }
+  function cerrarModal(){ $('modal-wallet').hidden = true; }
+
+  /* ================= paso I · conectar ================= */
+  function conectar(){ abrirModalWallet(); }
+
+  // Post-conexión compartido entre wallet local (inyectada) y chatWallet remoto (XMTP).
+  async function trasConectar(){
+    $('cuenta').textContent = (S.remoto?'📡 ':'') + abreviar(S.cuenta);
+    $('cuenta').hidden = false;
+    $('btn-conectar').hidden = true;
+    $('btn-conectar2').disabled = true;
+    $('red').disabled = true;   // la red queda fijada al momento de conectar
+    // Identidad visible en el paso de Firma (qué dirección firma, y desde dónde)
+    $('ident2-addr').textContent = S.cuenta;
+    $('ident2-modo').textContent = S.remoto ? t('ident_remote') : t('ident_local');
+    $('ident2').classList.toggle('local', !S.remoto);
+    $('ident2').hidden = false;
+    estado(1, t('st_wallet_ok',{addr:abreviar(S.cuenta)}), 'ok');
+    cumplir(1);
+    $('btn-firmar').disabled = false;
+    await cargarRegistro();
+  }
+
+  async function conectarCon(eip, nombre){
+    if(!eip){ estado(1,t('st_wallet_no'),'err'); return; }
+    try{
+      estado(1,t('st_wallet_wait',{name:(nombre||'…')}),null,true);
+      S.remoto = false;
+      S.eip1193 = eip;
+      S.provider = new ethers.BrowserProvider(eip);
+      const cuentas = await S.provider.send('eth_requestAccounts', []);
+      S.cuenta = ethers.getAddress(cuentas[0]);
+      await asegurarRed();
+      S.signer = await S.provider.getSigner();
+      await trasConectar();
+      eip.on && eip.on('accountsChanged', ()=>location.reload());
+      eip.on && eip.on('chainChanged', ()=>location.reload());
+    }catch(e){
+      estado(1, t('st_wallet_err',{e:(e.shortMessage||e.message)}), 'err');
+    }
+  }
+
+  /* ============ chatWallet remoto: "WalletConnect soberano" sobre XMTP (protocolo cw:1) ============ */
+  // La laptop hace de dApp: identidad XMTP efímera + QR; el APK escanea, firma
+  // (personal_sign) y ancla (eth_sendTransaction). El transporte es un DM XMTP cifrado.
+  const XMTP_ENV = 'dev';        // el APK del bridge corre en XMTP dev (verificado)
+  const CW_PROTO = 1;
+  let pairClient=null, pairWallet=null, pairPeerDm=null, pairStreamStop=null;
+  const pairPending = new Map();
+
+  async function loadXMTP(){ if(window.XMTP) return window.XMTP; window.XMTP = await import('/js/xmtp-bundle.js'); return window.XMTP; }
+  function getOrCreateXmtpKey(k='ius:xmtp:pairkey'){ const s=localStorage.getItem(k); if(s) return new Uint8Array(JSON.parse(s)); const key=crypto.getRandomValues(new Uint8Array(32)); localStorage.setItem(k,JSON.stringify(Array.from(key))); return key; }
+  function makeXMTPSigner(wallet){ return { type:'EOA', getIdentifier:()=>({identifier:wallet.address.toLowerCase(), identifierKind:'Ethereum'}), signMessage: async(m)=> ethers.getBytes(await wallet.signMessage(m)) }; }
+  const XMTP_INST_RE = /InboxID\s+([a-f0-9]+)\s+has already registered\s+\d+\/\d+\s+installations/i;
+  async function xmtpCreateWithRecovery(Client, signer, opts){
+    try{ return await Client.create(signer,opts); }
+    catch(err){
+      const m=(err&&err.message||'').match(XMTP_INST_RE); if(!m) throw err;
+      try{
+        const states=await Client.inboxStateFromInboxIds([m[1]],opts.env);
+        const insts=((states&&states[0]&&states[0].installations)||[]).slice().sort((a,b)=>{const at=a.clientTimestampNs??0n,bt=b.clientTimestampNs??0n; return at<bt?-1:at>bt?1:0;});
+        const rev=insts.slice(0,5).map(i=>i.bytes).filter(Boolean);
+        if(rev.length) await Client.revokeInstallations(signer,m[1],rev,opts.env);
+      }catch(e){ throw err; }
+      return await Client.create(signer,opts);
+    }
+  }
+
+  // Un RPC sobre el DM de pairing; resuelve cuando el APK responde.
+  function pairRpc(method, params){
+    const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random());
+    return new Promise(async (resolve,reject)=>{
+      if(!pairPeerDm) return reject(new Error('chatWallet no conectada'));
+      const timer=setTimeout(()=>{ pairPending.delete(id); reject(new Error(method+' timeout')); },180000);
+      pairPending.set(id,{resolve,reject,timer});
+      try{ await pairPeerDm.send(JSON.stringify({cw:CW_PROTO,id,type:'rpc',method,params})); }
+      catch(e){ clearTimeout(timer); pairPending.delete(id); reject(e); }
+    });
+  }
+
+  // ethers Signer cuyo signMessage/sendTransaction viajan al celu por XMTP.
+  // Las lecturas (nonce, gas, chainId, recibos) usan el JsonRpcProvider local.
+  class XmtpRemoteSigner extends ethers.AbstractSigner {
+    constructor(address, provider, rpc){ super(provider); this._addr=ethers.getAddress(address); this._rpc=rpc; }
+    async getAddress(){ return this._addr; }
+    connect(provider){ return new XmtpRemoteSigner(this._addr, provider, this._rpc); }
+    async signMessage(message){ const msg=(typeof message==='string')?message:ethers.hexlify(message); return await this._rpc('personal_sign',[msg,this._addr.toLowerCase()]); }
+    async signTransaction(){ throw new Error('signTransaction no soportado sobre XMTP; usá sendTransaction'); }
+    async sendTransaction(tx){
+      const net=await this.provider.getNetwork();
+      const req={ to: tx.to?ethers.getAddress(await tx.to):undefined, data: tx.data?ethers.hexlify(tx.data):'0x', value:(tx.value!=null)?ethers.toBeHex(tx.value):'0x0', chainId:Number(net.chainId) };
+      const hash=await this._rpc('eth_sendTransaction',[req]);
+      for(let i=0;i<30;i++){ const r=await this.provider.getTransaction(hash); if(r) return r; await new Promise(res=>setTimeout(res,1500)); }
+      return { hash, wait:(c)=>this.provider.waitForTransaction(hash,c) };
+    }
+  }
+
+  function pairStatus(txt, tipo, spinner){ const el=$('pair-status'); if(!el) return; el.className='estado'+(tipo?' '+tipo:''); el.innerHTML=(spinner?'<span class="girando"></span>':'')+txt; }
+  function abrirPairModal(){ $('pair-modal').hidden=false; pairStatus(t('pair_gen')); }
+  function cerrarPairModal(){ $('pair-modal').hidden=true; }
+  function renderPairQR(uri, addr){
+    const c=$('pair-qr'); c.innerHTML=''; $('pair-uri').textContent=addr;
+    if(typeof QRCodeStyling!=='undefined'){
+      new QRCodeStyling({ width:200, height:200, type:'svg', data:uri,
+        dotsOptions:{color:'#0D0716',type:'square'}, backgroundOptions:{color:'#ffffff'} }).append(c);
+    } else { c.textContent=uri; }
+  }
+  function cancelPairing(){
+    if(pairStreamStop){ try{pairStreamStop();}catch(_){} pairStreamStop=null; }
+    for(const [,p] of pairPending){ clearTimeout(p.timer); p.reject(new Error('pairing cancelled')); }
+    pairPending.clear(); pairPeerDm=null; cerrarPairModal();
+  }
+
+  async function connectViaChatWallet(){
+    const cad = CADENAS[$('red').value];
+    try{ await loadXMTP(); }
+    catch(e){ estado(1,t('st_xmtp_load_err',{e:e.message}),'err'); return; }
+    if(!window.XMTP || !window.XMTP.Client){ estado(1,t('st_xmtp_load_err',{e:'Client'}),'err'); return; }
+    abrirPairModal();
+    try{
+      const { Client } = window.XMTP;
+      pairWallet = ethers.Wallet.createRandom();
+      const encKey = getOrCreateXmtpKey();
+      pairClient = await xmtpCreateWithRecovery(Client, makeXMTPSigner(pairWallet), { env:XMTP_ENV, dbEncryptionKey:encKey, appVersion:'IusNaturalis/'+VERSION });
+      const uri = `chatwallet://wc?inbox=${pairWallet.address.toLowerCase()}&chain=${Number($('red').value)}&v=${CW_PROTO}`;
+      renderPairQR(uri, pairWallet.address);
+      pairStatus(t('pair_scan'));
+      startPairListener();
+    }catch(e){ cerrarPairModal(); estado(1,t('st_wallet_err',{e:e.message}),'err'); }
+  }
+
+  async function startPairListener(){
+    await pairClient.conversations.sync();
+    const stream = await pairClient.conversations.streamAllMessages();
+    pairStreamStop = ()=>{ try{ stream.return && stream.return(); }catch(_){} };
+    (async ()=>{
+      for await (const message of stream){
+        if(!message || message.senderInboxId===pairClient.inboxId) continue;
+        const typeId = (message.contentType && message.contentType.typeId) || 'text';
+        if(typeId!=='text' || typeof message.content!=='string') continue;
+        let data; try{ data=JSON.parse(message.content); }catch(_){ continue; }
+        if(!data || data.cw!==CW_PROTO) continue;
+        if(data.type==='connect'){
+          onChatWalletPaired(data).catch(e=>console.error('pairing', e));
+        }else if(data.type==='result' || data.type==='error'){
+          const pend=pairPending.get(data.id); if(!pend) continue;
+          clearTimeout(pend.timer); pairPending.delete(data.id);
+          data.type==='result' ? pend.resolve(data.result) : pend.reject(new Error(data.error||'rpc rejected'));
+        }
+      }
+    })().catch(e=>console.error('pair stream', e));
+  }
+
+  async function onChatWalletPaired(data){
+    if(pairPeerDm) return;
+    try{
+      const addr = ethers.getAddress(data.address);
+      pairStatus(t('pair_linking'), null, true);
+      await pairClient.conversations.sync();
+      pairPeerDm = await pairClient.conversations.newDmWithIdentifier({ identifier: addr.toLowerCase(), identifierKind:'Ethereum' });
+      const cad = CADENAS[$('red').value];
+      S.remoto = true; S.eip1193 = null;
+      S.provider = new ethers.JsonRpcProvider(cad.rpc);
+      S.signer = new XmtpRemoteSigner(addr, S.provider, pairRpc);
+      S.cuenta = addr;
+      // Éxito visible ANTES de cerrar el modal.
+      pairStatus(t('pair_linked_addr',{addr:abreviar(addr)}), 'ok');
+      await new Promise(r=>setTimeout(r, 1400));
+      cerrarPairModal();
+      await trasConectar();
+    }catch(e){
+      // Error visible; el modal QUEDA abierto para reintentar/cancelar.
+      pairStatus(t('pair_err',{e:(e.shortMessage||e.message)}), 'err');
+      pairPeerDm = null;
+    }
+  }
+
+  async function asegurarRed(){
+    const objetivo = CADENAS[$('red').value];
+    const red = await S.provider.getNetwork();
+    S.chainId = Number(red.chainId);
+    if(S.chainId === Number($('red').value)) return;
+    try{
+      await S.provider.send('wallet_switchEthereumChain', [{chainId: objetivo.hexId}]);
+    }catch(e){
+      const noExiste = e.code === 4902 || (e.error && e.error.code === 4902) ||
+                       (e.data && e.data.originalError && e.data.originalError.code === 4902);
+      if(noExiste && objetivo.addParams){
+        await S.provider.send('wallet_addEthereumChain', [objetivo.addParams]);
+      }else{ throw e; }
+    }
+    S.provider = new ethers.BrowserProvider(S.eip1193);
+    S.signer = await S.provider.getSigner();
+    S.chainId = Number($('red').value);
+  }
+
+  /* ================= paso II · firma W3Auth ================= */
+  async function firmar(){
+    try{
+      estado(2, S.remoto ? t('st_sign_wait_remote') : t('st_sign_wait'), null, true);
+      const sig = await S.signer.signMessage(S.cuenta);
+      S.auth = btoa('eth-' + S.cuenta + ':' + sig);
+      estado(2,t('st_sign_ok'),'ok');
+      cumplir(2);
+      actualizarBotonSubida();
+    }catch(e){
+      estado(2,t('st_sign_err',{e:(e.shortMessage||e.message)}),'err');
+    }
+  }
+
+  /* ================= clave de cifrado (determinística por wallet) ================= */
+  async function claveCifrado(){
+    if(S.claveAES) return S.claveAES;
+    estado(3, S.remoto ? t('st_key_wait_remote') : t('st_key_wait'), null, true);
+    const sig = await S.signer.signMessage('Ius Naturalis · clave de cifrado personal · ' + S.cuenta);
+    const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sig));
+    S.claveAES = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt','decrypt']);
+    return S.claveAES;
+  }
+
+  /* ================= paso III · elegir + huella + subir ================= */
+  async function elegirArchivo(f){
+    if(!f) return;
+    if(f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')){
+      estado(3,t('st_only_pdf'),'err'); return;
+    }
+    S.archivo = f; S.cid = null; S.sha256 = null; S.atestacion = null;
+    $('cid-caja').hidden = true; $('precio').hidden = true; $('huella-caja').hidden = true;
+    $('btn-anclar').disabled = true; $('btn-atestiguar').disabled = true;
+    $('archivo-info').textContent = '⌘ ' + f.name + ' · ' + bytesLindos(f.size);
+    estado(3,t('st_fp_calc'),null,true);
+    try{
+      const buf = await f.arrayBuffer();
+      S.sha256 = hex(await crypto.subtle.digest('SHA-256', buf));
+      $('huella-txt').textContent = S.sha256;
+      $('huella-caja').hidden = false;
+      $('privacidad').hidden = false;
+      estado(3,t('st_fp_ok'),'');
+    }catch(e){
+      estado(3,t('st_read_err',{e:e.message}),'err');
+    }
+    actualizarBotonSubida();
+  }
+  function actualizarBotonSubida(){
+    $('btn-subir').disabled = !(S.archivo && S.sha256 && S.auth);
+  }
+  function fijarVisibilidad(cifrado){
+    S.cifrado = cifrado;
+    $('vis-privado').classList.toggle('sel', cifrado);
+    $('vis-publico').classList.toggle('sel', !cifrado);
+    $('vis-privado').setAttribute('aria-pressed', cifrado);
+    $('vis-publico').setAttribute('aria-pressed', !cifrado);
+    const nota = $('privacidad-nota');
+    if(cifrado){
+      nota.className = 'nota';
+      nota.textContent = t('vis_note_priv');
+    }else{
+      nota.className = 'nota publico';
+      nota.textContent = t('vis_note_pub');
+    }
+  }
+
+  async function subir(){
+    $('btn-subir').disabled = true;
+    let cuerpo, nombreSubida;
+    try{
+      if(S.cifrado){
+        const key = await claveCifrado();
+        estado(3,t('st_encrypting'),null,true);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, await S.archivo.arrayBuffer());
+        const junto = new Uint8Array(12 + ct.byteLength);
+        junto.set(iv, 0); junto.set(new Uint8Array(ct), 12);
+        cuerpo = new Blob([junto], {type:'application/octet-stream'});
+        nombreSubida = S.archivo.name + '.iusenc';
+      }else{
+        cuerpo = S.archivo;
+        nombreSubida = S.archivo.name;
+      }
+    }catch(e){
+      estado(3,t('st_prep_err',{e:(e.shortMessage||e.message)}),'err');
+      $('btn-subir').disabled = false; return;
+    }
+
+    let ultimo = null;
+    for(const gw of GATEWAYS){
+      try{
+        estado(3,t('st_uploading',{gw:gw.replace('https://','')}),null,true);
+        const fd = new FormData();
+        fd.append('file', cuerpo, nombreSubida);
+        const res = await fetch(gw + '/api/v0/add?pin=true', {
+          method:'POST', headers:{ Authorization:'Basic ' + S.auth }, body: fd
+        });
+        if(!res.ok) throw new Error('gateway respondió ' + res.status);
+        const texto = (await res.text()).trim();
+        const j = JSON.parse(texto.split('\n').pop());
+        S.cid = j.Hash; S.tam = parseInt(j.Size, 10) || cuerpo.size;
+        $('cid-txt').textContent = S.cid;
+        $('cid-caja').hidden = false;
+        estado(3, t('st_uploaded',{what:(S.cifrado?t('what_enc'):t('what_plain')), size:bytesLindos(S.tam)}),'ok');
+        cumplir(3);
+        $('btn-atestiguar').disabled = false;
+        return;
+      }catch(e){ ultimo = e; }
+    }
+    estado(3,t('st_upload_err',{e:(ultimo&&ultimo.message)}),'err');
+    $('btn-subir').disabled = false;
+  }
+
+  /* ================= paso IV · atestación firmada ================= */
+  function mensajeAtestacion(fechaISO, declaracion){
+    const cad = CADENAS[$('red').value];
+    return [
+      t('msg_title'),
+      '',
+      t('msg_intro'),
+      '',
+      t('msg_doc') + ': ' + S.archivo.name,
+      t('msg_sha') + ': ' + S.sha256,
+      t('msg_cid') + ' (' + (S.cifrado?t('w_encrypted'):t('w_public')) + '): ' + S.cid,
+      t('msg_decl') + ': ' + declaracion,
+      t('msg_signer') + ': ' + S.cuenta,
+      t('msg_net') + ': ' + cad.nombre,
+      t('msg_date') + ': ' + fechaISO
+    ].join('\n');
+  }
+
+  async function atestiguar(){
+    const declaracion = $('declaracion').value.trim();
+    if(!declaracion){ estado(4,t('st_decl_empty'),'err'); return; }
+    $('btn-atestiguar').disabled = true;
+    try{
+      const fechaISO = new Date().toISOString();
+      const mensaje = mensajeAtestacion(fechaISO, declaracion);
+      estado(4, S.remoto ? t('st_att_wait_remote') : t('st_att_wait'), null, true);
+      const firma = await S.signer.signMessage(mensaje);
+      S.atestacion = { mensaje, firma, fecha:fechaISO, declaracion };
+      estado(4,t('st_att_ok'),'ok');
+      cumplir(4);
+      await cotizar();
+    }catch(e){
+      estado(4,t('st_att_err',{e:(e.shortMessage||e.message)}),'err');
+      $('btn-atestiguar').disabled = false;
+    }
+  }
+
+  /* ================= paso V · anclaje on-chain ================= */
+  function contrato(abi){
+    const cad = CADENAS[$('red').value];
+    return { cad, c: new ethers.Contract(cad.contrato, abi, S.signer) };
+  }
+
+  async function cotizar(){
+    try{
+      estado(5,t('st_price_wait'),null,true);
+      if(!S.remoto) await asegurarRed();
+      let cad;
+      try{
+        const r = contrato(ABI_V1); cad = r.cad;
+        S.precio = await r.c.getPrice(S.tam); S.abiV2 = false;
+      }catch(_){
+        const r = contrato(ABI_V2); cad = r.cad;
+        S.precio = await r.c.getPrice(S.tam, false); S.abiV2 = true;
+      }
+      $('precio').innerHTML = ethers.formatEther(S.precio).slice(0,10) + ' <span class="u">' + cad.simbolo + '</span>';
+      $('precio').hidden = false;
+      $('btn-anclar').disabled = false;
+      estado(5,t('st_price_ok',{net:cad.nombre}),'');
+    }catch(e){
+      estado(5,t('st_price_err',{e:(e.shortMessage||e.message)}),'err');
+    }
+  }
+
+  async function anclar(){
+    $('btn-anclar').disabled = true;
+    try{
+      const { cad, c } = contrato(S.abiV2 ? ABI_V2 : ABI_V1);
+      estado(5,t('st_tx_wait'),null,true);
+      const tx = S.abiV2
+        ? await c.placeOrder(S.cid, S.tam, false, { value: S.precio })
+        : await c.placeOrder(S.cid, S.tam, { value: S.precio });
+      estado(5,t('st_tx_sent'),null,true);
+      const rec = await tx.wait(1);
+      estado(5,t('st_anchored'),'ok');
+      cumplir(5);
+      const doc = {
+        norma: NORMA,
+        documento: S.archivo.name, sha256: S.sha256, cifrado: S.cifrado,
+        cid: S.cid, tam: S.tam,
+        declaracion: S.atestacion.declaracion,
+        firmante: S.cuenta,
+        red: cad.nombre, simbolo: cad.simbolo, cadenaId: Number($('red').value), contrato: cad.contrato,
+        fecha: S.atestacion.fecha,
+        mensaje: S.atestacion.mensaje, firma: S.atestacion.firma,
+        anclaje: { tx: rec.hash, explorer: cad.explorer + rec.hash }
+      };
+      S.docs.unshift(doc);
+      await guardarRegistro();
+      pintarRegistro();
+      setTimeout(reiniciarParaOtro, 4500);
+    }catch(e){
+      estado(5,t('st_anchor_err',{e:(e.shortMessage||e.message)}),'err');
+      $('btn-anclar').disabled = false;
+    }
+  }
+
+  function reiniciarParaOtro(){
+    S.archivo = null; S.cid = null; S.sha256 = null; S.precio = null; S.atestacion = null;
+    $('archivo-info').textContent=''; $('cid-caja').hidden = true; $('precio').hidden = true;
+    $('huella-caja').hidden = true; $('privacidad').hidden = true; $('declaracion').value = '';
+    ['3','4','5'].forEach(n=> estado(n,'',''));
+    [3,4,5].forEach(n=>{ pasos[n].classList.remove('hecho'); });
+    pasos[3].classList.add('activo');
+    florSvg.classList.remove('p3','p4','p5');
+    $('btn-subir').disabled = true; $('btn-atestiguar').disabled = true; $('btn-anclar').disabled = true;
+  }
+
+  /* ================= descifrar un documento del registro ================= */
+  async function descifrar(cid, nombre){
+    try{
+      if(!S.signer){ alert(t('decrypt_connect')); return; }
+      const key = await claveCifrado();
+      let blob = null, err = null;
+      for(const base of ['https://gw.crustfiles.app/ipfs/','https://ipfs.io/ipfs/']){
+        try{ const r = await fetch(base + cid); if(r.ok){ blob = await r.arrayBuffer(); break; } }
+        catch(e){ err = e; }
+      }
+      if(!blob) throw new Error(t('decrypt_dl_err') + (err?': '+err.message:''));
+      const iv = new Uint8Array(blob.slice(0,12));
+      const ct = blob.slice(12);
+      const plano = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ct);
+      const url = URL.createObjectURL(new Blob([plano], {type:'application/pdf'}));
+      const a = document.createElement('a');
+      a.href = url; a.download = nombre.replace(/\.iusenc$/,''); a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    }catch(e){
+      alert(t('decrypt_err',{e:(e.message||e)}));
+    }
+  }
+
+  /* ================= registro persistente ================= */
+  function claveRegistro(){ return 'iusnaturalis:docs:' + S.cuenta.toLowerCase(); }
+
+  async function cargarRegistro(){
+    S.docs = [];
+    try{
+      if(window.storage){
+        const r = await window.storage.get(claveRegistro());
+        if(r && r.value) S.docs = JSON.parse(r.value);
+      }else if(typeof localStorage !== 'undefined'){
+        const v = localStorage.getItem(claveRegistro());
+        if(v) S.docs = JSON.parse(v);
+      }
+    }catch(_){/* registro nuevo */}
+    pintarRegistro();
+  }
+  async function guardarRegistro(){
+    try{
+      if(window.storage){ await window.storage.set(claveRegistro(), JSON.stringify(S.docs)); }
+      else if(typeof localStorage !== 'undefined'){ localStorage.setItem(claveRegistro(), JSON.stringify(S.docs)); }
+    }catch(e){ console.error('No se pudo persistir el registro', e); }
+  }
+
+  function descargarJSON(obj, nombre){
+    const url = URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)], {type:'application/json'}));
+    const a = document.createElement('a'); a.href = url; a.download = nombre; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  }
+
+  function pintarRegistro(){
+    const cont = $('lista-docs');
+    $('btn-exportar-todo').hidden = !S.docs.length;
+    if(!S.docs.length){
+      cont.innerHTML = '<div class="vacio">'+escapar(t('reg_empty'))+'</div>';
+      return;
+    }
+    const loc = (window.IusI18n && window.IusI18n.lang()) || 'es';
+    cont.innerHTML = S.docs.map((d,i)=>`
+      <div class="doc">
+        <div class="titulo">${escapar(d.documento)}
+          <span class="chip">${escapar(t('doc_anchored',{net:d.red}))}</span>
+          <span class="chip ${d.cifrado?'priv':''}">${d.cifrado?escapar(t('chip_enc')):escapar(t('chip_pub'))}</span>
+        </div>
+        ${d.declaracion?`<div class="declaracion">«${escapar(d.declaracion)}»</div>`:''}
+        <div class="cid">${d.cid}</div>
+        <div class="meta">SHA-256 ${d.sha256?d.sha256.slice(0,16)+'…':'—'} · ${bytesLindos(d.tam)} · ${escapar(String(d.firmante||'').slice(0,10))}… · ${new Date(d.fecha).toLocaleString(loc)}</div>
+        <div class="enlaces">
+          ${d.cifrado
+            ? `<button data-descifrar="${i}">${escapar(t('doc_decrypt'))}</button>`
+            : `<a href="https://gw.crustfiles.app/ipfs/${d.cid}" target="_blank" rel="noopener">${escapar(t('doc_view'))}</a>`}
+          <a href="https://ipfs-scan.io/?cid=${d.cid}" target="_blank" rel="noopener">${escapar(t('doc_replicas'))}</a>
+          ${d.anclaje?`<a href="${d.anclaje.explorer}" target="_blank" rel="noopener">${escapar(t('doc_tx'))}</a>`:''}
+          <button data-cert="${i}">${escapar(t('doc_cert'))}</button>
+        </div>
+      </div>`).join('');
+    cont.querySelectorAll('[data-cert]').forEach(b=>b.addEventListener('click', ()=>{
+      const d = S.docs[+b.dataset.cert];
+      descargarJSON(d, 'atestacion-'+(d.documento||'doc').replace(/[^\w.-]+/g,'_')+'.json');
+    }));
+    cont.querySelectorAll('[data-descifrar]').forEach(b=>b.addEventListener('click', ()=>{
+      const d = S.docs[+b.dataset.descifrar];
+      descifrar(d.cid, d.documento);
+    }));
+  }
+  function escapar(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  /* ================= verificador de atestaciones ================= */
+  function verificar(){
+    const v = $('veredicto');
+    let cert;
+    try{ cert = JSON.parse($('verif-entrada').value.trim()); }
+    catch(e){ v.className='veredicto err'; v.textContent=t('verif_bad_json'); return; }
+    if(!cert.mensaje || !cert.firma){
+      v.className='veredicto err'; v.textContent=t('verif_no_sig'); return;
+    }
+    try{
+      const recuperada = ethers.verifyMessage(cert.mensaje, cert.firma);
+      const coincide = cert.firmante && recuperada.toLowerCase() === cert.firmante.toLowerCase();
+      if(coincide){
+        v.className='veredicto ok';
+        v.innerHTML = escapar(t('verif_ok'))+
+          `<span class="det">${t('lbl_signer')}: ${recuperada}<br>${t('lbl_doc')}: ${escapar(cert.documento||'—')}<br>${t('lbl_cid')}: ${escapar(cert.cid||'—')}<br>${t('lbl_date')}: ${escapar(cert.fecha||'—')}</span>`;
+      }else{
+        v.className='veredicto err';
+        v.innerHTML = escapar(t('verif_mismatch'))+
+          `<span class="det">${t('lbl_recovered')}: ${recuperada}<br>${t('lbl_declared')}: ${escapar(cert.firmante||'—')}</span>`;
+      }
+    }catch(e){
+      v.className='veredicto err'; v.textContent=t('verif_invalid',{e:(e.shortMessage||e.message)});
+    }
+  }
+
+  /* ================= eventos ================= */
+  $('version').textContent = 'v'+VERSION;
+  $('version-pie').textContent = 'v'+VERSION;
+
+  $('btn-conectar').addEventListener('click', conectar);
+  $('btn-conectar2').addEventListener('click', conectar);
+  $('modal-cerrar').addEventListener('click', cerrarModal);
+  $('modal-wallet').addEventListener('click', e=>{ if(e.target.id==='modal-wallet') cerrarModal(); });
+  $('pair-cerrar').addEventListener('click', cancelPairing);
+  $('pair-modal').addEventListener('click', e=>{ if(e.target.id==='pair-modal') cancelPairing(); });
+  document.addEventListener('keydown', e=>{
+    if(e.key!=='Escape') return;
+    if(!$('modal-wallet').hidden) cerrarModal();
+    if(!$('pair-modal').hidden) cancelPairing();
+  });
+  $('btn-firmar').addEventListener('click', firmar);
+  $('btn-subir').addEventListener('click', subir);
+  $('btn-atestiguar').addEventListener('click', atestiguar);
+  $('btn-anclar').addEventListener('click', anclar);
+  $('btn-verificar').addEventListener('click', verificar);
+  $('red').addEventListener('change', ()=>{ if(S.atestacion && S.cid) cotizar(); });
+
+  $('vis-privado').addEventListener('click', ()=>fijarVisibilidad(true));
+  $('vis-publico').addEventListener('click', ()=>fijarVisibilidad(false));
+
+  $('plantillas').addEventListener('click', e=>{
+    if(e.target.dataset.t){ $('declaracion').value = e.target.dataset.t; $('declaracion').focus(); }
+  });
+
+  $('btn-exportar-todo').addEventListener('click', ()=> descargarJSON(
+    { norma:'ius-naturalis/registro/1', firmante:S.cuenta, docs:S.docs }, 'registro-ius-naturalis.json'));
+  $('btn-importar').addEventListener('click', ()=> $('importar-archivo').click());
+  $('importar-archivo').addEventListener('change', async e=>{
+    const f = e.target.files[0]; if(!f) return;
+    try{
+      const data = JSON.parse(await f.text());
+      const nuevos = Array.isArray(data) ? data : (data.docs || [data]);
+      const vistos = new Set(S.docs.map(d=>d.cid+'|'+d.firma));
+      let sumados = 0;
+      nuevos.forEach(d=>{ if(d.cid && !vistos.has(d.cid+'|'+d.firma)){ S.docs.push(d); sumados++; } });
+      S.docs.sort((a,b)=> new Date(b.fecha)-new Date(a.fecha));
+      if(S.cuenta) await guardarRegistro();
+      pintarRegistro();
+      alert(sumados ? t('import_added',{n:sumados}) : t('import_none'));
+    }catch(err){ alert(t('import_err',{e:err.message})); }
+    e.target.value='';
+  });
+
+  const zona = $('zona'), inputArchivo = $('archivo');
+  inputArchivo.addEventListener('change', e=>elegirArchivo(e.target.files[0]));
+  zona.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();inputArchivo.click();} });
+  ;['dragover','dragenter'].forEach(ev=>zona.addEventListener(ev, e=>{e.preventDefault();zona.classList.add('sobre');}));
+  ;['dragleave','drop'].forEach(ev=>zona.addEventListener(ev, e=>{e.preventDefault();zona.classList.remove('sobre');}));
+  zona.addEventListener('drop', e=>elegirArchivo(e.dataTransfer.files[0]));
+
+  fijarVisibilidad(true);
+  pintarRegistro();
+
+  // re-render de textos dinámicos al cambiar de idioma (los estáticos los hace applyI18n)
+  window.iusOnLangChange = function(){
+    fijarVisibilidad(S.cifrado);
+    pintarRegistro();
+    if(S.cuenta && !$('ident2').hidden) $('ident2-modo').textContent = S.remoto ? t('ident_remote') : t('ident_local');
+  };
+
+})();
+</script>
+</body>
+</html>
