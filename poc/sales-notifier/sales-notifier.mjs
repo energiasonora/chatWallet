@@ -38,6 +38,7 @@ const CFG = {
   NOTIFY_TO: (process.env.NOTIFY_TO || '').toLowerCase(),
   XMTP_ENV: process.env.XMTP_ENV || 'dev',
   POLL_MS: Number(process.env.POLL_MS || 60000),
+  DIGEST_AT: process.env.DIGEST_AT || '21:00', // hora local de la caja; 'off' lo desactiva
 };
 if (!CFG.NOTIFIER_TOKEN || !CFG.NOTIFY_TO) {
   console.error('Faltan NOTIFIER_TOKEN y/o NOTIFY_TO (env o .env junto al script)');
@@ -134,6 +135,69 @@ function fmtEvent(ev) {
   return `${head} ${ev.public_id} · ${fmt} ${lang} · ${via}${lugar}${accion}`;
 }
 
+// ── Resumen diario ──
+// El silencio es ambiguo: "hoy no hubo ventas" y "el notificador está muerto" se ven
+// exactamente igual desde el chat. Este mensaje llega SIEMPRE, aunque no haya pasado
+// nada, así que si un día no llega, eso ya es la señal de que algo se rompió.
+const ARRANQUE = Date.now();
+let pollsOk = 0;
+let pollsFallidos = 0;
+
+const [DIG_H, DIG_M] = (CFG.DIGEST_AT.match(/^(\d{1,2}):(\d{2})$/) || []).slice(1).map(Number);
+const DIGEST_ON = Number.isInteger(DIG_H);
+
+// YYYY-MM-DD en hora local de la caja: el corte del día es el del autor, no UTC
+const diaLocal = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Lectura aparte del día, con su propio `since`: NO toca state.since ni el flujo de avisos
+async function eventosDelDia() {
+  const inicio = new Date();
+  inicio.setHours(0, 0, 0, 0);
+  const resp = await fetch(`${CFG.API_BASE}/admin/events?since=${inicio.getTime()}`, {
+    headers: { Authorization: `Bearer ${CFG.NOTIFIER_TOKEN}` },
+  });
+  if (!resp.ok) throw new Error(`events ${resp.status}`);
+  return (await resp.json()).events || [];
+}
+
+async function textoDigest() {
+  const fecha = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
+  const L = [`🌙 Resumen diario · ${fecha}`];
+
+  const eventos = await eventosDelDia().catch(() => null);
+  if (eventos === null) {
+    L.push('⚠️ No pude leer las ventas del día (la API no respondió).');
+  } else if (eventos.length === 0) {
+    L.push('Ventas de hoy: ninguna.');
+  } else {
+    const ars = eventos.reduce((a, e) => a + (e.ars_amount || 0), 0);
+    L.push(`Ventas de hoy: ${eventos.length}${ars ? ` · $${ars.toLocaleString('es-AR')} ARS` : ''}`);
+    for (const ev of eventos) L.push(`  • ${fmtEvent(ev).split('\n')[0]}`);
+  }
+
+  const fund = await fetch(`${CFG.API_BASE}/funding`).then((r) => r.json()).catch(() => null);
+  if (fund) L.push(`Recaudado total: ${Number(fund.raisedEth).toFixed(5)} ETH`);
+
+  const horas = Math.floor((Date.now() - ARRANQUE) / 3600000);
+  L.push(`Estado: ✅ vivo hace ${horas}h · ${pollsOk} chequeos` +
+    (pollsFallidos ? ` · ⚠️ ${pollsFallidos} fallos de red` : ' · sin fallos'));
+  return L.join('\n');
+}
+
+async function maybeDigest() {
+  if (!DIGEST_ON) return;
+  const ahora = new Date();
+  const hoy = diaLocal(ahora);
+  if (state.lastDigest === hoy) return; // ya salió el de hoy (persistido: sobrevive reinicios)
+  if (ahora.getHours() < DIG_H || (ahora.getHours() === DIG_H && ahora.getMinutes() < DIG_M)) return;
+  await notify(await textoDigest());
+  state.lastDigest = hoy;
+  saveState(state);
+  pollsOk = 0;
+  pollsFallidos = 0;
+}
+
 // ── Polling ──
 async function poll() {
   const resp = await fetch(`${CFG.API_BASE}/admin/events?since=${state.since}`, {
@@ -170,16 +234,32 @@ if (process.argv.includes('--once')) {
   process.exit(0);
 }
 
-console.log(`Polling cada ${CFG.POLL_MS / 1000}s desde ${new Date(state.since).toISOString()}`);
+// Manda el resumen diario ahora mismo y sale (para probarlo sin esperar a la hora)
+if (process.argv.includes('--digest')) {
+  await notify(await textoDigest());
+  console.log('Digest OK');
+  process.exit(0);
+}
+
+console.log(`Polling cada ${CFG.POLL_MS / 1000}s desde ${new Date(state.since).toISOString()}` +
+  (DIGEST_ON ? ` · resumen diario ${CFG.DIGEST_AT}` : ' · resumen diario desactivado'));
 let failures = 0;
 while (true) {
   try {
     await poll();
+    pollsOk++;
     failures = 0;
   } catch (e) {
     failures++;
+    pollsFallidos++;
     console.error(`⚠️ poll falló (${failures}): ${e.message}`);
-    if (dm && failures > 3) { dm = null; client = null; } // reconectar XMTP si persiste
+    // Fallo persistente: tiramos la sesión XMTP y las conversaciones cacheadas para
+    // reconectar de cero en el próximo ciclo. OJO: acá decía `dm`, una variable que no
+    // existe en este scope (las conversaciones viven en el Map `dms`) → ReferenceError
+    // que MATABA el proceso justo cuando había que aguantar un fallo de red pasajero.
+    if (failures > 3) { dms.clear(); client = null; }
   }
+  // Fuera del try de arriba: que un resumen fallido tampoco corte el loop
+  try { await maybeDigest(); } catch (e) { console.error(`⚠️ resumen diario falló: ${e.message}`); }
   await new Promise((r) => setTimeout(r, Math.min(CFG.POLL_MS * Math.max(1, failures), 10 * 60 * 1000)));
 }
