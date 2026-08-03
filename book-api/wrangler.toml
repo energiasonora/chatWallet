@@ -1,0 +1,51 @@
+name = "chatwallet-book-api"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "b40dda71c4e4812d9dd427e06cff7de8"  # cuenta CF de chatwallet (misma que el gateway)
+
+# El frontend (book.html) llama a https://api.chatwallet.org
+# custom_domain = true → wrangler crea el record DNS + cert automáticamente
+# (una "route" pelada no crea el DNS y el host queda en NXDOMAIN).
+routes = [
+  { pattern = "api.chatwallet.org", custom_domain = true }
+]
+
+# ── D1: compras + anti-replay de txHashes ──
+# Crear con:  wrangler d1 create chatwallet-purchases
+# Pegá el database_id que devuelve acá abajo.
+[[d1_databases]]
+binding = "DB"
+database_name = "chatwallet-purchases"
+database_id = "9acb2df0-243b-40a9-9a54-a90b0253225a"
+
+# ── R2: PDF del libro ──
+# Crear con:  wrangler r2 bucket create chatwallet-book
+[[r2_buckets]]
+binding = "BOOK_BUCKET"
+bucket_name = "chatwallet-book"
+
+# ── Email al comprador (Cloudflare Email Service) ──
+# chatwallet.org onboardeado en Email Sending (dashboard, 2026-07-20).
+# El worker manda desde pedidos@chatwallet.org (sendBuyerEmail).
+[[send_email]]
+name = "EMAIL"
+
+# ── Config pública (no secretos) ──
+[vars]
+PAYMENT_ADDRESS    = "0x1c87FDF8844cbEe5DC7f0F1681C44bF3c99A0e3d"
+BOOK_FILE_KEY      = "cryptoParaSoberanos-v34b.pdf"
+# Edición francesa (compras con lang=fr). Subir nuevas versiones:
+#   wrangler r2 object put chatwallet-book/<archivo>.pdf --file=$HOME/Desktop/LIBRO/<archivo>.pdf --content-type=application/pdf --remote
+# Ambas v34b registradas en musiclog (Arbitrum One): ES mlog0x9575469ab5017cf0 · FR mlog0x05c881dc6fe6cbea
+BOOK_FILE_KEY_FR   = "cryptoPourSouverains-v34b.pdf"
+PRICE_USD          = "10"
+CHAIN_ID           = "42161"
+RPC_URL            = "https://arb1.arbitrum.io/rpc"
+CHAINLINK_FEED     = "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612"
+SLIPPAGE_TOLERANCE = "0.05"
+PUBLIC_BOOK_URL    = "https://chatwallet.org/book.html"  # back_url del checkout MP (?pedido=CW-XXXXXX)
+
+# Secrets (NO van acá):
+#   wrangler secret put TOKEN_SECRET
+#   wrangler secret put MP_ACCESS_TOKEN   ← Access Token APP_USR-... de la app "criptoParaSoberanos" (MP Developers)

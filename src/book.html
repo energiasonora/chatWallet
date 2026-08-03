@@ -1,478 +1,2536 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto para Principiantes - Capítulo 1</title>
-    
+    <title>Cripto para Soberanos — Libro</title>
+    <meta name="description"
+        content="Guía práctica para empezar de cero en cripto desde la soberanía: la semilla, la wallet, la blockchain, DeFi, privacidad y herencia. 251 páginas · digital y físico · pagá con ETH o Mercado Pago.">
+    <link rel="canonical" href="https://chatwallet.org/book.html">
+    <!-- Social cards: la tapa vive en src/static/img (se copia verbatim al build → URL estable sin hash) -->
+    <meta property="og:type" content="book">
+    <meta property="og:title" content="Cripto para Soberanos — el libro">
+    <meta property="og:description"
+        content="Guía práctica para arrancar en cripto desde cero, con soberanía: 13 capítulos, 251 páginas. Digital $10 · físico $35 · pagá con ETH o Mercado Pago.">
+    <meta property="og:url" content="https://chatwallet.org/book.html">
+    <meta property="og:image" content="https://chatwallet.org/img/tapacpsES.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Cripto para Soberanos — el libro">
+    <meta name="twitter:description"
+        content="Guía práctica para arrancar en cripto desde cero, con soberanía: 13 capítulos, 251 páginas.">
+    <meta name="twitter:image" content="https://chatwallet.org/img/tapacpsES.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap"
+        rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-    <script src="js/ethers-6.13.2.umd.min.js"></script>
-    <script src="js/qr-code-styling.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+    <!-- QR del pago con ChatWallet (misma versión que dapp.html) -->
+    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
 
     <style>
-        /* --- General Styling --- */
+        /* Estética energiasonora.xyz: monocromo, bordes finos, Syne + DM Sans */
         :root {
-            --primary-blue: #0077c2;
-            --background-color: #ffffff;
-            --text-dark: #212529;
-            --text-light: #495057;
-            --white: #ffffff;
-            --border-color: #dee2e6;
-            --success-green: #28a745;
-            --info-bg: #f8f9fa;
-            --modal-backdrop: rgba(0, 0, 0, 0.6);
+            --bg: #fff;
+            --fg: #0a0a0a;
+            --fg-muted: #555;
+            --fg-subtle: #999;
+            --border: #e8e8e8;
+            --border-strong: #0a0a0a;
+            --surface: #f7f7f7;
+            --ok: #10b981;
+            --pay: #2b9de3;        /* celeste azulado: botón de pago (ETH o fiat) */
+            --pay-hover: #1e8bd0;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            min-height: 100vh;
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--background-color);
-            color: var(--text-dark);
-            margin: 0;
-            box-sizing: border-box;
-        }
-        
-        /* --- Layout Structure --- */
-        .page-wrapper {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'DM Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .image-pane {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 40px 20px;
-            box-sizing: border-box;
-        }
-        
-        .content-pane {
-            width: 100%;
-            text-align: center;
-            padding: 0 20px 40px 20px;
-            box-sizing: border-box;
+        h1, h2, h3 {
+            font-family: 'Syne', sans-serif;
         }
 
-        .content-inner {
-            max-width: 450px;
+        a { color: inherit; }
+
+        /* ── Layout ── */
+        .layout {
+            max-width: 1000px;
             margin: 0 auto;
+            padding: 3.5rem 2rem 4rem;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 4.5rem;
+            align-items: start;
         }
 
-        @media (min-width: 992px) {
-            .page-wrapper {
-                flex-direction: row;
-                min-height: 100vh;
-            }
-            .image-pane {
-                width: 50%;
-                height: 100vh;
-                position: sticky;
-                top: 0;
-                padding: 40px;
-            }
-            .content-pane {
-                width: 50%;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                padding: 40px;
-            }
-        }
-
-        .artwork-container {
-            width: 100%;
-            max-width: 400px;
-            position: relative;
-        }
-
-        .artwork-container img,
-        .artwork-container video {
-            width: 100%;
-            height: auto;
-            border-radius: 16px;
-            object-fit: cover;
-        }
-
-        #animated-video { display: none; }
-        
-        @media (min-width: 992px) {
-            .artwork-container {
-                max-width: none;
-                width: 100%;
-                height: 100%;
-            }
-            .artwork-container img,
-            .artwork-container video {
-                object-fit: cover; 
-                width: 100%;
-                height: 100%;
-            }
-        }
-
-        h1.major-mono-display {
-            font-family: 'Major Mono Display', monospace;
-            font-size: 2.2rem;
-            margin-bottom: 10px;
-        }
-
-        .subtitle {
-            font-size: 1.1rem;
-            color: var(--text-light);
-            margin-bottom: 25px;
-            line-height: 1.6;
-        }
-        
-        .price-info {
-            background-color: var(--info-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 15px;
-            margin: 0 auto 30px auto;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px 15px;
-        }
-        
-        .price-info span {
-            font-size: 1rem;
-            font-weight: 500;
-        }
-        
-        .price-info .separator {
-            color: var(--border-color);
-            display: inline-block;
-        }
-
-        #mint-button {
-            font-weight: 500;
-            font-size: 1rem;
-            background-color: var(--primary-blue);
-            color: var(--white);
-            border: none;
-            padding: 15px 30px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.2s ease;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        #mint-button:hover:not(:disabled) {
-            background-color: #005f9a;
-            transform: translateY(-3px);
-        }
-
-        #mint-button:disabled {
-            background-color: #a9a9a9;
-            cursor: not-allowed;
-        }
-        
-        #result-section {
-            display: none;
-            margin-top: 30px;
-            border-top: 1px solid var(--border-color);
-            padding-top: 30px;
-        }
-
-        #result-section h2 {
-            font-size: 1.8rem;
-            color: var(--success-green);
-            margin-bottom: 20px;
-        }
-
-        .download-button {
-            display: inline-block;
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 1rem;
-            background-color: var(--success-green);
-            color: var(--white);
-            border: none;
-            padding: 15px 30px;
-            border-radius: 8px;
-            transition: background-color 0.3s ease;
-            margin-bottom: 30px;
-        }
-        
-        .download-button:hover {
-            background-color: #218838;
-        }
-
-        .receipt {
-            background-color: var(--info-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 20px;
-            text-align: left;
-        }
-        
-        .receipt h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-        }
-
-        .receipt p {
-            margin: 8px 0;
-            font-size: 0.9rem;
-            color: var(--text-light);
+        .top-nav {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 1.25rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid var(--border);
         }
 
-        .receipt p strong {
-            color: var(--text-dark);
+        .top-nav a {
+            color: var(--fg-muted);
+            font-size: .8125rem;
+            font-weight: 500;
+            text-decoration: none;
+            padding: .375rem .75rem;
+            border-radius: 6px;
+            transition: color .2s, background .2s;
+        }
+
+        .top-nav a:hover {
+            color: var(--fg);
+            background: var(--surface);
+        }
+
+        /* ── Cover ── */
+        .cover-col {
+            position: sticky;
+            top: 3.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .book-cover {
+            position: relative;
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            border-radius: 4px 10px 10px 4px;
+            box-shadow: 0 24px 50px -18px rgba(0, 0, 0, 0.45), 0 6px 16px -8px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            transition: transform .4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow .4s;
+        }
+
+        .book-cover:hover {
+            transform: translateY(-6px) rotate(-0.6deg);
+            box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.5);
+        }
+
+        .book-cover img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .book-cover::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            width: 14px;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0) 70%);
+            pointer-events: none;
+        }
+
+        .book-cover {
+            cursor: pointer;
+        }
+
+        .peek-hint {
+            background: none;
+            border: none;
+            color: var(--fg-muted);
+            font-family: 'DM Sans', sans-serif;
+            font-size: .78rem;
+            cursor: pointer;
+            padding: 0;
+            text-align: left;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            text-decoration-color: var(--border);
+            transition: color .2s;
+        }
+
+        .peek-hint:hover {
+            color: var(--fg);
+        }
+
+        /* ── Demo: primeras páginas ── */
+        #demo-modal,
+        #track-modal,
+        #wallet-choice-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+        }
+
+        #demo-modal[hidden],
+        #track-modal[hidden],
+        #wallet-choice-modal[hidden] {
+            display: none;
+        }
+
+        .demo-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(10, 10, 10, .6);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+
+        .demo-panel {
+            position: relative;
+            max-width: 560px;
+            margin: 3vh auto;
+            height: 94vh;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 32px 80px -20px rgba(0, 0, 0, .5);
+        }
+
+        .demo-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            padding: .85rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: .92rem;
+        }
+
+        .demo-close {
+            background: none;
+            border: none;
+            font-size: 1.7rem;
+            line-height: 1;
+            color: var(--fg-muted);
+            cursor: pointer;
+        }
+
+        .demo-close:hover {
+            color: var(--fg);
+        }
+
+        .demo-pages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            background: var(--surface);
+        }
+
+        .demo-pages img {
+            width: 100%;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, .08);
+        }
+
+        .demo-foot {
+            padding: .8rem 1.25rem;
+            border-top: 1px solid var(--border);
+            font-size: .78rem;
+            color: var(--fg-muted);
+            text-align: center;
+        }
+
+        .demo-cta {
+            background: var(--fg);
+            color: var(--bg);
+            border: none;
+            border-radius: 999px;
+            padding: .45rem 1rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: .78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+
+        .demo-cta:hover { opacity: .85; }
+
+        @media (max-width: 768px) {
+            .demo-panel {
+                max-width: none;
+                margin: 0;
+                height: 100%;
+                border-radius: 0;
+                border: none;
+            }
+        }
+
+        /* ── Seguimiento de pedido ── */
+        .track-panel {
+            height: auto;
+            max-height: 90vh;
+            max-width: 420px;
+        }
+
+        /* ── Elegir wallet ── */
+        .wallet-choice-body {
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+        }
+
+        .wallet-choice-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: .3rem;
+            text-align: left;
+            width: 100%;
+            padding: 1rem 1.1rem;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--bg);
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+        }
+
+        .wallet-choice-card:hover {
+            border-color: var(--fg);
+            background: var(--surface);
+        }
+
+        .wallet-choice-name {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: .95rem;
+        }
+
+        .wallet-choice-desc {
+            color: var(--fg-subtle);
+            font-size: .78rem;
+            line-height: 1.4;
+        }
+
+        .track-body {
+            padding: 1.5rem 1.5rem 1.75rem;
+            overflow-y: auto;
+        }
+
+        .track-meta {
+            color: var(--fg-subtle);
+            font-size: .76rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .timeline {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .timeline li {
+            position: relative;
+            padding: 0 0 1.75rem 2rem;
+        }
+
+        .timeline li:last-child {
+            padding-bottom: 0;
+        }
+
+        .timeline li::before {
+            /* punto */
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            background: var(--bg);
+        }
+
+        .timeline li::after {
+            /* línea */
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 20px;
+            bottom: 2px;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .timeline li:last-child::after {
+            display: none;
+        }
+
+        .timeline li.done::before {
+            background: var(--pay);
+            border-color: var(--pay);
+        }
+
+        .timeline li.done::after {
+            background: var(--pay);
+        }
+
+        .timeline li.active::before {
+            border-color: var(--pay);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--pay) 22%, transparent);
+        }
+
+        .timeline .t-title {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: .9rem;
+            color: var(--fg-subtle);
+        }
+
+        .timeline li.done .t-title,
+        .timeline li.active .t-title {
+            color: var(--fg);
+        }
+
+        .timeline .t-desc {
+            color: var(--fg-subtle);
+            font-size: .76rem;
+            line-height: 1.5;
+            margin-top: .15rem;
+        }
+
+        .track-error {
+            color: var(--fg-muted);
+            font-size: .85rem;
+            line-height: 1.6;
+            text-align: center;
+            padding: 1rem 0;
+        }
+
+        .cert-link {
+            color: var(--fg-subtle);
+            font-size: .75rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            transition: color .2s;
+        }
+
+        .cert-link:hover { color: var(--fg); }
+
+        .cert-link .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--ok);
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10b98188;
+            flex-shrink: 0;
+        }
+
+        /* ── Config column ── */
+        .kicker {
+            letter-spacing: .18em;
+            text-transform: uppercase;
+            color: var(--fg-subtle);
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-bottom: 1.5rem;
+            font-size: .7rem;
+            font-weight: 500;
+        }
+
+        .kicker::before {
+            content: '';
+            background: var(--fg-subtle);
+            width: 2rem;
+            height: 1px;
+        }
+
+        h1 {
+            letter-spacing: -.04em;
+            font-size: clamp(2.1rem, 5vw, 3rem);
+            font-weight: 800;
+            line-height: .95;
+            margin-bottom: 1.25rem;
+        }
+
+        h1 em {
+            color: var(--fg-subtle);
+            font-style: normal;
+        }
+
+        .lead {
+            color: var(--fg-muted);
+            max-width: 44ch;
+            font-size: .95rem;
+            line-height: 1.7;
+            font-weight: 300;
+            margin-bottom: 1rem;
+        }
+
+        /* Specs del libro: qué hay adentro, de un vistazo */
+        .specs {
+            color: var(--fg-subtle);
+            font-size: .8rem;
+            line-height: 1.6;
+            margin-bottom: 2.25rem;
+        }
+
+        .specs button {
+            background: none;
+            border: none;
+            padding: 0;
+            font: inherit;
+            color: var(--fg-muted);
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            text-decoration-color: var(--border);
+            transition: color .2s;
+        }
+
+        .specs button:hover { color: var(--fg); }
+
+        /* ── Código de descuento ── */
+        .discount-row {
+            display: flex;
+            gap: .5rem;
+            margin-bottom: .35rem;
+        }
+
+        .discount-input {
+            flex: 1;
+            min-width: 0;
+            padding: .55rem .8rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: .82rem;
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+        }
+
+        .discount-input:focus { outline: none; border-color: var(--fg); }
+        .discount-input:disabled { background: var(--surface); color: var(--fg-muted); }
+
+        .discount-apply {
+            border: 1px solid var(--border-strong);
+            background: none;
+            color: var(--fg);
+            border-radius: 999px;
+            padding: .55rem 1.1rem;
+            font-size: .82rem;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background .2s, color .2s;
+        }
+
+        .discount-apply:hover { background: var(--fg); color: var(--bg); }
+
+        .discount-msg {
+            font-size: .78rem;
+            color: var(--fg-subtle);
+            margin-bottom: 1rem;
+            min-height: 1.1em;
+        }
+
+        .discount-msg.ok { color: var(--ok); font-weight: 500; }
+        .discount-msg.err { color: #d97706; }
+
+        /* ── Pagar con ChatWallet (cw:2) ── */
+        .cw-pay-box {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            background: var(--surface);
+        }
+
+        .cw-pay-title {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: .95rem;
+            margin-bottom: 1rem;
+        }
+
+        .cw-qr {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .cw-qr canvas, .cw-qr svg {
+            border-radius: 8px;
+            max-width: 220px;
+            width: 100%;
+            height: auto;
+        }
+
+        .cw-pay-hint {
+            color: var(--fg-subtle);
+            font-size: .76rem;
+            line-height: 1.5;
+            margin: .85rem 0 0;
+        }
+
+        .cw-pay-status {
+            color: var(--fg-muted);
+            font-size: .82rem;
+            font-weight: 500;
+            margin: .85rem 0 0;
+        }
+
+        .cw-pay-cancel {
+            background: none;
+            border: none;
+            color: var(--fg-subtle);
+            font-size: .76rem;
+            text-decoration: underline;
+            cursor: pointer;
+            margin-top: .6rem;
+            padding: 0;
+        }
+
+        .cw-pay-cancel:hover { color: var(--fg); }
+
+        /* ── Selectors ── */
+        .sel {
+            margin-bottom: 1.5rem;
+        }
+
+        .sel.hidden { display: none; }
+
+        .sel-label {
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            color: var(--fg-subtle);
+            font-size: .6563rem;
+            font-weight: 600;
+            margin-bottom: .65rem;
+        }
+
+        .pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+        }
+
+        .pill {
+            font-family: 'DM Sans', sans-serif;
+            font-size: .8rem;
+            font-weight: 600;
+            color: var(--fg-muted);
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            padding: .45rem 1rem;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .pill:hover {
+            color: var(--fg);
+            border-color: var(--fg-subtle);
+        }
+
+        .pill.active {
+            color: var(--bg);
+            background: var(--fg);
+            border-color: var(--fg);
+        }
+
+        .pill span {
+            font-weight: 400;
+            opacity: .6;
+        }
+
+        /* ── Note ── */
+        .note {
+            color: var(--fg-muted);
+            font-size: .84rem;
+            line-height: 1.65;
+            border-left: 2px solid var(--border);
+            padding-left: .9rem;
+            margin: 1.75rem 0;
+            max-width: 46ch;
+        }
+
+        .note strong { color: var(--fg); font-weight: 600; }
+
+        /* ── Price ── */
+        .price-row {
+            display: flex;
+            align-items: baseline;
+            gap: .75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .price-usd {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.9rem;
+            font-weight: 800;
+            letter-spacing: -.03em;
+        }
+
+        .price-eth {
+            color: var(--fg-subtle);
+            font-size: .85rem;
+        }
+
+        /* ── CTA buttons ── */
+        .cta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            width: 100%;
+            background: var(--fg);
+            color: var(--bg);
+            border: 1px solid var(--fg);
+            border-radius: 8px;
+            padding: .95rem 1.5rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: .9rem;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            transition: opacity .2s, transform .2s;
+        }
+
+        .cta:hover:not(:disabled) {
+            opacity: .85;
+            transform: translateY(-1px);
+        }
+
+        .cta:disabled {
+            background: var(--surface);
+            color: var(--fg-subtle);
+            border-color: var(--border);
+            cursor: not-allowed;
+        }
+
+        .cta-ghost {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            width: 100%;
+            background: none;
+            color: var(--fg-muted);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .95rem 1.5rem;
+            font-size: .9rem;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: border-color .2s, color .2s, transform .2s;
+        }
+
+        .cta-ghost:hover {
+            border-color: var(--fg);
+            color: var(--fg);
+            transform: translateY(-1px);
+        }
+
+        .micro {
+            color: var(--fg-subtle);
+            font-size: .74rem;
+            text-align: center;
+            margin-top: .7rem;
+            line-height: 1.5;
+        }
+
+        .micro a {
+            color: var(--fg-muted);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .micro a:hover { color: var(--fg); }
+
+        .divider-or {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1.1rem 0;
+            color: var(--fg-subtle);
+            font-size: .7rem;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        .divider-or::before,
+        .divider-or::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── Status ── */
+        #status-box {
+            display: none;
+            margin-top: 1.25rem;
+            padding: .85rem 1.1rem;
+            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            font-size: .82rem;
+            color: var(--fg-muted);
+            line-height: 1.6;
+            word-break: break-word;
+        }
+
+        #status-box.error {
+            border-color: #d9b8a8;
+            color: #a04b22;
+            background: #fdf6f2;
+        }
+
+        /* ── Shipping form ── */
+        #shipping-form-section {
+            display: none;
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        #shipping-form-section.visible { display: block; }
+
+        .form-title {
+            font-family: 'Syne', sans-serif;
+            font-size: .95rem;
+            font-weight: 700;
+            margin-bottom: .25rem;
+        }
+
+        .form-sub {
+            color: var(--fg-muted);
+            font-size: .78rem;
+            line-height: 1.5;
+            margin-bottom: 1.1rem;
+        }
+
+        .fields {
+            display: flex;
+            flex-direction: column;
+            gap: .6rem;
+            margin-bottom: .9rem;
+        }
+
+        .fields input,
+        .fields textarea {
+            width: 100%;
+            padding: .7rem .9rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: .85rem;
+            background: var(--bg);
+            color: var(--fg);
+            outline: none;
+            transition: border-color .2s;
+        }
+
+        .fields input:focus,
+        .fields textarea:focus {
+            border-color: var(--fg);
+        }
+
+        .fields textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        #shipping-sent-msg {
+            display: none;
+            padding: .8rem;
+            text-align: center;
+            font-size: .8rem;
+            color: var(--ok);
+            background: #10b98114;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+
+        /* ── Result / receipt ── */
+        #result-section {
+            display: none;
+            margin-top: 2rem;
+            padding-top: 1.75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .success-line {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1.05rem;
+            margin-bottom: 1.1rem;
+        }
+
+        .success-line .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--ok);
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10b98188;
+        }
+
+        .receipt {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 1.25rem;
+        }
+
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            padding: .6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: .78rem;
+        }
+
+        .receipt-row:last-child { border-bottom: none; }
+
+        .receipt-key { color: var(--fg-subtle); white-space: nowrap; }
+
+        .receipt-val {
+            color: var(--fg);
+            word-break: break-all;
+            text-align: right;
+        }
+
+        .receipt-val a {
+            color: var(--fg);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        /* ── Paybar: total + botón de pago (footer fijo en mobile) ── */
+        .paybar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.25rem;
+            margin-top: 2rem;
+            padding: 1rem 1.25rem;
+            background: color-mix(in srgb, var(--pay) 8%, var(--bg));
+            border: 1px solid color-mix(in srgb, var(--pay) 22%, var(--border));
+            border-radius: 12px;
+        }
+
+        .paybar-total {
+            display: flex;
+            flex-direction: column;
+            gap: .15rem;
+            min-width: 0;
+        }
+
+        .paybar-main {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -.03em;
+            line-height: 1;
             white-space: nowrap;
         }
 
-        .receipt p span {
-            font-family: monospace;
-            word-break: break-all;
-            margin-left: 15px;
-            text-align: right;
-            color: var(--primary-blue);
+        .paybar-main small {
+            font-family: 'DM Sans', sans-serif;
+            font-size: .8rem;
+            font-weight: 400;
+            color: var(--fg-subtle);
         }
 
-        #status-value {
-            font-weight: bold;
-            color: var(--success-green);
+        .paybar-sub {
+            color: var(--fg-subtle);
+            font-size: .74rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        /* QR Modal Styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: var(--modal-backdrop);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+        .paybar-btn {
+            width: auto;
+            flex: 1;
+            max-width: 300px;
+            background: var(--pay);
+            border-color: var(--pay);
+            color: #fff;
         }
-        .modal-overlay.visible {
+
+        .paybar-btn:hover:not(:disabled) {
+            background: var(--pay-hover);
+            border-color: var(--pay-hover);
             opacity: 1;
-            visibility: visible;
-        }
-        .modal-content {
-            background-color: var(--white);
-            padding: 30px;
-            border-radius: 12px;
-            text-align: center;
-            max-width: 90%;
-            width: 400px;
-            transform: scale(0.95);
-            transition: transform 0.3s ease;
-        }
-        .modal-overlay.visible .modal-content {
-            transform: scale(1);
-        }
-        #qr-code-container {
-            margin: 20px auto;
-            padding: 10px;
-            background: white;
-            border-radius: 8px;
-            display: inline-block;
-        }
-        #payment-status {
-            margin-top: 15px;
-            font-weight: 500;
-            color: var(--text-light);
         }
 
-        @media (max-width: 991px) {
-            h1.major-mono-display { font-size: 1.8rem; }
-            .subtitle { font-size: 1rem; }
+        @media (max-width: 768px) {
+            .paybar {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 100;
+                margin: 0;
+                padding: .8rem 1.25rem calc(.8rem + env(safe-area-inset-bottom));
+                background: color-mix(in srgb, var(--pay) 10%, var(--bg));
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                border: none;
+                border-top: 1px solid color-mix(in srgb, var(--pay) 30%, var(--border));
+                border-radius: 0;
+            }
+
+            body {
+                padding-bottom: 96px;
+            }
         }
-        
-        @media (max-width: 420px) {
-            .price-info .separator { display: none; }
-            .price-info { gap: 5px 10px; }
-            .price-info span { font-size: 0.9rem; }
+
+        /* ── Funding (compacto) ── */
+        .funding {
+            display: flex;
+            align-items: center;
+            gap: .9rem;
+            margin-top: 2.75rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .funding-label {
+            letter-spacing: .15em;
+            text-transform: uppercase;
+            color: var(--fg-subtle);
+            font-size: .62rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .funding-bar {
+            flex: 1;
+            height: 4px;
+            background: var(--surface);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+
+        .funding-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--fg);
+            border-radius: 100px;
+            transition: width .8s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .funding-amount {
+            color: var(--fg-muted);
+            font-size: .72rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .funding-note {
+            color: var(--fg-subtle);
+            font-size: .68rem;
+            line-height: 1.5;
+            margin-top: .5rem;
+        }
+
+        .foot {
+            color: var(--fg-subtle);
+            font-size: .72rem;
+            line-height: 1.7;
+            margin-top: 2rem;
+        }
+
+        .foot a {
+            color: var(--fg-muted);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .foot a:hover { color: var(--fg); }
+
+        /* ── Mobile: libro arriba, opciones abajo ── */
+        @media (max-width: 768px) {
+            .top-nav { padding: 1rem 1.25rem; }
+
+            .layout {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+                padding: 2rem 1.25rem 3rem;
+            }
+
+            .cover-col {
+                position: static;
+                align-items: center;
+            }
+
+            .book-cover { max-width: 168px; }
+
+            h1 { font-size: 2rem; text-align: center; }
+            .kicker { justify-content: center; }
+            .kicker::before { display: none; }
+            .lead { text-align: center; margin-left: auto; margin-right: auto; margin-bottom: 1rem; }
+            .specs { text-align: center; margin-bottom: 1.75rem; }
+            .sel-label { text-align: center; }
+            .pills { justify-content: center; }
+            .note { max-width: none; }
+            .price-row { justify-content: center; }
+            .funding { margin-top: 2.25rem; }
+            .foot { text-align: center; }
         }
     </style>
 </head>
+
 <body>
 
-    <div class="page-wrapper">
-        <div class="image-pane">
-            <div class="artwork-container">
-                <img id="static-image" src="./img/LIBROES.jpg" alt="Portada del libro 'Crypto para Principiantes'">
-                <video id="animated-video" muted playsinline>
-                    <source src="./vid/animatedChatWallet.mp4" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
+    <nav class="top-nav">
+        <a href="./index.html">← Inicio</a>
+        <a href="./dapp.html">ChatWallet →</a>
+    </nav>
+
+    <div class="layout">
+        <!-- LIBRO -->
+        <div class="cover-col">
+            <div class="book-cover" onclick="openDemo()" role="button" title="Hojeá las primeras páginas">
+                <img id="book-cover-es" src="./img/tapacpsES.jpg" alt="Cripto para Soberanos">
+                <img id="book-cover-fr" src="./img/LIBROFRv2.jpg" alt="Crypto pour les Souverains" style="display:none;">
             </div>
+            <button class="peek-hint" onclick="openDemo()">👀 Tocá la tapa y hojeá las primeras páginas</button>
+            <a class="cert-link" id="cert-link" href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank"
+                rel="noopener noreferrer"><span class="dot"></span>Autoría verificada on-chain ↗</a>
         </div>
 
-        <div class="content-pane">
-            <div class="content-inner">
-                <h1 class="major-mono-display">Crypto para Principiantes</h1>
-                <p class="subtitle">Obtén acceso exclusivo al Capítulo 1 minteando el NFT de acceso. Una guía para iniciar tu viaje en cripto.</p>
+        <!-- CONFIGURADOR -->
+        <div class="config-col">
+            <p class="kicker">Libro · digital y físico</p>
+            <h1>Cripto para <em>Soberanos</em></h1>
+            <p class="lead">Este libro es una guía práctica para empezar de cero en el mundo cripto, desde la
+                perspectiva soberana. Elegí cómo lo querés y pagá con tu wallet — o como prefieras.</p>
+            <p class="specs">251 páginas · 13 capítulos: de la semilla y la wallet a DeFi, privacidad y herencia
+                soberana · <button type="button" onclick="openDemo()">ver el índice</button></p>
 
-                <div class="price-info">
-                    <span id="price-eth">0.005 ETH</span>
-                    <span class="separator">|</span>
-                    <span id="price-usd">~15 USD</span>
+            <!-- IDIOMA (aplica a digital y físico) -->
+            <div class="sel" id="lang-step">
+                <p class="sel-label">Idioma</p>
+                <div class="pills" id="lang-pills">
+                    <button type="button" class="pill active" data-lang="es" onclick="selectLang('es')">Castellano</button>
+                    <button type="button" class="pill" data-lang="fr" onclick="selectLang('fr')">Français</button>
                 </div>
+            </div>
 
-                <button id="mint-button">Comprar con Crypto</button>
+            <!-- FORMATO -->
+            <div class="sel">
+                <p class="sel-label">Formato</p>
+                <div class="pills" id="format-pills">
+                    <button type="button" class="pill active" data-format="digital" onclick="selectFormat('digital')">Digital <span>· $10</span></button>
+                    <button type="button" class="pill" data-format="physical-only" onclick="selectFormat('physical-only')">Físico <span>· $35</span></button>
+                    <button type="button" class="pill" data-format="physical" onclick="selectFormat('physical')">Físico + digital <span>· $40</span></button>
+                </div>
+            </div>
 
-                <div id="result-section">
-                    <h2>¡Acceso Concedido!</h2>
-                    <a href="#" id="download-link" class="download-button" download="Crypto-para-Principiantes-Cap1.pdf">Descargar Capítulo 1</a>
-                    <div class="receipt">
-                        <h3>Recibo de Transacción</h3>
-                        <p><strong>Status:</strong> <span id="status-value"></span></p>
-                        <p><strong>Tx Hash:</strong> <span id="tx-hash"></span></p>
-                        <p><strong>Block:</strong> <span id="block-number"></span></p>
+            <!-- CÓDIGO DE DESCUENTO -->
+            <div class="discount-row">
+                <input type="text" id="discount-input" class="discount-input" placeholder="¿Tenés un código de descuento?" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();applyDiscountCode();}">
+                <button type="button" id="discount-apply-btn" class="discount-apply" onclick="applyDiscountCode()">Aplicar</button>
+                <button type="button" id="discount-clear-btn" class="discount-apply" onclick="clearDiscountCode()" style="display:none;">Quitar</button>
+            </div>
+            <p class="discount-msg" id="discount-msg"></p>
+
+            <!-- PAÍS -->
+            <div class="sel hidden" id="country-step">
+                <p class="sel-label">País de entrega</p>
+                <div class="pills" id="country-pills">
+                    <button type="button" class="pill active" data-country="ar" onclick="selectCountry('ar')">Argentina</button>
+                    <button type="button" class="pill" data-country="fr" onclick="selectCountry('fr')">Francia</button>
+                    <button type="button" class="pill" data-country="es" onclick="selectCountry('es')">España</button>
+                </div>
+            </div>
+
+            <!-- NOTA -->
+            <p class="note" id="delivery-note"></p>
+
+            <!-- MÉTODO DE PAGO: crypto o fiat, y la red si es crypto -->
+            <div class="sel" id="pay-step">
+                <p class="sel-label">Pago</p>
+                <div class="pills" id="method-pills"></div>
+                <div class="pills" id="net-pills" style="margin-top:.5rem;"></div>
+                <p class="micro" id="wallet-micro" style="text-align:left;">MetaMask, WalletConnect, ChatWallet y más ·
+                    ¿Sin wallet? <a href="./dapp.html">Creá una gratis con ChatWallet</a></p>
+            </div>
+
+            <!-- Pagar con ChatWallet: QR/deep-link + espera de confirmación por XMTP -->
+            <div id="cw-pay-box" class="cw-pay-box" hidden>
+                <p class="cw-pay-title">Pagá desde tu ChatWallet</p>
+                <div id="cw-qr" class="cw-qr"></div>
+                <a href="#" id="cw-open-btn" class="cta" target="_blank" rel="noopener">Abrir ChatWallet →</a>
+                <p class="cw-pay-hint">¿Tenés el APK en este celular? Tocá el botón. Si no, escaneá el código con
+                    otro dispositivo que tenga ChatWallet.</p>
+                <p class="cw-pay-status" id="cw-pay-status">Esperando confirmación…</p>
+                <button type="button" class="cw-pay-cancel" id="cw-pay-cancel-btn"
+                    onclick="cancelChatWalletPurchase()">Cancelar</button>
+            </div>
+
+            <div id="status-box"></div>
+
+            <!-- RESULTADO (post-pago crypto) -->
+            <div id="result-section">
+                <div class="success-line"><span class="dot"></span>Pago confirmado</div>
+                <a href="#" id="download-link" class="cta" target="_blank" rel="noopener">Descargar el libro (PDF) ↓</a>
+                <div class="receipt">
+                    <div class="receipt-row"><span class="receipt-key">Formato</span><span class="receipt-val" id="r-format">—</span></div>
+                    <div class="receipt-row"><span class="receipt-key">Red</span><span class="receipt-val" id="r-network">—</span></div>
+                    <div class="receipt-row"><span class="receipt-key">Monto</span><span class="receipt-val" id="r-amount">—</span></div>
+                    <div class="receipt-row"><span class="receipt-key">Bloque</span><span class="receipt-val" id="r-block">—</span></div>
+                    <div class="receipt-row"><span class="receipt-key">Tx</span><span class="receipt-val" id="r-hash">—</span></div>
+                </div>
+            </div>
+
+            <!-- DATOS DE ENVÍO (físico: post-pago crypto o Mercado Pago) -->
+            <div id="shipping-form-section">
+                <p class="form-title" id="shipping-form-title">Datos de envío</p>
+                <p class="form-sub" id="shipping-form-sub">Dirección y contacto para coordinar la entrega</p>
+                <div class="fields">
+                    <input type="text" id="sh-name" placeholder="Nombre *" required>
+                    <input type="email" id="sh-email" placeholder="Email *" required>
+                    <input type="tel" id="sh-phone" placeholder="WhatsApp / teléfono">
+                    <!-- Entrega en Argentina: correo o coordinada con el autor (AMBA) -->
+                    <div id="sh-delivery" class="pills" style="display:none;">
+                        <button type="button" class="pill active" data-dp="correo" onclick="selectDelivery('correo')">📮 Envío por correo</button>
+                        <button type="button" class="pill" data-dp="coordinar" onclick="selectDelivery('coordinar')">🤝 Coordinamos la entrega (AMBA)</button>
                     </div>
+                    <div id="sh-postal-fields" class="fields" style="margin-bottom:0;">
+                        <input type="text" id="sh-address" placeholder="Dirección (calle, número, piso/depto) *">
+                        <input type="text" id="sh-city" placeholder="Ciudad y provincia *">
+                        <input type="text" id="sh-cp" placeholder="Código postal *">
+                    </div>
+                    <input type="text" id="sh-chatwallet" placeholder="Tu ChatWallet 0x… (opcional: te avisamos por chat)" style="display:none;" autocomplete="off" spellcheck="false">
+                    <textarea id="sh-notes" placeholder="Notas (opcional)"></textarea>
                 </div>
+                <button class="cta" id="shipping-submit-btn" onclick="submitShipping()">Enviar datos</button>
+                <div id="shipping-sent-msg">✓ Recibimos tus datos. Te contactamos por email o WhatsApp para coordinar.</div>
+            </div>
+
+            <!-- TOTAL + PAGAR · footer fijo en mobile -->
+            <div class="paybar" id="paybar">
+                <div class="paybar-total">
+                    <span class="paybar-main" id="pb-main">$10 <small>USD</small></span>
+                    <span class="paybar-sub" id="pb-sub">≈ … ETH</span>
+                </div>
+                <button class="cta paybar-btn" id="pay-button">Pagar con ETH</button>
+            </div>
+
+            <!-- META SOBERANA (compacta) -->
+            <div class="funding">
+                <span class="funding-label">Meta soberana</span>
+                <div class="funding-bar">
+                    <div class="funding-fill" id="funding-fill"></div>
+                </div>
+                <span class="funding-amount"><span id="funding-raised">—</span> / 2 ETH</span>
+            </div>
+            <p class="funding-note" id="funding-note">Cada copia financia el libro: al alcanzar 2 ETH, el PDF se libera
+                gratis para todos.</p>
+
+            <p class="foot">Impresión artesanal en Argentina a cargo del autor · en Europa vía Amazon. Contenido
+                registrado en musiclog.org (<a href="https://musiclog.org/?q=mlog0x9575469ab5017cf0" target="_blank"
+                    rel="noopener">ES</a> · <a href="https://musiclog.org/?q=mlog0x05c881dc6fe6cbea" target="_blank"
+                    rel="noopener">FR</a>) · Contacto:
+                <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
+            <!-- Bumpear en CADA deploy de book.html (trackeo de versiones de la página) -->
+            <p class="foot" id="book-version">v 1.08</p>
+        </div>
+    </div>
+
+    <!-- SEGUIMIENTO DE PEDIDO (book.html?pedido=CW-XXXXXX) -->
+    <div id="track-modal" hidden>
+        <div class="demo-backdrop" onclick="closeTrack()"></div>
+        <div class="demo-panel track-panel">
+            <div class="demo-head">
+                <span id="track-title">Seguimiento del pedido</span>
+                <button class="demo-close" onclick="closeTrack()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="track-body" id="track-body"></div>
+        </div>
+    </div>
+
+    <!-- Elegir wallet al pagar con cripto: ChatWallet o cualquier otra -->
+    <div id="wallet-choice-modal" hidden>
+        <div class="demo-backdrop" onclick="closeWalletChoice()"></div>
+        <div class="demo-panel track-panel">
+            <div class="demo-head">
+                <span>Elegí tu wallet</span>
+                <button class="demo-close" onclick="closeWalletChoice()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="wallet-choice-body">
+                <button type="button" class="wallet-choice-card" onclick="chooseChatWallet()">
+                    <span class="wallet-choice-name">ChatWallet</span>
+                    <span class="wallet-choice-desc">Escaneá o abrí el link desde tu ChatWallet — confirmás y pagás
+                        ahí mismo.</span>
+                </button>
+                <button type="button" class="wallet-choice-card" onclick="chooseAnyWallet()">
+                    <span class="wallet-choice-name">Otra wallet</span>
+                    <span class="wallet-choice-desc">MetaMask, Rabby, WalletConnect y más.</span>
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- QR Code Modal -->
-    <div id="qr-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h2>Escanear para Pagar</h2>
-            <p>Usa tu wallet móvil para escanear el código y completar la compra.</p>
-            <div id="qr-code-container"></div>
-            <p id="payment-status">Esperando el pago en la blockchain...</p>
-            <button id="close-modal-btn">Cancelar</button>
+    <!-- DEMO: primeras páginas del libro -->
+    <div id="demo-modal" hidden>
+        <div class="demo-backdrop" onclick="closeDemo()"></div>
+        <div class="demo-panel">
+            <div class="demo-head">
+                <span id="demo-title">Primeras páginas</span>
+                <button class="demo-close" onclick="closeDemo()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="demo-pages" id="demo-pages"></div>
+            <p class="demo-foot">¿Te gustó? <button type="button" class="demo-cta" onclick="closeDemoToFormats()">Elegí
+                    tu formato y seguí leyendo ✨</button></p>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURACIÓN ---
-        const PAYMENT_ADDRESS = "0x9d51a3e880fcb01e5b71658fb8f3cef8d32900eb"; // Reemplazar con tu dirección
-        const CHAIN_ID = 421614; // Arbitrum Sepolia
-        const PRICE_IN_ETH = "0.005";
-        const CHAPTER_FILE_URL = "./assets/chapter1.pdf"; // Reemplazar con la URL real del archivo
+        // ════════════════════════════════════════════════
+        //  ⚙️  CONFIGURACIÓN
+        // ════════════════════════════════════════════════
+        const CONFIG = {
+            PAYMENT_ADDRESS: "0x1c87FDF8844cbEe5DC7f0F1681C44bF3c99A0e3d",
+            // "physical" = físico + digital (key legacy del Worker: siempre incluyó el PDF).
+            // "physical-only" = solo papel, sin PDF.
+            PRICES_USD: { digital: 10, 'physical-only': 35, physical: 40 },
+            FUNDING_GOAL_ETH: 2,                                 // meta soberana: al llegar, el PDF se libera
+            SLIPPAGE: 0.03,
+            API_BASE: "https://api.chatwallet.org",   // Cloudflare Worker (book-api)
+            SHIPPING_ENDPOINT: "https://formspree.io/f/mkoqkgrn",  // notificación por email (además de D1 vía /order)
+            MP_LINK: "https://link.mercadopago.com.ar/energiasonora",   // link sin monto definido
+            AMAZON_FR: "https://www.amazon.fr/dp/B0H2V3GMH4",
+            AMAZON_ES: "",                                        // TODO: pegar el link real de amazon.es cuando esté live
+            ARS_RATE_API: "https://dolarapi.com/v1/dolares/blue", // para estimar el monto de Mercado Pago en pesos
+        };
 
-        // --- DOM Elements ---
-        const mintButton = document.getElementById('mint-button');
-        const staticImage = document.getElementById('static-image');
-        const animatedVideo = document.getElementById('animated-video');
+        // Redes aceptadas para el pago en ETH. `key` es lo que entiende el Worker.
+        // `rpcs` en orden de preferencia: los públicos fallan intermitentemente, se prueba el siguiente.
+        const NETWORKS = {
+            arbitrum: {
+                key: 'arbitrum-one',
+                chainId: 42161,
+                name: 'Arbitrum One',
+                rpcs: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-one-rpc.publicnode.com'],
+                feed: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
+                explorer: 'https://arbiscan.io',
+            },
+            mainnet: {
+                key: 'ethereum',
+                chainId: 1,
+                name: 'Ethereum Mainnet',
+                rpcs: ['https://ethereum-rpc.publicnode.com', 'https://eth.drpc.org', 'https://1rpc.io/eth'],
+                feed: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
+                explorer: 'https://etherscan.io',
+            },
+        };
+
+        // Sin batching (algunos RPCs públicos lo rechazan) y sin autodetección de red.
+        function makeProvider(url, chainId) {
+            return new ethers.JsonRpcProvider(url, chainId, { staticNetwork: true, batchMaxCount: 1 });
+        }
+
+        async function withRpcFallback(net, fn) {
+            let lastErr;
+            for (const url of net.rpcs) {
+                try { return await fn(makeProvider(url, net.chainId)); }
+                catch (err) { lastErr = err; console.warn(`RPC falló (${url}), probando el siguiente...`, err?.message); }
+            }
+            throw lastErr;
+        }
+
+        const CHAINLINK_ABI = [
+            { inputs: [], name: "latestRoundData", outputs: [{ name: "roundId", type: "uint80" }, { name: "answer", type: "int256" }, { name: "startedAt", type: "uint256" }, { name: "updatedAt", type: "uint256" }, { name: "answeredInRound", type: "uint80" }], stateMutability: "view", type: "function" },
+            { inputs: [], name: "decimals", outputs: [{ name: "", type: "uint8" }], stateMutability: "view", type: "function" }
+        ];
+
+        const BTN_IDLE = 'Pagar con ETH';
+
+        // ── Estado ──
+        let ethAmountWei = null;
+        let provider = null;
+        let signer = null;
+        let selectedFormat = 'digital';   // digital | physical-only | physical (= físico + digital)
+        let selectedCountry = 'ar';       // ar | fr | es
+        let selectedLang = 'es';          // es | fr
+        let selectedNetwork = 'arbitrum'; // arbitrum | mainnet
+        // eth = cripto con wallet a elegir en el momento de pagar (modal ChatWallet/otra) | mp | amazon | none
+        let selectedPay = 'eth';
+        let shippingMode = 'crypto';      // crypto | mercadopago
+        let arsRate = null;
+        let completedTxHash = null;
+        let completedAddress = null;
+        let lastPriceKey = null;   // "formato|red" ya consultado (evita spamear el RPC en cada click)
+        let lastEthText = null;    // último "≈ x ETH · red" resuelto para el paybar
+
+        // ── DOM ──
+        const mintBtn = document.getElementById('pay-button');
+        const statusBox = document.getElementById('status-box');
         const resultSection = document.getElementById('result-section');
+        const pbMain = document.getElementById('pb-main');
+        const pbSub = document.getElementById('pb-sub');
         const downloadLink = document.getElementById('download-link');
-        const txHashSpan = document.getElementById('tx-hash');
-        const blockNumberSpan = document.getElementById('block-number');
-        const statusSpan = document.getElementById('status-value');
-        const qrModal = document.getElementById('qr-modal');
-        const qrCodeContainer = document.getElementById('qr-code-container');
-        const closeModalBtn = document.getElementById('close-modal-btn');
-        const paymentStatus = document.getElementById('payment-status');
 
-        // --- Funciones ---
+        // ════════════════════════════════════════════════
+        //  🧭  CONFIGURADOR (formato → país → idioma → pago)
+        // ════════════════════════════════════════════════
+
+        function setActivePill(rowId, attr, value) {
+            document.querySelectorAll(`#${rowId} .pill`).forEach(p =>
+                p.classList.toggle('active', p.dataset[attr] === value));
+        }
+
+        function selectFormat(f) {
+            selectedFormat = f;
+            setActivePill('format-pills', 'format', f);
+            updateUI();
+            revalidateDiscountForFormat();
+        }
+
+        function selectCountry(c) {
+            selectedCountry = c;
+            setActivePill('country-pills', 'country', c);
+            updateUI();
+        }
+
+        function selectLang(l) {
+            selectedLang = l;
+            setActivePill('lang-pills', 'lang', l);
+            updateUI();
+        }
+
+        function selectMethod(m) {
+            selectedPay = m === 'fiat' ? 'mp' : 'eth';
+            setActivePill('method-pills', 'method', m);
+            document.getElementById('net-pills').style.display = m === 'crypto' ? 'flex' : 'none';
+            document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
+            if (selectedPay === 'eth' && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
+                lastEthText = null;
+                fetchEthPrice();
+            }
+            updatePaybar();
+        }
+
+        function selectNet(n) {
+            selectedNetwork = n;
+            setActivePill('net-pills', 'net', n);
+            if (`${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
+                lastEthText = null;
+                fetchEthPrice();
+            }
+            updatePaybar();
+        }
+
+        // ── Código de descuento (validado y RE-validado siempre server-side) ──
+        let appliedDiscount = null; // { code, pct }
+
+        function basePriceUSD() {
+            return CONFIG.PRICES_USD[selectedFormat] ?? CONFIG.PRICES_USD.digital;
+        }
+
+        function getCurrentPriceUSD() {
+            const base = basePriceUSD();
+            return appliedDiscount ? Math.round(base * (1 - appliedDiscount.pct / 100) * 100) / 100 : base;
+        }
+
+        async function applyDiscountCode() {
+            const input = document.getElementById('discount-input');
+            const msg = document.getElementById('discount-msg');
+            const code = input.value.trim();
+            if (!code) return;
+            msg.textContent = 'Verificando…';
+            msg.className = 'discount-msg';
+            try {
+                const resp = await fetch(`${CONFIG.API_BASE}/validateCode?code=${encodeURIComponent(code)}&format=${selectedFormat}&priceUsd=${basePriceUSD()}`);
+                const data = await resp.json();
+                if (data.valid) {
+                    appliedDiscount = { code: code.toUpperCase(), pct: data.discountPct };
+                    msg.textContent = `✓ Código aplicado: −${data.discountPct}%`;
+                    msg.className = 'discount-msg ok';
+                    input.disabled = true;
+                    document.getElementById('discount-apply-btn').style.display = 'none';
+                    document.getElementById('discount-clear-btn').style.display = 'inline';
+                } else {
+                    appliedDiscount = null;
+                    msg.textContent = 'Código inválido, vencido o no aplica a este formato.';
+                    msg.className = 'discount-msg err';
+                    input.disabled = false;
+                    document.getElementById('discount-apply-btn').style.display = 'inline';
+                    document.getElementById('discount-clear-btn').style.display = 'none';
+                }
+            } catch (err) {
+                msg.textContent = 'No se pudo verificar el código, reintentá.';
+                msg.className = 'discount-msg err';
+            }
+            updatePaybar();
+            if (selectedPay === 'eth') fetchEthPrice();
+        }
+
+        function clearDiscountCode() {
+            appliedDiscount = null;
+            const input = document.getElementById('discount-input');
+            input.value = '';
+            input.disabled = false;
+            document.getElementById('discount-msg').textContent = '';
+            document.getElementById('discount-apply-btn').style.display = 'inline';
+            document.getElementById('discount-clear-btn').style.display = 'none';
+            updatePaybar();
+            if (selectedPay === 'eth') fetchEthPrice();
+        }
+
+        // Si cambia el formato y el código ya no aplica (código restringido a
+        // otro formato), lo re-validamos para no cobrar de menos silenciosamente.
+        function revalidateDiscountForFormat() {
+            if (appliedDiscount) applyDiscountCode.call(null); // reusa el input con el código ya tipeado
+        }
+
+        function isPhysical() {
+            return selectedFormat !== 'digital';
+        }
+
+        function isCryptoFlow() {
+            return selectedFormat === 'digital' || selectedCountry === 'ar';
+        }
+
+        function updateUI() {
+            const physical = isPhysical();
+            const withPdf = selectedFormat === 'physical';
+
+            // Pasos visibles (el idioma aplica siempre; el país solo al físico)
+            document.getElementById('country-step').classList.toggle('hidden', !physical);
+
+            // Tapa según idioma.
+            // Las dos <img> viven en el HTML para que Parcel resuelva los assets.
+            const wantFr = selectedLang === 'fr';
+            document.getElementById('book-cover-es').style.display = wantFr ? 'none' : 'block';
+            document.getElementById('book-cover-fr').style.display = wantFr ? 'block' : 'none';
+
+            // Registro on-chain (musiclog) de la edición elegida
+            document.getElementById('cert-link').href =
+                `https://musiclog.org/?q=${wantFr ? 'mlog0x05c881dc6fe6cbea' : 'mlog0x9575469ab5017cf0'}`;
+
+            // Nota de entrega
+            const note = document.getElementById('delivery-note');
+            if (!physical) {
+                note.innerHTML = '<strong>PDF al instante</strong> tras el pago on-chain · edición en ' +
+                    (wantFr ? '<strong>français</strong>.' : 'castellano.');
+            } else if (selectedCountry === 'ar') {
+                note.innerHTML = 'Impreso y encuadernado <strong>por el autor</strong> · envío a toda Argentina en <strong>~10 días</strong>' +
+                    (withPdf ? ' · <strong>incluye el PDF</strong>.' : ' · no incluye la edición digital.') +
+                    (selectedLang === 'fr' ? ' Edición en <strong>français</strong>.' : '');
+            } else if (selectedCountry === 'fr') {
+                note.innerHTML = 'Impresión bajo demanda vía <strong>Amazon.fr</strong>' +
+                    (withPdf ? ' · vía Amazon es <strong>solo el físico</strong> (el PDF se compra aparte en “Digital”).' : '.') +
+                    (selectedLang === 'es' ? ' Por ahora en <strong>français</strong>; la edición castellana llega pronto.' : '');
+            } else {
+                note.innerHTML = 'La edición física para <strong>España</strong> está en camino vía Amazon.es.';
+            }
+
+            // Pago en dos niveles: método (crypto | fiat) y, si es crypto, la red.
+            // FR/ES físico van por Amazon (sin selector). La wallet (ChatWallet o
+            // cualquier otra) se elige recién al tocar "Pagar" (modal, ver openWalletChoice).
+            if (isCryptoFlow()) {
+                if (selectedPay !== 'mp') selectedPay = 'eth';
+                const method = selectedPay === 'mp' ? 'fiat' : 'crypto';
+                document.getElementById('method-pills').innerHTML =
+                    `<button type="button" class="pill${method === 'crypto' ? ' active' : ''}" data-method="crypto" onclick="selectMethod('crypto')">Cripto</button>` +
+                    `<button type="button" class="pill${method === 'fiat' ? ' active' : ''}" data-method="fiat" onclick="selectMethod('fiat')">Pesos · Mercado Pago</button>`;
+                // redes crypto (próximamente: BTC, BCH, XMR…)
+                document.getElementById('net-pills').innerHTML =
+                    `<button type="button" class="pill${selectedNetwork === 'arbitrum' ? ' active' : ''}" data-net="arbitrum" onclick="selectNet('arbitrum')">ETH · Arbitrum</button>` +
+                    `<button type="button" class="pill${selectedNetwork === 'mainnet' ? ' active' : ''}" data-net="mainnet" onclick="selectNet('mainnet')">ETH · Mainnet</button>`;
+                document.getElementById('net-pills').style.display = method === 'crypto' ? 'flex' : 'none';
+                document.getElementById('pay-step').classList.remove('hidden');
+            } else {
+                selectedPay = (physical && selectedCountry === 'fr') ? 'amazon' : 'none';
+                document.getElementById('pay-step').classList.add('hidden');
+            }
+            document.getElementById('wallet-micro').style.display = selectedPay === 'eth' ? 'block' : 'none';
+
+            if (selectedPay === 'eth' && `${selectedFormat}|${selectedNetwork}` !== lastPriceKey) {
+                lastEthText = null;
+                fetchEthPrice();
+            }
+            updatePaybar();
+        }
+
+        // ── Paybar: total + botón según el pago elegido ──
+        function updatePaybar() {
+            const usd = getCurrentPriceUSD();
+            const strike = appliedDiscount ? `<s style="opacity:.5;font-weight:400;font-size:.75em;margin-right:.35em">$${basePriceUSD()}</s>` : '';
+            if (selectedPay === 'eth') {
+                pbMain.innerHTML = `${strike}$${usd} <small>USD</small>`;
+                pbSub.textContent = lastEthText || '≈ … ETH';
+                mintBtn.textContent = 'Pagar con ETH';
+                mintBtn.disabled = false;
+            } else if (selectedPay === 'mp') {
+                pbMain.innerHTML = `${strike}$${usd} <small>USD</small>`;
+                pbSub.textContent = arsRate
+                    ? `≈ $${Math.round(usd * arsRate).toLocaleString('es-AR')} ARS · Mercado Pago`
+                    : 'el equivalente en pesos · Mercado Pago';
+                mintBtn.textContent = 'Pagar con Mercado Pago';
+                mintBtn.disabled = false;
+            } else if (selectedPay === 'amazon') {
+                pbMain.innerHTML = `€ <small>EUR</small>`;
+                pbSub.textContent = 'precio en Amazon.fr · impresión bajo demanda';
+                mintBtn.textContent = 'Comprar en Amazon.fr →';
+                mintBtn.disabled = false;
+            } else {
+                pbMain.textContent = '—';
+                pbSub.textContent = 'próximamente en Amazon.es';
+                mintBtn.textContent = 'Próximamente';
+                mintBtn.disabled = true;
+            }
+        }
+
+        async function fetchArsRate() {
+            try {
+                const resp = await fetch(CONFIG.ARS_RATE_API);
+                const data = await resp.json();
+                if (data && data.venta) {
+                    arsRate = Number(data.venta);
+                    updatePaybar();
+                }
+            } catch (err) {
+                console.warn('No se pudo obtener la cotización ARS:', err);
+            }
+        }
+
+        // ── Entrega en Argentina: correo | coordinar (AMBA) ──
+        let selectedDelivery = 'correo';
+
+        function selectDelivery(dp) {
+            selectedDelivery = dp;
+            document.querySelectorAll('#sh-delivery .pill').forEach(p =>
+                p.classList.toggle('active', p.dataset.dp === dp));
+            const coordinar = dp === 'coordinar';
+            // coordinando en AMBA no hace falta dirección postal completa
+            document.getElementById('sh-address').placeholder = coordinar
+                ? 'Zona / barrio donde coordinamos *' : 'Dirección (calle, número, piso/depto) *';
+            document.getElementById('sh-cp').style.display = coordinar ? 'none' : 'block';
+        }
+
+        // Muestra los controles según contexto: pills de entrega (AR físico),
+        // ChatWallet opcional (solo MP — en crypto ya viene de la wallet conectada).
+        function refreshShippingExtras() {
+            const arFisico = isPhysical() && selectedCountry === 'ar';
+            document.getElementById('sh-delivery').style.display = arFisico ? 'flex' : 'none';
+            if (!arFisico) selectDelivery('correo');
+            document.getElementById('sh-chatwallet').style.display = shippingMode === 'mercadopago' ? 'block' : 'none';
+        }
+
+        // Crypto físico: pedimos dirección + contacto antes de abrir la wallet;
+        // el pedido se crea recién con la tx verificada (queda ligado al txHash).
+        function openCryptoShippingForm() {
+            shippingMode = 'crypto';
+            document.getElementById('shipping-form-title').textContent = 'Datos de envío';
+            document.getElementById('shipping-form-sub').textContent =
+                'Completá tus datos y después pagás con tu wallet. Enviamos a tu dirección (~10 días en Argentina)' +
+                (selectedFormat === 'physical' ? ' + PDF al instante.' : '.');
+            document.getElementById('sh-postal-fields').style.display = 'flex';
+            document.getElementById('sh-notes').placeholder = 'Notas para el envío (opcional)';
+            document.getElementById('shipping-submit-btn').textContent = 'Continuar al pago con ETH →';
+            refreshShippingExtras();
+            document.getElementById('shipping-form-section').classList.add('visible');
+            setTimeout(() => document.getElementById('shipping-form-section').scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+        }
+
+        function onMpClick() {
+            // Primero los datos → se crea el pedido → el Worker arma el checkout de MP
+            // con el monto exacto en ARS y de ahí sale el botón "Pagar en Mercado Pago".
+            shippingMode = 'mercadopago';
+            const usd = getCurrentPriceUSD();
+            const arsTxt = arsRate ? ` ($${Math.round(usd * arsRate).toLocaleString('es-AR')} ARS aprox.)` : '';
+            const physical = isPhysical();
+            document.getElementById('shipping-form-title').textContent = physical ? 'Datos de envío' : 'Tus datos';
+            document.getElementById('shipping-form-sub').textContent = physical
+                ? `Completá tus datos y te llevamos a Mercado Pago${arsTxt}. Acreditado el pago, imprimimos y enviamos tu libro (~10 días)` +
+                  (selectedFormat === 'physical' ? ' + PDF al instante.' : '.')
+                : `Completá tus datos y te llevamos a Mercado Pago${arsTxt}. Acreditado el pago, tu PDF se libera al instante.`;
+            document.getElementById('sh-postal-fields').style.display = physical ? 'flex' : 'none';
+            document.getElementById('sh-notes').placeholder = 'Algo que quieras aclarar sobre tu pedido (opcional)';
+            document.getElementById('shipping-submit-btn').textContent = 'Continuar al pago →';
+            refreshShippingExtras();
+            document.getElementById('shipping-form-section').classList.add('visible');
+            setTimeout(() => document.getElementById('shipping-form-section').scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+        }
+
+        // ── Demo: primeras páginas (las URLs las resuelve Parcel en el <script type="module">) ──
+        function openDemo() {
+            const all = window.DEMO_PAGES || {};
+            const pages = all[selectedLang] || all.es;
+            if (!pages || !pages.length) return;
+            document.getElementById('demo-title').textContent =
+                selectedLang === 'fr' ? 'Premières pages · Crypto pour Souverains' : 'Primeras páginas · Cripto para Soberanos';
+            const cont = document.getElementById('demo-pages');
+            cont.innerHTML = pages.map((u, i) => `<img src="${u}" loading="lazy" alt="página ${i + 1}">`).join('');
+            cont.scrollTop = 0;
+            document.getElementById('demo-modal').hidden = false;
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeDemo() {
+            document.getElementById('demo-modal').hidden = true;
+            document.body.style.overflow = '';
+        }
+
+        // CTA del demo: cerrar y dejar al lector sobre el selector de formato
+        function closeDemoToFormats() {
+            closeDemo();
+            document.getElementById('format-pills').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDemo(); closeTrack(); } });
+
+        // ── Seguimiento de pedido (?pedido=CW-XXXXXX) ──
+        // Etapas: 1 pedido creado · 2 imprimiendo (físico) / verificando pago (digital) · 3 en distribución / PDF enviado
+        function trackSteps(o, hasDownload) {
+            const digital = o.format === 'digital';
+            const coordinar = o.deliveryPref === 'coordinar';
+            // tracking: código o URL que carga el autor al despachar
+            let entrega;
+            if (coordinar) {
+                entrega = 'Coordinamos la entrega por WhatsApp / email. 🤝';
+            } else if (o.tracking) {
+                entrega = /^https?:\/\//.test(o.tracking)
+                    ? `Despachado — <a href="${o.tracking}" target="_blank" rel="noopener">seguí tu envío acá ↗</a>`
+                    : `Despachado por correo — código de seguimiento: <strong>${o.tracking}</strong>`;
+            } else {
+                entrega = 'El libro viaja hacia tu dirección (~10 días).';
+            }
+            return [
+                ['Pedido creado', 'Recibimos tus datos y el aviso de pago.'],
+                digital ? ['Verificando el pago', 'Confirmamos tu pago para liberar la descarga.']
+                        : ['Imprimiendo', 'Tu copia se imprime y encuaderna artesanalmente.'],
+                digital ? ['PDF disponible', hasDownload ? 'Tu descarga está lista acá abajo. 👇' : 'Te llega por email a la casilla que dejaste.']
+                        : [coordinar ? 'Entrega' : 'En distribución', entrega],
+            ];
+        }
+
+        async function openTracking(orderId) {
+            const modal = document.getElementById('track-modal');
+            const body = document.getElementById('track-body');
+            document.getElementById('track-title').textContent = `Pedido ${orderId}`;
+            body.innerHTML = '<p class="track-error">Buscando tu pedido…</p>';
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+            try {
+                const resp = await fetch(`${CONFIG.API_BASE}/orderStatus?id=${encodeURIComponent(orderId)}`);
+                if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || 'error');
+                const o = await resp.json();
+                const stage = Math.min(3, Math.max(1, Number(o.stage) || 1));
+                const fecha = o.createdAt ? new Date(o.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+                const fmtLabel = { digital: 'Digital', 'physical-only': 'Físico', physical: 'Físico + digital' }[o.format] || o.format || '—';
+                const hasDownload = !!o.downloadToken;
+                body.innerHTML =
+                    `<p class="track-meta">${fmtLabel}${o.lang === 'fr' ? ' · français' : ''}${fecha ? ' · creado el ' + fecha : ''}</p>` +
+                    '<ol class="timeline">' +
+                    trackSteps(o, hasDownload).map(([t, d], i) => {
+                        const n = i + 1;
+                        const cls = n < stage ? 'done' : n === stage ? (stage === 3 ? 'done' : 'active') : '';
+                        return `<li class="${cls}"><div class="t-title">${t}</div><div class="t-desc">${d}</div></li>`;
+                    }).join('') +
+                    '</ol>' +
+                    (hasDownload
+                        ? `<a class="cta paybar-btn" style="display:block;text-align:center;margin-top:16px" href="${CONFIG.API_BASE}/download?token=${encodeURIComponent(o.downloadToken)}">⬇ Descargar PDF</a>`
+                        : '');
+            } catch (err) {
+                body.innerHTML = `<p class="track-error">No encontramos el pedido <strong>${orderId}</strong>.<br>` +
+                    `Revisá el enlace o escribinos a <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a>.</p>`;
+            }
+        }
+
+        function closeTrack() {
+            document.getElementById('track-modal').hidden = true;
+            document.body.style.overflow = '';
+        }
+
+        // ── UI helpers ──
+        function setStatus(html, isError = false) {
+            statusBox.style.display = 'block';
+            statusBox.className = isError ? 'error' : '';
+            statusBox.innerHTML = html;
+        }
+        function clearStatus() {
+            statusBox.style.display = 'none';
+            statusBox.innerHTML = '';
+        }
         function launchConfetti() {
-            const duration = 2 * 1000;
-            const animationEnd = Date.now() + duration;
-            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
+            const end = Date.now() + 2500;
+            (function frame() {
+                confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 } });
+                confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 } });
+                if (Date.now() < end) requestAnimationFrame(frame);
+            })();
+        }
 
-            function randomInRange(min, max) {
-                return Math.random() * (max - min) + min;
+        // ── Precio Chainlink (en la red elegida) ──
+        async function fetchEthPrice() {
+            const net = NETWORKS[selectedNetwork];
+            try {
+                const [decimals, roundData] = await withRpcFallback(net, (readProvider) => {
+                    const feed = new ethers.Contract(net.feed, CHAINLINK_ABI, readProvider);
+                    return Promise.all([feed.decimals(), feed.latestRoundData()]);
+                });
+                const price = Number(roundData.answer) / Math.pow(10, Number(decimals));
+                const priceUSD = getCurrentPriceUSD();
+                const ethNeeded = priceUSD / price;
+                ethAmountWei = ethers.parseEther((ethNeeded * (1 + CONFIG.SLIPPAGE)).toFixed(8));
+                lastEthText = `≈ ${ethNeeded.toFixed(5)} ETH · ${net.name}`;
+                lastPriceKey = `${selectedFormat}|${selectedNetwork}`;
+                if (selectedPay === 'eth') updatePaybar();
+                return true;
+            } catch (err) {
+                console.error("Chainlink error:", err);
+                lastEthText = 'precio ETH no disponible';
+                if (selectedPay === 'eth') updatePaybar();
+                return false;
+            }
+        }
+
+        // ── Financiamiento soberano ──
+        // Recaudación ACUMULADA real (Worker /funding: ventas crypto en D1 + pedidos MP
+        // acreditados convertidos a ETH). El balance on-chain de la wallet queda de
+        // fallback: retrocede a cero si se mueven fondos y desinfla la barra.
+        async function fetchFunding() {
+            const raisedEl = document.getElementById('funding-raised');
+            const fillEl = document.getElementById('funding-fill');
+            if (!raisedEl || !fillEl) return;
+            let raisedEth = null;
+            try {
+                const resp = await fetch(`${CONFIG.API_BASE}/funding`);
+                const data = await resp.json();
+                if (resp.ok && typeof data.raisedEth === 'number') raisedEth = data.raisedEth;
+            } catch (err) { /* cae al fallback on-chain */ }
+
+            if (raisedEth === null) {
+                try {
+                    const balances = await Promise.allSettled(Object.values(NETWORKS).map(net =>
+                        withRpcFallback(net, (p) => p.getBalance(CONFIG.PAYMENT_ADDRESS))
+                    ));
+                    const ok = balances.filter(b => b.status === 'fulfilled');
+                    if (ok.length === 0) throw new Error('sin RPC disponible');
+                    const totalWei = ok.reduce((acc, b) => acc + b.value, 0n);
+                    raisedEth = parseFloat(ethers.formatEther(totalWei));
+                } catch (err) {
+                    console.error('Funding error:', err);
+                    raisedEl.textContent = '·';
+                    return;
+                }
             }
 
-            const interval = setInterval(function() {
-                const timeLeft = animationEnd - Date.now();
-                if (timeLeft <= 0) return clearInterval(interval);
-                const particleCount = 50 * (timeLeft / duration);
-                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
-                confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
-            }, 250);
+            const goal = CONFIG.FUNDING_GOAL_ETH;
+            const pct = Math.min(100, (raisedEth / goal) * 100);
+            raisedEl.textContent = raisedEth.toFixed(4);
+            fillEl.style.width = `${pct}%`;
+
+            // Al alcanzar la meta: el PDF es libre
+            if (raisedEth >= goal) {
+                const note = document.getElementById('funding-note');
+                if (note) note.innerHTML = '🎉 <strong>Meta alcanzada:</strong> el PDF ahora es libre y gratuito para todos.';
+            }
         }
-        
-        function showQrModal() {
-            const amountInWei = ethers.parseEther(PRICE_IN_ETH).toString();
-            const paymentUri = `ethereum:${PAYMENT_ADDRESS}@${CHAIN_ID}?value=${amountInWei}`;
-            
-            qrCodeContainer.innerHTML = ''; // Limpiar QR anterior
-            const qrCode = new QRCodeStyling({
-                width: 250,
-                height: 250,
-                data: paymentUri,
-                dotsOptions: { color: "#0077c2", type: "rounded" },
-                backgroundOptions: { color: "#ffffff" },
-                cornersSquareOptions: { type: "extra-rounded", color: "#005f9a" },
+
+        // ── Conectar wallet ──
+        async function connectWallet() {
+            const net = NETWORKS[selectedNetwork];
+            try {
+                let modal = window.__web3modal;
+                if (!modal) {
+                    await new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => reject(new Error('timeout')), 5000);
+                        const interval = setInterval(() => {
+                            if (window.__web3modal) {
+                                clearTimeout(timeout);
+                                clearInterval(interval);
+                                resolve();
+                            }
+                        }, 100);
+                    });
+                    modal = window.__web3modal;
+                }
+
+                await modal.open();
+                if (!modal) { setStatus('Error iniciando Web3Modal.', true); return false; }
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Timeout')), 120_000);
+                    modal.subscribeProvider(({ provider: p, isConnected }) => {
+                        if (isConnected && p) { clearTimeout(timeout); resolve(); }
+                    });
+                });
+
+                const walletProvider = modal.getWalletProvider();
+                provider = new ethers.BrowserProvider(walletProvider);
+                signer = await provider.getSigner();
+
+                const network = await provider.getNetwork();
+                if (Number(network.chainId) !== net.chainId) {
+                    try {
+                        await walletProvider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x' + net.chainId.toString(16) }] });
+                        provider = new ethers.BrowserProvider(modal.getWalletProvider());
+                        signer = await provider.getSigner();
+                    } catch (switchErr) {
+                        if (switchErr.code === 4902) {
+                            await walletProvider.request({ method: 'wallet_addEthereumChain', params: [{ chainId: '0x' + net.chainId.toString(16), chainName: net.name, rpcUrls: net.rpcs, nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, blockExplorerUrls: [net.explorer] }] });
+                        } else throw switchErr;
+                    }
+                }
+                return true;
+            } catch (err) {
+                if (err.message === 'Timeout') setStatus('Tiempo agotado. Intentá de nuevo.', true);
+                else if (err.code === 4001) setStatus('Conexión cancelada.', true);
+                else setStatus(`Error conectando wallet: ${err.message}`, true);
+                return false;
+            }
+        }
+
+        // ── Flujo principal (crypto) ──
+        async function handlePurchase() {
+            const net = NETWORKS[selectedNetwork];
+            shippingMode = 'crypto';
+            mintBtn.disabled = true;
+            mintBtn.textContent = 'Conectando...';
+            clearStatus();
+
+            // 1. Precio fresco
+            setStatus('Consultando precio en Chainlink...');
+            if (!(await fetchEthPrice())) {
+                setStatus('No se pudo obtener el precio. Recargá la página.', true);
+                mintBtn.disabled = false; mintBtn.textContent = BTN_IDLE;
+                return;
+            }
+
+            // 2. Wallet
+            clearStatus();
+            if (!(await connectWallet())) {
+                mintBtn.disabled = false; mintBtn.textContent = BTN_IDLE;
+                return;
+            }
+
+            const address = await signer.getAddress();
+            completedAddress = address;
+            setStatus(`Wallet: <code>${address.slice(0, 6)}...${address.slice(-4)}</code><br>Confirmá la transacción en tu wallet...`);
+            mintBtn.textContent = 'Esperando firma...';
+
+            // 3. Enviar tx
+            let tx;
+            try {
+                tx = await signer.sendTransaction({ to: CONFIG.PAYMENT_ADDRESS, value: ethAmountWei, gasLimit: 30000n });
+            } catch (err) {
+                if (err.code === 4001 || err.code === 'ACTION_REJECTED') setStatus('Transacción cancelada.', true);
+                else if (err.code === 'INSUFFICIENT_FUNDS') setStatus('Saldo insuficiente para el pago + gas.', true);
+                else setStatus(`Error: ${err.message}`, true);
+                mintBtn.disabled = false; mintBtn.textContent = BTN_IDLE;
+                return;
+            }
+
+            // 4. Esperar confirmación
+            completedTxHash = tx.hash;
+            setStatus(`Esperando confirmación...<br><code style="font-size:0.72rem">${tx.hash}</code>`);
+            mintBtn.textContent = 'Confirmando en blockchain...';
+
+            let receipt;
+            try {
+                receipt = await tx.wait(1);
+            } catch (err) {
+                setStatus('La transacción falló en la blockchain.', true);
+                mintBtn.disabled = false; mintBtn.textContent = 'Intentar de nuevo';
+                return;
+            }
+
+            if (!receipt || receipt.status !== 1) {
+                setStatus('La transacción fue rechazada.', true);
+                mintBtn.disabled = false; mintBtn.textContent = 'Intentar de nuevo';
+                return;
+            }
+
+            // 5-6. Verificar con el Worker + éxito (compartido con el flujo ChatWallet)
+            await finalizePurchaseAfterTx(tx.hash, address, {
+                format: selectedFormat, net, lang: selectedLang, country: selectedCountry,
+                code: appliedDiscount?.code, ethAmountWei, priceUsd: getCurrentPriceUSD(),
+                blockLabel: `#${receipt.blockNumber}`,
             });
-            qrCode.append(qrCodeContainer);
-            
-            qrModal.classList.add('visible');
         }
 
-        function hideQrModal() {
-            qrModal.classList.remove('visible');
-        }
+        // ── Verificación + éxito, compartida entre "cualquier wallet" y "ChatWallet" ──
+        // El snapshot se captura ANTES de la espera (crítico en el flujo ChatWallet,
+        // donde el comprador puede tardar en confirmar desde otro dispositivo y el
+        // formato/red/descuento elegidos en pantalla podrían cambiar mientras tanto).
+        async function finalizePurchaseAfterTx(txHash, address, snapshot) {
+            const { format, net, lang, country, code, ethAmountWei: weiAmount, priceUsd, blockLabel } = snapshot;
 
-        function simulatePayment() {
-            paymentStatus.textContent = "Detectando pago en la blockchain...";
-            
-            // Simulación de espera de la transacción
-            setTimeout(() => {
-                hideQrModal();
-                mintButton.textContent = 'Pago Confirmado!';
-                
-                // Simular éxito final
-                setTimeout(showSuccess, 1500);
-            }, 4000);
-        }
+            setStatus('Verificando pago...');
+            mintBtn.textContent = 'Verificando...';
 
-        function showSuccess() {
-            staticImage.style.display = 'none';
-            animatedVideo.style.display = 'block';
-            animatedVideo.play();
-            
+            let token;
+            try {
+                const resp = await fetch(`${CONFIG.API_BASE}/verifyPayment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ txHash, address, format, network: net.key, lang, country, code: code || undefined }),
+                });
+                const data = await resp.json();
+                if (!resp.ok || !data.token) {
+                    setStatus(`Error del servidor: ${data.error || 'Respuesta inesperada'}`, true);
+                    mintBtn.disabled = false; mintBtn.textContent = 'Intentar de nuevo';
+                    return false;
+                }
+                token = data.token;
+            } catch (err) {
+                setStatus(`Tu pago fue enviado pero hubo un error al verificar. Guardá este Tx Hash y contactanos:<br><code>${txHash}</code>`, true);
+                mintBtn.disabled = false; mintBtn.textContent = 'Error — contactar soporte';
+                return false;
+            }
+
+            clearStatus();
             launchConfetti();
-            
-            const fakeTxHash = '0x' + [...Array(64)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-            const fakeBlock = Math.floor(Math.random() * 100000) + 18500000;
-            
-            statusSpan.textContent = 'Success';
-            txHashSpan.innerHTML = `<a href="https://sepolia.arbiscan.io/tx/${fakeTxHash}" target="_blank">${fakeTxHash.substring(0, 10)}...</a>`;
-            blockNumberSpan.textContent = `#${fakeBlock}`;
-            downloadLink.href = CHAPTER_FILE_URL;
-            
+
+            downloadLink.href = `${CONFIG.API_BASE}/download?token=${token}`;
+            // Físico solo: no incluye la edición digital
+            downloadLink.style.display = format === 'physical-only' ? 'none' : 'flex';
+
+            const formatLabels = { digital: 'Digital', 'physical-only': 'Físico', physical: 'Físico + digital' };
+            document.getElementById('r-format').textContent = formatLabels[format] || format;
+            document.getElementById('r-network').textContent = net.name;
+            document.getElementById('r-amount').textContent = `${parseFloat(ethers.formatEther(weiAmount)).toFixed(6)} ETH ≈ $${priceUsd}`;
+            document.getElementById('r-block').textContent = blockLabel;
+            document.getElementById('r-hash').innerHTML = `<a href="${net.explorer}/tx/${txHash}" target="_blank">${txHash.slice(0, 12)}...${txHash.slice(-6)}</a>`;
+
+            mintBtn.textContent = '✓ Acceso concedido';
             resultSection.style.display = 'block';
-            mintButton.textContent = 'Minteado Exitosamente';
+
+            // Físico: crear el pedido con los datos cargados antes del pago (+ txHash)
+            if (format !== 'digital') {
+                if (document.getElementById('sh-name').value.trim() && document.getElementById('sh-email').value.trim()) {
+                    await submitShipping();
+                } else {
+                    // fallback (pago directo sin pasar por el form): pedir los datos ahora
+                    document.getElementById('shipping-form-title').textContent = 'Datos de envío';
+                    document.getElementById('shipping-form-sub').textContent = 'Dirección y contacto para coordinar la entrega (~10 días en Argentina)';
+                    document.getElementById('sh-postal-fields').style.display = 'flex';
+                    document.getElementById('sh-notes').placeholder = 'Notas para el envío (opcional)';
+                    document.getElementById('shipping-submit-btn').textContent = 'Enviar datos';
+                    document.getElementById('shipping-form-section').classList.add('visible');
+                }
+            }
+
+            resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return true;
         }
 
-        // --- Event Listeners ---
-        mintButton.addEventListener('click', () => {
-            mintButton.disabled = true;
-            mintButton.textContent = 'Preparando QR...';
-            
-            showQrModal();
-            simulatePayment();
+        // ── Pagar con ChatWallet (cw:2 sobre XMTP) ──
+        // v1: solo digital + Arbitrum One (únicas garantías hoy: sin shipping-form
+        // previo entrelazado, y Mainnet no es red por defecto en ChatWallet).
+        let cwEphemeralWallet = null;
+        let cwXmtpClient = null;
+        let cwCancelResolve = null;
+
+        async function ensureCwXmtpClient() {
+            if (cwXmtpClient) return cwXmtpClient;
+            cwEphemeralWallet = ethers.Wallet.createRandom();
+            const identifier = cwEphemeralWallet.address.toLowerCase();
+            const xmtpSigner = {
+                type: 'EOA',
+                getIdentifier: () => ({ identifier, identifierKind: 0 }),
+                signMessage: async (msg) => ethers.getBytes(await cwEphemeralWallet.signMessage(msg)),
+            };
+            cwXmtpClient = await window.XmtpClient.create(xmtpSigner, { env: 'dev', dbEncryptionKey: ethers.randomBytes(32) });
+            return cwXmtpClient;
+        }
+
+        // Mismo criterio monocromo que la tapa: negro sobre blanco escanea mejor.
+        function renderCwQr(url) {
+            const mount = document.getElementById('cw-qr');
+            mount.innerHTML = '';
+            const qr = new QRCodeStyling({
+                width: 220, height: 220, margin: 12,
+                data: url,
+                dotsOptions: { color: '#0a0a0a', type: 'rounded' },
+                backgroundOptions: { color: '#ffffff' },
+                cornersSquareOptions: { type: 'extra-rounded', color: '#0a0a0a' },
+                cornersDotOptions: { type: 'dot', color: '#0a0a0a' },
+            });
+            qr.append(mount);
+        }
+
+        function cancelChatWalletPurchase() {
+            document.getElementById('cw-pay-box').hidden = true;
+            mintBtn.disabled = false;
+            updatePaybar();
+            if (cwCancelResolve) { cwCancelResolve({ kind: 'cancelled' }); cwCancelResolve = null; }
+        }
+
+        // ── Elegir wallet al pagar con cripto (ChatWallet o cualquier otra) ──
+        // Físico: ChatWallet no está disponible en v1 (necesita el form de envío ANTES
+        // de pagar, atado hoy a handlePurchase) — se salta el modal, único camino posible.
+        function openWalletChoice() {
+            if (isPhysical()) {
+                if (!completedTxHash) openCryptoShippingForm();
+                else handlePurchase();
+                return;
+            }
+            document.getElementById('wallet-choice-modal').hidden = false;
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeWalletChoice() {
+            document.getElementById('wallet-choice-modal').hidden = true;
+            document.body.style.overflow = '';
+        }
+
+        function chooseAnyWallet() {
+            closeWalletChoice();
+            if (isPhysical() && !completedTxHash) openCryptoShippingForm();
+            else handlePurchase();
+        }
+
+        function chooseChatWallet() {
+            closeWalletChoice();
+            handlePurchaseChatWallet();
+        }
+
+        async function handlePurchaseChatWallet() {
+            if (isPhysical()) {
+                setStatus('Pagar con ChatWallet solo está disponible para la edición digital por ahora.', true);
+                return;
+            }
+            const net = NETWORKS[selectedNetwork];
+            mintBtn.disabled = true;
+            mintBtn.textContent = 'Preparando...';
+            clearStatus();
+
+            if (!(await fetchEthPrice())) {
+                setStatus('No se pudo obtener el precio. Recargá la página.', true);
+                mintBtn.disabled = false; updatePaybar();
+                return;
+            }
+
+            // Snapshot ANTES de esperar: el comprador puede tardar en confirmar desde
+            // otro dispositivo y lo que se vea en pantalla mientras tanto no debe afectar
+            // lo que en definitiva se verifica (formato/precio/descuento ya pagados).
+            const snapshot = {
+                format: selectedFormat, net, lang: selectedLang, country: selectedCountry,
+                code: appliedDiscount?.code, ethAmountWei, priceUsd: getCurrentPriceUSD(),
+                blockLabel: 'confirmada ✓',
+            };
+
+            let client, stream;
+            try {
+                setStatus('Preparando canal de pago…');
+                client = await ensureCwXmtpClient();
+                await client.conversations.sync();
+                stream = await client.conversations.streamAllMessages();
+            } catch (e) {
+                setStatus(`No se pudo preparar el pago: ${e.message}`, true);
+                mintBtn.disabled = false; updatePaybar();
+                return;
+            }
+
+            const ref = cwEphemeralWallet.address.toLowerCase() + '-' + Date.now().toString(36);
+            const params = new URLSearchParams({
+                pay: '1', to: CONFIG.PAYMENT_ADDRESS, chainId: String(net.chainId),
+                value: ethAmountWei.toString(), memo: 'Cripto para Soberanos — Digital',
+                format: snapshot.format, lang: snapshot.lang, country: snapshot.country,
+                reply: cwEphemeralWallet.address, ref,
+            });
+            if (snapshot.code) params.set('code', snapshot.code);
+            const payUrl = `https://chatwallet.org/dapp?${params.toString()}`;
+
+            clearStatus();
+            const openBtn = document.getElementById('cw-open-btn');
+            openBtn.href = payUrl;
+            openBtn.onclick = (e) => { e.preventDefault(); window.open(payUrl, '_blank', 'noopener'); };
+            renderCwQr(payUrl);
+            document.getElementById('cw-pay-status').textContent = 'Esperando confirmación desde tu ChatWallet…';
+            document.getElementById('cw-pay-box').hidden = false;
+            document.getElementById('cw-pay-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            mintBtn.textContent = 'Esperando pago...';
+
+            const listenPromise = (async () => {
+                for await (const msg of stream) {
+                    if (!msg || typeof msg.content !== 'string') continue;
+                    let data;
+                    try { data = JSON.parse(msg.content); } catch (_) { continue; }
+                    if (data?.cw === 2 && data?.type === 'payment_result' && data?.ref === ref) return { kind: 'message', data };
+                }
+                return { kind: 'ended' };
+            })();
+            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ kind: 'timeout' }), 5 * 60 * 1000));
+            const cancelPromise = new Promise((resolve) => { cwCancelResolve = resolve; });
+
+            const result = await Promise.race([listenPromise, timeoutPromise, cancelPromise]);
+            cwCancelResolve = null;
+            try { stream.return && stream.return(); } catch (_) {}
+
+            if (result.kind === 'cancelled') return; // cancelChatWalletPurchase() ya reseteó la UI
+
+            document.getElementById('cw-pay-box').hidden = true;
+
+            if (result.kind === 'timeout' || result.kind === 'ended') {
+                setStatus('No recibimos la confirmación a tiempo. Podés reintentar o elegir otro método de pago.', true);
+                mintBtn.disabled = false; updatePaybar();
+                return;
+            }
+
+            const data = result.data;
+            if (data.error) {
+                setStatus(`El pago no se completó desde ChatWallet: ${data.error === 'user rejected' ? 'lo cancelaste.' : data.error}`, true);
+                mintBtn.disabled = false; updatePaybar();
+                return;
+            }
+            if (data.txHash && data.address) {
+                await finalizePurchaseAfterTx(data.txHash, data.address, snapshot);
+            }
+        }
+
+        // ── Envío de datos de contacto/envío ──
+        // Se guardan en la D1 propia (POST /order del Worker) y además se notifica
+        // por email vía Formspree. Con que uno de los dos ande, el pedido queda registrado.
+        async function submitShipping() {
+            const btn = document.getElementById('shipping-submit-btn');
+            const name = document.getElementById('sh-name').value.trim();
+            const email = document.getElementById('sh-email').value.trim();
+            const phone = document.getElementById('sh-phone').value.trim();
+
+            if (!name || !email) {
+                alert('Por favor completá nombre y email.');
+                return;
+            }
+
+            // Para el físico necesitamos la dirección completa (CP incluido, por las dudas).
+            // Si coordina la entrega (AMBA) alcanza con zona/barrio y ciudad.
+            if (isPhysical()) {
+                const coordinar = selectedCountry === 'ar' && selectedDelivery === 'coordinar';
+                const addr = document.getElementById('sh-address').value.trim();
+                const city = document.getElementById('sh-city').value.trim();
+                const cp = document.getElementById('sh-cp').value.trim();
+                if (coordinar ? (!addr || !city) : (!addr || !city || !cp)) {
+                    alert(coordinar
+                        ? 'Por favor completá la zona/barrio y la ciudad para coordinar la entrega.'
+                        : 'Por favor completá dirección, ciudad y código postal para el envío.');
+                    return;
+                }
+            }
+
+            // ChatWallet opcional (flujo MP): si la dejan, validamos el formato
+            const chatWalletInput = document.getElementById('sh-chatwallet');
+            const chatWallet = (chatWalletInput?.style.display !== 'none' && chatWalletInput.value.trim()) || '';
+            if (chatWallet && !/^0x[0-9a-fA-F]{40}$/.test(chatWallet)) {
+                alert('La address de ChatWallet no parece válida (0x + 40 caracteres hex). Si no tenés una, dejá el campo vacío.');
+                return;
+            }
+
+            // Crypto físico con datos validados: recién ahora arranca el pago con la wallet.
+            // El pedido se manda solo cuando la tx quedó verificada (más abajo, con txHash).
+            if (shippingMode === 'crypto' && isPhysical() && !completedTxHash) {
+                btn.disabled = true;
+                btn.textContent = 'Esperando el pago…';
+                try {
+                    await handlePurchase();
+                } finally {
+                    if (!completedTxHash) {
+                        // la tx no llegó a salir (cancelada/error): permitir reintentar
+                        btn.disabled = false;
+                        btn.textContent = 'Continuar al pago con ETH →';
+                    } else if (btn.style.display !== 'none') {
+                        // la tx salió pero la verificación falló: registrar el pedido
+                        // igual (datos + txHash) para no perder al comprador
+                        await submitShipping();
+                    }
+                }
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+
+            const payload = {
+                delivery_type: selectedFormat,
+                format: selectedFormat,
+                payment_method: shippingMode,       // crypto | mercadopago
+                country: selectedCountry,
+                lang: selectedLang,
+                name,
+                email,
+                phone,
+                address: document.getElementById('sh-address')?.value.trim() || '',
+                city: document.getElementById('sh-city')?.value.trim() || '',
+                cp: document.getElementById('sh-cp')?.value.trim() || '',
+                notes: document.getElementById('sh-notes').value.trim(),
+                txHash: completedTxHash,
+                walletAddress: completedAddress || chatWallet || '',
+                delivery_pref: (isPhysical() && selectedCountry === 'ar') ? selectedDelivery : null,
+                code: appliedDiscount?.code || undefined,
+            };
+
+            const opts = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(payload),
+            };
+
+            const results = await Promise.allSettled([
+                fetch(`${CONFIG.API_BASE}/order`, opts),        // D1 propia (soberano) → devuelve orderId
+                fetch(CONFIG.SHIPPING_ENDPOINT, opts),          // email vía Formspree
+            ]);
+            const anyOk = results.some(r => r.status === 'fulfilled' && r.value.ok);
+
+            // id de seguimiento + checkout MP (si la D1 respondió)
+            let orderId = null, initPoint = null;
+            try {
+                if (results[0].status === 'fulfilled' && results[0].value.ok) {
+                    const data = await results[0].value.json();
+                    orderId = data.orderId || null;
+                    initPoint = data.initPoint || null;
+                }
+            } catch (e) { }
+
+            if (anyOk) {
+                btn.style.display = 'none';
+                const msg = document.getElementById('shipping-sent-msg');
+                msg.style.display = 'block';
+                if (orderId) {
+                    const url = `${location.pathname}?pedido=${orderId}`;
+                    let html = `✓ Pedido <strong>${orderId}</strong> creado.<br>` +
+                        `Seguilo cuando quieras desde <a href="${url}">este enlace</a> — guardalo.`;
+                    if (shippingMode === 'mercadopago') {
+                        // checkout con el monto exacto; si el Worker no lo pudo crear, cae al link manual
+                        const payHref = initPoint || CONFIG.MP_LINK;
+                        html += `<br><a class="cta paybar-btn" style="display:inline-block;margin-top:12px" href="${payHref}">Pagar en Mercado Pago →</a>`;
+                        if (initPoint) html += `<br><span style="color:var(--fg-subtle);font-size:.85em">Al acreditarse el pago, tu pedido avanza solo${selectedFormat !== 'physical-only' ? ' y se libera el PDF' : ''}.</span>`;
+                    }
+                    msg.innerHTML = html;
+                    history.replaceState(null, '', url);
+                } else if (shippingMode === 'mercadopago') {
+                    msg.innerHTML = `✓ Datos recibidos.<br><a class="cta paybar-btn" style="display:inline-block;margin-top:12px" href="${CONFIG.MP_LINK}">Pagar en Mercado Pago →</a>`;
+                }
+            } else {
+                console.warn('No se pudo registrar el pedido:', payload);
+                btn.style.display = 'none';
+                document.getElementById('shipping-sent-msg').style.display = 'block';
+                document.getElementById('shipping-sent-msg').textContent = completedTxHash
+                    ? `Hubo un problema de red: escribinos a energiasonorasoftware@protonmail.com con tu Tx Hash ${completedTxHash.slice(0, 12)}... y tu dirección.`
+                    : 'Hubo un problema de red: escribinos a energiasonorasoftware@protonmail.com con tus datos de envío.';
+            }
+        }
+
+        // ── Verificar compra previa al cargar ──
+        async function checkExistingPurchase() {
+            try {
+                let address = null;
+                if (window.ethereum) {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts && accounts.length > 0) address = accounts[0];
+                }
+                if (!address) {
+                    const modal = window.__web3modal;
+                    if (modal && modal.getIsConnected()) {
+                        const walletProvider = modal.getWalletProvider();
+                        if (walletProvider) {
+                            const p = new ethers.BrowserProvider(walletProvider);
+                            const s = await p.getSigner();
+                            address = await s.getAddress();
+                        }
+                    }
+                }
+                if (!address) return;
+
+                const resp = await fetch(`${CONFIG.API_BASE}/purchases?address=${address}`);
+                const data = await resp.json();
+                if (data.purchases && data.purchases.length > 0) {
+                    const latest = data.purchases[0];
+                    const explorer = latest.network === 'ethereum' ? NETWORKS.mainnet.explorer : NETWORKS.arbitrum.explorer;
+                    downloadLink.href = `${CONFIG.API_BASE}/download?token=${latest.id}`;
+                    downloadLink.style.display = latest.format === 'physical-only' ? 'none' : 'flex';
+                    const histLabels = { digital: 'Digital', 'physical-only': 'Físico', physical: 'Físico + digital', pickup: 'Digital + retiro' };
+                    document.getElementById('r-format').textContent = histLabels[latest.format] || 'Digital';
+                    document.getElementById('r-network').textContent = latest.network;
+                    document.getElementById('r-amount').textContent = `${parseFloat(latest.amountEth).toFixed(6)} ETH`;
+                    document.getElementById('r-block').textContent = `#${latest.blockNumber}`;
+                    document.getElementById('r-hash').innerHTML = `<a href="${explorer}/tx/${latest.txHash}" target="_blank">${latest.txHash.slice(0, 12)}...${latest.txHash.slice(-6)}</a>`;
+                    mintBtn.textContent = '✓ Ya compraste este libro';
+                    mintBtn.disabled = true;
+                    resultSection.style.display = 'block';
+                    setStatus('Bienvenido de nuevo. Tu descarga está lista.');
+                }
+            } catch (err) {
+                console.error("checkExistingPurchase error:", err);
+            }
+        }
+
+        // ── Init ──
+        // El botón del paybar ejecuta el método de pago elegido
+        mintBtn.addEventListener('click', () => {
+            if (selectedPay === 'mp') {
+                onMpClick();
+            } else if (selectedPay === 'amazon') {
+                window.open(CONFIG.AMAZON_FR, '_blank', 'noopener');
+            } else if (selectedPay === 'eth') {
+                openWalletChoice();
+            }
+        });
+        updateUI();
+        setInterval(fetchEthPrice, 60_000);
+        fetchFunding();
+        setInterval(fetchFunding, 60_000);
+        fetchArsRate();
+
+        // ¿Llegó con un link de seguimiento?
+        const pedidoParam = new URLSearchParams(location.search).get('pedido');
+        if (pedidoParam) openTracking(pedidoParam.toUpperCase());
+
+        const modal = window.__web3modal;
+        if (modal) {
+            modal.subscribeState(state => {
+                if (state.initialized) checkExistingPurchase();
+            });
+            setTimeout(checkExistingPurchase, 2000);
+        } else {
+            setTimeout(checkExistingPurchase, 500);
+        }
+    </script>
+
+    <script type="module">
+        // Páginas de muestra: Parcel resuelve estas URLs a los assets hasheados.
+        window.DEMO_PAGES = {
+            es: [
+                new URL('./img/demo/es-1.jpg', import.meta.url),
+                new URL('./img/demo/es-2.jpg', import.meta.url),
+                new URL('./img/demo/es-3.jpg', import.meta.url),
+                new URL('./img/demo/es-4.jpg', import.meta.url),
+                new URL('./img/demo/es-5.jpg', import.meta.url),
+                new URL('./img/demo/es-6.jpg', import.meta.url),
+                new URL('./img/demo/es-7.jpg', import.meta.url),
+            ],
+            fr: [
+                new URL('./img/demo/fr-1.jpg', import.meta.url),
+                new URL('./img/demo/fr-2.jpg', import.meta.url),
+                new URL('./img/demo/fr-3.jpg', import.meta.url),
+                new URL('./img/demo/fr-4.jpg', import.meta.url),
+                new URL('./img/demo/fr-5.jpg', import.meta.url),
+                new URL('./img/demo/fr-6.jpg', import.meta.url),
+                new URL('./img/demo/fr-7.jpg', import.meta.url),
+            ],
+        };
+    </script>
+
+    <script type="module">
+        import { createWeb3Modal, defaultConfig } from '@web3modal/ethers';
+
+        const arbitrumOne = {
+            chainId: 42161,
+            name: 'Arbitrum One',
+            currency: 'ETH',
+            explorerUrl: 'https://arbiscan.io',
+            rpcUrl: 'https://arb1.arbitrum.io/rpc'
+        };
+
+        const ethereumMainnet = {
+            chainId: 1,
+            name: 'Ethereum',
+            currency: 'ETH',
+            explorerUrl: 'https://etherscan.io',
+            rpcUrl: 'https://ethereum-rpc.publicnode.com'
+        };
+
+        const modal = createWeb3Modal({
+            ethersConfig: defaultConfig({
+                metadata: {
+                    name: 'Cripto para Soberanos',
+                    description: 'Compra el libro con cripto',
+                    url: window.location.origin,
+                    icons: ['https://avatars.githubusercontent.com/u/37784886']
+                }
+            }),
+            chains: [arbitrumOne, ethereumMainnet],
+            projectId: 'd8de87632daad1b785acafc4b63ea717',
+            themeMode: 'light',
         });
 
-        closeModalBtn.addEventListener('click', () => {
-            hideQrModal();
-            mintButton.disabled = false;
-            mintButton.textContent = 'Comprar con Crypto';
+        window.__web3modal = modal;
+    </script>
+
+    <!-- Pagar con ChatWallet (cw:2 sobre XMTP) — mismo patrón de import que dapp.html -->
+    <script type="module">
+        import { Client } from '@xmtp/browser-sdk';
+        window.XmtpClient = Client;
+    </script>
+
+    <!-- PWA Install Banner -->
+    <div id="pwaInstallBanner" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); width:90%; max-width:400px; background:#0a0a0a; color:#fff; padding:14px 16px; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.3); z-index:9999; align-items:center; justify-content:space-between; display:none; font-family:'DM Sans', sans-serif;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span style="font-weight:700; font-size:13px;">Instalar ChatWallet</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button id="pwaInstallBtn" style="background:#fff; color:#0a0a0a; border:none; padding:6px 14px; border-radius:100px; font-weight:700; font-size:12px; cursor:pointer;">Instalar</button>
+            <button id="pwaDismissBtn" style="background:none; border:none; color:#999; font-size:22px; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+    </div>
+
+    <script>
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('pwaInstallBanner').style.display = 'flex';
         });
-        
-        // Cierra el modal si se hace clic fuera del contenido
-        qrModal.addEventListener('click', (e) => {
-            if (e.target === qrModal) {
-                closeModalBtn.click();
+
+        document.getElementById('pwaInstallBtn').addEventListener('click', async () => {
+            document.getElementById('pwaInstallBanner').style.display = 'none';
+            if(deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response to the install prompt: ${outcome}`);
+                deferredPrompt = null;
             }
         });
 
+        document.getElementById('pwaDismissBtn').addEventListener('click', () => {
+            document.getElementById('pwaInstallBanner').style.display = 'none';
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            console.log('PWA was installed');
+        });
     </script>
 </body>
+
 </html>

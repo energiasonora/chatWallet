@@ -1,0 +1,18 @@
+{
+  "name": "chatwallet-book-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "schema:local": "wrangler d1 execute chatwallet-purchases --file=schema.sql",
+    "schema:remote": "wrangler d1 execute chatwallet-purchases --remote --file=schema.sql"
+  },
+  "dependencies": {
+    "ethers": "^6.16.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
+}

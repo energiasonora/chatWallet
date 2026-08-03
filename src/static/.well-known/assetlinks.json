@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "org.energiasonora.chatwallet",
+      "sha256_cert_fingerprints": [
+        "9C:25:AD:F6:D9:AA:5F:44:08:01:A7:57:B7:FA:C3:F1:69:F3:EC:0D:85:A8:1F:68:4D:F7:93:65:55:B0:95:17"
+      ]
+    }
+  }
+]

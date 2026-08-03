@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Ventas — Cripto para Soberanos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        /* Misma estética que book.html: monocromo, bordes finos, Syne + DM Sans */
+        :root {
+            --bg: #fff;
+            --fg: #0a0a0a;
+            --fg-muted: #555;
+            --fg-subtle: #999;
+            --border: #e8e8e8;
+            --surface: #f7f7f7;
+            --ok: #10b981;
+            --warn: #d97706;
+            --pay: #2b9de3;
+        }
+
+        /* ── Tema oscuro (toggle 🌙/☀️, default = tema del sistema) ── */
+        :root[data-theme="dark"] {
+            --bg: #0f0f0f;
+            --fg: #f2f2f2;
+            --fg-muted: #b3b3b3;
+            --fg-subtle: #7a7a7a;
+            --border: #2a2a2a;
+            --surface: #1b1b1b;
+            --warn: #fbbf24;
+        }
+
+        :root[data-theme="dark"] .badge.paid { background: #0b2e22; border-color: #155e46; color: #34d399; }
+        :root[data-theme="dark"] .badge.unpaid { background: #33230a; border-color: #7c5210; color: #fbbf24; }
+
+        input, textarea {
+            background: var(--bg);
+            color: var(--fg);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'DM Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+
+        h1, h2 { font-family: 'Syne', sans-serif; }
+
+        .wrap { max-width: 860px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+        .top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 1rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .top h1 { font-size: 1.3rem; letter-spacing: -.02em; }
+        .top .sub { color: var(--fg-subtle); font-size: .75rem; }
+
+        .top-actions { display: flex; gap: .5rem; }
+
+        button {
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+        }
+
+        .ghost-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: .35rem .8rem;
+            font-size: .75rem;
+            color: var(--fg-muted);
+            transition: border-color .2s, color .2s;
+        }
+
+        .ghost-btn:hover { border-color: var(--fg); color: var(--fg); }
+
+        /* ── Login ── */
+        #login-view { max-width: 380px; margin: 14vh auto 0; text-align: center; padding: 0 1.25rem; }
+        #login-view h1 { font-size: 1.4rem; margin-bottom: .5rem; }
+        #login-view p { color: var(--fg-muted); font-size: .85rem; margin-bottom: 1.5rem; line-height: 1.6; }
+
+        #token-input {
+            width: 100%;
+            padding: .7rem .9rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: .85rem;
+            font-family: monospace;
+            margin-bottom: .75rem;
+        }
+
+        #token-input:focus { outline: none; border-color: var(--fg); }
+
+        .cta {
+            width: 100%;
+            background: var(--fg);
+            color: var(--bg);
+            border: none;
+            border-radius: 999px;
+            padding: .7rem 1rem;
+            font-size: .85rem;
+            font-weight: 600;
+        }
+
+        #login-err { color: var(--warn); font-size: .78rem; margin-top: .75rem; min-height: 1em; }
+
+        /* ── Stats ── */
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin-bottom: 2rem; }
+
+        .stat {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: .9rem 1rem;
+        }
+
+        .stat .k { color: var(--fg-subtle); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; }
+        .stat .v { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.25rem; margin-top: .25rem; }
+        .stat .d { color: var(--fg-subtle); font-size: .72rem; margin-top: .15rem; }
+
+        h2 { font-size: .95rem; margin: 2rem 0 .9rem; display: flex; align-items: center; gap: .6rem; }
+        h2 .count { color: var(--fg-subtle); font-weight: 400; font-size: .78rem; font-family: 'DM Sans', sans-serif; }
+
+        /* ── Pedido card ── */
+        .order {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            margin-bottom: .75rem;
+        }
+
+        .order-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+
+        .oid { font-family: monospace; font-weight: 700; font-size: .9rem; }
+
+        .badge {
+            font-size: .68rem;
+            font-weight: 600;
+            border-radius: 999px;
+            padding: .18rem .6rem;
+            border: 1px solid var(--border);
+            color: var(--fg-muted);
+        }
+
+        .badge.paid { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+        .badge.unpaid { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+
+        .order-head .when { margin-left: auto; color: var(--fg-subtle); font-size: .72rem; }
+
+        .order-meta { color: var(--fg-muted); font-size: .8rem; margin-top: .4rem; line-height: 1.6; }
+
+        .ship {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: .6rem .8rem;
+            margin-top: .6rem;
+            font-size: .8rem;
+            line-height: 1.65;
+            color: var(--fg-muted);
+        }
+
+        .ship strong { color: var(--fg); }
+
+        .stage-row { display: flex; align-items: center; gap: .4rem; margin-top: .75rem; flex-wrap: wrap; }
+
+        .stage-row .lbl { color: var(--fg-subtle); font-size: .72rem; margin-right: .2rem; }
+
+        .stage-btn {
+            border: 1px solid var(--border);
+            background: none;
+            border-radius: 999px;
+            padding: .3rem .7rem;
+            font-size: .72rem;
+            color: var(--fg-muted);
+            transition: all .2s;
+        }
+
+        .stage-btn.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+        .stage-btn:not(.on):hover { border-color: var(--fg); color: var(--fg); }
+        .stage-btn:disabled { opacity: .6; cursor: wait; }
+
+        .trk-input {
+            flex: 1;
+            min-width: 160px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .3rem .6rem;
+            font-size: .74rem;
+            font-family: monospace;
+        }
+
+        .trk-input:focus { outline: none; border-color: var(--fg); }
+
+        .order-meta code { font-size: .72rem; background: var(--surface); padding: .1rem .35rem; border-radius: 5px; }
+
+        /* ── Códigos de descuento ── */
+        .discount-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            margin-bottom: .6rem;
+        }
+
+        .discount-form input, .discount-form select {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .5rem .7rem;
+            font-size: .82rem;
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+        }
+
+        .discount-form input:focus, .discount-form select:focus { outline: none; border-color: var(--fg); }
+
+        .dc-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .5rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: .6rem .9rem;
+            margin-bottom: .5rem;
+            font-size: .82rem;
+        }
+
+        .dc-row .code { font-family: monospace; font-weight: 700; }
+        .dc-row.expired, .dc-row.inactive { opacity: .55; }
+        .dc-row .spacer { flex: 1; }
+
+        .order .links { margin-top: .6rem; font-size: .74rem; }
+        .order .links a { color: var(--fg-subtle); }
+
+        /* ── Compras table ── */
+        .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+
+        th, td { text-align: left; padding: .55rem .8rem; white-space: nowrap; }
+
+        th {
+            color: var(--fg-subtle);
+            font-weight: 500;
+            font-size: .68rem;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr + tr td { border-top: 1px solid var(--border); }
+
+        td a { color: var(--fg-muted); }
+
+        .empty { color: var(--fg-subtle); font-size: .82rem; padding: 1rem 0; }
+
+        .foot { color: var(--fg-subtle); font-size: .72rem; margin-top: 2.5rem; text-align: center; }
+
+        @media (max-width: 560px) {
+            .stats { grid-template-columns: 1fr; }
+            .order-head .when { margin-left: 0; width: 100%; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- LOGIN -->
+    <div id="login-view">
+        <h1>Ventas del libro</h1>
+        <p>Panel privado de <strong>Cripto para Soberanos</strong>.<br>Pegá el token de administración.</p>
+        <input type="password" id="token-input" placeholder="token" autocomplete="off">
+        <button class="cta" onclick="login()">Entrar</button>
+        <p id="login-err"></p>
+    </div>
+
+    <!-- PANEL -->
+    <div class="wrap" id="panel-view" style="display:none;">
+        <div class="top">
+            <div>
+                <h1>Ventas · Cripto para Soberanos</h1>
+                <div class="sub" id="updated-at">—</div>
+            </div>
+            <div class="top-actions">
+                <button class="ghost-btn" id="theme-btn" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
+                <button class="ghost-btn" onclick="loadAll()">↻ Actualizar</button>
+                <button class="ghost-btn" onclick="logout()">Salir</button>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="k">Recaudado</div>
+                <div class="v" id="st-raised">—</div>
+                <div class="d" id="st-raised-d"></div>
+            </div>
+            <div class="stat">
+                <div class="k">Por atender</div>
+                <div class="v" id="st-pending">—</div>
+                <div class="d">pedidos pagados sin completar</div>
+            </div>
+            <div class="stat">
+                <div class="k">Checkouts abandonados</div>
+                <div class="v" id="st-abandoned">—</div>
+                <div class="d">MP sin acreditar</div>
+            </div>
+        </div>
+
+        <h2>📦 Pedidos <span class="count" id="orders-count"></span></h2>
+        <div id="orders-list"></div>
+
+        <h2>⛓️ Compras crypto <span class="count" id="purch-count"></span></h2>
+        <div id="purchases-box"></div>
+
+        <h2>🎟️ Códigos de descuento <span class="count" id="discounts-count"></span></h2>
+        <div class="discount-form">
+            <input id="dc-code" placeholder="CÓDIGO (ej. AMIGO20)" style="text-transform:uppercase">
+            <input id="dc-pct" type="number" min="1" max="100" placeholder="% off" style="width:80px">
+            <input id="dc-days" type="number" min="1" placeholder="vigente (días)" style="width:120px">
+            <input id="dc-uses" type="number" min="1" placeholder="usos máx. (vacío=∞)" style="width:150px">
+            <select id="dc-format">
+                <option value="">Todos los formatos</option>
+                <option value="digital">Solo digital</option>
+                <option value="physical-only">Solo físico</option>
+                <option value="physical">Solo físico+digital</option>
+            </select>
+            <input id="dc-note" placeholder="nota interna (opcional)" style="flex:1;min-width:140px">
+            <button class="cta" style="width:auto;padding:.55rem 1.1rem" onclick="createDiscount()">Crear código</button>
+        </div>
+        <p class="empty" id="dc-msg"></p>
+        <div id="discounts-list"></div>
+
+        <p class="foot">api.chatwallet.org · se actualiza solo cada 60s</p>
+    </div>
+
+    <script>
+        // Tema: elección guardada > preferencia del sistema (aplicar temprano, sin flash)
+        const THEME_KEY = 'book-admin-theme';
+        function applyTheme(t) {
+            document.documentElement.dataset.theme = t;
+            const btn = document.getElementById('theme-btn');
+            if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+        }
+        applyTheme(localStorage.getItem(THEME_KEY) ||
+            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+        function toggleTheme() {
+            const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem(THEME_KEY, t);
+            applyTheme(t);
+        }
+
+        const API = 'https://api.chatwallet.org';
+        const LS_KEY = 'book-admin-token';
+        const STAGES = { 1: 'Creado', 2: 'Imprimiendo', 3: 'Enviado/PDF' };
+        const FORMATS = { digital: '📄 Digital', physical: '📦+📄 Físico + digital', 'physical-only': '📦 Físico', pickup: 'Pickup (legacy)' };
+        const EXPLORERS = { 'arbitrum-one': 'https://arbiscan.io/tx/', ethereum: 'https://etherscan.io/tx/' };
+
+        let token = localStorage.getItem(LS_KEY) || '';
+
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
+        const fdate = (ms) => ms ? new Date(ms).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+
+        async function api(path, opts = {}) {
+            const resp = await fetch(API + path, {
+                ...opts,
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+            });
+            if (resp.status === 401) { logout(); throw new Error('token inválido'); }
+            return resp.json();
+        }
+
+        async function login() {
+            token = $('token-input').value.trim();
+            $('login-err').textContent = '';
+            try {
+                await api('/admin/orders');
+                localStorage.setItem(LS_KEY, token);
+                showPanel();
+            } catch (e) {
+                $('login-err').textContent = 'Token inválido';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem(LS_KEY);
+            token = '';
+            $('panel-view').style.display = 'none';
+            $('login-view').style.display = 'block';
+        }
+
+        function showPanel() {
+            $('login-view').style.display = 'none';
+            $('panel-view').style.display = 'block';
+            loadAll();
+        }
+
+        async function loadAll() {
+            try {
+                const [ordersData, purchData, fundingData, discountsData] = await Promise.all([
+                    api('/admin/orders'),
+                    api('/admin/purchases'),
+                    fetch(API + '/funding').then((r) => r.json()).catch(() => null),
+                    api('/admin/discounts'),
+                ]);
+                renderStats(ordersData.orders, fundingData);
+                renderOrders(ordersData.orders);
+                renderPurchases(purchData.purchases);
+                renderDiscounts(discountsData.codes);
+                $('updated-at').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-AR');
+            } catch (e) {
+                if (String(e.message) !== 'token inválido') $('updated-at').textContent = 'Error al actualizar: ' + e.message;
+            }
+        }
+
+        function renderStats(orders, funding) {
+            if (funding && typeof funding.raisedEth === 'number') {
+                $('st-raised').textContent = funding.raisedEth.toFixed(4) + ' ETH';
+                const b = funding.breakdown || {};
+                $('st-raised-d').textContent =
+                    `${(b.cryptoEth || 0).toFixed(4)} crypto + $${(b.arsPaid || 0).toLocaleString('es-AR')} ARS (MP)`;
+            }
+            // "por atender": pagado (MP) o crypto (nace pagado), y todavía no está en etapa 3
+            const pending = orders.filter((o) => (o.paid || o.payment_method === 'crypto') && o.stage < 3).length;
+            $('st-pending').textContent = pending;
+            const abandoned = orders.filter((o) => o.payment_method === 'mercadopago' && !o.paid).length;
+            $('st-abandoned').textContent = abandoned;
+        }
+
+        function renderOrders(orders) {
+            $('orders-count').textContent = orders.length ? `· ${orders.length}` : '';
+            if (!orders.length) { $('orders-list').innerHTML = '<p class="empty">Sin pedidos todavía.</p>'; return; }
+            $('orders-list').innerHTML = orders.map((o) => {
+                const isPaid = !!o.paid || o.payment_method === 'crypto';
+                const amount = o.payment_method === 'mercadopago'
+                    ? (o.ars_amount ? `$${o.ars_amount.toLocaleString('es-AR')} ARS` : 'ARS s/d')
+                    : (o.tx_hash ? `tx ${o.tx_hash.slice(0, 10)}…` : 'crypto');
+                const hasShip = o.address || o.city || o.cp;
+                return `<div class="order">
+                    <div class="order-head">
+                        <span class="oid">${esc(o.public_id)}</span>
+                        <span class="badge ${isPaid ? 'paid' : 'unpaid'}">${isPaid ? '✅ pagado' : '⏳ sin pagar'}</span>
+                        <span class="badge">${FORMATS[o.format] || esc(o.format)}</span>
+                        <span class="badge">${esc((o.lang || 'es').toUpperCase())} · ${esc((o.country || '—').toUpperCase())}</span>
+                        <span class="badge">${o.payment_method === 'mercadopago' ? 'MP' : 'ETH'} · ${esc(amount)}</span>
+                        <span class="badge ${o.email_sent_at ? 'paid' : 'unpaid'}" title="${o.email_sent_at ? 'último email al comprador' : 'el comprador NO recibió email todavía'}">✉️ ${o.email_sent_at ? fdate(o.email_sent_at) : 'sin enviar'}</span>
+                        <span class="when">${fdate(o.created_at)}${o.paid_at ? ' · acreditado ' + fdate(o.paid_at) : ''}</span>
+                    </div>
+                    <div class="order-meta">👤 <strong>${esc(o.name)}</strong> · ${esc(o.email)}${o.phone ? ' · 📱 ' + esc(o.phone) : ''}${o.wallet_address ? `<br>💬 ChatWallet: <code>${esc(o.wallet_address)}</code>` : ''}</div>
+                    ${hasShip ? `<div class="ship">${o.delivery_pref === 'coordinar' ? '🤝 <strong>Coordinar entrega (AMBA)</strong> · ' : ''}📍 <strong>${esc(o.address || '')}</strong> · ${esc(o.city || '')}${o.cp ? ' · CP ' + esc(o.cp) : ''}${o.notes ? `<br>📝 ${esc(o.notes)}` : ''}</div>`
+                        : (o.notes ? `<div class="ship">📝 ${esc(o.notes)}</div>` : '')}
+                    <div class="stage-row">
+                        <span class="lbl">Etapa:</span>
+                        ${[1, 2, 3].map((s) =>
+                            `<button class="stage-btn${o.stage === s ? ' on' : ''}" onclick="setStage('${esc(o.public_id)}', ${s}, this)">${s} · ${STAGES[s]}</button>`
+                        ).join('')}
+                    </div>
+                    ${o.format !== 'digital' && o.delivery_pref !== 'coordinar' ? `<div class="stage-row">
+                        <span class="lbl">Tracking:</span>
+                        <input class="trk-input" id="trk-${esc(o.public_id)}" value="${esc(o.tracking || '')}" placeholder="código o URL de seguimiento">
+                        <button class="stage-btn" onclick="saveTracking('${esc(o.public_id)}', this)">Guardar</button>
+                    </div>` : ''}
+                    <div class="links"><a href="https://chatwallet.org/book.html?pedido=${esc(o.public_id)}" target="_blank" rel="noopener">ver seguimiento público ↗</a>
+                        · <a href="#" onclick="resendEmail('${esc(o.public_id)}', this); return false;">✉️ reenviar email al comprador</a></div>
+                </div>`;
+            }).join('');
+        }
+
+        async function saveTracking(publicId, btn) {
+            btn.disabled = true;
+            try {
+                const tracking = document.getElementById('trk-' + publicId).value.trim();
+                await api('/admin/orderStage', { method: 'POST', body: JSON.stringify({ publicId, tracking }) });
+                btn.textContent = '✓';
+                setTimeout(() => { btn.textContent = 'Guardar'; btn.disabled = false; }, 1200);
+            } catch (e) {
+                btn.disabled = false;
+                alert('No se pudo guardar: ' + e.message);
+            }
+        }
+
+        async function resendEmail(publicId, link) {
+            link.textContent = '✉️ enviando…';
+            try {
+                const r = await api('/admin/sendOrderEmail', { method: 'POST', body: JSON.stringify({ publicId }) });
+                link.textContent = r.success ? `✉️ enviado a ${r.to} ✓` : '✉️ falló: ' + (r.error || '?');
+                if (r.success) setTimeout(loadAll, 2000); // refresca el badge "✉️ enviado"
+            } catch (e) {
+                link.textContent = '✉️ falló — reintentar';
+            }
+        }
+
+        async function setStage(publicId, stage, btn) {
+            btn.disabled = true;
+            try {
+                await api('/admin/orderStage', { method: 'POST', body: JSON.stringify({ publicId, stage }) });
+                loadAll();
+            } catch (e) {
+                btn.disabled = false;
+                alert('No se pudo actualizar: ' + e.message);
+            }
+        }
+
+        function renderPurchases(purchases) {
+            $('purch-count').textContent = purchases.length ? `· ${purchases.length}` : '';
+            if (!purchases.length) { $('purchases-box').innerHTML = '<p class="empty">Sin compras registradas.</p>'; return; }
+            $('purchases-box').innerHTML = `<div class="tbl-wrap"><table>
+                <tr><th>Fecha</th><th>Formato</th><th>Vía</th><th>Monto</th><th>Tx / ref</th><th>Descargas</th></tr>
+                ${purchases.map((p) => {
+                    const exp = EXPLORERS[p.network];
+                    const tx = p.network === 'mercadopago'
+                        ? esc(p.tx_hash)
+                        : (exp ? `<a href="${exp}${esc(p.tx_hash)}" target="_blank" rel="noopener">${esc(p.tx_hash.slice(0, 14))}…↗</a>` : esc((p.tx_hash || '').slice(0, 14)));
+                    return `<tr>
+                        <td>${fdate(p.created_at)}</td>
+                        <td>${FORMATS[p.format] || esc(p.format || '—')} · ${esc((p.lang || 'es').toUpperCase())}</td>
+                        <td>${esc(p.network || '—')}</td>
+                        <td>${p.amount_eth ? esc(parseFloat(p.amount_eth).toFixed(5)) + ' ETH' : '—'}</td>
+                        <td>${tx}</td>
+                        <td>${p.downloads || 0}${p.last_download_at ? ' · últ. ' + fdate(p.last_download_at) : ''}</td>
+                    </tr>`;
+                }).join('')}
+            </table></div>`;
+        }
+
+        // ── Códigos de descuento ──
+        const FMT_SHORT = { digital: 'Digital', physical: 'Físico+digital', 'physical-only': 'Físico' };
+
+        function renderDiscounts(codes) {
+            $('discounts-count').textContent = codes.length ? `· ${codes.length}` : '';
+            if (!codes.length) { $('discounts-list').innerHTML = '<p class="empty">Sin códigos creados todavía.</p>'; return; }
+            const now = Date.now();
+            $('discounts-list').innerHTML = codes.map((c) => {
+                const expired = now > c.valid_until;
+                const exhausted = c.max_uses != null && c.uses >= c.max_uses;
+                const inactive = !c.active;
+                const cls = inactive ? 'inactive' : (expired || exhausted) ? 'expired' : '';
+                const status = inactive ? '🚫 desactivado' : expired ? '⏱️ vencido' : exhausted ? '✋ agotado' : '✅ vigente';
+                return `<div class="dc-row ${cls}">
+                    <span class="code">${esc(c.code)}</span>
+                    <span class="badge">−${c.discount_pct}%</span>
+                    <span class="badge">${FMT_SHORT[c.format] || 'todos los formatos'}</span>
+                    <span class="badge">${status}</span>
+                    <span style="color:var(--fg-subtle)">${fdate(c.valid_from)} → ${fdate(c.valid_until)}</span>
+                    <span style="color:var(--fg-subtle)">usos: ${c.uses}${c.max_uses != null ? '/' + c.max_uses : ''}</span>
+                    ${c.note ? `<span style="color:var(--fg-subtle)">📝 ${esc(c.note)}</span>` : ''}
+                    <span class="spacer"></span>
+                    <button class="ghost-btn" onclick="toggleDiscount('${esc(c.code)}', ${c.active ? 0 : 1}, this)">${c.active ? 'Desactivar' : 'Reactivar'}</button>
+                </div>`;
+            }).join('');
+        }
+
+        async function createDiscount() {
+            const msg = $('dc-msg');
+            const code = $('dc-code').value.trim();
+            const discountPct = Number($('dc-pct').value);
+            const validDays = Number($('dc-days').value);
+            const maxUses = $('dc-uses').value ? Number($('dc-uses').value) : null;
+            const format = $('dc-format').value || null;
+            const note = $('dc-note').value.trim();
+            if (!code || !discountPct || !validDays) {
+                msg.textContent = 'Completá código, % y días de vigencia.';
+                return;
+            }
+            msg.textContent = 'Creando…';
+            try {
+                await api('/admin/discounts', { method: 'POST', body: JSON.stringify({ code, discountPct, validDays, maxUses, format, note }) });
+                msg.textContent = '';
+                ['dc-code', 'dc-pct', 'dc-days', 'dc-uses', 'dc-note'].forEach((id) => $(id).value = '');
+                $('dc-format').value = '';
+                loadAll();
+            } catch (e) {
+                msg.textContent = 'No se pudo crear: ' + e.message;
+            }
+        }
+
+        async function toggleDiscount(code, active, btn) {
+            btn.disabled = true;
+            try {
+                await api('/admin/discounts/setActive', { method: 'POST', body: JSON.stringify({ code, active: !!active }) });
+                loadAll();
+            } catch (e) {
+                btn.disabled = false;
+                alert('No se pudo actualizar: ' + e.message);
+            }
+        }
+
+        $('token-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+
+        if (token) showPanel(); else $('login-view').style.display = 'block';
+        setInterval(() => { if (token && $('panel-view').style.display !== 'none') loadAll(); }, 60000);
+    </script>
+</body>
+
+</html>

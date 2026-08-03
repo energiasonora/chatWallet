@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Herramientas · aprender haciendo</title>
+<style>
+  :root{
+    --bg:#FAFAF7; --panel:#FFFFFF; --ink:#1A1B22; --muted:#6B6E7B;
+    --line:#E4E2DA; --accent:#4338CA;
+    --mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.55 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    padding:2rem 1rem 5rem;
+  }
+  .wrap{max-width:880px; margin:0 auto}
+  header{margin-bottom:2.5rem; position:relative}
+  h1{font-size:1.7rem; letter-spacing:-.02em; line-height:1.2; padding-right:9rem}
+  header p{color:var(--muted); margin-top:.5rem; max-width:60ch}
+  .langs{position:absolute; top:0; right:0; display:flex; gap:.3rem}
+  .langs button{
+    font:600 .72rem/1 var(--mono); padding:.45rem .6rem; border-radius:6px;
+    border:1px solid var(--line); background:var(--panel); color:var(--muted); cursor:pointer;
+  }
+  .langs button.active{border-color:var(--ink); background:var(--ink); color:#fff}
+  .grid{display:grid; gap:1.1rem; grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+  a.card{
+    display:block; text-decoration:none; color:inherit;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:1.4rem 1.5rem; transition:border-color .2s, transform .2s;
+  }
+  a.card:hover{border-color:#CFCCC2; transform:translateY(-2px)}
+  a.card:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .tag{
+    display:inline-block; font:600 .68rem/1 var(--mono); color:var(--accent);
+    border:1px solid var(--accent); border-radius:99px; padding:.3rem .6rem;
+    margin-bottom:.8rem; letter-spacing:.06em;
+  }
+  .card h2{font-size:1.1rem; margin-bottom:.35rem; letter-spacing:-.01em}
+  .card p{color:var(--muted); font-size:.88rem}
+  .card .go{margin-top:.9rem; font:600 .8rem/1 var(--mono); color:var(--ink)}
+  .card .go::after{content:' →'; color:var(--muted)}
+  footer{margin-top:3rem; font-size:.8rem; color:var(--muted)}
+  @media (max-width:560px){ h1{padding-right:0; margin-top:2.6rem} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="langs" role="group" aria-label="Language">
+    <button data-lang="es" class="active">ES</button>
+    <button data-lang="en">EN</button>
+    <button data-lang="fr">FR</button>
+  </div>
+  <h1 data-i18n="h1"></h1>
+  <p data-i18n="intro"></p>
+</header>
+
+<div class="grid">
+
+  <a class="card" href="sign.html">
+    <span class="tag" data-i18n="tagCrypto"></span>
+    <h2 data-i18n="signTitle"></h2>
+    <p data-i18n="signDesc"></p>
+    <div class="go" data-i18n="open"></div>
+  </a>
+
+  <a class="card" href="bip39.html">
+    <span class="tag" data-i18n="tagWallet"></span>
+    <h2 data-i18n="bip39Title"></h2>
+    <p data-i18n="bip39Desc"></p>
+    <div class="go" data-i18n="open"></div>
+  </a>
+
+  <!-- Para sumar una herramienta nueva, copiá un bloque <a class="card">,
+       apuntá el href a su archivo y agregá las claves al objeto I18N. -->
+
+</div>
+
+<footer data-i18n="footer"></footer>
+
+</div>
+
+<script>
+const I18N = {
+  es: {
+    title: 'Herramientas · aprender haciendo',
+    h1: 'Herramientas',
+    intro: 'Herramientas chiquitas para entender cómo funciona la cripto por dentro. Cada una corre entera en tu navegador: nada se envía a ningún servidor.',
+    tagCrypto: 'CRIPTOGRAFÍA',
+    signTitle: 'Firma ECDSA',
+    signDesc: 'Generá una clave, firmá un mensaje y mirá cómo se recupera la clave pública del firmante usando solo el hash y la firma.',
+    tagWallet: 'WALLETS HD',
+    bip39Title: 'BIP39 → dirección',
+    bip39Desc: 'Seguí el viaje completo: palabras → seed → clave maestra → derivación por ruta → dirección. La misma semilla genera Ethereum y Bitcoin.',
+    open: 'Abrir',
+    footer: 'Todo corre localmente en tu navegador. Las claves que generes acá son de juguete: no las uses con fondos reales.'
+  },
+  en: {
+    title: 'Tools · learn by doing',
+    h1: 'Tools',
+    intro: 'Tiny tools to understand how crypto works under the hood. Each one runs entirely in your browser: nothing is sent to any server.',
+    tagCrypto: 'CRYPTOGRAPHY',
+    signTitle: 'ECDSA Signature',
+    signDesc: 'Generate a key, sign a message, and watch the signer’s public key get recovered using only the hash and the signature.',
+    tagWallet: 'HD WALLETS',
+    bip39Title: 'BIP39 → address',
+    bip39Desc: 'Follow the full journey: words → seed → master key → path derivation → address. The same seed yields both Ethereum and Bitcoin.',
+    open: 'Open',
+    footer: 'Everything runs locally in your browser. The keys you generate here are toys: don’t use them with real funds.'
+  },
+  fr: {
+    title: 'Outils · apprendre en faisant',
+    h1: 'Outils',
+    intro: 'De petits outils pour comprendre comment fonctionne la crypto en coulisses. Chacun s’exécute entièrement dans votre navigateur : rien n’est envoyé à un serveur.',
+    tagCrypto: 'CRYPTOGRAPHIE',
+    signTitle: 'Signature ECDSA',
+    signDesc: 'Générez une clé, signez un message et observez comment la clé publique du signataire est retrouvée à partir du seul hash et de la signature.',
+    tagWallet: 'WALLETS HD',
+    bip39Title: 'BIP39 → adresse',
+    bip39Desc: 'Suivez le parcours complet : mots → seed → clé maîtresse → dérivation par chemin → adresse. La même graine produit Ethereum et Bitcoin.',
+    open: 'Ouvrir',
+    footer: 'Tout s’exécute localement dans votre navigateur. Les clés générées ici sont des jouets : ne les utilisez pas avec de vrais fonds.'
+  }
+};
+
+let lang = 'es';
+const t = key => I18N[lang][key];
+
+function applyLang(newLang){
+  lang = newLang;
+  document.documentElement.lang = lang;
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('.langs button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+}
+
+document.querySelectorAll('.langs button').forEach(b =>
+  b.addEventListener('click', () => applyLang(b.dataset.lang))
+);
+
+applyLang('es');
+</script>
+</body>
+</html>

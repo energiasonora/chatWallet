@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BIP39 · de la mnemónica a la dirección</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#FAFAF7; --panel:#FFFFFF; --ink:#1A1B22; --muted:#6B6E7B;
+    --line:#E4E2DA;
+    --eth:#4338CA; --btc:#C2700A; --ok:#15803D; --bad:#DC2626;
+    --accent:#4338CA;
+    --mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.55 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    padding:2rem 1rem 5rem;
+  }
+  .wrap{max-width:980px; margin:0 auto}
+  header{margin-bottom:2.5rem; position:relative}
+  h1{font-size:1.7rem; letter-spacing:-.02em; line-height:1.2; padding-right:9rem}
+  header p{color:var(--muted); margin-top:.5rem; max-width:66ch}
+  .langs{position:absolute; top:0; right:0; display:flex; gap:.3rem}
+  .langs button{
+    font:600 .72rem/1 var(--mono); padding:.45rem .6rem; border-radius:6px;
+    border:1px solid var(--line); background:var(--panel); color:var(--muted); cursor:pointer;
+  }
+  .langs button.active{border-color:var(--ink); background:var(--ink); color:#fff}
+  .step{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:1.4rem 1.5rem; margin-bottom:1.4rem;
+  }
+  .step h2{font-size:1.05rem; margin-bottom:.25rem}
+  .step .why{color:var(--muted); font-size:.88rem; margin-bottom:1rem; max-width:70ch}
+  .why code, .note code{font-family:var(--mono); background:#F1F0EA; padding:.1em .35em; border-radius:4px}
+  .tag{
+    display:inline-block; font:600 .7rem/1 var(--mono); color:var(--accent);
+    border:1px solid var(--accent); border-radius:99px; padding:.3rem .6rem;
+    margin-bottom:.7rem; letter-spacing:.06em;
+  }
+  label{display:block; font-size:.8rem; font-weight:600; color:var(--muted); margin:.8rem 0 .3rem}
+  input[type=text], input[type=number], textarea{
+    width:100%; font:.85rem/1.5 var(--mono); padding:.6rem .7rem;
+    border:1px solid var(--line); border-radius:7px; background:#FCFCFA; color:var(--ink);
+  }
+  input:focus, textarea:focus{outline:2px solid var(--accent); outline-offset:1px}
+  button{
+    font:600 .85rem/1 inherit; padding:.65rem 1.1rem; border-radius:7px;
+    border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer;
+  }
+  button.secondary{background:transparent; color:var(--ink)}
+  button:hover{opacity:.85}
+  button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .row{display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.9rem}
+  .field{margin-top:.8rem}
+  .field .k{font:600 .72rem/1.4 var(--mono); color:var(--muted); letter-spacing:.05em}
+  .field .val{
+    font:.82rem/1.6 var(--mono); word-break:break-all; margin-top:.25rem;
+    background:#FCFCFA; border:1px solid var(--line); border-radius:7px; padding:.55rem .7rem;
+  }
+  .val.empty{color:var(--muted); font-style:italic}
+  .words{display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.6rem}
+  .words span{
+    font:.78rem/1 var(--mono); background:#F1F0EA; border:1px solid var(--line);
+    border-radius:6px; padding:.4rem .55rem;
+  }
+  .words span i{font-style:normal; color:var(--muted); font-size:.68rem; margin-right:.35rem}
+  .valid{margin-top:.8rem; font-weight:600; font-size:.85rem; display:none}
+  .valid.ok{display:block; color:var(--ok)}
+  .valid.bad{display:block; color:var(--bad)}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; margin-top:1rem}
+  .chain{border:1px solid var(--line); border-radius:9px; padding:1rem 1.1rem; background:#FDFDFB}
+  .chain h3{font-size:.95rem; margin-bottom:.2rem; display:flex; align-items:center; gap:.45rem}
+  .chain.eth h3{color:var(--eth)} .chain.btc h3{color:var(--btc)}
+  .chain .sub{font:.75rem var(--mono); color:var(--muted)}
+  .pathviz{font:.82rem/1.9 var(--mono); word-break:break-all; margin-top:.5rem}
+  .pathviz b{font-weight:700}
+  .pathviz .seg-p{color:#6D28D9} .pathviz .seg-c{color:var(--btc)}
+  .pathviz .seg-a{color:#0E7490} .pathviz .seg-i{color:var(--bad); text-decoration:underline}
+  table{width:100%; border-collapse:collapse; margin-top:.9rem; font:.78rem/1.5 var(--mono)}
+  th{font:600 .7rem var(--mono); color:var(--muted); text-align:left; letter-spacing:.05em;
+     border-bottom:1px solid var(--line); padding:.45rem .5rem}
+  td{border-bottom:1px solid var(--line); padding:.45rem .5rem; word-break:break-all; vertical-align:top}
+  td.idx{color:var(--muted); white-space:nowrap}
+  .note{font-size:.8rem; color:var(--muted); margin-top:.8rem; max-width:70ch}
+  .warn{font-size:.8rem; color:var(--bad); margin-top:2rem; text-align:center}
+  .arrow{text-align:center; color:var(--muted); font-size:1.3rem; margin:-.4rem 0 1rem}
+  @media (max-width:680px){ .grid2{grid-template-columns:1fr} h1{padding-right:0; margin-top:2.6rem} }
+  @media (prefers-reduced-motion:no-preference){
+    .step{transition:border-color .2s}
+    .step:hover{border-color:#CFCCC2}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="langs" role="group" aria-label="Language">
+    <button data-lang="es" class="active">ES</button>
+    <button data-lang="en">EN</button>
+    <button data-lang="fr">FR</button>
+  </div>
+  <h1 data-i18n="h1"></h1>
+  <p data-i18n-html="intro"></p>
+</header>
+
+<!-- PASO 1 · MNEMÓNICA -->
+<section class="step">
+  <span class="tag" data-i18n="tag1"></span>
+  <h2 data-i18n="h2_1"></h2>
+  <p class="why" data-i18n-html="why1"></p>
+  <div class="row">
+    <button id="btn12" data-i18n="btn12"></button>
+    <button id="btn24" class="secondary" data-i18n="btn24"></button>
+  </div>
+  <label for="mnemoIn" data-i18n="lblMnemo"></label>
+  <textarea id="mnemoIn" rows="2" spellcheck="false"></textarea>
+  <div class="words" id="wordsViz"></div>
+  <div class="valid" id="validMsg"></div>
+  <label for="passIn" data-i18n="lblPass"></label>
+  <input type="text" id="passIn" placeholder="" spellcheck="false">
+  <div class="field"><div class="k" data-i18n="kEntropy"></div><div class="val empty" id="outEntropy">—</div></div>
+</section>
+
+<div class="arrow">↓</div>
+
+<!-- PASO 2 · SEED -->
+<section class="step">
+  <span class="tag" data-i18n="tag2"></span>
+  <h2 data-i18n="h2_2"></h2>
+  <p class="why" data-i18n-html="why2"></p>
+  <div class="field"><div class="k" data-i18n="kSeed"></div><div class="val empty" id="outSeed">—</div></div>
+</section>
+
+<div class="arrow">↓</div>
+
+<!-- PASO 3 · CLAVE MAESTRA -->
+<section class="step">
+  <span class="tag" data-i18n="tag3"></span>
+  <h2 data-i18n="h2_3"></h2>
+  <p class="why" data-i18n-html="why3"></p>
+  <div class="field"><div class="k" data-i18n="kMaster"></div><div class="val empty" id="outMaster">—</div></div>
+  <div class="field"><div class="k" data-i18n="kChain"></div><div class="val empty" id="outChain">—</div></div>
+  <div class="field"><div class="k" data-i18n="kFp"></div><div class="val empty" id="outFp">—</div></div>
+</section>
+
+<div class="arrow">↓</div>
+
+<!-- PASO 4 · DERIVACIÓN -->
+<section class="step">
+  <span class="tag" data-i18n="tag4"></span>
+  <h2 data-i18n="h2_4"></h2>
+  <p class="why" data-i18n-html="why4"></p>
+  <div class="pathviz">
+    m / <b class="seg-p">purpose'</b> / <b class="seg-c">coin_type'</b> / <b class="seg-a">account'</b> / change / <b class="seg-i">index</b>
+  </div>
+  <label for="idxIn" data-i18n="lblIndex"></label>
+  <input type="number" id="idxIn" min="0" max="99" value="0" style="max-width:140px">
+
+  <div class="grid2">
+    <!-- ETH -->
+    <div class="chain eth">
+      <h3>Ethereum <span class="sub">coin_type = 60'</span></h3>
+      <div class="field"><div class="k" data-i18n="kPath"></div><div class="val empty" id="ethPath">—</div></div>
+      <div class="field"><div class="k" data-i18n="kPriv"></div><div class="val empty" id="ethPriv">—</div></div>
+      <div class="field"><div class="k" data-i18n="kPubU"></div><div class="val empty" id="ethPub">—</div></div>
+      <div class="field"><div class="k" data-i18n="kAddrEth"></div><div class="val empty" id="ethAddr">—</div></div>
+    </div>
+    <!-- BTC -->
+    <div class="chain btc">
+      <h3>Bitcoin <span class="sub">coin_type = 0'</span></h3>
+      <div class="field"><div class="k" data-i18n="kPath"></div><div class="val empty" id="btcPath">—</div></div>
+      <div class="field"><div class="k" data-i18n="kPrivWif"></div><div class="val empty" id="btcWif">—</div></div>
+      <div class="field"><div class="k" data-i18n="kPubC"></div><div class="val empty" id="btcPub">—</div></div>
+      <div class="field"><div class="k" data-i18n="kAddrLegacy"></div><div class="val empty" id="btcLegacy">—</div></div>
+      <div class="field"><div class="k" data-i18n="kAddrSegwit"></div><div class="val empty" id="btcSegwit">—</div></div>
+    </div>
+  </div>
+  <p class="note" data-i18n-html="btcNote"></p>
+</section>
+
+<div class="arrow">↓</div>
+
+<!-- PASO 5 · EL ORDEN -->
+<section class="step">
+  <span class="tag" data-i18n="tag5"></span>
+  <h2 data-i18n="h2_5"></h2>
+  <p class="why" data-i18n-html="why5"></p>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Ethereum · m/44'/60'/0'/0/<span style="color:var(--bad)">i</span></th><th>Bitcoin · m/84'/0'/0'/0/<span style="color:var(--bad)">i</span></th></tr>
+    </thead>
+    <tbody id="orderBody"></tbody>
+  </table>
+</section>
+
+<p class="warn" data-i18n="warn"></p>
+
+</div>
+
+<script>
+const E = ethers;
+const $ = id => document.getElementById(id);
+
+/* ---------------- i18n ---------------- */
+const I18N = {
+  es: {
+    title: 'BIP39 · de la mnemónica a la dirección',
+    h1: 'De la mnemónica a la dirección',
+    intro: 'El viaje completo que hace tu wallet, con <strong>ethers v6</strong>: palabras (BIP39) → seed → clave maestra (BIP32) → derivación por ruta (BIP44) → clave privada → clave pública → dirección. La misma semilla genera Ethereum y Bitcoin a la vez. Todo corre en tu navegador.',
+    tag1: 'PASO 1 · MNEMÓNICA (BIP39)',
+    h2_1: 'Las palabras: entropía con checksum, en formato humano',
+    why1: '128 bits de azar (12 palabras) o 256 (24 palabras) + un checksum tomado de SHA-256 se parten en grupos de 11 bits; cada grupo es el índice de una palabra en una lista fija de 2048. Las palabras no son la clave: son una codificación legible de la entropía.',
+    btn12: 'Generar 12 palabras', btn24: 'Generar 24 palabras',
+    lblMnemo: 'o pegá una mnemónica (solo de prueba — jamás una real con fondos)',
+    lblPass: 'Passphrase opcional (BIP39): mismas palabras + otra frase = otra billetera',
+    kEntropy: 'ENTROPÍA ORIGINAL (lo que las palabras codifican)',
+    validOk: '✓ Mnemónica válida: el checksum BIP39 cierra',
+    validBad: '✗ Mnemónica inválida (palabra fuera de lista o checksum incorrecto)',
+    tag2: 'PASO 2 · SEED (BIP39)',
+    h2_2: 'De palabras a 64 bytes: PBKDF2',
+    why2: '<code>seed = PBKDF2-HMAC-SHA512(clave = mnemónica, sal = "mnemonic" + passphrase, 2048 iteraciones)</code> → 64 bytes. A partir de acá las palabras dejan de importar: todo lo que sigue depende solo de estos bytes.',
+    kSeed: 'SEED · 64 bytes',
+    tag3: 'PASO 3 · CLAVE MAESTRA (BIP32)',
+    h2_3: 'HMAC-SHA512("Bitcoin seed", seed) → raíz del árbol',
+    why3: 'La mitad izquierda (32 bytes) es la <strong>clave privada maestra</strong>; la derecha (32 bytes) es el <strong>chain code</strong>, el ingrediente extra que permite derivar hijos de forma determinística. Juntos forman el nodo raíz <code>m</code> del árbol jerárquico (HD).',
+    kMaster: 'CLAVE PRIVADA MAESTRA (IL)',
+    kChain: 'CHAIN CODE (IR)',
+    kFp: 'FINGERPRINT DEL NODO RAÍZ',
+    tag4: 'PASO 4 · DERIVACIÓN (BIP44) → CLAVES Y DIRECCIÓN',
+    h2_4: 'Una ruta por moneda: la misma seed, caminos distintos',
+    why4: 'El apóstrofo marca derivación <em>hardened</em>. <code>coin_type</code> separa cadenas: <strong>60\' = Ethereum</strong>, <strong>0\' = Bitcoin</strong>. Al final de cada ruta: la clave privada del nodo, su clave pública (multiplicación de punto en secp256k1) y la dirección, que cada cadena construye a su manera. Cambiá el índice y mirá cómo cambia todo.',
+    lblIndex: 'Índice (address index)',
+    kPath: 'RUTA',
+    kPriv: 'CLAVE PRIVADA',
+    kPubU: 'CLAVE PÚBLICA sin comprimir (se hashea sin el byte 04)',
+    kAddrEth: 'DIRECCIÓN = keccak256(X‖Y)[12:]',
+    kPrivWif: 'CLAVE PRIVADA en WIF (base58check de 0x80‖priv‖01)',
+    kPubC: 'CLAVE PÚBLICA comprimida (33 bytes)',
+    kAddrLegacy: 'DIRECCIÓN LEGACY · P2PKH · ruta 44\'',
+    kAddrSegwit: 'DIRECCIÓN SEGWIT NATIVA · P2WPKH · ruta 84\'',
+    btcNote: 'Bitcoin no usa keccak: calcula <code>hash160 = RIPEMD160(SHA256(pubkey comprimida))</code>. Legacy ("1…"): <code>base58check(0x00 ‖ hash160)</code>. SegWit nativa ("bc1…"): <code>bech32("bc", v0, hash160)</code>, derivada de la ruta moderna <code>m/84\'/0\'/0\'/0/i</code> (BIP84).',
+    tag5: 'PASO 5 · EL ORDEN',
+    h2_5: 'Las direcciones salen en secuencia: index 0, 1, 2…',
+    why5: 'Una wallet no tiene "una" dirección: deriva una <strong>secuencia</strong> incrementando el último número de la ruta. Por eso al restaurar desde la mnemónica reaparecen todas tus direcciones, en el mismo orden, sin haber guardado ninguna.',
+    warn: '⚠ Herramienta educativa. Las claves viven solo en memoria y se pierden al cerrar. Nunca ingreses una mnemónica que custodie fondos reales.'
+  },
+  en: {
+    title: 'BIP39 · from mnemonic to address',
+    h1: 'From mnemonic to address',
+    intro: 'The full journey your wallet performs, with <strong>ethers v6</strong>: words (BIP39) → seed → master key (BIP32) → path derivation (BIP44) → private key → public key → address. The same seed yields Ethereum and Bitcoin at once. Everything runs in your browser.',
+    tag1: 'STEP 1 · MNEMONIC (BIP39)',
+    h2_1: 'The words: entropy plus checksum, in human form',
+    why1: '128 bits of randomness (12 words) or 256 (24 words) + a checksum taken from SHA-256 are split into 11-bit groups; each group indexes a word in a fixed list of 2048. The words are not the key: they are a readable encoding of the entropy.',
+    btn12: 'Generate 12 words', btn24: 'Generate 24 words',
+    lblMnemo: 'or paste a mnemonic (test only — never a real one holding funds)',
+    lblPass: 'Optional passphrase (BIP39): same words + different phrase = different wallet',
+    kEntropy: 'ORIGINAL ENTROPY (what the words encode)',
+    validOk: '✓ Valid mnemonic: the BIP39 checksum holds',
+    validBad: '✗ Invalid mnemonic (word not in list or wrong checksum)',
+    tag2: 'STEP 2 · SEED (BIP39)',
+    h2_2: 'From words to 64 bytes: PBKDF2',
+    why2: '<code>seed = PBKDF2-HMAC-SHA512(key = mnemonic, salt = "mnemonic" + passphrase, 2048 iterations)</code> → 64 bytes. From here on the words no longer matter: everything downstream depends only on these bytes.',
+    kSeed: 'SEED · 64 bytes',
+    tag3: 'STEP 3 · MASTER KEY (BIP32)',
+    h2_3: 'HMAC-SHA512("Bitcoin seed", seed) → the tree root',
+    why3: 'The left half (32 bytes) is the <strong>master private key</strong>; the right half (32 bytes) is the <strong>chain code</strong>, the extra ingredient that allows deriving children deterministically. Together they form the root node <code>m</code> of the hierarchical (HD) tree.',
+    kMaster: 'MASTER PRIVATE KEY (IL)',
+    kChain: 'CHAIN CODE (IR)',
+    kFp: 'ROOT NODE FINGERPRINT',
+    tag4: 'STEP 4 · DERIVATION (BIP44) → KEYS AND ADDRESS',
+    h2_4: 'One path per coin: same seed, different roads',
+    why4: 'The apostrophe marks <em>hardened</em> derivation. <code>coin_type</code> separates chains: <strong>60\' = Ethereum</strong>, <strong>0\' = Bitcoin</strong>. At the end of each path: the node’s private key, its public key (point multiplication on secp256k1) and the address, which each chain builds its own way. Change the index and watch everything change.',
+    lblIndex: 'Index (address index)',
+    kPath: 'PATH',
+    kPriv: 'PRIVATE KEY',
+    kPubU: 'UNCOMPRESSED PUBLIC KEY (hashed without the 04 byte)',
+    kAddrEth: 'ADDRESS = keccak256(X‖Y)[12:]',
+    kPrivWif: 'PRIVATE KEY as WIF (base58check of 0x80‖priv‖01)',
+    kPubC: 'COMPRESSED PUBLIC KEY (33 bytes)',
+    kAddrLegacy: 'LEGACY ADDRESS · P2PKH · path 44\'',
+    kAddrSegwit: 'NATIVE SEGWIT ADDRESS · P2WPKH · path 84\'',
+    btcNote: 'Bitcoin doesn’t use keccak: it computes <code>hash160 = RIPEMD160(SHA256(compressed pubkey))</code>. Legacy ("1…"): <code>base58check(0x00 ‖ hash160)</code>. Native SegWit ("bc1…"): <code>bech32("bc", v0, hash160)</code>, derived from the modern path <code>m/84\'/0\'/0\'/0/i</code> (BIP84).',
+    tag5: 'STEP 5 · THE ORDER',
+    h2_5: 'Addresses come out in sequence: index 0, 1, 2…',
+    why5: 'A wallet doesn’t have "one" address: it derives a <strong>sequence</strong> by incrementing the last number of the path. That’s why restoring from the mnemonic brings back all your addresses, in the same order, without ever having stored any of them.',
+    warn: '⚠ Educational tool. Keys live only in memory and vanish on close. Never enter a mnemonic that guards real funds.'
+  },
+  fr: {
+    title: 'BIP39 · de la mnémonique à l’adresse',
+    h1: 'De la mnémonique à l’adresse',
+    intro: 'Le parcours complet effectué par votre wallet, avec <strong>ethers v6</strong> : mots (BIP39) → seed → clé maîtresse (BIP32) → dérivation par chemin (BIP44) → clé privée → clé publique → adresse. La même graine produit Ethereum et Bitcoin à la fois. Tout s’exécute dans votre navigateur.',
+    tag1: 'ÉTAPE 1 · MNÉMONIQUE (BIP39)',
+    h2_1: 'Les mots : de l’entropie avec checksum, sous forme humaine',
+    why1: '128 bits d’aléa (12 mots) ou 256 (24 mots) + un checksum tiré de SHA-256 sont découpés en groupes de 11 bits ; chaque groupe indexe un mot d’une liste fixe de 2048. Les mots ne sont pas la clé : ils sont un encodage lisible de l’entropie.',
+    btn12: 'Générer 12 mots', btn24: 'Générer 24 mots',
+    lblMnemo: 'ou collez une mnémonique (test uniquement — jamais une vraie détenant des fonds)',
+    lblPass: 'Passphrase optionnelle (BIP39) : mêmes mots + autre phrase = autre portefeuille',
+    kEntropy: 'ENTROPIE D’ORIGINE (ce que les mots encodent)',
+    validOk: '✓ Mnémonique valide : le checksum BIP39 est correct',
+    validBad: '✗ Mnémonique invalide (mot hors liste ou checksum erroné)',
+    tag2: 'ÉTAPE 2 · SEED (BIP39)',
+    h2_2: 'Des mots aux 64 octets : PBKDF2',
+    why2: '<code>seed = PBKDF2-HMAC-SHA512(clé = mnémonique, sel = "mnemonic" + passphrase, 2048 itérations)</code> → 64 octets. À partir d’ici les mots ne comptent plus : toute la suite ne dépend que de ces octets.',
+    kSeed: 'SEED · 64 octets',
+    tag3: 'ÉTAPE 3 · CLÉ MAÎTRESSE (BIP32)',
+    h2_3: 'HMAC-SHA512("Bitcoin seed", seed) → la racine de l’arbre',
+    why3: 'La moitié gauche (32 octets) est la <strong>clé privée maîtresse</strong> ; la droite (32 octets) est le <strong>chain code</strong>, l’ingrédient supplémentaire qui permet de dériver des enfants de façon déterministe. Ensemble, ils forment le nœud racine <code>m</code> de l’arbre hiérarchique (HD).',
+    kMaster: 'CLÉ PRIVÉE MAÎTRESSE (IL)',
+    kChain: 'CHAIN CODE (IR)',
+    kFp: 'FINGERPRINT DU NŒUD RACINE',
+    tag4: 'ÉTAPE 4 · DÉRIVATION (BIP44) → CLÉS ET ADRESSE',
+    h2_4: 'Un chemin par monnaie : même graine, routes différentes',
+    why4: 'L’apostrophe marque la dérivation <em>hardened</em>. <code>coin_type</code> sépare les chaînes : <strong>60\' = Ethereum</strong>, <strong>0\' = Bitcoin</strong>. Au bout de chaque chemin : la clé privée du nœud, sa clé publique (multiplication de point sur secp256k1) et l’adresse, que chaque chaîne construit à sa manière. Changez l’indice et regardez tout changer.',
+    lblIndex: 'Indice (address index)',
+    kPath: 'CHEMIN',
+    kPriv: 'CLÉ PRIVÉE',
+    kPubU: 'CLÉ PUBLIQUE non compressée (hachée sans l’octet 04)',
+    kAddrEth: 'ADRESSE = keccak256(X‖Y)[12:]',
+    kPrivWif: 'CLÉ PRIVÉE en WIF (base58check de 0x80‖priv‖01)',
+    kPubC: 'CLÉ PUBLIQUE compressée (33 octets)',
+    kAddrLegacy: 'ADRESSE LEGACY · P2PKH · chemin 44\'',
+    kAddrSegwit: 'ADRESSE SEGWIT NATIVE · P2WPKH · chemin 84\'',
+    btcNote: 'Bitcoin n’utilise pas keccak : il calcule <code>hash160 = RIPEMD160(SHA256(pubkey compressée))</code>. Legacy (« 1… ») : <code>base58check(0x00 ‖ hash160)</code>. SegWit natif (« bc1… ») : <code>bech32("bc", v0, hash160)</code>, dérivée du chemin moderne <code>m/84\'/0\'/0\'/0/i</code> (BIP84).',
+    tag5: 'ÉTAPE 5 · L’ORDRE',
+    h2_5: 'Les adresses sortent en séquence : index 0, 1, 2…',
+    why5: 'Un wallet n’a pas « une » adresse : il dérive une <strong>séquence</strong> en incrémentant le dernier nombre du chemin. C’est pourquoi la restauration depuis la mnémonique fait réapparaître toutes vos adresses, dans le même ordre, sans en avoir stocké aucune.',
+    warn: '⚠ Outil pédagogique. Les clés ne vivent qu’en mémoire et disparaissent à la fermeture. N’entrez jamais une mnémonique gardant de vrais fonds.'
+  }
+};
+
+let lang = 'es';
+const t = key => I18N[lang][key];
+
+function applyLang(newLang){
+  lang = newLang;
+  document.documentElement.lang = lang;
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+  document.querySelectorAll('.langs button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  recompute(); // re-render mensajes de validez en el idioma nuevo
+}
+document.querySelectorAll('.langs button').forEach(b =>
+  b.addEventListener('click', () => applyLang(b.dataset.lang))
+);
+
+/* ---------------- base58check / bech32 (BTC) ---------------- */
+function b58check(versionHex, dataHex){
+  const payload = E.concat([versionHex, dataHex]);
+  const chk = E.dataSlice(E.sha256(E.sha256(payload)), 0, 4);
+  return E.encodeBase58(E.concat([payload, chk]));
+}
+function hash160(pubHex){
+  return E.ripemd160(E.sha256(pubHex));
+}
+const B32C = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+function b32Polymod(values){
+  const GEN = [0x3b6a57b2,0x26508e6d,0x1ea119fa,0x3d4233dd,0x2a1462b3];
+  let chk = 1;
+  for (const v of values){
+    const top = chk >> 25;
+    chk = ((chk & 0x1ffffff) << 5) ^ v;
+    for (let i = 0; i < 5; i++) if ((top >> i) & 1) chk ^= GEN[i];
+  }
+  return chk;
+}
+function b32HrpExpand(hrp){
+  const out = [];
+  for (const c of hrp) out.push(c.charCodeAt(0) >> 5);
+  out.push(0);
+  for (const c of hrp) out.push(c.charCodeAt(0) & 31);
+  return out;
+}
+function b32Checksum(hrp, data){
+  const values = b32HrpExpand(hrp).concat(data).concat([0,0,0,0,0,0]);
+  const mod = b32Polymod(values) ^ 1;
+  const out = [];
+  for (let p = 0; p < 6; p++) out.push((mod >> (5 * (5 - p))) & 31);
+  return out;
+}
+function convertBits(data, from, to, pad){
+  let acc = 0, bits = 0;
+  const out = [], maxv = (1 << to) - 1;
+  for (const v of data){
+    acc = (acc << from) | v; bits += from;
+    while (bits >= to){ bits -= to; out.push((acc >> bits) & maxv); }
+  }
+  if (pad && bits > 0) out.push((acc << (to - bits)) & maxv);
+  return out;
+}
+function bech32Address(hrp, witver, programHex){
+  const prog = Array.from(E.getBytes(programHex));
+  const data = [witver].concat(convertBits(prog, 8, 5, true));
+  const combined = data.concat(b32Checksum(hrp, data));
+  return hrp + '1' + combined.map(d => B32C[d]).join('');
+}
+
+/* ---------------- pipeline ---------------- */
+function setVal(id, text){
+  const el = $(id);
+  el.textContent = text ?? '—';
+  el.classList.toggle('empty', !text);
+}
+function clearAll(){
+  ['outEntropy','outSeed','outMaster','outChain','outFp',
+   'ethPath','ethPriv','ethPub','ethAddr',
+   'btcPath','btcWif','btcPub','btcLegacy','btcSegwit'].forEach(i => setVal(i, null));
+  $('orderBody').innerHTML = '';
+}
+function renderWords(phrase){
+  const box = $('wordsViz');
+  box.innerHTML = '';
+  phrase.trim().split(/\s+/).filter(Boolean).forEach((w, i) => {
+    const s = document.createElement('span');
+    const n = document.createElement('i');
+    n.textContent = (i + 1) + '.';
+    s.appendChild(n);
+    s.appendChild(document.createTextNode(w));
+    box.appendChild(s);
+  });
+}
+
+function recompute(){
+  const phrase = $('mnemoIn').value.trim().toLowerCase().replace(/\s+/g, ' ');
+  const pass = $('passIn').value;
+  const v = $('validMsg');
+  renderWords(phrase);
+
+  if (!phrase){ v.className = 'valid'; clearAll(); return; }
+
+  let mnemo;
+  try{
+    mnemo = E.Mnemonic.fromPhrase(phrase, pass);
+  }catch(err){
+    v.className = 'valid bad';
+    v.textContent = t('validBad');
+    clearAll();
+    return;
+  }
+  v.className = 'valid ok';
+  v.textContent = t('validOk');
+
+  // PASO 1: entropía
+  setVal('outEntropy', mnemo.entropy + '  (' + ((E.getBytes(mnemo.entropy).length * 8)) + ' bits)');
+
+  // PASO 2: seed (PBKDF2)
+  const seed = mnemo.computeSeed();
+  setVal('outSeed', seed);
+
+  // PASO 3: clave maestra BIP32
+  const root = E.HDNodeWallet.fromSeed(seed);
+  setVal('outMaster', root.privateKey);
+  setVal('outChain', root.chainCode);
+  setVal('outFp', root.fingerprint);
+
+  // PASO 4: derivación por moneda
+  const idx = Math.max(0, Math.min(99, parseInt($('idxIn').value || '0', 10)));
+
+  // — Ethereum: m/44'/60'/0'/0/i
+  const ethPath = "m/44'/60'/0'/0/" + idx;
+  const ethNode = root.derivePath(ethPath);
+  const ethPubU = E.SigningKey.computePublicKey(ethNode.publicKey, false);
+  setVal('ethPath', ethPath);
+  setVal('ethPriv', ethNode.privateKey);
+  setVal('ethPub', ethPubU);
+  setVal('ethAddr', ethNode.address);
+
+  // — Bitcoin legacy: m/44'/0'/0'/0/i  +  segwit: m/84'/0'/0'/0/i
+  const btcPath44 = "m/44'/0'/0'/0/" + idx;
+  const btcPath84 = "m/84'/0'/0'/0/" + idx;
+  const btc44 = root.derivePath(btcPath44);
+  const btc84 = root.derivePath(btcPath84);
+  const wif = b58check('0x80', E.concat([btc44.privateKey, '0x01']));
+  const legacy = b58check('0x00', hash160(btc44.publicKey));
+  const segwit = bech32Address('bc', 0, hash160(btc84.publicKey));
+  setVal('btcPath', btcPath44 + '   ·   ' + btcPath84);
+  setVal('btcWif', wif);
+  setVal('btcPub', btc44.publicKey);
+  setVal('btcLegacy', legacy);
+  setVal('btcSegwit', segwit);
+
+  // PASO 5: el orden (índices 0..4)
+  const body = $('orderBody');
+  body.innerHTML = '';
+  for (let i = 0; i < 5; i++){
+    const e = root.derivePath("m/44'/60'/0'/0/" + i);
+    const b = root.derivePath("m/84'/0'/0'/0/" + i);
+    const tr = document.createElement('tr');
+    const tdI = document.createElement('td'); tdI.className = 'idx'; tdI.textContent = i;
+    const tdE = document.createElement('td'); tdE.textContent = e.address;
+    const tdB = document.createElement('td'); tdB.textContent = bech32Address('bc', 0, hash160(b.publicKey));
+    if (i === idx){ tr.style.background = '#F5F4EE'; tdI.textContent = i + ' ◀'; }
+    tr.append(tdI, tdE, tdB);
+    body.appendChild(tr);
+  }
+}
+
+$('mnemoIn').addEventListener('input', recompute);
+$('passIn').addEventListener('input', recompute);
+$('idxIn').addEventListener('input', recompute);
+
+function generate(bits){
+  const mnemo = E.Mnemonic.fromEntropy(E.randomBytes(bits / 8));
+  $('mnemoIn').value = mnemo.phrase;
+  recompute();
+}
+$('btn12').addEventListener('click', () => generate(128));
+$('btn24').addEventListener('click', () => generate(256));
+
+/* ---------------- init ---------------- */
+applyLang('es');
+generate(128);
+</script>
+</body>
+</html>

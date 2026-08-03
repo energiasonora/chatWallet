@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OrbitDB · replicación en vivo (browser)</title>
+  <style>
+    body { font-family: ui-monospace, monospace; background:#0b0f19; color:#cde; margin:0; padding:20px; max-width:680px; }
+    h1 { color:#8ab4ff; font-size:1rem; }
+    .meta { font-size:11px; color:#7a8aa0; line-height:1.6; word-break:break-all; }
+    #status { font-weight:bold; margin:10px 0; }
+    #status.ok { color:#3ddc84; }
+    #status.wait { color:#ffc107; }
+    #messages { background:#111827; border:1px solid #1f2937; border-radius:8px; padding:12px; height:300px; overflow-y:auto; margin:12px 0; }
+    .msg { padding:6px 10px; margin:4px 0; background:#1b2433; border-radius:6px; font-size:13px; }
+    form { display:flex; gap:8px; }
+    input { flex:1; background:#1b2433; border:1px solid #2a3650; color:#fff; border-radius:6px; padding:10px; outline:none; }
+    button { background:#4f46e5; color:#fff; border:0; border-radius:6px; padding:10px 16px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <h1>OrbitDB · replicación en vivo en el browser</h1>
+  <div class="meta">
+    Abrí esta página en <b>dos pestañas</b>: lo que escribas en una aparece en la otra,
+    replicado peer-a-peer a través del hub (sin servidor central de datos).<br>
+    peerId: <span id="peer">…</span><br>
+    db: <span id="addr">…</span>
+  </div>
+  <div id="status" class="wait">Iniciando…</div>
+  <div id="messages"></div>
+  <form id="form">
+    <input id="input" placeholder="Escribí un mensaje y Enter…" autocomplete="off" />
+    <button type="submit">Enviar</button>
+  </form>
+  <script type="module" src="./src/replicate.js"></script>
+</body>
+</html>
