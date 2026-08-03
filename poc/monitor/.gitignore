@@ -1,0 +1,12 @@
+# Secreto: PK burner de la identidad que manda las alertas por XMTP
+alert-state.json
+
+# Estado y ruido de ejecución (viven en la caja, no en el repo)
+node_modules/
+*.db3
+*.db3-shm
+*.db3-wal
+monitor.log
+monitor.boot.log
+status.json
+*.bak-*
