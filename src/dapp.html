@@ -13157,13 +13157,11 @@
 
         <!-- ═══════════════════════════════════════════════════════════════
          IPFS DOCS UPLOADER MODULE
-         Initialises when the user navigates to the "Docs" view.
-         Uses uploadWorker.js (already in the project).
+         Se inicializa cuando el usuario entra a la vista "Docs".
+         Sube directo al nodo soberano (ipfsUploadDirect): sin worker y sin
+         terceros. El uploadWorker.js que hablaba con Storacha se eliminó.
     ═══════════════════════════════════════════════════════════════ -->
         <script type="module">
-            // NOTE: No Storacha imports here — the Worker handles all of that.
-            // Importing @storacha/client in dapp.html would make Parcel re-bundle
-            // the entire SDK and freeze the build.
 
             const IPFS_STORAGE_KEY = 'chatwallet_ipfs_uploads';
             const IPFS_MAX_MB = 100;
@@ -13194,12 +13192,6 @@
             const ipfsQuotaValue = document.getElementById('ipfsQuotaValue');
             const ipfsCancelPurchase = document.getElementById('ipfsCancelPurchase');
             const ipfsConfirmPurchase = document.getElementById('ipfsConfirmPurchase');
-
-            // ── WEB WORKER ────────────────────────────────────────────────────────
-            const ipfsWorker = new Worker(
-                new URL('./uploadWorker.js', import.meta.url),
-                { type: 'module' }
-            );
 
             // ── DRAG & DROP ───────────────────────────────────────────────────────
             ipfsDrop.addEventListener('dragover', e => { e.preventDefault(); ipfsDrop.classList.add('!border-indigo-500', 'bg-indigo-950/20'); });
@@ -13284,7 +13276,7 @@
                     ipfsProgress.classList.remove('hidden');
 
                     for (const item of pending) {
-                        await ipfsUploadDirect(item);   // nodo soberano (antes: ipfsUploadViaWorker → Storacha)
+                        await ipfsUploadDirect(item);   // nodo soberano
                     }
 
                     ipfsUploadBtn.disabled = false;
@@ -13303,7 +13295,7 @@
             }
 
             // Subida al nodo IPFS soberano vía endpoint autenticado por firma del DID.
-            // Reemplaza a ipfsUploadViaWorker (Storacha), que queda en el archivo sin uso.
+            // Sube directo al nodo soberano: sha256 + firma del DID → POST autenticado.
             async function ipfsUploadDirect(item) {
                 item.status = 'uploading';
                 ipfsRenderQueue();
@@ -13312,7 +13304,7 @@
                     if (!window.currentWallet || !window.currentWallet.privateKey) {
                         throw new Error('Wallet no disponible para firmar la subida');
                     }
-                    // 1. Bytes a subir. Privado → cifrar AES-GCM (mismo esquema que uploadWorker.js:
+                    // 1. Bytes a subir. Privado → cifrar AES-GCM (esquema heredado del uploader viejo:
                     //    key = SHA-256(privateKey), envelope [iv(12)|ciphertext]).
                     setP(10, item.isPrivate ? '🔒 Encriptando…' : 'Preparando…');
                     let bytes = new Uint8Array(await item.file.arrayBuffer());
@@ -13360,45 +13352,6 @@
                     ipfsRenderQueue();
                     showIpfsToast(`Error: ${error.message}`, 'error');
                 }
-            }
-
-            function ipfsUploadViaWorker(item) {
-                return new Promise(resolve => {
-                    item.status = 'uploading';
-                    ipfsRenderQueue();
-
-                    const handler = e => {
-                        const { type, percent, text, cid, error } = e.data;
-                        if (type === 'progress') {
-                            ipfsProgressBar.style.width = `${percent}%`;
-                            ipfsStatus.textContent = text;
-                        } else if (type === 'done') {
-                            ipfsWorker.removeEventListener('message', handler);
-                            ipfsProgressBar.style.width = '100%';
-                            ipfsStatus.textContent = '¡Completado!';
-                            item.cid = cid;
-                            item.status = 'done';
-                            ipfsSaveHistory(item);
-                            ipfsRenderQueue();
-                            ipfsRenderHistory();
-                            resolve();
-                        } else if (type === 'error') {
-                            ipfsWorker.removeEventListener('message', handler);
-                            item.status = 'error';
-                            ipfsRenderQueue();
-                            showIpfsToast(`Error: ${error}`, 'error');
-                            resolve();
-                        }
-                    };
-                    ipfsWorker.addEventListener('message', handler);
-                    ipfsWorker.postMessage({
-                        file: item.file,
-                        walletAddress: window.currentWallet ? window.currentWallet.address : null,
-                        isPrivate: item.isPrivate,
-                        encryptionKey: item.isPrivate ? window.currentWallet.privateKey : null,
-                        apiBase: API_BASE
-                    });
-                });
             }
 
             async function ipfsRefreshQuota() {

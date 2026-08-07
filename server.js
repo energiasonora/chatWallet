@@ -3,16 +3,13 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
-import { Signer } from '@ucanto/principal/ed25519';
-import * as Delegation from '@ucanto/core/delegation';
-import * as DID from '@ipld/dag-ucan/did';
-import { parse as parseProof } from '@storacha/client/proof';
-import * as Link from 'multiformats/link';
-import * as CAR from '@ucanto/transport/car';
-import { identity } from 'multiformats/hashes/identity';
-import { base64 } from 'multiformats/bases/base64';
-import { Buffer } from 'buffer';
 import { ethers } from 'ethers';
+
+// Storacha/UCAN se eliminó (ago 2026): la red está muerta — storacha.network redirige a
+// fil.one y up.storacha.network ya no resuelve DNS. El almacenamiento IPFS lo hace el nodo
+// soberano (Kubo en la caja: gateway.chatwallet.org + backup.chatwallet.org/api/ipfs/upload,
+// autenticado por firma del DID), así que este server ya no delega nada. Con eso se fueron
+// el endpoint /api/delegate y los imports de @ucanto/@storacha/@ipld/multiformats.
 
 const QUOTA_FILE = path.join(process.cwd(), 'quotas.json');
 const CONFIG_FILE = path.join(process.cwd(), 'server_config.json');
@@ -69,15 +66,44 @@ app.use(express.json());
 // --- Inicializar Proveedor de Blockchain para AA ---
 const rpcUrl = process.env.CHATWALLET_RPC || 'https://sepolia-rollup.arbitrum.io/rpc';
 const provider = new ethers.JsonRpcProvider(rpcUrl);
-// El servidor usa su llave privada para pagar el gas de los usuarios
-const serverSigner = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY, provider);
+
+// La wallet que paga el gas de los usuarios (Account Abstraction).
+//
+// ANTES esto era `new ethers.Wallet(process.env.SERVER_PRIVATE_KEY)` en el tope del archivo, y
+// el server NO ARRANCABA: SERVER_PRIVATE_KEY guardaba la llave ed25519 de ucanto (`MgCa…`) que
+// usaba la delegación de Storacha, no una llave eth — ethers tiraba `invalid BytesLike value`
+// antes de llegar al app.listen(). Ahora:
+//   1) va en su propia variable, SERVER_ETH_PRIVATE_KEY (0x + 64 hex), y
+//   2) se construye PEREZOSAMENTE, así el server levanta igual sin ella y solo fallan —con un
+//      mensaje claro y 503— los endpoints de Smart Account que de verdad la necesitan.
+// Las cuotas y el resto de la API no dependen de ninguna llave.
+let _serverSigner = null;
+function getServerSigner() {
+  if (_serverSigner) return _serverSigner;
+  const pk = process.env.SERVER_ETH_PRIVATE_KEY;
+  if (!pk) {
+    throw Object.assign(
+      new Error('Falta SERVER_ETH_PRIVATE_KEY en el .env (clave eth 0x+64hex que paga el gas). Los endpoints de Smart Account están deshabilitados.'),
+      { statusCode: 503 }
+    );
+  }
+  try {
+    _serverSigner = new ethers.Wallet(pk, provider);
+  } catch (e) {
+    throw Object.assign(
+      new Error(`SERVER_ETH_PRIVATE_KEY no es una clave eth válida (se espera 0x + 64 hex): ${e.message}`),
+      { statusCode: 503 }
+    );
+  }
+  return _serverSigner;
+}
 
 let factoryAddress = readConfig().factoryAddress;
 
 async function ensureFactory() {
   if (factoryAddress) return;
   console.log('Desplegando ChatSmartAccountFactory desde el servidor...');
-  const factory = new ethers.ContractFactory(FACTORY_ABI, FACTORY_BYTECODE, serverSigner);
+  const factory = new ethers.ContractFactory(FACTORY_ABI, FACTORY_BYTECODE, getServerSigner());
   const contract = await factory.deploy();
   await contract.waitForDeployment();
   factoryAddress = await contract.getAddress();
@@ -94,7 +120,7 @@ app.get('/api/smart/account/:owner', async (req, res) => {
     const smartAddr = await factory.getAddress(owner, 0);
     res.json({ address: smartAddr });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -104,16 +130,17 @@ app.post('/api/smart/relay', async (req, res) => {
   
   try {
     await ensureFactory();
-    const factory = new ethers.Contract(factoryAddress, FACTORY_ABI, serverSigner);
-    
+    const signer = getServerSigner();
+    const factory = new ethers.Contract(factoryAddress, FACTORY_ABI, signer);
+
     // 1. Asegurar que la Smart Account está desplegada
     console.log(`Asegurando despliegue para Smart Account de ${owner}...`);
     const deployTx = await factory.deploy(owner, 0);
     await deployTx.wait();
-    
+
     const smartAddr = await factory.getAddress(owner, 0);
-    const smartAccount = new ethers.Contract(smartAddr, SMART_ACCOUNT_ABI, serverSigner);
-    
+    const smartAccount = new ethers.Contract(smartAddr, SMART_ACCOUNT_ABI, signer);
+
     // 2. Ejecutar la operación (el servidor paga el gas)
     console.log(`Relaying tx de ${owner} hacia ${target}...`);
     const tx = await smartAccount.execute(target, value || 0, data, signature);
@@ -122,7 +149,7 @@ app.post('/api/smart/relay', async (req, res) => {
     res.json({ success: true, txHash: receipt.hash });
   } catch (err) {
     console.error('Relay error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -165,91 +192,6 @@ app.post('/api/buy-quota', async (req, res) => {
   }
 });
 
-// Endpoint para generar el UCAN
-app.post('/api/delegate', async (req, res) => {
-  const { agentDid, size, filename } = req.body;
-
-  if (!agentDid || !agentDid.startsWith('did:key:')) {
-    return res.status(400).json({ error: 'DID de agente inválido o faltante' });
-  }
-
-  // --- REAL QUOTA CHECK ---
-  const quotas = readQuotas();
-  // Nota: En una app real pasaríamos la signature para validar la wallet, 
-  // aquí asumimos que el frontend nos envía el DID del agente que el servidor firmará
-  // El control de cuota es simplificado por dirección IP o un campo extra en el body si se desea.
-  // Por ahora, usaremos un mock simple o si el frontend envía 'walletAddress'.
-  
-  const walletAddress = req.body.walletAddress ? req.body.walletAddress.toLowerCase() : null;
-  const userQuota = walletAddress ? (quotas[walletAddress] || 0) : 0;
-
-  if (walletAddress && size > userQuota) {
-    return res.status(403).json({ error: `Cuota insuficiente. Tienes ${Math.round(userQuota/(1024*1024))}MB disponibles.` });
-  }
-  
-  // Si no hay walletAddress (legacy), permitimos un pequeño margen de prueba (1MB)
-  if (!walletAddress && size > 1 * 1024 * 1024) {
-    return res.status(403).json({ error: 'Registrá tu wallet para subir archivos grandes' });
-  }
-  // --------------------------
-
-  try {
-    console.log(`Generando delegación para: ${agentDid} | Archivo: ${filename} | Size: ${size} bytes`);
-
-    // 1. Cargar la llave privada del servidor y la prueba (proof) desde el .env
-    const serverPrincipal = Signer.parse(process.env.SERVER_PRIVATE_KEY);
-    const proof = await parseProof(process.env.SPACE_PROOF);
-    const spaceDid = process.env.SPACE_DID;
-
-    // 2. Preparar los datos de la delegación
-    const audience = DID.parse(agentDid);
-    const expirationEpoch = Math.floor(Date.now() / 1000) + 3600; // 1 hora de ventana temporal
-
-    // 3. Crear y firmar la delegación usando el SDK
-    // Permitimos subir, confiando en que este DID temporal 
-    // lo generó nuestro propio frontend
-    const delegation = await Delegation.delegate({
-      issuer: serverPrincipal,
-      audience: audience,
-      capabilities: [
-        { can: 'space/blob/add', with: spaceDid },
-        { can: 'space/index/add', with: spaceDid },
-        { can: 'filecoin/offer', with: spaceDid },
-        { can: 'upload/add', with: spaceDid },
-        { can: 'store/add', with: spaceDid }
-      ],
-      proofs: [proof], // La prueba de que este servidor tiene permiso sobre el espacio
-      expiration: expirationEpoch
-    });
-
-    // 5. Descontar cuota si la operación fue exitosa (el delegado es para una subida específica)
-    if (walletAddress) {
-      const quotas = readQuotas();
-      quotas[walletAddress] = Math.max(0, (quotas[walletAddress] || 0) - size);
-      saveQuotas(quotas);
-      console.log(`Cuota descontada para ${walletAddress}: -${size} bytes`);
-    }
-
-    // 4. Empaquetar el UCAN a Base64 para enviarlo por HTTP al frontend
-    const archive = await delegation.archive();
-    if (!archive.ok) {
-      throw new Error('Fallo al archivar la delegación internamente');
-    }
-    
-    // Envolvemos el CAR en un CID con hash de identidad y codificamos 
-    // en multibase base64, que es el formato exacto que exige `@storacha/client/proof` `parse`
-    const digest = identity.digest(archive.ok);
-    const cid = Link.create(CAR.codec.code, digest);
-    const ucanBase64 = cid.toString(base64.encoder);
-
-    // Devolvemos el UCAN al frontend
-    res.json({ success: true, ucan: ucanBase64 });
-
-  } catch (error) {
-    console.error('Error generando delegación:', error);
-    res.status(500).json({ error: 'Fallo interno al generar el UCAN' });
-  }
-});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
