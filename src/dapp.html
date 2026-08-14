@@ -1403,7 +1403,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.01 alpha</p>
+            <p class="text-sm text-gray-400">v 2.02 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1560,13 +1560,16 @@
                         class="w-7 h-7 rounded-full object-cover flex-shrink-0 ring-1 ring-indigo-500/60">
                     <div id="address" class="text-sm text-gray-300 truncate max-w-[110px]"></div>
                 </div>
-                <button id="copyAddressButton" title="Copiar link de invitación"
+                <button id="copyAddressButton" title="Compartir link de invitación"
                     class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
-                    <svg id="copyIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                    <svg id="shareIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                         stroke-linejoin="round">
-                        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                        <circle cx="18" cy="5" r="3" />
+                        <circle cx="6" cy="12" r="3" />
+                        <circle cx="18" cy="19" r="3" />
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                     </svg>
                     <svg id="checkIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
@@ -2156,6 +2159,23 @@
                     </button>
                     <button id="newGroupBtnSidebar" title="Nuevo grupo"
                         class="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full">
+                        <!-- Tres figuras + signo más: el mismo trazo que "añadir contacto" pero en
+                             grupo. Trazo 1.7 y no 2: con 2 las tres cabezas se tocan entre sí y a
+                             16px el ícono se vuelve una mancha. El más va abajo a la derecha
+                             porque a lo ancho las tres figuras ya no dejan lugar al costado. -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <circle cx="4.2" cy="7.6" r="2" />
+                            <circle cx="10.8" cy="6.2" r="2.3" />
+                            <circle cx="17.2" cy="7.6" r="2" />
+                            <path d="M1 17.4v-.7a3.3 3.3 0 0 1 3.3-3.3h9.3a3.3 3.3 0 0 1 3.3 3.3v.7" />
+                            <line x1="20" y1="17" x2="20" y2="23" />
+                            <line x1="17" y1="20" x2="23" y2="20" />
+                        </svg>
+                    </button>
+                    <button id="addContactBtnSidebar" title="Añadir Contacto"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                             stroke-linejoin="round">
@@ -2163,15 +2183,6 @@
                             <circle cx="9" cy="7" r="4" />
                             <line x1="19" y1="8" x2="19" y2="14" />
                             <line x1="22" y1="11" x2="16" y2="11" />
-                        </svg>
-                    </button>
-                    <button id="addContactBtnSidebar" title="Añadir Contacto"
-                        class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                            fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                            stroke-linejoin="round">
-                            <line x1="12" y1="5" x2="12" y2="19" />
-                            <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
                     </button>
                     <button id="closeSidebarBtn"
@@ -2995,6 +3006,22 @@
                 </div>
 
                 <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_link_title">
+                    Compartir acceso al chat</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_link_desc">Otra wallet, en
+                    otro dispositivo, con los mismos chats, contactos y bloqueados. Tu frase semilla NO viaja.</p>
+                <div id="linkedAccountsList"
+                    class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
+                <div class="flex gap-2">
+                    <button id="grantChatAccessBtn" data-i18n-key="settings_link_grant"
+                        class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                        ⇪ Dar acceso</button>
+                    <button id="requestChatAccessBtn" data-i18n-key="settings_link_request"
+                        class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                        ⇩ Pedir acceso</button>
+                </div>
+
+                <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_coldtx_title">
                     Transacción fría ❄</h2>
                 <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_coldtx_desc">Prepará una
@@ -3015,7 +3042,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.01</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.02</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3093,6 +3120,151 @@
                     <button id="importContactsSubmitBtn"
                         class="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold">Importar</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Modal DAR acceso al chat (rol A: el dispositivo que ya tiene el inbox) -->
+        <div id="grantAccessModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-indigo-300">Dar acceso al chat</h3>
+                    <button id="closeGrantAccessModal"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+
+                <!-- Paso 1: leer el pedido del otro dispositivo -->
+                <div id="grantStepScan" class="space-y-3">
+                    <p class="text-sm text-gray-400">En el otro dispositivo, entrá a Configuración → Compartir acceso
+                        al chat → <span class="text-indigo-300 font-semibold">Pedir acceso</span>. Escaneá acá el QR
+                        que te muestre.</p>
+                    <button id="grantScanRequestBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold">Escanear
+                        pedido</button>
+                    <textarea id="grantRequestInput" rows="2"
+                        class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                        placeholder="CWL1|..."></textarea>
+                    <button id="grantPasteRequestBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 font-semibold text-sm">Usar
+                        el texto pegado</button>
+                </div>
+
+                <!-- Paso 2: confirmar (con la advertencia fuerte) -->
+                <div id="grantStepConfirm" class="hidden space-y-3">
+                    <p class="text-sm text-gray-400">Vas a darle acceso a esta wallet:</p>
+                    <p id="grantPeerAddress"
+                        class="font-mono text-xs break-all bg-gray-900/50 p-2 rounded text-indigo-300"></p>
+                    <div class="text-xs text-yellow-300 bg-yellow-900/30 border border-yellow-700 rounded-lg p-3 space-y-2">
+                        <p>⚠ Acceso <span class="font-semibold">total</span>: va a leer y escribir todos tus chats,
+                            y a ver tus contactos y bloqueados. No es un segundo factor — cualquiera de las dos
+                            wallets alcanza por sí sola.</p>
+                        <p>Si esa wallet ya venía chateando por su cuenta, su historial propio queda atrás: pasa a
+                            depender de este inbox.</p>
+                    </div>
+                    <button id="grantConfirmBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold">Dar acceso</button>
+                </div>
+
+                <!-- Paso 3: mostrar el desafío + la clave de respaldo cifrada -->
+                <div id="grantStepChallenge" class="hidden space-y-3">
+                    <p class="text-sm text-gray-400">Escaneá este QR desde el otro dispositivo. Lleva el texto a
+                        firmar y tu clave de respaldo, cifrada para esa wallet.</p>
+                    <div class="w-full max-w-[340px] mx-auto p-4 bg-white rounded-xl shadow-lg flex justify-center">
+                        <div id="grantChallengeQr"></div>
+                    </div>
+                    <button id="grantCopyChallengeBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 font-semibold text-sm">Copiar
+                        el texto del QR</button>
+                    <hr class="border-gray-600">
+                    <p class="text-sm text-gray-400">Cuando lo escanee, el otro dispositivo te devuelve un último QR
+                        con su firma:</p>
+                    <button id="grantScanResponseBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold">Escanear
+                        la respuesta</button>
+                    <textarea id="grantResponseInput" rows="2"
+                        class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                        placeholder="CWL3|..."></textarea>
+                    <button id="grantPasteResponseBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 font-semibold text-sm">Usar
+                        el texto pegado</button>
+                </div>
+
+                <!-- Paso 4: listo -->
+                <div id="grantStepDone" class="hidden space-y-3 text-center">
+                    <p class="text-4xl">✅</p>
+                    <p class="text-sm text-gray-300" id="grantDoneText"></p>
+                    <button id="grantDoneCloseBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold">Cerrar</button>
+                </div>
+
+                <p id="grantAccessStatus" class="text-xs text-gray-400 text-center"></p>
+            </div>
+        </div>
+
+        <!-- Modal PEDIR acceso al chat (rol B: la wallet que quiere entrar) -->
+        <div id="requestAccessModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-indigo-300">Pedir acceso al chat</h3>
+                    <button id="closeRequestAccessModal"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+
+                <!-- Paso 1: mostrar el pedido -->
+                <div id="requestStepShow" class="space-y-3">
+                    <p class="text-sm text-gray-400">Mostrale este QR al dispositivo que ya tiene el chat
+                        (Configuración → Compartir acceso al chat → <span class="text-indigo-300 font-semibold">Dar
+                            acceso</span>).</p>
+                    <div class="w-full max-w-[340px] mx-auto p-4 bg-white rounded-xl shadow-lg flex justify-center">
+                        <div id="requestQr"></div>
+                    </div>
+                    <button id="requestCopyBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 font-semibold text-sm">Copiar
+                        el texto del QR</button>
+                    <hr class="border-gray-600">
+                    <p class="text-sm text-gray-400">Después te va a mostrar otro QR. Escanealo acá:</p>
+                    <button id="requestScanChallengeBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold">Escanear
+                        el desafío</button>
+                    <textarea id="requestChallengeInput" rows="2"
+                        class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                        placeholder="CWL2|..."></textarea>
+                    <button id="requestPasteChallengeBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 font-semibold text-sm">Usar
+                        el texto pegado</button>
+                </div>
+
+                <!-- Paso 2: confirmar la asociación -->
+                <div id="requestStepConfirm" class="hidden space-y-3">
+                    <p class="text-sm text-gray-400">Esta wallet va a quedar asociada al inbox de:</p>
+                    <p id="requestPeerAddress"
+                        class="font-mono text-xs break-all bg-gray-900/50 p-2 rounded text-indigo-300"></p>
+                    <div class="text-xs text-yellow-300 bg-yellow-900/30 border border-yellow-700 rounded-lg p-3">
+                        ⚠ Si ya venías chateando con esta wallet, tus conversaciones propias quedan atrás: a partir
+                        de ahora este dispositivo lee y escribe el chat de la otra wallet. Tus fondos y tu llave
+                        privada no se tocan.
+                    </div>
+                    <button id="requestConfirmBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold">Firmar y
+                        asociar</button>
+                </div>
+
+                <!-- Paso 3: devolver la firma y activar -->
+                <div id="requestStepRespond" class="hidden space-y-3">
+                    <p class="text-sm text-gray-400">Último paso: que el otro dispositivo escanee este QR.</p>
+                    <div class="w-full max-w-[340px] mx-auto p-4 bg-white rounded-xl shadow-lg flex justify-center">
+                        <div id="requestResponseQr"></div>
+                    </div>
+                    <button id="requestCopyResponseBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 font-semibold text-sm">Copiar
+                        el texto del QR</button>
+                    <p class="text-xs text-gray-500 text-center">Cuando te confirme que quedó, activá el acceso acá.
+                        La app se reinicia para entrar con la identidad nueva.</p>
+                    <button id="requestActivateBtn"
+                        class="w-full px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 font-semibold">Activar
+                        acceso y reiniciar</button>
+                </div>
+
+                <p id="requestAccessStatus" class="text-xs text-gray-400 text-center"></p>
             </div>
         </div>
 
@@ -4240,7 +4412,9 @@
                     chatwalletxmtp = await Client.create(walletSigner, {
                         env: 'dev',
                         codecs: [new PresenceCodec(), new ProfileCodec(), new window.ReadReceiptCodec(), new window.ReactionCodec(), new window.ReplyCodec()],
-                        dbPath: `chatwallet_v3_${wallet.address.toLowerCase()}`
+                        // El sufijo de época sólo aparece si esta wallet se vinculó al inbox de
+                        // otra: la base vieja apuntaba al inbox propio. Ver bumpXmtpDbEpoch.
+                        dbPath: `chatwallet_v3_${wallet.address.toLowerCase()}${xmtpDbSuffix(wallet.address)}`
                     });
 
                     console.log("✅ Cliente XMTP creado.");
@@ -4271,7 +4445,11 @@
                     await loadContacts();
                     // Respaldo soberano: si el store local está vacío (dispositivo/instalación nueva),
                     // bajar el respaldo cifrado del nodo IPFS y restaurar historial + contactos.
-                    await restoreChatBackupIfNeeded();
+                    // Tras vincularse al inbox de otra wallet el store local puede NO estar vacío
+                    // (chats propios previos) y el restore no se dispararía solo: se fuerza una vez.
+                    const forceRestore = localStorage.getItem('cw-link-force-restore') === '1';
+                    await restoreChatBackupIfNeeded({ force: forceRestore });
+                    if (forceRestore) localStorage.removeItem('cw-link-force-restore');
                     loadOfflineThreads();
                     // Grupos: los que existen en XMTP pero todavía no en la lista de chats
                     // (recién creados desde otro dispositivo, o restore en instalación nueva).
@@ -5349,6 +5527,408 @@
             })();
 
             // ─────────────────────────────────────────────────────────────
+            //  COMPARTIR ACCESO AL CHAT entre dos wallets DISTINTAS.
+            //
+            //  El dispositivo nuevo NO recibe la frase semilla: usa su propia
+            //  wallet y queda asociada al mismo inbox de XMTP que la vieja
+            //  (unsafe_addAccount, firmado out-of-band por QR). Además recibe
+            //  la clave del respaldo (BK) cifrada para ella, que es lo que le
+            //  permite descifrar historial, agenda y lápidas del nodo propio.
+            //
+            //  Tres saltos, alternando pantalla y cámara:
+            //    CWL1|addressB|pubKeyB          B → A  "quiero acceso"
+            //    CWL2|z<b64(JSON{a,t,k})>       A → B  desafío + BK cifrada
+            //    CWL3|addressB|firma            B → A  firma del desafío
+            //  A aplica la firma y la asociación queda hecha.
+            //
+            //  OJO — la asociación es un OR, no un segundo factor: cualquiera
+            //  de las dos wallets, sola, lee y escribe todo el chat.
+            // ─────────────────────────────────────────────────────────────
+            const LINK_REQ_PREFIX = 'CWL1|';
+            const LINK_CHAL_PREFIX = 'CWL2|';
+            const LINK_RESP_PREFIX = 'CWL3|';
+
+            function isLinkRequestData(d) { return typeof d === 'string' && d.startsWith(LINK_REQ_PREFIX); }
+            function isLinkChallengeData(d) { return typeof d === 'string' && d.startsWith(LINK_CHAL_PREFIX); }
+            function isLinkResponseData(d) { return typeof d === 'string' && d.startsWith(LINK_RESP_PREFIX); }
+
+            // El desafío lleva texto libre (el mensaje de asociación de XMTP trae saltos de
+            // línea y '|'), así que va como JSON comprimido en vez de campos separados.
+            async function encodeLinkChallenge(obj) {
+                const raw = new TextEncoder().encode(JSON.stringify(obj));
+                if (typeof CompressionStream === 'function') {
+                    return LINK_CHAL_PREFIX + 'z' + b64urlEncode(await pipeBytes(raw, new CompressionStream('deflate-raw')));
+                }
+                return LINK_CHAL_PREFIX + 'p' + b64urlEncode(raw);
+            }
+            async function decodeLinkChallenge(data) {
+                const body = data.slice(LINK_CHAL_PREFIX.length);
+                let bytes = b64urlDecode(body.slice(1));
+                if (body[0] === 'z') bytes = await pipeBytes(bytes, new DecompressionStream('deflate-raw'));
+                const obj = JSON.parse(new TextDecoder().decode(bytes));
+                if (!obj || !obj.a || !obj.t) throw new Error('Desafío de vinculación incompleto');
+                return obj;
+            }
+
+            function renderLinkQr(containerId, payload) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                container.innerHTML = '';
+                new QRCodeStyling({
+                    width: 300, height: 300, data: payload,
+                    dotsOptions: { color: '#000000', type: 'square' },
+                    backgroundOptions: { color: '#ffffff' },
+                }).append(container);
+            }
+
+            async function copyToClipboardBtn(btn, text) {
+                await navigator.clipboard.writeText(text);
+                const prev = btn.textContent;
+                btn.textContent = '✓ Copiado';
+                setTimeout(() => { btn.textContent = prev; }, 2000);
+            }
+
+            // La base local de XMTP guarda a qué inbox pertenece esta instalación. Cuando la
+            // wallet se reasigna a OTRO inbox, esa base queda obsoleta: se abre una nueva
+            // subiendo la "época" en vez de borrar (así el rollback sigue siendo posible).
+            function xmtpDbEpoch(address) {
+                return parseInt(localStorage.getItem(`cw-xmtp-db-epoch-${address.toLowerCase()}`) || '0', 10) || 0;
+            }
+            function xmtpDbSuffix(address) {
+                const e = xmtpDbEpoch(address);
+                return e ? `_r${e}` : ''; // sin sufijo en la época 0 → no mueve la base de nadie
+            }
+            function bumpXmtpDbEpoch(address) {
+                const e = xmtpDbEpoch(address) + 1;
+                localStorage.setItem(`cw-xmtp-db-epoch-${address.toLowerCase()}`, String(e));
+                return e;
+            }
+
+            // ── Rol A: DAR acceso ────────────────────────────────────────
+            let pendingLinkGrant = null; // { address, pubKey, signatureRequestId, payload, allowReassign }
+
+            function grantShowStep(step) {
+                for (const s of ['Scan', 'Confirm', 'Challenge', 'Done']) {
+                    const el = document.getElementById('grantStep' + s);
+                    if (el) el.classList.toggle('hidden', s.toLowerCase() !== step);
+                }
+            }
+            function grantStatus(msg) {
+                const el = document.getElementById('grantAccessStatus');
+                if (el) el.textContent = msg || '';
+            }
+            function openGrantAccessModal() {
+                if (!chatwalletxmtp) {
+                    showToast('El chat todavía no está conectado. Esperá a que diga "Conectado al chat".', 'error', 5000);
+                    return;
+                }
+                pendingLinkGrant = null;
+                const req = document.getElementById('grantRequestInput'); if (req) req.value = '';
+                const res = document.getElementById('grantResponseInput'); if (res) res.value = '';
+                grantStatus('');
+                grantShowStep('scan');
+                const modal = document.getElementById('grantAccessModal');
+                modal.classList.remove('hidden'); modal.classList.add('flex');
+            }
+            function closeGrantAccessModal() {
+                const modal = document.getElementById('grantAccessModal');
+                if (!modal) return;
+                modal.classList.add('hidden'); modal.classList.remove('flex');
+            }
+
+            async function handleIncomingLinkRequest(data) {
+                const [addr, pub] = data.slice(LINK_REQ_PREFIX.length).trim().split('|');
+                if (!isAddress(addr)) { showToast('El pedido de acceso no trae una dirección válida.', 'error'); return; }
+                if (!/^[0-9a-fA-F]{66}$/.test(pub || '')) {
+                    showToast('El pedido no trae la clave pública de la otra wallet; sin eso no se le puede pasar la clave del respaldo.', 'error', 6000);
+                    return;
+                }
+                if (currentWallet && addr.toLowerCase() === currentWallet.address.toLowerCase()) {
+                    showToast('Esa es esta misma wallet: no hay nada que vincular.', 'error');
+                    return;
+                }
+                if (!chatwalletxmtp) {
+                    showToast('El chat todavía no está conectado. Esperá a que diga "Conectado al chat".', 'error', 5000);
+                    return;
+                }
+                playQRscanned();
+                pendingLinkGrant = { address: addr, pubKey: pub, allowReassign: false };
+                document.getElementById('grantPeerAddress').textContent = addr;
+                document.getElementById('grantConfirmBtn').textContent = 'Dar acceso';
+                grantStatus('');
+                grantShowStep('confirm');
+                const modal = document.getElementById('grantAccessModal');
+                modal.classList.remove('hidden'); modal.classList.add('flex');
+            }
+
+            async function grantConfirmAccess() {
+                if (!pendingLinkGrant) return;
+                const btn = document.getElementById('grantConfirmBtn');
+                btn.disabled = true;
+                try {
+                    grantStatus('Preparando el desafío…');
+                    const identifier = { identifier: pendingLinkGrant.address.toLowerCase(), identifierKind: 0 };
+                    let res;
+                    try {
+                        res = await chatwalletxmtp.unsafe_addAccountSignatureText(identifier, pendingLinkGrant.allowReassign);
+                    } catch (e) {
+                        // Esa wallet ya tiene inbox propio. Reasignarla es destructivo para SU
+                        // historial, así que se pide una segunda confirmación explícita.
+                        if (pendingLinkGrant.allowReassign || !/reassign/i.test(String(e?.message || e))) throw e;
+                        pendingLinkGrant.allowReassign = true;
+                        btn.textContent = 'Sí, reasignar y dar acceso';
+                        grantStatus('⚠ Esa wallet ya venía chateando por su cuenta. Si seguís, su chat propio queda atrás y pasa a depender de este inbox. Tocá de nuevo para confirmar.');
+                        return;
+                    }
+                    pendingLinkGrant.signatureRequestId = res.signatureRequestId;
+
+                    // La clave del respaldo viaja cifrada SOLO para esa wallet (ECIES). Sin ella
+                    // el otro dispositivo entra al chat pero no descifra historial ni agenda.
+                    grantStatus('Cifrando la clave de respaldo…');
+                    const bk = await chatBackupExportKey();
+                    const cipher = EthCrypto.cipher.stringify(
+                        await EthCrypto.encryptWithPublicKey(toEncryptablePubKey(pendingLinkGrant.pubKey), bk));
+
+                    pendingLinkGrant.payload = await encodeLinkChallenge({
+                        a: currentWallet.address, t: res.signatureText, k: cipher,
+                    });
+                    renderLinkQr('grantChallengeQr', pendingLinkGrant.payload);
+                    grantShowStep('challenge');
+                    grantStatus('');
+                    // Respaldo fresco: es exactamente lo que el otro dispositivo va a bajar.
+                    chatBackupNow().catch(e => console.warn('respaldo previo al pairing:', e));
+                } catch (e) {
+                    console.warn('dar acceso:', e);
+                    grantStatus(`Error: ${e.message}`);
+                } finally {
+                    btn.disabled = false;
+                }
+            }
+
+            async function handleIncomingLinkResponse(data) {
+                const [addr, sig] = data.slice(LINK_RESP_PREFIX.length).trim().split('|');
+                if (!pendingLinkGrant || !pendingLinkGrant.signatureRequestId) {
+                    showToast('No hay un pedido de acceso en curso. El desafío se pierde si recargás la app: empezá de nuevo desde "Dar acceso".', 'error', 8000);
+                    return;
+                }
+                if (!isAddress(addr) || addr.toLowerCase() !== pendingLinkGrant.address.toLowerCase()) {
+                    grantStatus('Esa respuesta es de otra wallet, no de la que pidió acceso.');
+                    return;
+                }
+                playQRscanned();
+                try {
+                    grantStatus('Asociando la wallet al inbox…');
+                    await chatwalletxmtp.unsafe_applySignatureRequest(
+                        { type: 'EOA', identifier: { identifier: addr.toLowerCase(), identifierKind: 0 }, signature: ethers.getBytes(sig) },
+                        pendingLinkGrant.signatureRequestId);
+                    grantStatus('Subiendo el respaldo…');
+                    try { await chatBackupNow(); } catch (e) { console.warn('respaldo tras el pairing:', e); }
+                    document.getElementById('grantDoneText').textContent =
+                        `${addr.slice(0, 10)}…${addr.slice(-6)} ya tiene acceso a tu chat. En el otro dispositivo, tocá "Activar acceso y reiniciar".`;
+                    grantShowStep('done');
+                    grantStatus('');
+                    pendingLinkGrant = null;
+                    renderLinkedAccounts();
+                } catch (e) {
+                    console.warn('aplicar firma de vinculación:', e);
+                    grantStatus(`Error al asociar: ${e.message}`);
+                }
+            }
+
+            // ── Rol B: PEDIR acceso ──────────────────────────────────────
+            let pendingLinkAccept = null; // { peer, text, k }
+
+            function requestShowStep(step) {
+                for (const s of ['Show', 'Confirm', 'Respond']) {
+                    const el = document.getElementById('requestStep' + s);
+                    if (el) el.classList.toggle('hidden', s.toLowerCase() !== step);
+                }
+            }
+            function requestStatus(msg) {
+                const el = document.getElementById('requestAccessStatus');
+                if (el) el.textContent = msg || '';
+            }
+            function openRequestAccessModal() {
+                const pub = myCompressedPubKey();
+                if (!currentWallet || !pub) { showToast('Todavía no hay una billetera cargada.', 'error'); return; }
+                pendingLinkAccept = null;
+                const input = document.getElementById('requestChallengeInput'); if (input) input.value = '';
+                requestStatus('');
+                renderLinkQr('requestQr', LINK_REQ_PREFIX + currentWallet.address + '|' + pub);
+                requestShowStep('show');
+                const modal = document.getElementById('requestAccessModal');
+                modal.classList.remove('hidden'); modal.classList.add('flex');
+            }
+            function closeRequestAccessModal() {
+                const modal = document.getElementById('requestAccessModal');
+                if (!modal) return;
+                modal.classList.add('hidden'); modal.classList.remove('flex');
+            }
+
+            async function handleIncomingLinkChallenge(data) {
+                try {
+                    const obj = await decodeLinkChallenge(data.trim());
+                    if (currentWallet && String(obj.a).toLowerCase() === currentWallet.address.toLowerCase()) {
+                        showToast('Ese desafío es para otra wallet, no para esta.', 'error');
+                        return;
+                    }
+                    playQRscanned();
+                    pendingLinkAccept = { peer: obj.a, text: obj.t, k: obj.k || null };
+                    document.getElementById('requestPeerAddress').textContent = obj.a;
+                    requestStatus('');
+                    requestShowStep('confirm');
+                    const modal = document.getElementById('requestAccessModal');
+                    modal.classList.remove('hidden'); modal.classList.add('flex');
+                } catch (e) {
+                    console.warn('desafío de vinculación:', e);
+                    showToast('El QR del desafío no es válido.', 'error');
+                }
+            }
+
+            async function requestConfirmAccess() {
+                if (!pendingLinkAccept) return;
+                const btn = document.getElementById('requestConfirmBtn');
+                btn.disabled = true;
+                try {
+                    // 1) Guardar la clave del respaldo ANTES de firmar: si algo falla después,
+                    //    al menos el historial de la otra wallet ya es legible acá.
+                    if (pendingLinkAccept.k) {
+                        requestStatus('Descifrando la clave de respaldo…');
+                        const bk = await EthCrypto.decryptWithPrivateKey(
+                            currentWallet.privateKey, EthCrypto.cipher.parse(pendingLinkAccept.k));
+                        chatBackupImportKey(bk);
+                    }
+                    // 2) Firmar el texto de asociación de XMTP con ESTA wallet.
+                    requestStatus('Firmando…');
+                    const sig = await currentWallet.signMessage(pendingLinkAccept.text);
+                    pendingLinkAccept.response = LINK_RESP_PREFIX + currentWallet.address + '|' + sig;
+                    renderLinkQr('requestResponseQr', pendingLinkAccept.response);
+                    requestShowStep('respond');
+                    requestStatus('');
+                } catch (e) {
+                    console.warn('aceptar vinculación:', e);
+                    requestStatus(`Error: ${e.message}`);
+                } finally {
+                    btn.disabled = false;
+                }
+            }
+
+            function requestActivateAccess() {
+                // La instalación local todavía apunta al inbox viejo: se abre base nueva y se
+                // fuerza el restore (el store local puede no estar vacío y si no, no se dispara).
+                bumpXmtpDbEpoch(currentWallet.address);
+                localStorage.setItem('cw-link-force-restore', '1');
+                requestStatus('Reiniciando con la identidad nueva…');
+                setTimeout(() => location.reload(), 400);
+            }
+
+            // ── Cuentas con acceso (en Configuración) ────────────────────
+            async function renderLinkedAccounts() {
+                const el = document.getElementById('linkedAccountsList');
+                if (!el) return;
+                if (!chatwalletxmtp) { el.innerHTML = '<p class="text-gray-500 text-xs">El chat no está conectado.</p>'; return; }
+                el.innerHTML = '<p class="text-gray-400">Cargando…</p>';
+                try {
+                    // De la red, no de la base local: si la vinculación se hizo desde otro
+                    // dispositivo, el estado local todavía no la tiene.
+                    const state = await chatwalletxmtp.preferences.fetchInboxState();
+                    const ids = (state.accountIdentifiers || []).map(i => i.identifier);
+                    el.innerHTML = '';
+                    if (ids.length <= 1) {
+                        el.innerHTML = '<p class="text-gray-500 text-xs">Solo esta wallet tiene acceso a tu chat.</p>';
+                        return;
+                    }
+                    const mine = currentWallet.address.toLowerCase();
+                    for (const addr of ids) {
+                        const isMine = addr.toLowerCase() === mine;
+                        const item = document.createElement('div');
+                        item.className = 'flex justify-between items-center bg-gray-700 p-2 rounded gap-2';
+                        const info = document.createElement('p');
+                        info.className = 'font-mono text-xs break-all';
+                        info.textContent = `${addr.slice(0, 10)}…${addr.slice(-6)}` + (isMine ? ' (esta wallet)' : '');
+                        item.appendChild(info);
+                        if (!isMine) {
+                            const btn = document.createElement('button');
+                            btn.className = 'unlink-account-btn text-xs bg-red-600 hover:bg-red-500 text-white py-1 px-2 rounded flex-shrink-0';
+                            btn.dataset.address = addr;
+                            btn.textContent = 'Quitar';
+                            item.appendChild(btn);
+                        }
+                        el.appendChild(item);
+                    }
+                } catch (e) {
+                    el.innerHTML = `<p class="text-red-400 text-xs">Error: ${e.message}</p>`;
+                }
+            }
+
+            // El desafío y la respuesta son largos y viven en la pantalla como QR: esto los deja
+            // leer desde la consola (o desde un driver CDP) sin tener que decodificar la imagen.
+            window.cwLinkState = () => ({ grant: pendingLinkGrant, accept: pendingLinkAccept });
+
+            (function wireChatAccessSharingUI() {
+                const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+                on('grantChatAccessBtn', openGrantAccessModal);
+                on('closeGrantAccessModal', closeGrantAccessModal);
+                on('grantDoneCloseBtn', closeGrantAccessModal);
+                on('grantScanRequestBtn', () => { closeGrantAccessModal(); startScanner(); });
+                on('grantPasteRequestBtn', async () => {
+                    const raw = (document.getElementById('grantRequestInput').value || '').trim();
+                    if (!isLinkRequestData(raw)) { grantStatus('Eso no es un pedido de acceso (tiene que empezar con CWL1|).'); return; }
+                    await handleIncomingLinkRequest(raw);
+                });
+                on('grantConfirmBtn', grantConfirmAccess);
+                on('grantCopyChallengeBtn', (e) => copyToClipboardBtn(e.currentTarget, pendingLinkGrant?.payload || ''));
+                on('grantScanResponseBtn', () => { closeGrantAccessModal(); startScanner(); });
+                on('grantPasteResponseBtn', async () => {
+                    const raw = (document.getElementById('grantResponseInput').value || '').trim();
+                    if (!isLinkResponseData(raw)) { grantStatus('Eso no es una respuesta de vinculación (tiene que empezar con CWL3|).'); return; }
+                    await handleIncomingLinkResponse(raw);
+                });
+
+                on('requestChatAccessBtn', openRequestAccessModal);
+                on('closeRequestAccessModal', closeRequestAccessModal);
+                on('requestCopyBtn', (e) => copyToClipboardBtn(
+                    e.currentTarget, LINK_REQ_PREFIX + currentWallet.address + '|' + myCompressedPubKey()));
+                on('requestScanChallengeBtn', () => { closeRequestAccessModal(); startScanner(); });
+                on('requestPasteChallengeBtn', async () => {
+                    const raw = (document.getElementById('requestChallengeInput').value || '').trim();
+                    if (!isLinkChallengeData(raw)) { requestStatus('Eso no es un desafío de vinculación (tiene que empezar con CWL2|).'); return; }
+                    await handleIncomingLinkChallenge(raw);
+                });
+                on('requestConfirmBtn', requestConfirmAccess);
+                on('requestCopyResponseBtn', (e) => copyToClipboardBtn(e.currentTarget, pendingLinkAccept?.response || ''));
+                on('requestActivateBtn', requestActivateAccess);
+
+                const list = document.getElementById('linkedAccountsList');
+                if (list) list.addEventListener('click', async (e) => {
+                    const btn = e.target.closest('.unlink-account-btn');
+                    if (!btn) return;
+                    const addr = btn.dataset.address;
+                    // Primer toque: avisar. Sacar la wallet del inbox NO desconecta al dispositivo
+                    // que ya entró (en XMTP las instalaciones son aparte de las cuentas), así que
+                    // el corte de verdad exige revocar las instalaciones — y eso alcanza a TODOS
+                    // los otros dispositivos propios, que se re-registran solos al abrir la app.
+                    if (btn.dataset.armed !== '1') {
+                        btn.dataset.armed = '1';
+                        btn.textContent = 'Confirmar';
+                        showToast('Quitar el acceso también desconecta tus otros dispositivos (se vuelven a conectar solos al abrir la app). Tocá Confirmar.', 'info', 8000);
+                        return;
+                    }
+                    btn.disabled = true; btn.textContent = '…';
+                    try {
+                        await chatwalletxmtp.removeAccount({ identifier: addr.toLowerCase(), identifierKind: 0 });
+                        // Sin esto la wallet queda desasociada pero el dispositivo sigue leyendo.
+                        await chatwalletxmtp.revokeAllOtherInstallations();
+                        showToast('Acceso quitado: esa wallet ya no está asociada y su dispositivo quedó desconectado.', 'success', 6000);
+                    } catch (err) {
+                        console.warn('quitar acceso:', err);
+                        showToast(`No se pudo quitar: ${err.message}`, 'error', 6000);
+                    }
+                    renderLinkedAccounts();
+                });
+            })();
+
+            // ─────────────────────────────────────────────────────────────
             //  Mensajería OFFLINE por QR (ECIES sobre secp256k1)
             //  Permite continuar una conversación SIN red: cada mensaje viaja
             //  cifrado dentro de un QR que el interlocutor escanea y descifra.
@@ -5768,10 +6348,167 @@
                 };
             }
 
-            // ── Cifrado determinístico (mismo esquema que docs privados IPFS) ──
+            // ── Clave de respaldo (BK): el secreto del respaldo ya NO es la seed ──
+            // Antes el cifrado Y la firma del pointer salían de `currentWallet.privateKey`:
+            // un segundo dispositivo con OTRA wallet no podía descifrar el historial ni
+            // publicar el pointer, así que compartir chats obligaba a mover la mnemónica.
+            // Ahora todo el circuito cuelga de una BK de 32 bytes, guardada y exportable:
+            //   · encKey       = la BK tal cual (AES-GCM).
+            //   · backupWallet = SHA-256("…pointer-v1:" + BK) como clave privada secp256k1.
+            //     Su address es el namespace del pointer y quien firma subida y pointer.
+            // El servidor NO cambia: sigue verificando "firma == address", sólo que ahora la
+            // address es la derivada. Efecto lateral bueno: el nodo y Cloudflare dejan de ver
+            // la address real del usuario (cierra el caveat de metadata de la pointer API).
+            // Compatibilidad: en instalaciones que ya respaldaron, la BK se siembra con el
+            // valor viejo (SHA-256(privateKey)) → los blobs ya subidos siguen descifrando.
+            const CHATBK_KEY_STORE = () => `cw-backup-key-${currentWallet?.address?.toLowerCase()}`;
+            let chatBackupSecretCache = null;
+
+            async function chatBackupSecret() {
+                const store = CHATBK_KEY_STORE();
+                if (chatBackupSecretCache && chatBackupSecretCache.store === store) return chatBackupSecretCache;
+                let raw;
+                const saved = localStorage.getItem(store);
+                if (saved) {
+                    raw = ethers.getBytes(saved);
+                } else {
+                    raw = new Uint8Array(await crypto.subtle.digest('SHA-256',
+                        new TextEncoder().encode(currentWallet.privateKey)));
+                    localStorage.setItem(store, ethers.hexlify(raw));
+                }
+                const ptrSeed = await crypto.subtle.digest('SHA-256',
+                    new TextEncoder().encode('chatwallet-backup-pointer-v1:' + ethers.hexlify(raw)));
+                const wallet = new ethers.Wallet(ethers.hexlify(new Uint8Array(ptrSeed)));
+                chatBackupSecretCache = { store, raw, wallet };
+                return chatBackupSecretCache;
+            }
+
+            // Exportar/importar la BK: es lo que viaja al vincular un segundo dispositivo
+            // (secreto simétrico, NO la mnemónica; se puede rotar sin tocar la wallet).
+            async function chatBackupExportKey() {
+                const { raw } = await chatBackupSecret();
+                return ethers.hexlify(raw);
+            }
+            function chatBackupImportKey(hex) {
+                const bytes = ethers.getBytes(hex);
+                if (bytes.length !== 32) throw new Error('La clave de respaldo debe ser de 32 bytes');
+                localStorage.setItem(CHATBK_KEY_STORE(), ethers.hexlify(bytes));
+                chatBackupSecretCache = null; // que se re-derive la wallet del pointer
+            }
+
+            // Las usa el pairing de "Compartir acceso al chat" (CWL1/2/3) y sirven para probar
+            // el desacople a mano desde la consola, como window.handleScannedData del modo frío.
+            window.chatBackupExportKey = chatBackupExportKey;
+            window.chatBackupImportKey = chatBackupImportKey;
+
             async function chatBackupKey(usages) {
-                const keyHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(currentWallet.privateKey));
-                return crypto.subtle.importKey('raw', keyHash, { name: 'AES-GCM' }, false, usages);
+                const { raw } = await chatBackupSecret();
+                return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, usages);
+            }
+
+            // ── Pointer remoto: address → { cid, ts, count }; null si nunca hubo respaldo ──
+            async function chatBackupFetchPointer() {
+                const { wallet } = await chatBackupSecret();
+                // Namespace nuevo (derivado de la BK) primero. Si ahí no hay nada puede ser un
+                // respaldo anterior a v2.03, publicado bajo la address del usuario.
+                for (const addr of [wallet.address, currentWallet.address]) {
+                    const res = await fetch(`${CHATBK_POINTER_URL}/${addr}`);
+                    if (res.status === 404) continue; // nunca se respaldó en ese namespace
+                    if (!res.ok) throw new Error(`Pointer ${res.status}`);
+                    const ptr = await res.json();
+                    if (ptr && ptr.cid) return ptr;
+                }
+                return null;
+            }
+
+            // ── Baja un snapshot del gateway y lo descifra ──
+            async function chatBackupDownload(cid) {
+                const blobRes = await fetch(CHATBK_GATEWAY + cid);
+                if (!blobRes.ok) throw new Error(`Gateway ${blobRes.status}`);
+                const bytes = new Uint8Array(await blobRes.arrayBuffer());
+                const cryptoKey = await chatBackupKey(['decrypt']);
+                const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, cryptoKey, bytes.slice(12));
+                const data = JSON.parse(new TextDecoder().decode(plain));
+                // Antes esto tiraba error si el respaldo no era de ESTA address, pero con la BK
+                // compartida un segundo dispositivo tiene otra wallet y el snapshot es legítimo.
+                // El control real lo hace AES-GCM: descifrar ya prueba que tenemos la BK.
+                if (data.address && data.address !== currentWallet.address.toLowerCase()) {
+                    console.log(`☁ Respaldo generado por otra wallet del mismo respaldo (${data.address.slice(0, 10)}…)`);
+                }
+                return data;
+            }
+
+            // ── Merge de un snapshot en el store local. Devuelve cuántos mensajes entraron ──
+            // Idempotente: msgStorePut ignora los ids ya presentes, así que se puede llamar
+            // las veces que haga falta. Lo usan LOS DOS caminos: el restore de un dispositivo
+            // nuevo y —clave cuando hay varios dispositivos con la misma seed— el propio
+            // backup antes de subir, para no reemplazar el historial que subió el otro.
+            // Lápidas del respaldo → locales. Va ANTES de tocar mensajes y contactos, porque
+            // isSuppressedContact lee el mapa local: si se mergea después, lo borrado en el otro
+            // dispositivo entra igual y hay que borrarlo de nuevo.
+            // Es una unión quedándose con la más nueva por dirección. No hay lápida de la lápida,
+            // así que desbloquear en un dispositivo puede volver atrás si el otro todavía tenía
+            // el bloqueo: se prefiere ese error (se deshace en Configuración) al inverso, que
+            // dejaría entrar mensajes de alguien bloqueado.
+            async function mergeTombstones(remote) {
+                if (!remote || typeof remote !== 'object') return 0;
+                let changed = 0;
+                for (const [addr, t] of Object.entries(remote)) {
+                    if (!addr || !t) continue;
+                    const key = addr.toLowerCase();
+                    const local = tombstones[key];
+                    if (local && (local.at || 0) >= (t.at || 0)) continue;
+                    tombstones[key] = { at: t.at || Date.now(), blocked: !!t.blocked, left: !!t.left, name: t.name || undefined };
+                    changed++;
+                }
+                if (changed) await saveTombstones();
+                return changed;
+            }
+
+            async function chatBackupMerge(data) {
+                const revived = await mergeTombstones(data.tombstones);
+                if (revived) console.log(`☁ Lápidas absorbidas del respaldo: ${revived}`);
+                // El respaldo es anterior al borrado: sus mensajes NO deben volver a entrar
+                // para las direcciones borradas/bloqueadas (si no, el contacto revive solo).
+                const restorable = (data.messages || []).filter(m => !isSuppressedContact(m.peer, m.ts || 0));
+                const added = await msgStorePut(restorable);
+
+                // Mergear contactos: agregar los que faltan, completar nombre/último mensaje.
+                let contactsChanged = false;
+                for (const bc of (data.contacts || [])) {
+                    if (!bc.address) continue;
+                    if (isSuppressedContact(bc.address, bc.lastMessageTimestamp || 0)) continue;
+                    const idx = contacts.findIndex(c => c.address.toLowerCase() === bc.address.toLowerCase());
+                    if (idx === -1) {
+                        const bcIsGroup = !!bc.isGroup && !!bc.groupId;
+                        contacts.push({
+                            name: bc.name || bc.address.slice(0, 10) + '...', address: bc.address,
+                            unreadCount: 0, lastMessage: bc.lastMessage || null,
+                            lastMessageTimestamp: bc.lastMessageTimestamp || 0,
+                            lastReadTimestamp: bc.lastReadTimestamp ?? (bc.lastMessageTimestamp || 0),
+                            status: 'offline', lastSeen: null,
+                            avatar: bcIsGroup ? GROUP_AVATAR : ANON_AVATAR,
+                            pubKey: bc.pubKey || null,
+                            // La membresía MLS del grupo viaja con el inbox, no con el respaldo:
+                            // al sincronizar, la instalación nueva recupera la conversación sola.
+                            isGroup: bcIsGroup || undefined,
+                            groupId: bcIsGroup ? bc.groupId : undefined,
+                        });
+                        contactsChanged = true;
+                    } else {
+                        if ((bc.lastMessageTimestamp || 0) > (contacts[idx].lastMessageTimestamp || 0)) {
+                            contacts[idx].lastMessage = bc.lastMessage;
+                            contacts[idx].lastMessageTimestamp = bc.lastMessageTimestamp;
+                            contactsChanged = true;
+                        }
+                        if (bc.pubKey && !contacts[idx].pubKey) {
+                            contacts[idx].pubKey = bc.pubKey;
+                            contactsChanged = true;
+                        }
+                    }
+                }
+                if (contactsChanged) await saveContacts();
+                return added;
             }
 
             // ── Subida del respaldo (debounced) ─────────────────────────────
@@ -5798,8 +6535,22 @@
                 chatBackupBusy = true;
                 if (chatBackupTimer) { clearTimeout(chatBackupTimer); chatBackupTimer = null; }
                 try {
+                    // ── Varios dispositivos con la misma seed ────────────────────────
+                    // El pointer es last-write-wins y cada snapshot es el historial COMPLETO
+                    // del que lo sube. Si subiéramos solo nuestro store, el respaldo del otro
+                    // dispositivo quedaría reemplazado por uno más pobre. Así que primero
+                    // absorbemos lo remoto y después publicamos la UNIÓN.
+                    const remotePtr = await chatBackupFetchPointer();
+                    const localMeta = JSON.parse(localStorage.getItem(CHATBK_META_KEY()) || 'null');
+                    if (remotePtr && remotePtr.cid !== localMeta?.cid) {
+                        // Si el remoto no se puede LEER, no lo pisamos: mejor no respaldar esta
+                        // vuelta que reemplazar historial ajeno por el nuestro. Se reintenta.
+                        const merged = await chatBackupMerge(await chatBackupDownload(remotePtr.cid));
+                        if (merged > 0) console.log(`☁ Respaldo remoto absorbido antes de subir: ${merged} mensajes`);
+                    }
+
                     const messages = await msgStoreGetAll();
-                    if (!messages.length) return;
+                    if (!messages.length) { chatBackupDirty = false; return; }
                     // Contactos: solo lo restaurable (sin bytes de avatar; esos rehidratan vía perfiles XMTP).
                     const slimContacts = contacts.map(c => ({
                         name: c.name, address: c.address,
@@ -5817,6 +6568,9 @@
                         exportedAt: Date.now(),
                         messages,
                         contacts: slimContacts,
+                        // Sin las lápidas, restaurar (o vincular otra wallet) resucita todo lo
+                        // borrado y DESBLOQUEA a los bloqueados: el respaldo tiene que llevarlas.
+                        tombstones,
                     }));
 
                     // Cifrar: envelope [iv(12)|ciphertext AES-GCM]
@@ -5829,13 +6583,15 @@
                     // Subir al nodo (misma auth firmada que los docs: "ipfs-upload:<sha>:<size>")
                     const digest = await crypto.subtle.digest('SHA-256', bytes);
                     const sha = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
-                    const signer = new ethers.Wallet(currentWallet.privateKey);
+                    // Firma con la wallet DERIVADA de la BK, no con la del usuario: así el
+                    // segundo dispositivo (otra wallet, misma BK) puede subir y publicar igual.
+                    const { wallet: signer } = await chatBackupSecret();
                     const signature = await signer.signMessage(`ipfs-upload:${sha}:${bytes.length}`);
                     const res = await fetch(CHATBK_UPLOAD_URL, {
                         method: 'POST',
                         headers: {
                             'content-type': 'application/octet-stream',
-                            'x-address': currentWallet.address,
+                            'x-address': signer.address,
                             'x-signature': signature,
                             'x-sha256': sha,
                             'x-size': String(bytes.length),
@@ -5846,12 +6602,15 @@
                     if (!res.ok || !data.cid) throw new Error(data.error || `Subida rechazada (${res.status})`);
 
                     // Publicar el pointer (address → CID) firmado, para encontrar el respaldo desde un dispositivo nuevo.
-                    const ts = Date.now();
+                    // El ts tiene que ser monótono: el servidor rechaza con 409 cualquier ts <= al
+                    // del pointer actual, así que un dispositivo con el reloj atrasado respecto del
+                    // otro nunca lograría respaldar (y fallaba en silencio).
+                    const ts = Math.max(Date.now(), (remotePtr?.ts || 0) + 1);
                     const ptrSig = await signer.signMessage(`chatwallet-backup:${data.cid}:${ts}`);
                     const ptrRes = await fetch(CHATBK_POINTER_URL, {
                         method: 'POST',
                         headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ address: currentWallet.address, cid: data.cid, ts, count: messages.length, signature: ptrSig }),
+                        body: JSON.stringify({ address: signer.address, cid: data.cid, ts, count: messages.length, signature: ptrSig }),
                     });
                     if (!ptrRes.ok) throw new Error(`Pointer rechazado (${ptrRes.status})`);
 
@@ -5861,6 +6620,11 @@
                     renderChatBackupStatus();
                 } finally {
                     chatBackupBusy = false;
+                    // Quedó pendiente (p.ej. el nodo no respondió y abortamos para no pisar el
+                    // respaldo remoto): reintentar solo, en vez de esperar al próximo mensaje.
+                    if (chatBackupDirty && !chatBackupTimer) {
+                        chatBackupTimer = setTimeout(() => { chatBackupNow().catch(e => console.warn('backup retry:', e)); }, 5 * 60 * 1000);
+                    }
                 }
             }
 
@@ -5871,61 +6635,12 @@
                     const count = await msgStoreCount();
                     if (count > 0 && !force) return false;
 
-                    const ptrRes = await fetch(`${CHATBK_POINTER_URL}/${currentWallet.address}`);
-                    if (!ptrRes.ok) return false; // 404 = nunca hubo respaldo (o nodo apagado)
-                    const { cid } = await ptrRes.json();
-                    if (!cid) return false;
+                    const ptr = await chatBackupFetchPointer(); // 404 = nunca hubo respaldo
+                    if (!ptr) return false;
+                    const cid = ptr.cid;
 
-                    const blobRes = await fetch(CHATBK_GATEWAY + cid);
-                    if (!blobRes.ok) throw new Error(`Gateway ${blobRes.status}`);
-                    const bytes = new Uint8Array(await blobRes.arrayBuffer());
-                    const cryptoKey = await chatBackupKey(['decrypt']);
-                    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, cryptoKey, bytes.slice(12));
-                    const data = JSON.parse(new TextDecoder().decode(plain));
-                    if (data.address && data.address !== currentWallet.address.toLowerCase()) {
-                        throw new Error('El respaldo no corresponde a esta cuenta');
-                    }
-
-                    // El respaldo es anterior al borrado: sus mensajes NO deben volver a entrar
-                    // para las direcciones borradas/bloqueadas (si no, el contacto revive solo).
-                    const restorable = (data.messages || []).filter(m => !isSuppressedContact(m.peer, m.ts || 0));
-                    const added = await msgStorePut(restorable);
-
-                    // Mergear contactos: agregar los que faltan, completar nombre/último mensaje.
-                    let contactsChanged = false;
-                    for (const bc of (data.contacts || [])) {
-                        if (!bc.address) continue;
-                        if (isSuppressedContact(bc.address, bc.lastMessageTimestamp || 0)) continue;
-                        const idx = contacts.findIndex(c => c.address.toLowerCase() === bc.address.toLowerCase());
-                        if (idx === -1) {
-                            const bcIsGroup = !!bc.isGroup && !!bc.groupId;
-                            contacts.push({
-                                name: bc.name || bc.address.slice(0, 10) + '...', address: bc.address,
-                                unreadCount: 0, lastMessage: bc.lastMessage || null,
-                                lastMessageTimestamp: bc.lastMessageTimestamp || 0,
-                                lastReadTimestamp: bc.lastReadTimestamp ?? (bc.lastMessageTimestamp || 0),
-                                status: 'offline', lastSeen: null,
-                                avatar: bcIsGroup ? GROUP_AVATAR : ANON_AVATAR,
-                                pubKey: bc.pubKey || null,
-                                // La membresía MLS del grupo viaja con el inbox, no con el respaldo:
-                                // al sincronizar, la instalación nueva recupera la conversación sola.
-                                isGroup: bcIsGroup || undefined,
-                                groupId: bcIsGroup ? bc.groupId : undefined,
-                            });
-                            contactsChanged = true;
-                        } else {
-                            if ((bc.lastMessageTimestamp || 0) > (contacts[idx].lastMessageTimestamp || 0)) {
-                                contacts[idx].lastMessage = bc.lastMessage;
-                                contacts[idx].lastMessageTimestamp = bc.lastMessageTimestamp;
-                                contactsChanged = true;
-                            }
-                            if (bc.pubKey && !contacts[idx].pubKey) {
-                                contacts[idx].pubKey = bc.pubKey;
-                                contactsChanged = true;
-                            }
-                        }
-                    }
-                    if (contactsChanged) await saveContacts();
+                    const data = await chatBackupDownload(cid);
+                    const added = await chatBackupMerge(data);
 
                     localStorage.setItem(CHATBK_META_KEY(), JSON.stringify({ cid, ts: data.exportedAt, count: (data.messages || []).length }));
                     if (added > 0) {
@@ -8399,20 +9114,47 @@
                 });
             }
 
-            function copyInviteLink() {
+            // Feedback visual del botón: el ícono de compartir muta a tilde por 1.5s.
+            function flashShareCheck() {
+                const shareIcon = document.getElementById('shareIcon');
+                const checkIcon = document.getElementById('checkIcon');
+                if (!shareIcon || !checkIcon) return;
+                shareIcon.classList.add('hidden');
+                checkIcon.classList.remove('hidden');
+                setTimeout(() => {
+                    shareIcon.classList.remove('hidden');
+                    checkIcon.classList.add('hidden');
+                }, 1500);
+            }
+
+            function copyInviteLink(inviteUrl) {
+                return navigator.clipboard.writeText(inviteUrl).then(() => {
+                    showToast('Link de invitación copiado', 'success');
+                    flashShareCheck();
+                }).catch(err => console.error('Error al copiar el link de invitación:', err));
+            }
+
+            // Compartir el link de invitación: hoja nativa si el entorno la expone
+            // (el WebView del APK normalmente NO trae navigator.share), y si no, copiar.
+            async function shareInviteLink() {
                 const inviteUrl = buildInviteUrl();
                 if (!inviteUrl) return;
-                navigator.clipboard.writeText(inviteUrl).then(() => {
-                    showToast('Link de invitación copiado', 'success');
-                    const copyIcon = document.getElementById('copyIcon');
-                    const checkIcon = document.getElementById('checkIcon');
-                    copyIcon.classList.add('hidden');
-                    checkIcon.classList.remove('hidden');
-                    setTimeout(() => {
-                        copyIcon.classList.remove('hidden');
-                        checkIcon.classList.add('hidden');
-                    }, 1500);
-                }).catch(err => console.error('Error al copiar el link de invitación:', err));
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            title: 'ChatWallet',
+                            text: 'Chateá y pagá conmigo en ChatWallet',
+                            url: inviteUrl
+                        });
+                        flashShareCheck();
+                        return;
+                    } catch (err) {
+                        // El usuario canceló la hoja: no es un error, no hacemos fallback.
+                        if (err && err.name === 'AbortError') return;
+                        console.warn('navigator.share falló, copiando al portapapeles:', err);
+                    }
+                }
+                await copyInviteLink(inviteUrl);
             }
 
             // showBackupNotification removida por redundancia
@@ -9576,6 +10318,19 @@
                 // ¿Es un export de contactos? (QR con prefijo CWC1|/CWC0|)
                 if (isContactsQrData(data)) {
                     await handleIncomingContactsQR(data);
+                    return;
+                }
+                // ── Compartir acceso al chat (CWL1|/CWL2|/CWL3|) ──
+                if (isLinkRequestData(data)) {   // otra wallet pide acceso a MI chat
+                    await handleIncomingLinkRequest(data);
+                    return;
+                }
+                if (isLinkChallengeData(data)) { // me dan acceso: hay que firmar el desafío
+                    await handleIncomingLinkChallenge(data);
+                    return;
+                }
+                if (isLinkResponseData(data)) {  // me devuelven la firma: aplicar la asociación
+                    await handleIncomingLinkResponse(data);
                     return;
                 }
 
@@ -10960,7 +11715,7 @@
             });
 
             // El botón del header copia el LINK DE INVITACIÓN (la address se copia bajo el QR).
-            copyAddressButton.addEventListener('click', copyInviteLink);
+            copyAddressButton.addEventListener('click', shareInviteLink);
             backToContactsBtn.addEventListener('click', () => {
                 // Close chat view and show wallet view, also open sidebar
                 showView('walletView');
@@ -11164,6 +11919,7 @@
                     settingsModal.classList.remove('hidden');
                     settingsModal.classList.add('flex');
                     listInstallations();
+                    renderLinkedAccounts();
                     renderChatBackupStatus();
                     renderBlockedContacts();
                     renderWcSessions();
@@ -11915,6 +12671,10 @@
                     "settings_contacts_desc": "Por QR entre dos dispositivos, o copiando y pegando el texto (mismo teléfono). No viaja ninguna llave.",
                     "settings_contacts_export": "⇪ Exportar",
                     "settings_contacts_import": "⇩ Importar",
+                    "settings_link_title": "Compartir acceso al chat",
+                    "settings_link_desc": "Otra wallet, en otro dispositivo, con los mismos chats, contactos y bloqueados. Tu frase semilla NO viaja.",
+                    "settings_link_grant": "⇪ Dar acceso",
+                    "settings_link_request": "⇩ Pedir acceso",
                     "settings_coldtx_title": "Transacción fría ❄",
                     "settings_coldtx_desc": "Prepará una transacción para que la firme una wallet en modo frío, y transmitila cuando te devuelvan el QR firmado.",
                     "settings_coldtx_button": "❄ Preparar transacción fría",
@@ -12021,6 +12781,10 @@
                     "settings_contacts_desc": "Via QR between two devices, or copy-paste the text (same phone). No key ever travels.",
                     "settings_contacts_export": "⇪ Export",
                     "settings_contacts_import": "⇩ Import",
+                    "settings_link_title": "Share chat access",
+                    "settings_link_desc": "Another wallet, on another device, with the same chats, contacts and blocked list. Your seed phrase does NOT travel.",
+                    "settings_link_grant": "⇪ Grant access",
+                    "settings_link_request": "⇩ Request access",
                     "settings_coldtx_title": "Cold transaction ❄",
                     "settings_coldtx_desc": "Prepare a transaction for a cold-storage wallet to sign, then broadcast it once you get the signed QR back.",
                     "settings_coldtx_button": "❄ Prepare cold transaction",
@@ -12127,6 +12891,10 @@
                     "settings_contacts_desc": "Par QR entre deux appareils, ou en copiant-collant le texte (même téléphone). Aucune clé ne voyage.",
                     "settings_contacts_export": "⇪ Exporter",
                     "settings_contacts_import": "⇩ Importer",
+                    "settings_link_title": "Partager l'accès au chat",
+                    "settings_link_desc": "Un autre portefeuille, sur un autre appareil, avec les mêmes discussions, contacts et bloqués. Votre phrase de récupération ne circule PAS.",
+                    "settings_link_grant": "⇪ Donner l'accès",
+                    "settings_link_request": "⇩ Demander l'accès",
                     "settings_coldtx_title": "Transaction à froid ❄",
                     "settings_coldtx_desc": "Préparez une transaction pour qu'un portefeuille hors ligne la signe, puis diffusez-la une fois le QR signé récupéré.",
                     "settings_coldtx_button": "❄ Préparer une transaction à froid",
