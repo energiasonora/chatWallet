@@ -1403,7 +1403,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.03 alpha</p>
+            <p class="text-sm text-gray-400">v 2.04 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2252,6 +2252,26 @@
             <div id="scanner-container"
                 class="relative w-full max-w-sm aspect-square bg-gray-700 rounded-2xl overflow-hidden">
                 <div id="qr-reader" class="w-full"></div>
+                <!-- Guía de encuadre: SOLO decorativa. El decoder mira el frame COMPLETO
+                     (antes el qrbox recortaba al 80% y un QR fuera del centro no se leía nunca). -->
+                <div id="scanner-guide"
+                    class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div class="w-3/5 aspect-square rounded-2xl border-2 border-white/40"></div>
+                </div>
+                <!-- Frame congelado al detectar: feedback instantáneo "ya está, no lo muevas" -->
+                <canvas id="scanner-freeze" class="absolute inset-0 w-full h-full hidden object-cover"></canvas>
+                <!-- Anillo de foco al tocar la imagen -->
+                <div id="scanner-focus-ring"
+                    class="pointer-events-none absolute hidden w-16 h-16 -mt-8 -ml-8 rounded-full border-2 border-yellow-300">
+                </div>
+                <!-- Linterna: solo si la cámara la expone -->
+                <button id="scanner-torch-btn" title="Linterna"
+                    class="absolute top-3 right-3 hidden p-2 rounded-full bg-black/50 text-white backdrop-blur-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 2h6v3l-1.5 2v13a1.5 1.5 0 0 1-3 0V7L9 5z" />
+                    </svg>
+                </button>
                 <!-- Zoom Slider -->
                 <div class="absolute bottom-4 left-1/2 -translate-x-1/2 w-4/5">
                     <input id="zoom-slider" type="range" min="1" max="5" step="0.1" value="1"
@@ -3087,7 +3107,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.03</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.04</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3690,6 +3710,8 @@
             let handshakeShownInChat = false;
             let currentRpcIndex = 0;
             let html5QrCodeScanner = null;
+            // Re-dispara el autofoco cada tantos segundos mientras el escáner está abierto.
+            let scannerRefocusTimer = null;
             let notificationTimeout = null;
             let currentRestoreMode = 'privateKey';
             let optionsList = [];
@@ -10050,8 +10072,10 @@
                 // El primer arg debe tener EXACTAMENTE 1 clave. La resolución va en videoConstraints.
                 const buildConfig = (cameraSel) => ({
                     fps: 25, // más intentos de lectura por segundo
-                    // qrbox dinámico (~80% del lado menor) en vez de 300px fijo: lee QRs lejanos/chicos
-                    qrbox: (vw, vh) => { const m = Math.floor(Math.min(vw, vh) * 0.8); return { width: m, height: m }; },
+                    // SIN qrbox: el decoder mira el frame COMPLETO. El qrbox recorta, y medido con
+                    // cámara falsa un QR fuera del centro no se leía NUNCA (0/5) mientras que sin
+                    // recorte lee siempre (5/5, ~90ms). El encuadre ahora es una guía visual
+                    // (#scanner-guide) que no limita lo que se escanea.
                     aspectRatio: 1.0,
                     // Pedimos mayor resolución de cámara → más píxeles para QRs densos (tx firmada)
                     videoConstraints: { ...cameraSel, width: { ideal: 2560 }, height: { ideal: 1440 } },
@@ -10066,8 +10090,65 @@
                     const capabilities = track.getCapabilities ? track.getCapabilities() : {};
 
                     // Autofoco continuo explícito (si la cámara lo soporta): clave para QRs de cerca
-                    if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
+                    const hasContinuous = Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous');
+                    if (hasContinuous) {
                         track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => { });
+                    }
+
+                    // Medido con cámara falsa: el desenfoque tiene un acantilado neto (boxblur 5 lee
+                    // siempre, 6 no lee NUNCA, con cualquier decoder). O sea: si no está enfocado no
+                    // hay truco de software que lo salve. Todo lo de acá abajo ataca el foco.
+
+                    // 1) Tocar la imagen re-dispara el enfoque (el AF continuo se queda "clavado"
+                    //    a 15-25 cm, que es justo la distancia a la que se escanea un QR).
+                    const ring = document.getElementById('scanner-focus-ring');
+                    const refocus = (x, y) => {
+                        const adv = [];
+                        if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('single-shot')) {
+                            adv.push({ focusMode: 'single-shot' });
+                        }
+                        if (capabilities.pointsOfInterest && x != null) adv.push({ pointsOfInterest: [{ x, y }] });
+                        const done = () => {
+                            // Volver a continuo: single-shot deja el foco fijo donde quedó.
+                            if (hasContinuous) setTimeout(() => track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => { }), 800);
+                        };
+                        if (adv.length) track.applyConstraints({ advanced: adv }).then(done).catch(() => { });
+                        else if (hasContinuous) track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => { });
+                    };
+                    videoElement.style.cursor = 'crosshair';
+                    videoElement.addEventListener('click', (e) => {
+                        const r = videoElement.getBoundingClientRect();
+                        const nx = (e.clientX - r.left) / r.width, ny = (e.clientY - r.top) / r.height;
+                        refocus(nx, ny);
+                        if (ring) {
+                            const cr = document.getElementById('scanner-container').getBoundingClientRect();
+                            ring.style.left = (e.clientX - cr.left) + 'px';
+                            ring.style.top = (e.clientY - cr.top) + 'px';
+                            ring.classList.remove('hidden');
+                            clearTimeout(ring.__t);
+                            ring.__t = setTimeout(() => ring.classList.add('hidden'), 700);
+                        }
+                    });
+
+                    // 2) Si no leyó nada en unos segundos, re-disparar el foco solo: un AF que se
+                    //    quedó pegado no se recupera nunca por sí mismo y el usuario solo ve que
+                    //    "no lee".
+                    clearInterval(scannerRefocusTimer);
+                    scannerRefocusTimer = setInterval(() => refocus(), 2500);
+
+                    // 3) Linterna, si la cámara la expone: la mitad de los "no lee" son poca luz.
+                    const torchBtn = document.getElementById('scanner-torch-btn');
+                    if (torchBtn && capabilities.torch) {
+                        let on = false;
+                        torchBtn.classList.remove('hidden');
+                        torchBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            on = !on;
+                            track.applyConstraints({ advanced: [{ torch: on }] }).catch(() => { });
+                            torchBtn.classList.toggle('text-yellow-300', on);
+                        };
+                    } else if (torchBtn) {
+                        torchBtn.classList.add('hidden');
                     }
 
                     // Clonamos el slider para descartar listeners de aperturas anteriores (evita leak)
@@ -10120,13 +10201,33 @@
                     });
             }
 
-            function stopScanner() {
+            // Congela el último frame en un canvas encima del video. Es feedback puro: no acelera
+            // la lectura (medido: con imagen nítida cualquier decoder lee en <100ms), pero corta
+            // la duda de "¿lo leyó o sigo moviéndolo?" apenas detecta.
+            function freezeScannerFrame() {
+                const canvas = document.getElementById('scanner-freeze');
+                const video = document.querySelector('#qr-reader video');
+                if (!canvas || !video || !video.videoWidth) return;
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                try { canvas.getContext('2d').drawImage(video, 0, 0); } catch (e) { return; }
+                canvas.classList.remove('hidden');
+            }
+
+            // holdMs: deja la vista (con el frame congelado) unos ms más antes de cerrarla, para que
+            // el "ya lo leí" se vea. Sin esto el congelado dura lo que tarda stop() y no se percibe.
+            function stopScanner(holdMs = 0) {
+                clearInterval(scannerRefocusTimer);
+                scannerRefocusTimer = null;
                 // Ocultar la vista SIEMPRE: si la cámara nunca arrancó (permiso denegado,
                 // sin cámara) isScanning es false y antes el overlay quedaba atrapando al usuario.
-                const hideView = () => {
+                const hideView0 = () => {
                     scannerView.classList.add('hidden');
                     scannerView.classList.remove('flex');
+                    document.getElementById('scanner-freeze')?.classList.add('hidden');
+                    document.getElementById('scanner-guide')?.classList.remove('hidden');
                 };
+                const hideView = () => holdMs > 0 ? setTimeout(hideView0, holdMs) : hideView0();
                 if (html5QrCodeScanner && html5QrCodeScanner.isScanning) {
                     html5QrCodeScanner.stop().then(hideView).catch(err => {
                         console.error("Error al detener escáner:", err);
@@ -10138,7 +10239,12 @@
             }
 
             async function onScanSuccess(decodedText, decodedResult) {
-                stopScanner();
+                // Congelar ANTES de cortar la cámara: el frame leído queda a la vista mientras se
+                // apaga el stream, en vez del parpadeo a negro de antes.
+                freezeScannerFrame();
+                document.getElementById('scanner-guide')?.classList.add('hidden');
+                try { navigator.vibrate?.(60); } catch (e) { }
+                stopScanner(260);
                 playQRscanned();
                 document.getElementById('scanned-data').textContent = decodedText;
                 document.getElementById('scanned-result').style.display = 'block';
