@@ -1403,7 +1403,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.02 alpha</p>
+            <p class="text-sm text-gray-400">v 2.03 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1729,8 +1729,10 @@
                             </div>
                         </div>
                         <!-- Balance Display with Token Selector -->
-                        <div class="relative text-center w-full max-w-xs mt-6">
-                            <div class="flex items-center justify-center space-x-2">
+                        <!-- max-w-sm + botones compactos: con tres controles al lado del saldo, en
+                             un móvil de 390px el monto se partía en dos líneas (medido por CDP). -->
+                        <div class="relative text-center w-full max-w-sm mt-6">
+                            <div class="flex items-center justify-center space-x-1">
                                 <button id="tokenSelectorToggle"
                                     class="text-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors">
                                     <p id="chainNameDisplay" class="text-gray-400 text-sm"></p>
@@ -1744,11 +1746,27 @@
                                     </div>
                                 </button>
                                 <button id="manualBalanceRefresh" title="Refrescar Balance"
-                                    class="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-700/50 transition-colors">
+                                    class="p-1 text-gray-400 hover:text-white rounded-full hover:bg-gray-700/50 transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor"
                                         class="h-4 w-4">
                                         <path
                                             d="M129.9 292.5C143.2 199.5 223.3 128 320 128C373 128 421 149.5 455.8 184.2C456 184.4 456.2 184.6 456.4 184.8L464 192L416.1 192C398.4 192 384.1 206.3 384.1 224C384.1 241.7 398.4 256 416.1 256L544.1 256C561.8 256 576.1 241.7 576.1 224L576.1 96C576.1 78.3 561.8 64 544.1 64C526.4 64 512.1 78.3 512.1 96L512.1 149.4L500.8 138.7C454.5 92.6 390.5 64 320 64C191 64 84.3 159.4 66.6 283.5C64.1 301 76.2 317.2 93.7 319.7C111.2 322.2 127.4 310 129.9 292.6zM573.4 356.5C575.9 339 563.7 322.8 546.3 320.3C528.9 317.8 512.6 330 510.1 347.4C496.8 440.4 416.7 511.9 320 511.9C267 511.9 219 490.4 184.2 455.7C184 455.5 183.8 455.3 183.6 455.1L176 447.9L223.9 447.9C241.6 447.9 255.9 433.6 255.9 415.9C255.9 398.2 241.6 383.9 223.9 383.9L96 384C87.5 384 79.3 387.4 73.3 393.5C67.3 399.6 63.9 407.7 64 416.3L65 543.3C65.1 561 79.6 575.2 97.3 575C115 574.8 129.2 560.4 129 542.7L128.6 491.2L139.3 501.3C185.6 547.4 249.5 576 320 576C449 576 555.7 480.6 573.4 356.5z" />
+                                    </svg>
+                                </button>
+                                <button id="hideBalanceBtn" title="Ocultar saldo"
+                                    class="p-1 text-gray-400 hover:text-white rounded-full hover:bg-gray-700/50 transition-colors">
+                                    <svg id="hideBalanceIconOpen" xmlns="http://www.w3.org/2000/svg" width="18"
+                                        height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                    <svg id="hideBalanceIconOff" xmlns="http://www.w3.org/2000/svg" width="18"
+                                        height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        class="hidden">
+                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-8-10-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                                        <line x1="1" y1="1" x2="23" y2="23" />
                                     </svg>
                                 </button>
                             </div>
@@ -3040,9 +3058,36 @@
                     Abrir Gestor de Redes
                 </button>
 
+                <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_privacy_title">
+                    Pantalla y privacidad</h2>
+                <div class="space-y-3">
+                    <div class="flex items-start gap-3">
+                        <input type="checkbox" id="openOnLastPaidToggle"
+                            class="mt-1 w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 bg-gray-700">
+                        <label for="openOnLastPaidToggle" class="cursor-pointer select-none">
+                            <span class="text-sm text-gray-200"
+                                data-i18n-key="settings_open_on_last_paid">Abrir en la red del último cobro</span>
+                            <span class="block text-xs text-gray-500"
+                                data-i18n-key="settings_open_on_last_paid_desc">Al abrir la wallet ves la red, el token
+                                y el saldo donde te pagaron la última vez.</span>
+                        </label>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <input type="checkbox" id="hideBalanceToggle"
+                            class="mt-1 w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 bg-gray-700">
+                        <label for="hideBalanceToggle" class="cursor-pointer select-none">
+                            <span class="text-sm text-gray-200" data-i18n-key="settings_hide_balance">Ocultar el
+                                saldo</span>
+                            <span class="block text-xs text-gray-500" data-i18n-key="settings_hide_balance_desc">Muestra
+                                •••• en vez del monto. También se prende y apaga con el ojo, al lado del saldo.</span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.02</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.03</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3792,6 +3837,28 @@
             const NETWORKS_STORAGE_KEY = 'xmtp-chat-networks';
             const SELECTED_NETWORK_KEY = 'xmtp-chat-selected-network';
 
+            // --- Último cobro: la wallet abre en la red/token donde te pagaron último ---
+            // Un par red+token se identifica por chainId + contrato (o 'native') + nombre. El ÍNDICE
+            // no sirve como identidad: cambia si se agrega o borra una red del gestor.
+            const netId = (n) => `${n.TOKEN_CHAINID}|${(n.TOKEN_ADDRESS || 'native').toLowerCase()}|${n.TOKEN_CHAIN_NAME}`;
+            // Resuelve un id guardado a un índice de optionsList. Si le cambiaron el nombre a la red,
+            // reintenta por chainId + contrato antes de darse por vencido.
+            function findNetIndexById(id) {
+                if (!id) return -1;
+                let idx = optionsList.findIndex(n => netId(n) === id);
+                if (idx >= 0) return idx;
+                const [chainId, token] = String(id).split('|');
+                return optionsList.findIndex(n =>
+                    String(n.TOKEN_CHAINID) === chainId &&
+                    (n.TOKEN_ADDRESS || 'native').toLowerCase() === token);
+            }
+            const LAST_PAID_KEY = () => `cw-last-paid-${currentWallet?.address?.toLowerCase()}`;
+            const BAL_SNAP_KEY = () => `cw-bal-snapshot-${currentWallet?.address?.toLowerCase()}`;
+            const OPEN_ON_LAST_PAID_KEY = 'cw-open-on-last-paid';   // '1' (default) | '0'
+            // Cuándo elegiste una red A MANO: si es más nuevo que el último cobro, gana tu elección.
+            const NET_PICKED_AT_KEY = 'cw-net-picked-at';
+            const HIDE_BALANCE_KEY = () => `cw-hide-balance-${currentWallet?.address?.toLowerCase()}`;
+
             // --- DOM Elements ---
             const createWalletButton = document.getElementById('createWalletButton');
             const forgetWalletButton = document.getElementById('forgetWalletButton');
@@ -4346,6 +4413,20 @@
 
                 // --- Stage 1: Core Wallet UI (Always runs) ---
                 currentWallet = wallet;
+
+                // La wallet abre donde cobraste último. Va acá y no en init() porque la clave es
+                // por-wallet: recién ahora se conoce la dirección. Y va ANTES del provider para que
+                // updateBalance() salga con la red correcta, sin parpadeo ni doble fetch.
+                if (localStorage.getItem(OPEN_ON_LAST_PAID_KEY) !== '0') {
+                    const lp = getLastPaid();
+                    const pickedAt = parseInt(localStorage.getItem(NET_PICKED_AT_KEY) || '0', 10);
+                    const idx = (lp && lp.ts > pickedAt) ? findNetIndexById(lp.id) : -1;
+                    if (idx >= 0) {
+                        currentTokenIndex = idx;
+                        localStorage.setItem(SELECTED_NETWORK_KEY, String(idx));
+                    }
+                }
+
                 const selectedNetwork = optionsList[currentTokenIndex];
                 provider = new window.ethers.JsonRpcProvider(selectedNetwork.API);
                 userAddress = wallet.address;
@@ -4374,6 +4455,10 @@
                 updateWalletUI(wallet, isNewWallet);
                 updateBackupNagBanner();
                 updateBalance(); // Moved to run regardless of XMTP status
+                syncHideBalanceUI();
+                // Escaneo de cobros: en background y sin await, para que un RPC lento o caído no
+                // demore el pintado de la wallet.
+                scanForIncomingPayments().catch(e => console.warn('[scan] falló el escaneo de cobros:', e));
 
                 appHeader.classList.remove('hidden');
                 appHeader.classList.add('flex');
@@ -4619,7 +4704,7 @@
 
                 if (nextApi === selectedNetwork.rpc[0]) { // Si hemos completado un ciclo
                     console.error("Se han probado todos los RPCs para esta red. No se puede conectar.");
-                    balanceDisplay.textContent = `Error de conexión`;
+                    setBalanceText('main', `Error de conexión`);
                     return;
                 }
 
@@ -4628,17 +4713,80 @@
                 provider = new window.ethers.JsonRpcProvider(selectedNetwork.API);
                 await updateBalance(); // Reintentar con el nuevo provider
             }
+            // --- Saldos: el fetch guarda el valor real acá y el pintado pasa SIEMPRE por
+            // renderBalances(). Si el ojito enmascarara el DOM directo, el próximo updateBalance()
+            // (refresh, cambio de red, pago entrante) lo des-enmascararía solo.
+            let lastBalances = { main: null, gas: null, smart: null };
+            const balanceSlots = () => ({ main: balanceDisplay, gas: gasBalanceValue, smart: smartWalletBalanceValue });
+
+            function isBalanceHidden() {
+                return currentWallet && localStorage.getItem(HIDE_BALANCE_KEY()) === '1';
+            }
+
+            function renderBalances() {
+                const hide = isBalanceHidden();
+                const slots = balanceSlots();
+                for (const k in slots) {
+                    const el = slots[k];
+                    const val = lastBalances[k];
+                    if (!el || val === null || val === undefined) continue;
+                    // Solo se enmascara lo que es un monto: '---', 'N/A' o 'Error CWLT' se muestran
+                    // tal cual (esconder un error no protege nada y confunde).
+                    el.textContent = (hide && /^[\d.,]/.test(val)) ? '••••' : val;
+                }
+            }
+
+            function setBalanceText(slot, text) {
+                lastBalances[slot] = text;
+                renderBalances();
+            }
+
+            // Mantiene el ícono del ojo y el switch de Configuración en sintonía con el estado real.
+            function syncHideBalanceUI() {
+                const hidden = isBalanceHidden();
+                document.getElementById('hideBalanceIconOpen')?.classList.toggle('hidden', hidden);
+                document.getElementById('hideBalanceIconOff')?.classList.toggle('hidden', !hidden);
+                const btn = document.getElementById('hideBalanceBtn');
+                if (btn) btn.title = hidden ? t('settings_show_balance') : t('settings_hide_balance');
+                const sw = document.getElementById('hideBalanceToggle');
+                if (sw) sw.checked = hidden;
+                renderBalances();
+            }
+
+            function toggleHideBalance() {
+                if (!currentWallet) return;
+                const next = isBalanceHidden() ? '0' : '1';
+                localStorage.setItem(HIDE_BALANCE_KEY(), next);
+                syncHideBalanceUI();
+            }
+
+            document.getElementById('hideBalanceBtn')?.addEventListener('click', (e) => {
+                e.stopPropagation();   // el saldo vive dentro del botón que abre el selector de red
+                toggleHideBalance();
+            });
+
+            document.getElementById('hideBalanceToggle')?.addEventListener('change', toggleHideBalance);
+
+            // "Abrir en la red del último cobro": global (no por-wallet) y prendido por defecto.
+            const openOnLastPaidToggle = document.getElementById('openOnLastPaidToggle');
+            if (openOnLastPaidToggle) {
+                openOnLastPaidToggle.checked = localStorage.getItem(OPEN_ON_LAST_PAID_KEY) !== '0';
+                openOnLastPaidToggle.addEventListener('change', () => {
+                    localStorage.setItem(OPEN_ON_LAST_PAID_KEY, openOnLastPaidToggle.checked ? '1' : '0');
+                });
+            }
+
             // --- Transacciones con Ethers.js ---
             async function updateBalance() {
                 if (isOffline) {
-                    balanceDisplay.textContent = '---';
-                    gasBalanceValue.textContent = '---';
-                    smartWalletBalanceValue.textContent = '---';
+                    setBalanceText('main', '---');
+                    setBalanceText('gas', '---');
+                    setBalanceText('smart', '---');
                     return;
                 }
                 if (!provider || !currentWallet) {
-                    balanceDisplay.textContent = 'N/A';
-                    gasBalanceValue.textContent = 'N/A';
+                    setBalanceText('main', 'N/A');
+                    setBalanceText('gas', 'N/A');
                     return;
                 };
 
@@ -4654,7 +4802,7 @@
                     console.log("native balance:", nativeBalanceFormatted);
 
 
-                    gasBalanceValue.textContent = `${nativeBalanceFormatted} ${nativeSymbol}`;
+                    setBalanceText('gas', `${nativeBalanceFormatted} ${nativeSymbol}`);
                     gasBalanceValue.classList.toggle('text-red-400', parseFloat(nativeBalanceFormatted) < 0.001);
                     localStorage.setItem('currentRpcIndex', currentRpcIndex); // Guardar el RPC que funcionó
                     // localStorage.setItem('currentRpcIndex', currentRpcIndex); // Guardar el RPC que funcionó
@@ -4683,19 +4831,19 @@
                         // const formattedBalance = parseFloat(ethers.formatUnits(balanceWei, decimals)).toFixed(4);
                         console.log("erc20 balance:", formattedBalance);
 
-                        balanceDisplay.textContent = `${formattedBalance} ${tokenLabel}`;
+                        setBalanceText('main', `${formattedBalance} ${tokenLabel}`);
                         // El modal de envío muestra el saldo del TOKEN que se va a enviar (no el gas nativo)
                         setModalBalance(formattedBalance, tokenLabel, false);
 
                     } catch (tokenError) {
                         console.error("Error fetching token balance:", tokenError);
-                        balanceDisplay.textContent = `Error ${tokenLabel}`;
+                        setBalanceText('main', `Error ${tokenLabel}`);
                     }
 
                 } else {
                     // Es el token nativo
                     gasBalanceDisplay.classList.add('hidden');
-                    balanceDisplay.textContent = `${nativeBalanceFormatted} ${nativeSymbol}`;
+                    setBalanceText('main', `${nativeBalanceFormatted} ${nativeSymbol}`);
                     // Token nativo: es gasable, así que MAX reserva un poco para el gas
                     setModalBalance(nativeBalanceFormatted, nativeSymbol, true);
                 }
@@ -4718,20 +4866,143 @@
                         const formattedBalance = parseFloat(ethers.formatUnits(balanceWei, 18)).toFixed(2);
                         console.log("smart account balance:", formattedBalance, "at", targetAddr);
 
-                        smartWalletBalanceValue.textContent = `${formattedBalance} CWLT`;
-                        
+                        setBalanceText('smart', `${formattedBalance} CWLT`);
+
                         // Mostrar dirección de Smart Account en un tooltip o texto pequeño
                         if (currentWallet.smartAddress) {
                             smartWalletBalanceValue.title = `SmartAccount: ${currentWallet.smartAddress}`;
                         }
                     } catch (cwError) {
                         console.error("Error fetching ChatWallet token balance:", cwError);
-                        smartWalletBalanceValue.textContent = `Error CWLT`;
+                        setBalanceText('smart', `Error CWLT`);
                     }
                 }
             }
 
+            // --- ÚLTIMO COBRO ------------------------------------------------------------------
+            // Registra dónde te pagaron último para que la wallet abra ahí la próxima vez.
+            // Con la wallet abierta NO cambia la vista sola (podés estar por firmar un envío):
+            // solo avisa con un toast que lleva a esa red de un toque.
 
+            // El link "Ver" del toast necesita un handler global (el toast se pinta con innerHTML).
+            window.__cwGoToNet = (id) => {
+                const idx = findNetIndexById(id);
+                if (idx >= 0) switchNetwork(idx);
+            };
+
+            function getLastPaid() {
+                if (!currentWallet) return null;
+                try { return JSON.parse(localStorage.getItem(LAST_PAID_KEY()) || 'null'); } catch (e) { return null; }
+            }
+
+            function recordIncomingPayment(net, { amount, symbol, source } = {}) {
+                if (!net || !currentWallet) return;
+                const ts = Date.now();
+                const prev = getLastPaid();
+                // El escaneo ve TAMBIÉN el cobro que ya entró por el chat (le subió el saldo): si el
+                // chat lo registró recién, no lo dupliques ni avises dos veces.
+                if (source === 'scan' && prev && (ts - prev.ts) < 5 * 60 * 1000) return;
+                const entry = {
+                    id: netId(net),
+                    chainName: net.TOKEN_CHAIN_NAME,
+                    symbol: symbol || net.TOKEN_SYMBOL || net.NATIVE_SYMBOL || '',
+                    amount: amount ?? null,
+                    ts,
+                    source: source || 'chat'
+                };
+                try { localStorage.setItem(LAST_PAID_KEY(), JSON.stringify(entry)); } catch (e) { }
+
+                const current = optionsList[currentTokenIndex];
+                if (current && netId(current) === entry.id) return;   // ya estás mirando esa red
+                const monto = (entry.amount !== null && entry.amount !== undefined)
+                    ? `${entry.amount} ${entry.symbol}` : entry.symbol;
+                // El toast se pinta con innerHTML y el texto lleva el NOMBRE de la red, que lo
+                // escribe el usuario al dar de alta una red custom: se escapa. El id de la red va
+                // por un listener (no por un onclick inline) para no tener que escaparlo dos veces.
+                const esc = (s) => String(s).replace(/[&<>"']/g, c =>
+                    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+                showToast(
+                    `${esc(t('toast_paid_on_network', { amount: monto, net: entry.chainName }))} ` +
+                    `<a href="#" id="cwToastGoto" class="underline font-semibold">${esc(t('toast_go_to_net'))}</a>`,
+                    'success', 7000);
+                document.getElementById('cwToastGoto')?.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    window.__cwGoToNet(entry.id);
+                });
+            }
+
+            // Escaneo de saldos: cubre los cobros que NO llegan por el chat (un exchange, otra
+            // wallet). No hay evento on-chain que escuche una wallet sin backend, así que se
+            // compara el saldo actual contra un snapshot guardado: si subió, ahí te pagaron.
+            let lastScanAt = 0;
+            async function scanForIncomingPayments() {
+                if (!currentWallet || isOffline || !Array.isArray(optionsList) || !optionsList.length) return;
+                if (Date.now() - lastScanAt < 60000) return;   // throttle: el resume dispara seguido
+                lastScanAt = Date.now();
+
+                // Favoritas + la red actual, sin repetir, con tope para no ametrallar RPCs.
+                const targets = [];
+                const seen = new Set();
+                for (const net of optionsList.filter(n => n.isFavorite).concat([optionsList[currentTokenIndex]])) {
+                    if (!net || !net.API) continue;
+                    const id = netId(net);
+                    if (seen.has(id)) continue;
+                    seen.add(id);
+                    targets.push(net);
+                    if (targets.length >= 8) break;
+                }
+                if (!targets.length) return;
+
+                let snap = {};
+                try { snap = JSON.parse(localStorage.getItem(BAL_SNAP_KEY()) || '{}') || {}; } catch (e) { }
+
+                const results = await Promise.allSettled(targets.map(async (net) => {
+                    const prov = new window.ethers.JsonRpcProvider(net.API);
+                    let raw, dec = 18;
+                    if (net.TOKEN_ADDRESS && ethers.isAddress(net.TOKEN_ADDRESS)) {
+                        // Las redes no guardan los decimales del token: se preguntan al contrato,
+                        // igual que hace updateBalance().
+                        const c = new ethers.Contract(net.TOKEN_ADDRESS, erc20Abi, prov);
+                        const [b, d] = await withTimeout(Promise.all([
+                            c.balanceOf(currentWallet.address), c.decimals()
+                        ]), 6000, `scan ${net.TOKEN_CHAIN_NAME}`);
+                        raw = b; dec = Number(d);
+                    } else {
+                        raw = await withTimeout(prov.getBalance(currentWallet.address), 6000, `scan ${net.TOKEN_CHAIN_NAME}`);
+                    }
+                    return { net, raw: raw.toString(), dec };
+                }));
+
+                const grew = [];
+                let dirty = false;
+                results.forEach((r) => {
+                    if (r.status !== 'fulfilled') return;
+                    const { net, raw, dec } = r.value;
+                    const id = netId(net);
+                    const prev = snap[id];
+                    // Sin snapshot previo solo se siembra: si no, el PRIMER arranque inventaría un
+                    // "cobro" en cada red que tenga saldo.
+                    if (prev && BigInt(raw) > BigInt(prev.raw)) {
+                        grew.push({ net, dec, delta: BigInt(raw) - BigInt(prev.raw) });
+                    }
+                    snap[id] = { raw, ts: Date.now() };
+                    dirty = true;
+                });
+
+                if (dirty) { try { localStorage.setItem(BAL_SNAP_KEY(), JSON.stringify(snap)); } catch (e) { } }
+                if (!grew.length) return;
+
+                // Si subieron varias no hay forma de saber cuál llegó última (esto no lee el
+                // explorer): gana la primera en el orden de la lista, o sea la favorita más arriba.
+                const winner = grew[0];
+                let amount = null;
+                try { amount = parseFloat(ethers.formatUnits(winner.delta, winner.dec)); } catch (e) { }
+                recordIncomingPayment(winner.net, {
+                    amount,
+                    symbol: winner.net.TOKEN_SYMBOL || winner.net.NATIVE_SYMBOL,
+                    source: 'scan'
+                });
+            }
 
             recipientAddressInput.addEventListener('input', () => {
                 const recipient = recipientAddressInput.value.trim();
@@ -5067,6 +5338,9 @@
                 }
                 currentTokenIndex = index;
                 localStorage.setItem(SELECTED_NETWORK_KEY, currentTokenIndex.toString());
+                // Elegir una red a mano es intención explícita: si es posterior al último cobro,
+                // la próxima apertura respeta esto y no vuelve sola a la red donde te pagaron.
+                localStorage.setItem(NET_PICKED_AT_KEY, String(Date.now()));
                 const selectedNetwork = optionsList[currentTokenIndex];
 
                 // Update stealth registry address if applicable
@@ -5089,7 +5363,7 @@
 
                 tokenSelectorMenu.classList.add('hidden');
                 if (sendModalTokenMenu) sendModalTokenMenu.classList.add('hidden');
-                balanceDisplay.textContent = 'Cargando...';
+                setBalanceText('main', 'Cargando...');
 
                 renderTokenMenu();
                 renderAndBindSendModalMenu();
@@ -7795,6 +8069,29 @@
 
                                 if (!isSentByMe && typeof message.content === 'string' && message.content.startsWith('[TRANSACTION]')) {
                                     console.log('Incoming transaction detected, refreshing balance.');
+                                    // El emisor manda su objeto de red completo: eso identifica
+                                    // exactamente en qué red/token te pagaron. Se registra para que
+                                    // la wallet abra ahí la próxima vez.
+                                    try {
+                                        const txData = JSON.parse(message.content.replace('[TRANSACTION]', ''));
+                                        if (txData.type === 'send') {
+                                            const chainId = txData.network?.TOKEN_CHAINID ?? txData.chainId;
+                                            const token = (txData.network?.TOKEN_ADDRESS || '').toLowerCase();
+                                            // Se mapea a MI entrada de esa red: la del emisor puede
+                                            // tener otro nombre/RPC, y si no la tengo dada de alta no
+                                            // puedo abrir ahí.
+                                            const mine = optionsList.find(n =>
+                                                String(n.TOKEN_CHAINID) === String(chainId) &&
+                                                (n.TOKEN_ADDRESS || '').toLowerCase() === token);
+                                            if (mine) {
+                                                recordIncomingPayment(mine, {
+                                                    amount: txData.amount,
+                                                    symbol: mine.TOKEN_SYMBOL || mine.NATIVE_SYMBOL,
+                                                    source: 'chat'
+                                                });
+                                            }
+                                        }
+                                    } catch (e) { console.warn('No se pudo registrar el cobro entrante:', e); }
                                     await updateBalance();
                                 }
 
@@ -9525,6 +9822,8 @@
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden) return;
                 resyncMessages();
+                // Al volver del background puede haber entrado un cobro on-chain sin mensaje de chat.
+                scanForIncomingPayments().catch(e => console.warn('[scan] falló el escaneo de cobros:', e));
                 if (window.__updateRefreshBtn) window.__updateRefreshBtn();
             });
             window.addEventListener('focus', () => { if (!document.hidden) resyncMessages(); });
@@ -12043,6 +12342,9 @@
 
                 try {
                     await updateBalance();
+                    // Refrescar a mano también revisa si entró un cobro en otra red.
+                    lastScanAt = 0;   // el botón es explícito: saltea el throttle
+                    scanForIncomingPayments().catch(err => console.warn('[scan] falló el escaneo de cobros:', err));
                 } finally {
                     // Keep spinning for a minimum time for visual feedback
                     setTimeout(() => {
@@ -12720,6 +13022,14 @@
                     "wc_pay_sent": "Pago enviado",
                     "wc_err_funds": "Fondos insuficientes para cubrir el pago + gas en esta red.",
                     "wc_err_rejected": "Cancelaste la firma.",
+                    "settings_privacy_title": "Pantalla y privacidad",
+                    "settings_open_on_last_paid": "Abrir en la red del último cobro",
+                    "settings_open_on_last_paid_desc": "Al abrir la wallet ves la red, el token y el saldo donde te pagaron la última vez.",
+                    "settings_hide_balance": "Ocultar el saldo",
+                    "settings_hide_balance_desc": "Muestra •••• en vez del monto. También se prende y apaga con el ojo, al lado del saldo.",
+                    "settings_show_balance": "Mostrar el saldo",
+                    "toast_paid_on_network": "💰 Cobraste {amount} en {net}.",
+                    "toast_go_to_net": "Ver",
                     "settings_version_label": "Versión",
                     "settings_github_link": "Ver en GitHub"
                 },
@@ -12830,6 +13140,14 @@
                     "wc_pay_sent": "Payment sent",
                     "wc_err_funds": "Not enough funds to cover the payment + gas on this network.",
                     "wc_err_rejected": "You cancelled the signature.",
+                    "settings_privacy_title": "Display and privacy",
+                    "settings_open_on_last_paid": "Open on the network of your last payment",
+                    "settings_open_on_last_paid_desc": "When you open the wallet you see the network, token and balance where you were last paid.",
+                    "settings_hide_balance": "Hide the balance",
+                    "settings_hide_balance_desc": "Shows •••• instead of the amount. You can also toggle it with the eye next to the balance.",
+                    "settings_show_balance": "Show the balance",
+                    "toast_paid_on_network": "💰 You received {amount} on {net}.",
+                    "toast_go_to_net": "View",
                     "settings_version_label": "Version",
                     "settings_github_link": "View on GitHub"
                 },
@@ -12940,6 +13258,14 @@
                     "wc_err_rejected": "Vous avez annulé la signature.",
                     "wc_res_rejected": "rejetée",
                     "wc_res_error": "erreur",
+                    "settings_privacy_title": "Affichage et confidentialité",
+                    "settings_open_on_last_paid": "Ouvrir sur le réseau du dernier paiement reçu",
+                    "settings_open_on_last_paid_desc": "À l'ouverture du portefeuille, vous voyez le réseau, le jeton et le solde où vous avez été payé la dernière fois.",
+                    "settings_hide_balance": "Masquer le solde",
+                    "settings_hide_balance_desc": "Affiche •••• au lieu du montant. L'œil à côté du solde fait la même chose.",
+                    "settings_show_balance": "Afficher le solde",
+                    "toast_paid_on_network": "💰 Vous avez reçu {amount} sur {net}.",
+                    "toast_go_to_net": "Voir",
                     "settings_version_label": "Version",
                     "settings_github_link": "Voir sur GitHub"
                 }
@@ -12978,6 +13304,8 @@
                 });
                 translateUI(lang);
                 if (typeof renderChatBackupStatus === 'function') renderChatBackupStatus();
+                // El title del ojo es dinámico (cambia con el estado), translateUI no lo toca.
+                if (typeof syncHideBalanceUI === 'function') syncHideBalanceUI();
             }
 
             function initializeLanguage() {
