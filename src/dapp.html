@@ -1324,6 +1324,36 @@
             object-fit: cover;
         }
 
+        /* html5-qrcode inserta el <video> ~70ms ANTES de tener stream, y sin estilar mide
+           358x150: el WebView de Android pinta ahí su placeholder con el botón de play
+           estirado. Medido por CDP: video insertado a los 188ms, primer frame a los 261ms.
+           Se estira al contenedor y se mantiene invisible hasta que reproduce de verdad. */
+        #qr-reader video {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover;
+            display: block;
+            background: #000;
+            opacity: 0;
+            transition: opacity .18s ease-out;
+        }
+
+        #scanner-container.cam-ready #qr-reader video {
+            opacity: 1;
+        }
+
+        #scanner-container.cam-ready #scanner-booting {
+            display: none;
+        }
+
+        @keyframes cw-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #scanner-booting .spinner {
+            animation: cw-spin 0.9s linear infinite;
+        }
+
         #zoom-slider {
             -webkit-appearance: none;
             width: 80%;
@@ -1403,7 +1433,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.04 alpha</p>
+            <p class="text-sm text-gray-400">v 2.05 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2252,6 +2282,15 @@
             <div id="scanner-container"
                 class="relative w-full max-w-sm aspect-square bg-gray-700 rounded-2xl overflow-hidden">
                 <div id="qr-reader" class="w-full"></div>
+                <!-- Tapa el hueco entre que se inserta el <video> y llega el primer frame -->
+                <div id="scanner-booting"
+                    class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gray-800 text-gray-400">
+                    <svg class="spinner" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    <span class="text-xs" data-i18n-key="scanner_booting">Encendiendo la cámara…</span>
+                </div>
                 <!-- Guía de encuadre: SOLO decorativa. El decoder mira el frame COMPLETO
                      (antes el qrbox recortaba al 80% y un QR fuera del centro no se leía nunca). -->
                 <div id="scanner-guide"
@@ -2283,7 +2322,18 @@
                 <h3 class="font-bold mb-2">Contenido Escaneado:</h3>
                 <p id="scanned-data" class="break-all"></p>
             </div>
-            <button id="closeScannerBtn" class="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg">Cancelar</button>
+            <div class="mt-4 flex items-center gap-3">
+                <button id="scanCaptureBtn"
+                    class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold"
+                    data-i18n-key="scanner_capture">📸 Capturar y analizar</button>
+                <button id="closeScannerBtn" class="px-6 py-2 bg-red-600 text-white rounded-lg"
+                    data-i18n-key="scanner_cancel">Cancelar</button>
+            </div>
+            <!-- Contenedor mudo que html5-qrcode necesita para decodificar una imagen suelta -->
+            <div id="qr-file-reader" class="hidden"></div>
+            <p id="scanCaptureHint" class="mt-2 text-xs text-gray-400 text-center max-w-sm"
+                data-i18n-key="scanner_capture_hint">¿No lo lee? Tocá la imagen para enfocar, o capturá: analiza la
+                foto a máxima resolución y con el contraste normalizado.</p>
         </div>
 
         <!-- Modal Confirmar Transaccion -->
@@ -3107,7 +3157,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.04</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.05</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3712,6 +3762,8 @@
             let html5QrCodeScanner = null;
             // Re-dispara el autofoco cada tantos segundos mientras el escáner está abierto.
             let scannerRefocusTimer = null;
+            // Intento periódico de captura-y-análisis mientras el bucle en vivo no logra leer.
+            let scannerAutoCaptureTimer = null;
             let notificationTimeout = null;
             let currentRestoreMode = 'privateKey';
             let optionsList = [];
@@ -9353,7 +9405,10 @@
                 const qrBg = isLightTheme ? "#ffffff" : "#111828";
                 const qrCode = new QRCodeStyling({
                     width: 370, height: 370,
-                    margin: isLightTheme ? 14 : 0,
+                    // La zona de silencio va SIEMPRE, también en oscuro: la norma pide ~4 módulos
+                    // de margen y sin eso los patrones de esquina quedan pegados al borde, que es
+                    // justo lo que hace fallar a lectores de otras apps.
+                    margin: 14,
                     data: chatUrl,
                     dotsOptions: { color: qrColor, type: "rounded" },
                     backgroundOptions: { color: qrBg },
@@ -10066,6 +10121,9 @@
                 document.getElementById('scanned-result').style.display = 'none';
                 scannerView.classList.remove('hidden');
                 scannerView.classList.add('flex');
+                // Arranca "no lista": el video queda invisible detrás del cartel de encendido
+                // hasta que llega el primer frame (si no, se ve el placeholder de play del WebView).
+                document.getElementById('scanner-container')?.classList.remove('cam-ready');
                 html5QrCodeScanner = new Html5Qrcode("qr-reader");
                 const zoomSlider = document.getElementById('zoom-slider');
 
@@ -10086,6 +10144,10 @@
                 const setupVideo = () => {
                     const videoElement = document.querySelector('#qr-reader video');
                     if (!videoElement) return;
+                    // Ya hay imagen: revelar el video y sacar el cartel de "encendiendo".
+                    const reveal = () => document.getElementById('scanner-container')?.classList.add('cam-ready');
+                    if (videoElement.readyState >= 2) reveal();
+                    videoElement.addEventListener('playing', reveal, { once: true });
                     const track = videoElement.srcObject.getVideoTracks()[0];
                     const capabilities = track.getCapabilities ? track.getCapabilities() : {};
 
@@ -10135,6 +10197,16 @@
                     //    "no lee".
                     clearInterval(scannerRefocusTimer);
                     scannerRefocusTimer = setInterval(() => refocus(), 2500);
+
+                    // 2b) Y cada 4s, un intento silencioso de captura-y-análisis: le da al QR
+                    //     difícil (poco contraste, denso) un tiro a resolución nativa y con el
+                    //     contraste normalizado, sin que el usuario tenga que hacer nada.
+                    clearInterval(scannerAutoCaptureTimer);
+                    scannerAutoCaptureTimer = setInterval(async () => {
+                        if (!html5QrCodeScanner || !html5QrCodeScanner.isScanning) return;
+                        const txt = await captureAndAnalyze(true);
+                        if (txt) onScanSuccess(txt, null);
+                    }, 4000);
 
                     // 3) Linterna, si la cámara la expone: la mitad de los "no lee" son poca luz.
                     const torchBtn = document.getElementById('scanner-torch-btn');
@@ -10201,6 +10273,115 @@
                     });
             }
 
+            // --- CAPTURAR Y ANALIZAR -----------------------------------------------------------
+            // El bucle en vivo mira ~25 frames por segundo del PREVIEW (que viene reducido) y no
+            // puede gastar tiempo en cada uno. Una captura suelta sí: se toma el frame a la
+            // resolución nativa del track y se le prueban varias versiones procesadas. La que más
+            // aporta es la de contraste normalizado: el QR de la app en tema oscuro vive en una
+            // franja de luminancia 23..83 (2.35:1 medido) y estirarla a 0..255 le da al decoder el
+            // blanco y negro que espera.
+            function cwStretchContrast(img) {
+                const d = img.data;
+                let min = 255, max = 0;
+                for (let i = 0; i < d.length; i += 4 * 37) {
+                    const l = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+                    if (l < min) min = l;
+                    if (l > max) max = l;
+                }
+                const span = Math.max(1, max - min);
+                for (let i = 0; i < d.length; i += 4) {
+                    const l = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+                    const v = Math.max(0, Math.min(255, ((l - min) * 255) / span));
+                    d[i] = d[i + 1] = d[i + 2] = v;
+                }
+                return img;
+            }
+
+            function cwInvert(img) {
+                const d = img.data;
+                for (let i = 0; i < d.length; i += 4) {
+                    d[i] = 255 - d[i]; d[i + 1] = 255 - d[i + 1]; d[i + 2] = 255 - d[i + 2];
+                }
+                return img;
+            }
+
+            // Decodifica un canvas. BarcodeDetector nativo si está (lo hay en el WebView del APK);
+            // si no, html5-qrcode en modo archivo, con UNA instancia aparte para no pisar la que
+            // está usando la cámara.
+            let cwFileScanner = null;
+            async function cwDecodeCanvas(canvas) {
+                if ('BarcodeDetector' in window) {
+                    try {
+                        const det = new BarcodeDetector({ formats: ['qr_code'] });
+                        const codes = await det.detect(canvas);
+                        if (codes && codes.length) return codes[0].rawValue;
+                    } catch (e) { }
+                }
+                try {
+                    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+                    if (!blob) return null;
+                    if (!cwFileScanner) cwFileScanner = new Html5Qrcode("qr-file-reader", { verbose: false });
+                    const file = new File([blob], 'frame.png', { type: 'image/png' });
+                    const res = await cwFileScanner.scanFileV2(file, false);
+                    return res?.decodedText || null;
+                } catch (e) { return null; }
+            }
+
+            let cwAnalyzing = false;
+            async function captureAndAnalyze(silent = false) {
+                if (cwAnalyzing) return null;
+                const video = document.querySelector('#qr-reader video');
+                if (!video || !video.videoWidth) return null;
+                cwAnalyzing = true;
+                const hint = document.getElementById('scanCaptureHint');
+                const hintPrev = hint ? hint.textContent : '';
+                try {
+                    if (!silent) {
+                        freezeScannerFrame();
+                        if (hint) hint.textContent = t('scanner_analyzing');
+                    }
+                    const base = document.createElement('canvas');
+                    base.width = video.videoWidth;
+                    base.height = video.videoHeight;
+                    const bctx = base.getContext('2d', { willReadFrequently: true });
+                    bctx.drawImage(video, 0, 0);
+                    const original = bctx.getImageData(0, 0, base.width, base.height);
+
+                    const work = document.createElement('canvas');
+                    work.width = base.width; work.height = base.height;
+                    const wctx = work.getContext('2d', { willReadFrequently: true });
+
+                    // Primera pasada: la foto tal cual, a resolución nativa y con el decoder
+                    // nativo. Es barata y es la que rescata el caso típico (el QR denso), porque
+                    // el bucle en vivo trabaja sobre el preview reducido.
+                    // Las otras dos recorren 2M de píxeles en JS, así que SOLO van en la captura
+                    // manual: dispararlas cada 4s trabaría el preview en el teléfono.
+                    const passes = [() => original];
+                    if (!silent) {
+                        const copy = () => new ImageData(new Uint8ClampedArray(original.data), original.width, original.height);
+                        passes.push(() => cwStretchContrast(copy()));
+                        // El QR de la app son módulos CLAROS sobre fondo oscuro: invertido respecto
+                        // de lo que espera un decoder.
+                        passes.push(() => cwInvert(cwStretchContrast(copy())));
+                    }
+                    for (const make of passes) {
+                        wctx.putImageData(make(), 0, 0);
+                        const txt = await cwDecodeCanvas(work);
+                        if (txt) return txt;
+                    }
+                    return null;
+                } catch (e) {
+                    console.warn('[scanner] falló la captura:', e);
+                    return null;
+                } finally {
+                    cwAnalyzing = false;
+                    if (!silent) {
+                        if (hint) hint.textContent = hintPrev;
+                        document.getElementById('scanner-freeze')?.classList.add('hidden');
+                    }
+                }
+            }
+
             // Congela el último frame en un canvas encima del video. Es feedback puro: no acelera
             // la lectura (medido: con imagen nítida cualquier decoder lee en <100ms), pero corta
             // la duda de "¿lo leyó o sigo moviéndolo?" apenas detecta.
@@ -10219,6 +10400,8 @@
             function stopScanner(holdMs = 0) {
                 clearInterval(scannerRefocusTimer);
                 scannerRefocusTimer = null;
+                clearInterval(scannerAutoCaptureTimer);
+                scannerAutoCaptureTimer = null;
                 // Ocultar la vista SIEMPRE: si la cámara nunca arrancó (permiso denegado,
                 // sin cámara) isScanning es false y antes el overlay quedaba atrapando al usuario.
                 const hideView0 = () => {
@@ -10226,6 +10409,7 @@
                     scannerView.classList.remove('flex');
                     document.getElementById('scanner-freeze')?.classList.add('hidden');
                     document.getElementById('scanner-guide')?.classList.remove('hidden');
+                    document.getElementById('scanner-container')?.classList.remove('cam-ready');
                 };
                 const hideView = () => holdMs > 0 ? setTimeout(hideView0, holdMs) : hideView0();
                 if (html5QrCodeScanner && html5QrCodeScanner.isScanning) {
@@ -12683,6 +12867,17 @@
                 }
             });
 
+            document.getElementById('scanCaptureBtn')?.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const btn = e.currentTarget;
+                btn.disabled = true;
+                try {
+                    const txt = await captureAndAnalyze(false);
+                    if (txt) onScanSuccess(txt, null);
+                    else showToast(t('scanner_capture_fail'), 'error', 4000);
+                } finally { btn.disabled = false; }
+            });
+
             closeScannerBtn.addEventListener('click', () => {
                 stopScanner();
                 if (document.body.dataset.scannerContext === 'addContact') {
@@ -13128,6 +13323,12 @@
                     "wc_pay_sent": "Pago enviado",
                     "wc_err_funds": "Fondos insuficientes para cubrir el pago + gas en esta red.",
                     "wc_err_rejected": "Cancelaste la firma.",
+                    "scanner_booting": "Encendiendo la cámara…",
+                    "scanner_capture": "📸 Capturar y analizar",
+                    "scanner_cancel": "Cancelar",
+                    "scanner_capture_hint": "¿No lo lee? Tocá la imagen para enfocar, o capturá: analiza la foto a máxima resolución y con el contraste normalizado.",
+                    "scanner_analyzing": "Analizando la captura…",
+                    "scanner_capture_fail": "No se encontró un QR en la captura. Acercá el teléfono y volvé a intentar.",
                     "settings_privacy_title": "Pantalla y privacidad",
                     "settings_open_on_last_paid": "Abrir en la red del último cobro",
                     "settings_open_on_last_paid_desc": "Al abrir la wallet ves la red, el token y el saldo donde te pagaron la última vez.",
@@ -13246,6 +13447,12 @@
                     "wc_pay_sent": "Payment sent",
                     "wc_err_funds": "Not enough funds to cover the payment + gas on this network.",
                     "wc_err_rejected": "You cancelled the signature.",
+                    "scanner_booting": "Turning the camera on…",
+                    "scanner_capture": "📸 Capture and analyse",
+                    "scanner_cancel": "Cancel",
+                    "scanner_capture_hint": "Not reading? Tap the image to focus, or capture: it analyses the photo at full resolution with normalised contrast.",
+                    "scanner_analyzing": "Analysing the capture…",
+                    "scanner_capture_fail": "No QR found in the capture. Move closer and try again.",
                     "settings_privacy_title": "Display and privacy",
                     "settings_open_on_last_paid": "Open on the network of your last payment",
                     "settings_open_on_last_paid_desc": "When you open the wallet you see the network, token and balance where you were last paid.",
@@ -13364,6 +13571,12 @@
                     "wc_err_rejected": "Vous avez annulé la signature.",
                     "wc_res_rejected": "rejetée",
                     "wc_res_error": "erreur",
+                    "scanner_booting": "Allumage de la caméra…",
+                    "scanner_capture": "📸 Capturer et analyser",
+                    "scanner_cancel": "Annuler",
+                    "scanner_capture_hint": "Ça ne lit pas ? Touchez l'image pour faire la mise au point, ou capturez : la photo est analysée en pleine résolution avec le contraste normalisé.",
+                    "scanner_analyzing": "Analyse de la capture…",
+                    "scanner_capture_fail": "Aucun QR trouvé dans la capture. Rapprochez le téléphone et réessayez.",
                     "settings_privacy_title": "Affichage et confidentialité",
                     "settings_open_on_last_paid": "Ouvrir sur le réseau du dernier paiement reçu",
                     "settings_open_on_last_paid_desc": "À l'ouverture du portefeuille, vous voyez le réseau, le jeton et le solde où vous avez été payé la dernière fois.",
