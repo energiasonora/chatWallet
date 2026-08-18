@@ -428,10 +428,6 @@
             border-radius: 0.75rem;
         }
 
-        #notificationBanner {
-            transition: opacity 0.3s ease, transform 0.3s ease;
-        }
-
         /* Estilos para el contador de mensajes no leídos */
         .unread-badge {
             position: absolute;
@@ -743,30 +739,160 @@
             animation: balance-pulse 0.6s ease-in-out infinite;
         }
 
-        /* --- Toast Notifications --- */
-        #toast {
-            backdrop-filter: blur(4px);
+        /* --- Centro de notificaciones (todo entra por acá) -------------------
+           Antes convivían dos sistemas: una píldora abajo al centro (toast) y un
+           banner que bajaba desde arriba (mensajes XMTP). Ahora hay UNA sola pila
+           arriba a la derecha; las tarjetas entran deslizándose desde ese lado y
+           salen por el mismo. */
+        #cwNotifs {
+            position: fixed;
+            top: calc(env(safe-area-inset-top, 0px) + 0.6rem);
+            right: 0.6rem;
+            z-index: 70;
+            width: min(21rem, calc(100vw - 1.2rem));
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            pointer-events: none;
         }
 
-        #toast.success {
-            background-color: rgba(34, 197, 94, 0.2);
-            /* bg-green-500/20 */
-            color: #4ade80;
-            /* text-green-400 */
+        .cw-notif {
+            --cwn-accent: #818cf8;
+            --cwn-soft: rgba(129, 140, 248, 0.18);
+            pointer-events: auto;
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            margin-bottom: 0.5rem;
+            padding: 0.7rem 0.75rem;
+            border-radius: 0.9rem;
+            background: rgba(20, 27, 43, 0.93);
+            backdrop-filter: blur(10px) saturate(140%);
+            -webkit-backdrop-filter: blur(10px) saturate(140%);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-left: 3px solid var(--cwn-accent);
+            box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.35);
+            color: #e5e7eb;
+            overflow: hidden;
+            max-height: 20rem;
+            opacity: 0;
+            transform: translateX(115%);
+            transition: transform .34s cubic-bezier(.22, 1, .36, 1), opacity .22s ease,
+                max-height .28s ease, margin-bottom .28s ease, padding .28s ease;
         }
 
-        #toast.error {
-            background-color: rgba(239, 68, 68, 0.2);
-            /* bg-red-500/20 */
-            color: #f87171;
-            /* text-red-400 */
+        .cw-notif.cwn-in { opacity: 1; transform: translateX(0); }
+
+        .cw-notif.cwn-out {
+            opacity: 0;
+            transform: translateX(115%);
+            max-height: 0;
+            margin-bottom: 0;
+            padding-top: 0;
+            padding-bottom: 0;
         }
 
-        #toast.info {
-            background-color: rgba(59, 130, 246, 0.2);
-            /* bg-blue-500/20 */
-            color: #60a5fa;
-            /* text-blue-400 */
+        /* mientras el dedo arrastra la tarjeta no debe haber transición */
+        .cw-notif.cwn-drag { transition: none; }
+        .cw-notif.cwn-click { cursor: pointer; }
+        .cw-notif.cwn-click:active { filter: brightness(1.15); }
+
+        .cw-notif.success { --cwn-accent: #34d399; --cwn-soft: rgba(52, 211, 153, 0.18); }
+        .cw-notif.error   { --cwn-accent: #f87171; --cwn-soft: rgba(248, 113, 113, 0.18); }
+        .cw-notif.info    { --cwn-accent: #60a5fa; --cwn-soft: rgba(96, 165, 250, 0.18); }
+        .cw-notif.message { --cwn-accent: #818cf8; --cwn-soft: rgba(129, 140, 248, 0.18); }
+
+        .cwn-icon {
+            flex: 0 0 auto;
+            width: 1.8rem;
+            height: 1.8rem;
+            border-radius: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--cwn-soft);
+            color: var(--cwn-accent);
+        }
+
+        .cwn-icon svg { width: 1.05rem; height: 1.05rem; }
+
+        .cwn-avatar {
+            flex: 0 0 auto;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 9999px;
+            object-fit: cover;
+            border: 1px solid var(--cwn-soft);
+        }
+
+        .cwn-main { flex: 1 1 auto; min-width: 0; }
+
+        .cwn-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.25;
+            color: #f8fafc;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .cwn-body {
+            font-size: 0.8125rem;
+            line-height: 1.35;
+            color: #cbd5e1;
+            overflow-wrap: anywhere;
+        }
+
+        .cwn-title + .cwn-body { margin-top: 0.1rem; }
+        .cwn-body a { color: var(--cwn-accent); font-weight: 600; text-decoration: underline; }
+
+        .cwn-close {
+            flex: 0 0 auto;
+            margin: -0.2rem -0.2rem 0 0;
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.4rem;
+            font-size: 1.05rem;
+            line-height: 1.2;
+            color: rgba(226, 232, 240, 0.45);
+        }
+
+        .cwn-close:hover { color: #e2e8f0; background: rgba(148, 163, 184, 0.15); }
+
+        /* barrita de tiempo restante */
+        .cwn-bar {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            height: 2px;
+            width: 100%;
+            background: var(--cwn-accent);
+            opacity: 0.5;
+            transform-origin: left center;
+            transform: scaleX(1);
+        }
+
+        body.theme-light .cw-notif {
+            background: rgba(255, 255, 255, 0.96);
+            border-color: rgba(15, 23, 42, 0.10);
+            border-left-color: var(--cwn-accent);
+            color: #111827;
+            box-shadow: 0 12px 28px -14px rgba(15, 23, 42, 0.45), 0 2px 6px rgba(15, 23, 42, 0.08);
+        }
+
+        body.theme-light .cwn-title { color: #0f172a; }
+        body.theme-light .cwn-body { color: #475569; }
+        body.theme-light .cwn-close { color: rgba(15, 23, 42, 0.4); }
+        body.theme-light .cwn-close:hover { color: #0f172a; background: rgba(15, 23, 42, 0.07); }
+        body.theme-light .cw-notif.success { --cwn-accent: #059669; }
+        body.theme-light .cw-notif.error { --cwn-accent: #dc2626; }
+        body.theme-light .cw-notif.info { --cwn-accent: #2563eb; }
+        body.theme-light .cw-notif.message { --cwn-accent: #4f46e5; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .cw-notif { transition-duration: 0.01ms; }
+            .cwn-bar { display: none; }
         }
 
         /* ── Bottom Nav Bar ───────────────────────────────── */
@@ -1406,24 +1532,8 @@
         CHATWALLET
 
     </a>
-    <!-- BANNER DE NOTIFICACIÓN -->
-    <div id="notificationBanner"
-        class="fixed top-0 left-1/2 -translate-x-1/2 w-11/12 max-w-md mt-4 bg-indigo-600 text-white p-3 rounded-lg shadow-xl cursor-pointer z-50 hidden opacity-0 -translate-y-12">
-        <div class="flex justify-between items-center">
-            <div>
-                <p id="notificationSender" class="font-bold text-sm"></p>
-                <p id="notificationContent" class="text-sm truncate"></p>
-            </div>
-            <button id="closeNotification" class="text-2xl leading-none text-white/70 hover:text-white">&times;</button>
-        </div>
-    </div>
-
-    <!-- Generic Toast Notification -->
-    <div id="toast"
-        class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] flex items-center space-x-3 p-3 px-5 rounded-full invisible opacity-0 transition-all duration-300">
-        <div id="toast-icon"></div>
-        <p id="toast-message" class="text-sm font-medium"></p>
-    </div>
+    <!-- CENTRO DE NOTIFICACIONES: toasts, avisos y mensajes entran todos acá -->
+    <div id="cwNotifs" aria-live="polite" aria-relevant="additions"></div>
 
     <!-- Modal de Marca -->
     <div id="brandModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
@@ -1433,7 +1543,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.05 alpha</p>
+            <p class="text-sm text-gray-400">v 2.06 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3157,7 +3267,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.05</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.06</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3764,7 +3874,6 @@
             let scannerRefocusTimer = null;
             // Intento periódico de captura-y-análisis mientras el bucle en vivo no logra leer.
             let scannerAutoCaptureTimer = null;
-            let notificationTimeout = null;
             let currentRestoreMode = 'privateKey';
             let optionsList = [];
             let currentTokenIndex = 0;
@@ -3831,46 +3940,154 @@
             let touchCurrentX = 0;
             let isDragging = false;
 
-            let toastTimeout;
+            // ── Centro de notificaciones unificado ────────────────────────────
+            // Todo lo que avisa algo entra por acá: los toasts (`showToast`), los
+            // avisos de tema/copiado, los mensajes XMTP entrantes (`showNotification`)
+            // y la confirmación de transacción. Una sola pila arriba a la derecha,
+            // entrando y saliendo por ese mismo lado.
+            const CWN_TAG_MSG = 'xmtp-msg';   // el aviso de mensaje nuevo se reemplaza, no se apila
+            const CWN_MAX = 4;          // más tarjetas que esto tapan la pantalla del teléfono
+            const CWN_ANIM_MS = 360;    // tiene que ser >= la transición del CSS
 
+            const CWN_ICONS = {
+                success: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg>`,
+                error: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.647a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/></svg>`,
+                info: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>`,
+                message: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M2.678 11.894a1 1 0 0 1 .287.801 10.97 10.97 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8.06 8.06 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894z"/></svg>`
+            };
+
+            function cwNotifRoot() {
+                let root = document.getElementById('cwNotifs');
+                if (!root) {
+                    root = document.createElement('div');
+                    root.id = 'cwNotifs';
+                    root.setAttribute('aria-live', 'polite');
+                    document.body.appendChild(root);
+                }
+                return root;
+            }
+
+            function cwDismissNotif(card) {
+                if (!card || card.dataset.out === '1') return;
+                card.dataset.out = '1';
+                if (card._cwTimer) clearTimeout(card._cwTimer);
+                card.classList.remove('cwn-in', 'cwn-drag');
+                card.style.transform = '';
+                card.style.opacity = '';
+                card.classList.add('cwn-out');
+                setTimeout(() => card.remove(), CWN_ANIM_MS);
+            }
+
+            // Descarta las tarjetas de una misma familia (ej. el aviso de mensaje nuevo).
+            function cwDismissByTag(tag) {
+                cwNotifRoot().querySelectorAll('.cw-notif').forEach(c => {
+                    if (c.dataset.tag === tag) cwDismissNotif(c);
+                });
+            }
+
+            function cwNotify({ title = '', body = '', html = '', type = 'info',
+                                duration = 3000, onClick = null, avatar = '', tag = '' } = {}) {
+                const root = cwNotifRoot();
+                // Un aviso con el mismo `tag` reemplaza al anterior en vez de apilar otro igual.
+                if (tag) cwDismissByTag(tag);
+
+                const card = document.createElement('div');
+                card.className = `cw-notif ${type}`;
+                if (tag) card.dataset.tag = tag;
+
+                if (avatar) {
+                    const img = document.createElement('img');
+                    img.className = 'cwn-avatar';
+                    img.src = avatar;
+                    img.alt = '';
+                    card.appendChild(img);
+                } else {
+                    const icon = document.createElement('div');
+                    icon.className = 'cwn-icon';
+                    icon.innerHTML = CWN_ICONS[type] || CWN_ICONS.info;
+                    card.appendChild(icon);
+                }
+
+                const main = document.createElement('div');
+                main.className = 'cwn-main';
+                if (title) {
+                    const h = document.createElement('p');
+                    h.className = 'cwn-title';
+                    h.textContent = title;
+                    main.appendChild(h);
+                }
+                const p = document.createElement('p');
+                p.className = 'cwn-body';
+                // `html` es el camino de showToast(): varios avisos traen links de acción.
+                if (html) p.innerHTML = html; else p.textContent = body;
+                main.appendChild(p);
+                card.appendChild(main);
+
+                const closeBtn = document.createElement('button');
+                closeBtn.type = 'button';
+                closeBtn.className = 'cwn-close';
+                closeBtn.setAttribute('aria-label', 'Cerrar');
+                closeBtn.innerHTML = '&times;';
+                closeBtn.addEventListener('click', (e) => { e.stopPropagation(); cwDismissNotif(card); });
+                card.appendChild(closeBtn);
+
+                if (duration > 0) {
+                    const bar = document.createElement('span');
+                    bar.className = 'cwn-bar';
+                    card.appendChild(bar);
+                    requestAnimationFrame(() => {
+                        bar.style.transition = `transform ${duration}ms linear`;
+                        bar.style.transform = 'scaleX(0)';
+                    });
+                    card._cwTimer = setTimeout(() => cwDismissNotif(card), duration);
+                }
+
+                if (onClick) {
+                    card.classList.add('cwn-click');
+                    card.addEventListener('click', (e) => {
+                        if (e.target.closest('a') || e.target.closest('.cwn-close')) return;
+                        cwDismissNotif(card);
+                        try { onClick(e); } catch (err) { console.warn('notif onClick:', err); }
+                    });
+                }
+
+                // Deslizar hacia la derecha para descartar (el mismo lado por el que entró).
+                let dragX0 = null, dragDx = 0;
+                card.addEventListener('touchstart', (e) => {
+                    dragX0 = e.touches[0].clientX; dragDx = 0;
+                    card.classList.add('cwn-drag');
+                }, { passive: true });
+                card.addEventListener('touchmove', (e) => {
+                    if (dragX0 === null) return;
+                    dragDx = Math.max(0, e.touches[0].clientX - dragX0);
+                    card.style.transform = `translateX(${dragDx}px)`;
+                    card.style.opacity = String(Math.max(0.15, 1 - dragDx / 220));
+                }, { passive: true });
+                const endDrag = () => {
+                    if (dragX0 === null) return;
+                    dragX0 = null;
+                    card.classList.remove('cwn-drag');
+                    card.style.opacity = '';
+                    if (dragDx > 70) cwDismissNotif(card);
+                    else card.style.transform = '';
+                };
+                card.addEventListener('touchend', endDrag, { passive: true });
+                card.addEventListener('touchcancel', endDrag, { passive: true });
+
+                root.appendChild(card);
+
+                // Si la pila creció de más, se van las más viejas.
+                const vivas = Array.from(root.querySelectorAll('.cw-notif')).filter(c => c.dataset.out !== '1');
+                for (let i = 0; i < vivas.length - CWN_MAX; i++) cwDismissNotif(vivas[i]);
+
+                void card.offsetWidth;   // fija el estado inicial antes de animar la entrada
+                card.classList.add('cwn-in');
+                return card;
+            }
+
+            // Toda la app sigue llamando showToast(...): ahora es una tarjeta más de la pila.
             function showToast(message, type = 'info', duration = 3000) {
-                const toast = document.getElementById('toast');
-                const toastMessage = document.getElementById('toast-message');
-                const toastIcon = document.getElementById('toast-icon');
-
-                if (toastTimeout) {
-                    clearTimeout(toastTimeout);
-                }
-
-                // Reset classes
-                toast.className = 'fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] flex items-center space-x-3 p-3 px-5 rounded-full invisible opacity-0 transition-all duration-300';
-
-                toastMessage.innerHTML = message;
-
-                let iconSvg = '';
-                toast.classList.add(type); // Adds success, error, or info class
-
-                switch (type) {
-                    case 'success':
-                        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg>`;
-                        break;
-                    case 'error':
-                        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.647a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/></svg>`;
-                        break;
-                    default: // info
-                        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>`;
-                        break;
-                }
-                toastIcon.innerHTML = iconSvg;
-
-                toast.classList.remove('invisible', 'opacity-0');
-
-                toastTimeout = setTimeout(() => {
-                    toast.classList.add('opacity-0');
-                    setTimeout(() => {
-                        toast.classList.add('invisible');
-                    }, 300);
-                }, duration);
+                return cwNotify({ html: message, type, duration });
             }
 
             function toggleFullscreen() {
@@ -3973,11 +4190,7 @@
             const restoreModePrivateKeyBtn = document.getElementById('restoreModePrivateKey');
             const restoreModeMnemonicBtn = document.getElementById('restoreModeMnemonic');
 
-            // Notificaciones
-            const notificationBanner = document.getElementById('notificationBanner');
-            const notificationSender = document.getElementById('notificationSender');
-            const notificationContent = document.getElementById('notificationContent');
-            const closeNotification = document.getElementById('closeNotification');
+            // Notificaciones (el banner viejo se fusionó con el centro de notificaciones)
             const totalUnreadBadge = document.getElementById('totalUnreadBadge');
 
 
@@ -5299,23 +5512,13 @@
                     // Resetear estado del botón para la próxima vez
                     setTxStatus('', false);
 
-                    // Configurar banner de notificación (verde para éxito)
-                    const banner = document.getElementById('notificationBanner');
-                    const nSender = document.getElementById('notificationSender');
-                    const nContent = document.getElementById('notificationContent');
-
-                    nSender.textContent = "¡Transacción Enviada!";
-                    nContent.innerHTML = `Monto: <strong>${amount}</strong>. Haz clic para ver en el explorador.`;
-
-                    banner.classList.remove('bg-indigo-600', 'bg-yellow-500', 'text-white', 'text-black', 'bg-green-600');
-                    banner.classList.add('bg-green-500/20', 'text-green-400', 'border', 'border-green-500/30', 'backdrop-blur-md');
-
-                    banner.onclick = () => {
-                        window.open(etherscanUrl, '_blank');
-                        hideNotification();
-                    };
-
-                    showNotification();
+                    cwNotify({
+                        type: 'success',
+                        duration: 8000,
+                        title: '¡Transacción Enviada!',
+                        body: `Monto: ${amount}. Tocá para verla en el explorador.`,
+                        onClick: () => window.open(etherscanUrl, '_blank')
+                    });
 
                 } catch (error) {
                     if (txWaitTicker) { clearInterval(txWaitTicker); txWaitTicker = null; }
@@ -5922,11 +6125,27 @@
                 const container = document.getElementById(containerId);
                 if (!container) return;
                 container.innerHTML = '';
-                new QRCodeStyling({
-                    width: 300, height: 300, data: payload,
+                // El canvas se pide GRANDE y lo achica el CSS. qr-code-styling redondea el módulo
+                // hacia abajo: con width 300 y el CWL2 (109 módulos) daban módulos de 2px y la
+                // tinta ocupaba 218px de la tarjeta, o sea 82px en blanco al pedo. Medido con el
+                // banco de cámara falsa: así el bucle en vivo NO lo leía NUNCA (sólo lo rescataba
+                // la captura de los 4s, y con desenfoque no leía nada). Con la tinta al ~97% el
+                // mismo QR entra en vivo en 400ms.
+                const qr = new QRCodeStyling({
+                    width: 900, height: 900, data: payload,
                     dotsOptions: { color: '#000000', type: 'square' },
                     backgroundOptions: { color: '#ffffff' },
-                }).append(container);
+                });
+                qr.append(container);
+                container.style.width = '100%';
+                const fit = () => {
+                    const canvas = container.querySelector('canvas');
+                    if (!canvas) return requestAnimationFrame(fit);
+                    canvas.style.width = '100%';
+                    canvas.style.height = 'auto';
+                    canvas.style.display = 'block';
+                };
+                fit();
             }
 
             async function copyToClipboardBtn(btn, text) {
@@ -9536,9 +9755,7 @@
 
             // --- Notificaciones ---
             function hideNotification() {
-                if (notificationTimeout) clearTimeout(notificationTimeout);
-                notificationBanner.classList.add('opacity-0', '-translate-y-12');
-                setTimeout(() => notificationBanner.classList.add('hidden'), 300);
+                cwDismissByTag(CWN_TAG_MSG);
             }
 
             // ===== Notificaciones nativas (APK) — soberanas, generadas on-device =====
@@ -9994,61 +10211,64 @@
                 });
             }
 
-            async function showNotification(message = null, groupCtx = null) {
-                console.log("showNotification llamada", message ? "con mensaje" : "sin mensaje");
-                if (notificationTimeout) clearTimeout(notificationTimeout);
+            // Mensaje XMTP entrante con el chat cerrado: una tarjeta más de la pila
+            // (antes era el banner que bajaba desde arriba). Lleva el avatar del
+            // contacto y al tocarla abre la conversación.
+            async function showNotification(message, groupCtx = null) {
+                if (!message) return;
+                const preview = (typeof message.content === 'string' || message.contentType?.typeId === 'reply')
+                    ? xmtpMessagePreview(message)
+                    : 'Mensaje (Multimedia/Sistema)';
 
-                if (message) { // Notificación de mensaje XMTP
-                    notificationBanner.classList.remove('bg-yellow-500', 'text-black', 'bg-green-500/20', 'text-green-400', 'border', 'border-green-500/30', 'backdrop-blur-md', 'bg-green-600');
-                    notificationBanner.classList.add('bg-indigo-600', 'text-white');
-
-                    notificationContent.textContent = (typeof message.content === 'string' || message.contentType?.typeId === 'reply')
-                        ? xmtpMessagePreview(message)
-                        : 'Mensaje (Multimedia/Sistema)';
-                    notificationSender.textContent = "Nuevo mensaje de...";
-
-                    // Grupo: el banner nombra al grupo y al autor, y el tap abre el grupo
-                    // (no el DM con quien escribió, que es lo que haría el camino de abajo).
-                    if (groupCtx) {
-                        const who = groupSenderLabel(message.senderInboxId);
-                        notificationSender.textContent = `👥 ${groupCtx.groupName || 'Grupo'} · ${who}`;
-                        notificationBanner.onclick = async () => {
-                            const gc = findGroupContact(groupIdFromKey(groupCtx.groupKey));
+                // Grupo: la tarjeta se titula con el grupo (y el cuerpo lleva el autor),
+                // porque "Nuevo mensaje de fulano" no diría en qué chat entrar.
+                if (groupCtx) {
+                    const gc = findGroupContact(groupIdFromKey(groupCtx.groupKey));
+                    cwNotify({
+                        type: 'message', tag: CWN_TAG_MSG, duration: 6000,
+                        avatar: (gc && gc.avatar) || GROUP_AVATAR,
+                        title: `👥 ${groupCtx.groupName || 'Grupo'} · ${groupSenderLabel(message.senderInboxId)}`,
+                        body: preview,
+                        onClick: async () => {
                             if (gc) { closeSidebar(); await startChatWithContact(gc); }
-                            hideNotification();
-                        };
-                        notificationBanner.classList.remove('hidden');
-                        void notificationBanner.offsetWidth;
-                        notificationBanner.classList.remove('opacity-0', '-translate-y-12');
-                        notificationTimeout = setTimeout(hideNotification, 5000);
-                        return;
-                    }
-
-                    // Resolución asíncrona para no bloquear el banner
-                    getAddressFromInboxId(message.senderInboxId).then(senderAddress => {
-                        console.log("showNotification: Dirección resuelta para banner:", senderAddress);
-                        let senderName = "Identidad desconocida";
-                        if (senderAddress) {
-                            senderName = senderAddress.startsWith('0x') ? `${senderAddress.slice(0, 6)}...${senderAddress.slice(-4)}` : "Inbox: " + senderAddress.slice(0, 8);
-                            const contact = contacts.find(c => c.address.toLowerCase() === senderAddress.toLowerCase());
-                            if (contact) senderName = contact.name;
                         }
-                        notificationSender.textContent = `Nuevo mensaje de: ${senderName}`;
-
-                        notificationBanner.onclick = async () => {
-                            if (senderAddress && senderAddress.startsWith('0x')) {
-                                await handleScannedAddress(senderAddress);
-                            }
-                            hideNotification();
-                        };
-                    }).catch(e => console.warn("Error en resolución de notificación:", e));
+                    });
+                    return;
                 }
-                // Si no hay 'message', se asume que el contenido del banner ya fue configurado (ej. por showBackupNotification)
 
-                notificationBanner.classList.remove('hidden');
-                void notificationBanner.offsetWidth;
-                notificationBanner.classList.remove('opacity-0', '-translate-y-12');
-                notificationTimeout = setTimeout(hideNotification, 5000);
+                // La dirección se resuelve async: la tarjeta sale ya y se completa después.
+                const card = cwNotify({
+                    type: 'message', tag: CWN_TAG_MSG, duration: 6000,
+                    avatar: ANON_AVATAR,
+                    title: 'Nuevo mensaje',
+                    body: preview
+                });
+
+                getAddressFromInboxId(message.senderInboxId).then(senderAddress => {
+                    let senderName = "Identidad desconocida";
+                    let avatar = null;
+                    if (senderAddress) {
+                        senderName = senderAddress.startsWith('0x')
+                            ? `${senderAddress.slice(0, 6)}...${senderAddress.slice(-4)}`
+                            : "Inbox: " + senderAddress.slice(0, 8);
+                        const contact = contacts.find(c => c.address.toLowerCase() === senderAddress.toLowerCase());
+                        if (contact) { senderName = contact.name; avatar = contact.avatar; }
+                    }
+                    if (card.dataset.out === '1') return;
+                    const titleEl = card.querySelector('.cwn-title');
+                    if (titleEl) titleEl.textContent = senderName;
+                    const avatarEl = card.querySelector('.cwn-avatar');
+                    if (avatarEl && avatar) avatarEl.src = avatar;
+
+                    if (senderAddress && senderAddress.startsWith('0x')) {
+                        card.classList.add('cwn-click');
+                        card.addEventListener('click', (e) => {
+                            if (e.target.closest('a') || e.target.closest('.cwn-close')) return;
+                            cwDismissNotif(card);
+                            handleScannedAddress(senderAddress);
+                        });
+                    }
+                }).catch(e => console.warn("Error en resolución de notificación:", e));
             }
 
             // --- Scanner ---
@@ -12334,10 +12554,6 @@
             if (scanQrBtn) scanQrBtn.addEventListener('click', startScanner);
             // The original closeScannerBtn listener is now overridden further down
             // to handle the modal context correctly.
-            if (closeNotification) {
-                closeNotification.addEventListener('click', (e) => { e.stopPropagation(); hideNotification(); });
-            }
-
             if (sendMessageForm) {
                 sendMessageForm.addEventListener('submit', async (e) => {
                     e.preventDefault();
