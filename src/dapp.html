@@ -746,14 +746,26 @@
            salen por el mismo. */
         #cwNotifs {
             position: fixed;
-            top: calc(env(safe-area-inset-top, 0px) + 0.6rem);
-            right: 0.6rem;
+            /* Arranca justo debajo del header: --cwn-top lo mide cwSyncNotifTop()
+               (el header cambia de alto con el safe-area y con el alias del perfil). */
+            top: var(--cwn-top, var(--safe-top, 0px));
+            left: 0;
+            right: 0;
+            padding: 0.5rem 0.6rem 0;
             z-index: 70;
-            width: min(21rem, calc(100vw - 1.2rem));
             display: flex;
             flex-direction: column;
             align-items: stretch;
             pointer-events: none;
+        }
+
+        /* En el teléfono las tarjetas ocupan todo el ancho; de tablet para arriba
+           se acomodan a la derecha con un ancho fijo. */
+        @media (min-width: 640px) {
+            #cwNotifs {
+                left: auto;
+                width: min(23rem, calc(100vw - 1.2rem));
+            }
         }
 
         .cw-notif {
@@ -1543,7 +1555,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.06 alpha</p>
+            <p class="text-sm text-gray-400">v 2.07 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3267,7 +3279,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.06</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.07</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3967,6 +3979,20 @@
                 return root;
             }
 
+            // La pila arranca donde termina el header (no pegada al borde). El alto del
+            // header cambia con el safe-area y con la rotación, así que se mide al vuelo.
+            function cwSyncNotifTop() {
+                const root = document.getElementById('cwNotifs');
+                if (!root) return;
+                const header = document.getElementById('appHeader');
+                const visible = header && !header.classList.contains('hidden') && header.offsetParent !== null;
+                const bottom = visible ? Math.round(header.getBoundingClientRect().bottom) : 0;
+                // Sin header (pantalla inicial) queda el safe-area a secas.
+                root.style.setProperty('--cwn-top', bottom > 0 ? `${bottom}px` : 'var(--safe-top, 0px)');
+            }
+            window.addEventListener('resize', cwSyncNotifTop);
+            window.addEventListener('orientationchange', () => setTimeout(cwSyncNotifTop, 250));
+
             function cwDismissNotif(card) {
                 if (!card || card.dataset.out === '1') return;
                 card.dataset.out = '1';
@@ -3988,6 +4014,7 @@
             function cwNotify({ title = '', body = '', html = '', type = 'info',
                                 duration = 3000, onClick = null, avatar = '', tag = '' } = {}) {
                 const root = cwNotifRoot();
+                cwSyncNotifTop();
                 // Un aviso con el mismo `tag` reemplaza al anterior en vez de apilar otro igual.
                 if (tag) cwDismissByTag(tag);
 
