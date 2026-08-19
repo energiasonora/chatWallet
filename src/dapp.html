@@ -1555,7 +1555,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.07 alpha</p>
+            <p class="text-sm text-gray-400">v 2.08 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3230,6 +3230,8 @@
                         class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                         ⇩ Pedir acceso</button>
                 </div>
+                <!-- Historial propio archivado al adoptar el chat de otra wallet (ver archiveHistoryAndWipe) -->
+                <div id="historyArchiveBox" class="hidden space-y-2"></div>
 
                 <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_coldtx_title">
@@ -3279,7 +3281,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.07</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.08</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3496,6 +3498,9 @@
                         el texto del QR</button>
                     <p class="text-xs text-gray-500 text-center">Cuando te confirme que quedó, activá el acceso acá.
                         La app se reinicia para entrar con la identidad nueva.</p>
+                    <p class="text-xs text-yellow-500/90 text-center" data-i18n-key="link_activate_archive_note">📦 Tu
+                        historial actual se reemplaza por el adoptado. No se borra: queda archivado en Configuración
+                        para descargarlo o fusionarlo cuando quieras.</p>
                     <button id="requestActivateBtn"
                         class="w-full px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 font-semibold">Activar
                         acceso y reiniciar</button>
@@ -6391,6 +6396,13 @@
                         const bk = await EthCrypto.decryptWithPrivateKey(
                             currentWallet.privateKey, EthCrypto.cipher.parse(pendingLinkAccept.k));
                         chatBackupImportKey(bk);
+                        // Desde acá la BK es la de la OTRA wallet, pero el historial local
+                        // todavía es el propio: si el respaldo automático se dispara ahora,
+                        // sube nuestro historial al espacio ajeno y lo contamina. Se pausa
+                        // hasta que la activación archive y limpie.
+                        localStorage.setItem(CHATBK_BORROWED_KEY(), '1');
+                        chatBackupDirty = false;
+                        if (chatBackupTimer) { clearTimeout(chatBackupTimer); chatBackupTimer = null; }
                     }
                     // 2) Firmar el texto de asociación de XMTP con ESTA wallet.
                     requestStatus('Firmando…');
@@ -6407,7 +6419,25 @@
                 }
             }
 
-            function requestActivateAccess() {
+            async function requestActivateAccess() {
+                const btn = document.getElementById('requestActivateBtn');
+                if (btn) btn.disabled = true;
+                try {
+                    // El historial propio NO se fusiona con el adoptado: se archiva entero y la
+                    // app arranca limpia. Queda en Configuración para descargar o fusionar después.
+                    requestStatus('Archivando tu historial…');
+                    const arch = await archiveHistoryAndWipe('link');
+                    if (arch) console.log(`📦 Historial propio archivado: ${arch.count} mensajes de ${arch.chats} chats`);
+                } catch (e) {
+                    // Si no se pudo archivar, NO seguimos: seguir borraría historial sin copia.
+                    console.error('archivar historial propio:', e);
+                    requestStatus(`No se pudo archivar tu historial: ${e.message}`);
+                    if (btn) btn.disabled = false;
+                    return;
+                }
+                // La clave de respaldo prestada ya es legítima: de acá en más respaldamos en el
+                // espacio compartido (ver el guard de chatBackupNow).
+                localStorage.removeItem(CHATBK_BORROWED_KEY());
                 // La instalación local todavía apunta al inbox viejo: se abre base nueva y se
                 // fuerza el restore (el store local puede no estar vacío y si no, no se dispara).
                 bumpXmtpDbEpoch(currentWallet.address);
@@ -6815,10 +6845,17 @@
             function msgStoreOpen() {
                 if (msgStoreDbPromise) return msgStoreDbPromise;
                 msgStoreDbPromise = new Promise((resolve, reject) => {
-                    const req = indexedDB.open('chatwallet-msgstore', 1);
+                    const req = indexedDB.open('chatwallet-msgstore', 2);
                     req.onupgradeneeded = () => {
-                        const os = req.result.createObjectStore('messages', { keyPath: 'id' });
-                        os.createIndex('peer', 'peer', { unique: false });
+                        const db = req.result;
+                        if (!db.objectStoreNames.contains('messages')) {
+                            const os = db.createObjectStore('messages', { keyPath: 'id' });
+                            os.createIndex('peer', 'peer', { unique: false });
+                        }
+                        // v2: historial archivado al vincularse a otro inbox (ver archiveHistoryAndWipe)
+                        if (!db.objectStoreNames.contains('archives')) {
+                            db.createObjectStore('archives', { keyPath: 'id' });
+                        }
                     };
                     req.onsuccess = () => resolve(req.result);
                     req.onerror = () => reject(req.error);
@@ -6893,6 +6930,58 @@
                 });
             }
 
+            async function msgStoreClear() {
+                const db = await msgStoreOpen();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('messages', 'readwrite');
+                    tx.objectStore('messages').clear();
+                    tx.oncomplete = () => resolve(true);
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+
+            // ── Historial archivado ─────────────────────────────────────────
+            // Al adoptar el chat de otra wallet el historial propio NO se fusiona a ciegas:
+            // se guarda entero acá y la pantalla queda limpia con el historial adoptado.
+            // Desde Configuración se puede descargar, fusionar más tarde, o borrar.
+            const HISTORY_ARCHIVE_INDEX = 'cw-history-archives';   // índice liviano (sin los mensajes)
+
+            function historyArchiveIndex() {
+                try { return JSON.parse(localStorage.getItem(HISTORY_ARCHIVE_INDEX) || '[]'); }
+                catch (e) { return []; }
+            }
+            function historyArchiveIndexSave(list) {
+                localStorage.setItem(HISTORY_ARCHIVE_INDEX, JSON.stringify(list));
+            }
+
+            async function archivePut(record) {
+                const db = await msgStoreOpen();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('archives', 'readwrite');
+                    tx.objectStore('archives').put(record);
+                    tx.oncomplete = () => resolve(true);
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+            async function archiveGet(id) {
+                const db = await msgStoreOpen();
+                return new Promise((resolve, reject) => {
+                    const req = db.transaction('archives', 'readonly').objectStore('archives').get(id);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+            async function archiveDelete(id) {
+                const db = await msgStoreOpen();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction('archives', 'readwrite');
+                    tx.objectStore('archives').delete(id);
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+                historyArchiveIndexSave(historyArchiveIndex().filter(a => a.id !== id));
+            }
+
             // ── Captura: mensaje XMTP → registro del store ──────────────────
             const MSGSTORE_SKIP_TYPES = new Set(['readReceipt', 'read-receipt', 'presence', 'profile', 'group_updated']);
             function msgRecordFromXmtp(message, peerAddr, isSentByMe) {
@@ -6956,6 +7045,9 @@
             // Compatibilidad: en instalaciones que ya respaldaron, la BK se siembra con el
             // valor viejo (SHA-256(privateKey)) → los blobs ya subidos siguen descifrando.
             const CHATBK_KEY_STORE = () => `cw-backup-key-${currentWallet?.address?.toLowerCase()}`;
+            // '1' mientras tengamos la BK de otra wallet pero todavía nuestro propio historial
+            // (entre el paso 2 del pairing y la activación). Con esto puesto NO se sube nada.
+            const CHATBK_BORROWED_KEY = () => `cw-backup-borrowed-${currentWallet?.address?.toLowerCase()}`;
             let chatBackupSecretCache = null;
 
             async function chatBackupSecret() {
@@ -7059,6 +7151,21 @@
                 return changed;
             }
 
+            // Contactos "restaurables": sin bytes de avatar (rehidratan vía perfiles XMTP).
+            // Lo usan el respaldo soberano y el archivo del historial propio.
+            function slimContactsForBackup(list) {
+                return (list || []).map(c => ({
+                    name: c.name, address: c.address,
+                    lastMessage: c.lastMessage, lastMessageTimestamp: c.lastMessageTimestamp,
+                    lastReadTimestamp: c.lastReadTimestamp,
+                    pubKey: c.pubKey || undefined, // handshake offline: sin esto, el QR frío pide re-escanear identidad
+                    // Grupos: sin estas dos, al restaurar quedaba una fila que al abrirla
+                    // intentaba un DM contra la cadena "group:…" y explotaba.
+                    isGroup: c.isGroup || undefined,
+                    groupId: c.groupId || undefined,
+                }));
+            }
+
             async function chatBackupMerge(data) {
                 const revived = await mergeTombstones(data.tombstones);
                 if (revived) console.log(`☁ Lápidas absorbidas del respaldo: ${revived}`);
@@ -7126,6 +7233,8 @@
             async function chatBackupNow() {
                 if (chatBackupBusy) return;
                 if (!currentWallet || !currentWallet.privateKey) return;
+                // Vinculación a medias: la clave ya es ajena y el historial todavía propio.
+                if (localStorage.getItem(CHATBK_BORROWED_KEY()) === '1') return;
                 chatBackupBusy = true;
                 if (chatBackupTimer) { clearTimeout(chatBackupTimer); chatBackupTimer = null; }
                 try {
@@ -7146,16 +7255,7 @@
                     const messages = await msgStoreGetAll();
                     if (!messages.length) { chatBackupDirty = false; return; }
                     // Contactos: solo lo restaurable (sin bytes de avatar; esos rehidratan vía perfiles XMTP).
-                    const slimContacts = contacts.map(c => ({
-                        name: c.name, address: c.address,
-                        lastMessage: c.lastMessage, lastMessageTimestamp: c.lastMessageTimestamp,
-                        lastReadTimestamp: c.lastReadTimestamp,
-                        pubKey: c.pubKey || undefined, // handshake offline: sin esto, el QR frío pide re-escanear identidad
-                        // Grupos: sin estas dos, al restaurar quedaba una fila que al abrirla
-                        // intentaba un DM contra la cadena "group:…" y explotaba.
-                        isGroup: c.isGroup || undefined,
-                        groupId: c.groupId || undefined,
-                    }));
+                    const slimContacts = slimContactsForBackup(contacts);
                     const payload = new TextEncoder().encode(JSON.stringify({
                         v: 1,
                         address: currentWallet.address.toLowerCase(),
@@ -7246,6 +7346,162 @@
                 } catch (e) {
                     console.warn('restore backup:', e);
                     return false;
+                }
+            }
+
+            // ── Archivar el historial propio y dejar la pantalla limpia ─────
+            // Al adoptar el chat de otra wallet, fusionar los dos historiales dejaba una
+            // mezcla confusa. Ahora el propio se guarda ENTERO en un archivo local y la app
+            // arranca sólo con el historial adoptado; el usuario decide después si lo
+            // descarga, lo fusiona o lo borra (Configuración → Historial archivado).
+            async function archiveHistoryAndWipe(reason = 'link') {
+                const messages = await msgStoreGetAll();
+                const hadContacts = (contacts || []).filter(c => !isSuppressedContact(c.address)).length;
+                if (!messages.length && !hadContacts) return null;   // nada que archivar
+
+                const at = Date.now();
+                const id = `arch-${at}`;
+                const chats = new Set(messages.map(m => (m.peer || '').toLowerCase()).filter(Boolean)).size;
+                const record = {
+                    id, at, reason,
+                    address: currentWallet.address.toLowerCase(),
+                    // Mismo formato que el respaldo soberano: así "Fusionar" reusa chatBackupMerge().
+                    blob: {
+                        v: 1,
+                        address: currentWallet.address.toLowerCase(),
+                        exportedAt: at,
+                        messages,
+                        contacts: slimContactsForBackup(contacts),
+                        tombstones,
+                    }
+                };
+                await archivePut(record);
+                historyArchiveIndexSave([
+                    ...historyArchiveIndex(),
+                    { id, at, reason, count: messages.length, chats, address: record.address }
+                ]);
+
+                // Recién ahora se limpia lo vivo (si el archivePut falló, no se pierde nada).
+                await msgStoreClear();
+                contacts = [];
+                localStorage.removeItem(CONTACTS_STORAGE_KEY);
+                tombstones = {};
+                localStorage.removeItem(TOMBSTONES_STORAGE_KEY);
+                localStorage.removeItem(CHATBK_META_KEY());   // el respaldo de referencia es otro ahora
+                return { id, count: messages.length, chats };
+            }
+
+            // Fusionar un archivo de vuelta al historial vivo (decisión explícita del usuario).
+            async function mergeArchivedHistory(id) {
+                const rec = await archiveGet(id);
+                if (!rec || !rec.blob) throw new Error('El archivo ya no está.');
+                const added = await chatBackupMerge(rec.blob);
+                const list = historyArchiveIndex().map(a => a.id === id ? { ...a, mergedAt: Date.now(), merged: added } : a);
+                historyArchiveIndexSave(list);
+                renderContacts();
+                markChatBackupDirty();   // que el respaldo soberano lo tome
+                return added;
+            }
+
+            function bytesToBase64(bytes) {
+                let bin = '';
+                const CH = 0x8000;   // de a pedazos: String.fromCharCode revienta con arrays enormes
+                for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+                return btoa(bin);
+            }
+
+            // Descargar el archivo como JSON. En el APK el WebView ignora <a download>, así que
+            // el guardado va por el plugin nativo (carpeta Descargas).
+            async function downloadArchivedHistory(id) {
+                const rec = await archiveGet(id);
+                if (!rec || !rec.blob) throw new Error('El archivo ya no está.');
+                const json = JSON.stringify(rec.blob);
+                const name = `chatwallet-historial-${new Date(rec.at).toISOString().slice(0, 10)}.json`;
+                if (NativeFiles) {
+                    const b64 = bytesToBase64(new TextEncoder().encode(json));
+                    const res = await NativeFiles.saveToDownloads({ name, base64: b64, mime: 'application/json' });
+                    return res?.uri ? `Descargas/${name}` : name;
+                }
+                const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+                const a = document.createElement('a');
+                a.href = url; a.download = name;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                return name;
+            }
+
+            // ── Historial archivado en Configuración ────────────────────────
+            function renderHistoryArchive() {
+                const box = document.getElementById('historyArchiveBox');
+                if (!box) return;
+                const list = historyArchiveIndex().sort((a, b) => b.at - a.at);
+                box.innerHTML = '';
+                if (!list.length) { box.classList.add('hidden'); return; }
+                box.classList.remove('hidden');
+
+                const title = document.createElement('p');
+                title.className = 'text-xs font-semibold text-indigo-300';
+                title.textContent = t('settings_archive_title');
+                box.appendChild(title);
+
+                for (const a of list) {
+                    const row = document.createElement('div');
+                    row.className = 'bg-gray-900/50 p-2 rounded-lg space-y-2';
+
+                    const info = document.createElement('p');
+                    info.className = 'text-xs text-gray-400';
+                    const when = new Date(a.at).toLocaleDateString();
+                    info.textContent = t('settings_archive_entry', { count: a.count, chats: a.chats, date: when })
+                        + (a.mergedAt ? ` · ${t('settings_archive_merged')}` : '');
+                    row.appendChild(info);
+
+                    const btns = document.createElement('div');
+                    btns.className = 'flex gap-2';
+                    const mk = (label, cls, onClick) => {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = `flex-1 px-2 py-1 text-xs font-semibold text-white rounded ${cls}`;
+                        b.textContent = label;
+                        b.addEventListener('click', async () => {
+                            b.disabled = true;
+                            try { await onClick(); } finally { b.disabled = false; }
+                        });
+                        return b;
+                    };
+
+                    btns.appendChild(mk('⇩ ' + t('settings_archive_download'), 'bg-gray-700 hover:bg-gray-600', async () => {
+                        try {
+                            const name = await downloadArchivedHistory(a.id);
+                            showToast(t('settings_archive_downloaded', { name }), 'success', 5000);
+                        } catch (e) { showToast(`No se pudo descargar: ${e.message}`, 'error', 5000); }
+                    }));
+
+                    if (!a.mergedAt) {
+                        btns.appendChild(mk('⇄ ' + t('settings_archive_merge'), 'bg-gray-700 hover:bg-gray-600', async () => {
+                            try {
+                                const added = await mergeArchivedHistory(a.id);
+                                showToast(t('settings_archive_merged_ok', { count: added }), 'success', 6000);
+                                renderHistoryArchive();
+                            } catch (e) { showToast(`No se pudo fusionar: ${e.message}`, 'error', 5000); }
+                        }));
+                    }
+
+                    // Borrar es definitivo: dos toques, como el resto de lo destructivo.
+                    const del = mk('🗑', 'bg-red-700 hover:bg-red-600 flex-none px-3', async () => {
+                        if (del.dataset.armed !== '1') {
+                            del.dataset.armed = '1';
+                            del.textContent = '🗑 ' + t('settings_archive_delete_confirm');
+                            setTimeout(() => { del.dataset.armed = '0'; del.textContent = '🗑'; }, 5000);
+                            return;
+                        }
+                        await archiveDelete(a.id);
+                        renderHistoryArchive();
+                        showToast(t('settings_archive_deleted'), 'success');
+                    });
+                    btns.appendChild(del);
+
+                    row.appendChild(btns);
+                    box.appendChild(row);
                 }
             }
 
@@ -9793,6 +10049,7 @@
             const NativeLocalNotif = IS_NATIVE && _Cap.Plugins ? _Cap.Plugins.LocalNotifications : null;
             const NativeKeepAlive = IS_NATIVE && _Cap.Plugins ? _Cap.Plugins.KeepAlive : null;
             const NativeUpdater = IS_NATIVE && _Cap.Plugins ? _Cap.Plugins.Updater : null;
+            const NativeFiles = IS_NATIVE && _Cap.Plugins ? _Cap.Plugins.Files : null;
 
             // ===== Auto-updater (chequea el último release de GitHub y, en APK, descarga+instala) =====
             const GITHUB_REPO = 'energiasonora/chatWallet';
@@ -12752,6 +13009,7 @@
                     settingsModal.classList.add('flex');
                     listInstallations();
                     renderLinkedAccounts();
+                    renderHistoryArchive();
                     renderChatBackupStatus();
                     renderBlockedContacts();
                     renderWcSessions();
@@ -13521,6 +13779,16 @@
                     "settings_link_desc": "Otra wallet, en otro dispositivo, con los mismos chats, contactos y bloqueados. Tu frase semilla NO viaja.",
                     "settings_link_grant": "⇪ Dar acceso",
                     "settings_link_request": "⇩ Pedir acceso",
+                    "link_activate_archive_note": "📦 Tu historial actual se reemplaza por el adoptado. No se borra: queda archivado en Configuración para descargarlo o fusionarlo cuando quieras.",
+                    "settings_archive_title": "📦 Historial archivado",
+                    "settings_archive_entry": "{count} mensajes de {chats} chats · {date}",
+                    "settings_archive_merged": "ya fusionado",
+                    "settings_archive_download": "Descargar",
+                    "settings_archive_merge": "Fusionar",
+                    "settings_archive_delete_confirm": "Confirmar",
+                    "settings_archive_downloaded": "Historial guardado como {name}",
+                    "settings_archive_merged_ok": "Historial fusionado: {count} mensajes.",
+                    "settings_archive_deleted": "Archivo borrado.",
                     "settings_coldtx_title": "Transacción fría ❄",
                     "settings_coldtx_desc": "Prepará una transacción para que la firme una wallet en modo frío, y transmitila cuando te devuelvan el QR firmado.",
                     "settings_coldtx_button": "❄ Preparar transacción fría",
@@ -13645,6 +13913,16 @@
                     "settings_link_desc": "Another wallet, on another device, with the same chats, contacts and blocked list. Your seed phrase does NOT travel.",
                     "settings_link_grant": "⇪ Grant access",
                     "settings_link_request": "⇩ Request access",
+                    "link_activate_archive_note": "📦 Your current history is replaced by the adopted one. Nothing is deleted: it stays archived in Settings so you can download or merge it whenever you want.",
+                    "settings_archive_title": "📦 Archived history",
+                    "settings_archive_entry": "{count} messages from {chats} chats · {date}",
+                    "settings_archive_merged": "already merged",
+                    "settings_archive_download": "Download",
+                    "settings_archive_merge": "Merge",
+                    "settings_archive_delete_confirm": "Confirm",
+                    "settings_archive_downloaded": "History saved as {name}",
+                    "settings_archive_merged_ok": "History merged: {count} messages.",
+                    "settings_archive_deleted": "Archive deleted.",
                     "settings_coldtx_title": "Cold transaction ❄",
                     "settings_coldtx_desc": "Prepare a transaction for a cold-storage wallet to sign, then broadcast it once you get the signed QR back.",
                     "settings_coldtx_button": "❄ Prepare cold transaction",
@@ -13769,6 +14047,16 @@
                     "settings_link_desc": "Un autre portefeuille, sur un autre appareil, avec les mêmes discussions, contacts et bloqués. Votre phrase de récupération ne circule PAS.",
                     "settings_link_grant": "⇪ Donner l'accès",
                     "settings_link_request": "⇩ Demander l'accès",
+                    "link_activate_archive_note": "📦 Ton historique actuel est remplacé par celui que tu adoptes. Rien n'est supprimé : il reste archivé dans les Réglages pour le télécharger ou le fusionner quand tu veux.",
+                    "settings_archive_title": "📦 Historique archivé",
+                    "settings_archive_entry": "{count} messages de {chats} discussions · {date}",
+                    "settings_archive_merged": "déjà fusionné",
+                    "settings_archive_download": "Télécharger",
+                    "settings_archive_merge": "Fusionner",
+                    "settings_archive_delete_confirm": "Confirmer",
+                    "settings_archive_downloaded": "Historique enregistré sous {name}",
+                    "settings_archive_merged_ok": "Historique fusionné : {count} messages.",
+                    "settings_archive_deleted": "Archive supprimée.",
                     "settings_coldtx_title": "Transaction à froid ❄",
                     "settings_coldtx_desc": "Préparez une transaction pour qu'un portefeuille hors ligne la signe, puis diffusez-la une fois le QR signé récupéré.",
                     "settings_coldtx_button": "❄ Préparer une transaction à froid",

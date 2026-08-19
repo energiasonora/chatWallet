@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(KeepAlivePlugin.class);
         registerPlugin(UpdaterPlugin.class);
+        registerPlugin(FilesPlugin.class);
         super.onCreate(savedInstanceState);
         stashChatExtra(getIntent());
         stashDeepLink(getIntent());
