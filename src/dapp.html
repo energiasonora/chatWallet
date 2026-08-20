@@ -1555,7 +1555,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.08 alpha</p>
+            <p class="text-sm text-gray-400">v 2.12 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3119,14 +3119,7 @@
                     <button id="closeSettingsModal"
                         class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
                 </div>
-                <div class="space-y-2">
-                    <button id="backupWalletSettingsBtn"
-                        class="w-full px-4 py-2 font-semibold text-yellow-300 bg-yellow-900/50 border border-yellow-700 rounded-lg hover:bg-yellow-800/50 transition-colors"
-                        data-i18n-key="backup_wallet_button">
-                        Hacer Copia de Seguridad
-                    </button>
-                </div>
-                <!-- Language Selector Added -->
+                <!-- Idioma primero: es lo que más se toca y no tiene consecuencias. -->
                 <div class="space-y-2">
                     <label for="settings-lang-selector" class="block text-sm text-gray-400 mb-1"
                         data-i18n-key="language_label">Idioma</label>
@@ -3138,32 +3131,20 @@
                         <option value="fr">Français</option>
                     </select>
                 </div>
-                <hr class="border-gray-600">
-                <div class="space-y-2 text-center text-sm">
-                    <div id="privateKey" class="text-red-400 break-all font-mono text-xs p-2 bg-gray-900/50 rounded">
-                    </div>
+                <div class="space-y-2">
+                    <!-- El texto y el color los pone updateBackupSettingsBtn(): urgente mientras el
+                         backup esté pendiente, neutro ("Mostrar clave privada") una vez hecho. -->
+                    <button id="backupWalletSettingsBtn"
+                        class="w-full px-4 py-2 font-semibold text-yellow-300 bg-yellow-900/50 border border-yellow-700 rounded-lg hover:bg-yellow-800/50 transition-colors"
+                        data-i18n-key="backup_wallet_button">
+                        Hacer Copia de Seguridad
+                    </button>
                 </div>
-                <button id="forgetWalletButton"
-                    class="w-full px-4 py-2 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700"
-                    data-i18n-key="forget_wallet_button">Olvidar
-                    Billetera</button>
                 <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300"
                     data-i18n-key="settings_installations_title">Gestionar Instalaciones</h2>
                 <div id="installationsList"
                     class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
-
-                <hr class="border-gray-600">
-                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="wc_conn_title">
-                    Conexiones activas</h2>
-                <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="wc_conn_desc">Apps vinculadas a tu
-                    wallet por XMTP para pedirte firmas. Tu llave privada nunca sale de acá.</p>
-                <div id="wcSessionsList"
-                    class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
-                <h3 class="text-xs text-center font-semibold text-gray-400 mt-2" data-i18n-key="wc_activity_title">
-                    Actividad reciente</h3>
-                <div id="wcActivityList"
-                    class="bg-gray-900/50 p-2 rounded-lg text-xs space-y-1 max-h-32 overflow-y-auto"></div>
 
                 <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300"
@@ -3182,6 +3163,23 @@
                         class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                         ⤓ Restaurar</button>
                 </div>
+                <!-- El camino simple para tener el chat en dos dispositivos, dicho donde se busca.
+                     Reemplaza a "Compartir acceso al chat", que se retiró. -->
+                <p class="text-xs text-indigo-300/80 text-center" data-i18n-key="settings_chatbackup_otherdevice">
+                    ¿Querés el mismo chat en otro dispositivo? Instalá la app ahí y restaurá esta
+                    wallet con tu frase semilla: el historial vuelve solo de este respaldo.</p>
+
+                <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="wc_conn_title">
+                    Conexiones activas</h2>
+                <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="wc_conn_desc">Apps vinculadas a tu
+                    wallet por XMTP para pedirte firmas. Tu llave privada nunca sale de acá.</p>
+                <div id="wcSessionsList"
+                    class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
+                <h3 class="text-xs text-center font-semibold text-gray-400 mt-2" data-i18n-key="wc_activity_title">
+                    Pedidos recientes</h3>
+                <div id="wcActivityList"
+                    class="bg-gray-900/50 p-2 rounded-lg text-xs space-y-1 max-h-32 overflow-y-auto"></div>
 
                 <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_scanner_title">
@@ -3215,22 +3213,32 @@
                         ⇩ Importar</button>
                 </div>
 
-                <hr class="border-gray-600">
-                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_link_title">
-                    Compartir acceso al chat</h2>
-                <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="settings_link_desc">Otra wallet, en
-                    otro dispositivo, con los mismos chats, contactos y bloqueados. Tu frase semilla NO viaja.</p>
-                <div id="linkedAccountsList"
-                    class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
-                <div class="flex gap-2">
-                    <button id="grantChatAccessBtn" data-i18n-key="settings_link_grant"
-                        class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
-                        ⇪ Dar acceso</button>
-                    <button id="requestChatAccessBtn" data-i18n-key="settings_link_request"
-                        class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
-                        ⇩ Pedir acceso</button>
+                <!-- Compartir acceso al chat: RETIRADO (CHAT_LINK_ENABLED = false). Resultó
+                     antiintuitivo en la prueba real; el camino es restaurar la wallet con la frase
+                     semilla. El bloque sigue en el DOM porque la lista + "Quitar" es la ÚNICA
+                     salida para quien ya tiene otra wallet asociada: está MEDIDO que el
+                     dispositivo prestado no puede sacarse solo (removeAccount → "Unknown signer").
+                     renderLinkedAccounts() decide si esto se muestra o no. -->
+                <div id="chatLinkSection" class="hidden space-y-2">
+                    <hr class="border-gray-600">
+                    <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_link_title">
+                        Compartir acceso al chat</h2>
+                    <p id="chatLinkDesc" class="text-xs text-gray-500 text-center -mt-2"
+                        data-i18n-key="settings_link_desc">Otra wallet, en
+                        otro dispositivo, con los mismos chats, contactos y bloqueados. Tu frase semilla NO viaja.</p>
+                    <div id="linkedAccountsList"
+                        class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
+                    <div id="chatLinkButtons" class="flex gap-2">
+                        <button id="grantChatAccessBtn" data-i18n-key="settings_link_grant"
+                            class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                            ⇪ Dar acceso</button>
+                        <button id="requestChatAccessBtn" data-i18n-key="settings_link_request"
+                            class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                            ⇩ Pedir acceso</button>
+                    </div>
                 </div>
-                <!-- Historial propio archivado al adoptar el chat de otra wallet (ver archiveHistoryAndWipe) -->
+                <!-- Fuera del bloque de arriba a propósito: el archivo sigue existiendo (y hay que
+                     poder descargarlo o borrarlo) mucho después de que la vinculación terminó. -->
                 <div id="historyArchiveBox" class="hidden space-y-2"></div>
 
                 <hr class="border-gray-600">
@@ -3279,9 +3287,19 @@
                     </div>
                 </div>
 
+                <hr class="border-gray-600">
+                <div class="space-y-2 text-center text-sm">
+                    <div id="privateKey" class="text-red-400 break-all font-mono text-xs p-2 bg-gray-900/50 rounded">
+                    </div>
+                </div>
+                <button id="forgetWalletButton"
+                    class="w-full px-4 py-2 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700"
+                    data-i18n-key="forget_wallet_button">Olvidar
+                    Billetera</button>
+
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.08</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.12</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -4851,6 +4869,10 @@
                     // bajar el respaldo cifrado del nodo IPFS y restaurar historial + contactos.
                     // Tras vincularse al inbox de otra wallet el store local puede NO estar vacío
                     // (chats propios previos) y el restore no se dispararía solo: se fuerza una vez.
+                    // ¿Nos revocaron el acceso al inbox adoptado mientras la app estaba cerrada?
+                    // Se pregunta ANTES de restaurar: si volvemos a nuestro DID, el respaldo que
+                    // hay que bajar es otro. Si devuelve true ya está programada la recarga.
+                    if (await checkAdoptedAccessRevoked()) return;
                     const forceRestore = localStorage.getItem('cw-link-force-restore') === '1';
                     await restoreChatBackupIfNeeded({ force: forceRestore });
                     if (forceRestore) localStorage.removeItem('cw-link-force-restore');
@@ -6127,6 +6149,14 @@
             //  OJO — la asociación es un OR, no un segundo factor: cualquiera
             //  de las dos wallets, sola, lee y escribe todo el chat.
             // ─────────────────────────────────────────────────────────────
+            // RETIRADA (ago 20 2026). Tres escaneos alternando pantalla y cámara resultaron
+            // antiintuitivos en la prueba real, y el camino simple ya existía: restaurar la wallet
+            // con la frase semilla y que cada wallet tenga su chat. Poner en true reactiva las
+            // entradas ("Dar acceso" / "Pedir acceso"); el resto del circuito quedó intacto.
+            // NO se apagan las rutas de QR de handleScannedData: sin botones nadie llega ahí de
+            // casualidad, cada paso pide confirmación, y así el E2E sigue cubriendo las SALIDAS.
+            const CHAT_LINK_ENABLED = false;
+
             const LINK_REQ_PREFIX = 'CWL1|';
             const LINK_CHAL_PREFIX = 'CWL2|';
             const LINK_RESP_PREFIX = 'CWL3|';
@@ -6310,6 +6340,14 @@
                     showToast('No hay un pedido de acceso en curso. El desafío se pierde si recargás la app: empezá de nuevo desde "Dar acceso".', 'error', 8000);
                     return;
                 }
+                // "Escanear la respuesta" CIERRA este modal para dejar ver la cámara, así que
+                // acá hay que volver a abrirlo. Sin esto el ✅ (y peor: los errores) se escriben
+                // en un modal oculto y desde afuera el último paso parece no hacer nada — la
+                // vinculación queda hecha pero nadie se entera. Los pasos 1 y 2 ya lo hacían;
+                // este quedó afuera y sólo se nota por cámara (pegando el texto el modal nunca
+                // se cerró).
+                const grantModal = document.getElementById('grantAccessModal');
+                if (grantModal) { grantModal.classList.remove('hidden'); grantModal.classList.add('flex'); }
                 if (!isAddress(addr) || addr.toLowerCase() !== pendingLinkGrant.address.toLowerCase()) {
                     grantStatus('Esa respuesta es de otra wallet, no de la que pidió acceso.');
                     return;
@@ -6395,6 +6433,9 @@
                         requestStatus('Descifrando la clave de respaldo…');
                         const bk = await EthCrypto.decryptWithPrivateKey(
                             currentWallet.privateKey, EthCrypto.cipher.parse(pendingLinkAccept.k));
+                        // La BK propia se guarda antes de pisarla: sin esto, al volver al DID
+                        // propio se seguiría respaldando con la llave ajena (y en el espacio ajeno).
+                        pendingLinkAccept.bkBefore = localStorage.getItem(CHATBK_KEY_STORE()) || '';
                         chatBackupImportKey(bk);
                         // Desde acá la BK es la de la OTRA wallet, pero el historial local
                         // todavía es el propio: si el respaldo automático se dispara ahora,
@@ -6428,6 +6469,14 @@
                     requestStatus('Archivando tu historial…');
                     const arch = await archiveHistoryAndWipe('link');
                     if (arch) console.log(`📦 Historial propio archivado: ${arch.count} mensajes de ${arch.chats} chats`);
+                    // Queda anotado que este dispositivo opera un inbox prestado, con todo lo que
+                    // hace falta para deshacerlo solo si el dueño revoca el acceso.
+                    localStorage.setItem(ADOPTED_INBOX_KEY(), JSON.stringify({
+                        owner: (pendingLinkAccept && pendingLinkAccept.peer) || '',
+                        at: Date.now(),
+                        archiveId: arch ? arch.id : null,
+                        bkBefore: (pendingLinkAccept && pendingLinkAccept.bkBefore) || '',
+                    }));
                 } catch (e) {
                     // Si no se pudo archivar, NO seguimos: seguir borraría historial sin copia.
                     console.error('archivar historial propio:', e);
@@ -6449,9 +6498,24 @@
             // ── Cuentas con acceso (en Configuración) ────────────────────
             async function renderLinkedAccounts() {
                 const el = document.getElementById('linkedAccountsList');
-                if (!el) return;
-                if (!chatwalletxmtp) { el.innerHTML = '<p class="text-gray-500 text-xs">El chat no está conectado.</p>'; return; }
-                el.innerHTML = '<p class="text-gray-400">Cargando…</p>';
+                const section = document.getElementById('chatLinkSection');
+                if (!el || !section) return;
+                const botones = document.getElementById('chatLinkButtons');
+                const desc = document.getElementById('chatLinkDesc');
+                // Con la función retirada, esta sección existe SÓLO para cortar un acceso ya dado:
+                // aparece si hay más de una wallet en el inbox y se va sola cuando no queda ninguna.
+                const mostrar = (hayVinculo) => section.classList.toggle('hidden', !(CHAT_LINK_ENABLED || hayVinculo));
+                if (botones) botones.classList.toggle('hidden', !CHAT_LINK_ENABLED);
+                if (desc && !CHAT_LINK_ENABLED) {
+                    desc.dataset.i18nKey = 'settings_link_desc_retired';
+                    desc.textContent = t('settings_link_desc_retired');
+                }
+                if (!chatwalletxmtp) {
+                    mostrar(false);
+                    el.innerHTML = `<p class="text-gray-500 text-xs">${t('settings_link_not_connected')}</p>`;
+                    return;
+                }
+                el.innerHTML = `<p class="text-gray-400">${t('settings_link_loading')}</p>`;
                 try {
                     // De la red, no de la base local: si la vinculación se hizo desde otro
                     // dispositivo, el estado local todavía no la tiene.
@@ -6459,28 +6523,48 @@
                     const ids = (state.accountIdentifiers || []).map(i => i.identifier);
                     el.innerHTML = '';
                     if (ids.length <= 1) {
-                        el.innerHTML = '<p class="text-gray-500 text-xs">Solo esta wallet tiene acceso a tu chat.</p>';
+                        mostrar(false);
+                        el.innerHTML = `<p class="text-gray-500 text-xs">${t('settings_link_none')}</p>`;
                         return;
                     }
+                    mostrar(true);
+                    // ¿Somos el DUEÑO de este inbox o lo tenemos prestado? Sólo el dueño (el
+                    // recovery identifier) puede sacar cuentas: MEDIDO que desde el prestado
+                    // removeAccount devuelve "Unknown signer". Si el SDK no expone el recovery,
+                    // caemos en la marca local de adopción.
                     const mine = currentWallet.address.toLowerCase();
+                    const recovery = (state.recoveryIdentifier && state.recoveryIdentifier.identifier
+                        ? state.recoveryIdentifier.identifier
+                        : state.recoveryIdentifier || '').toString().toLowerCase();
+                    const soyDueno = recovery ? recovery === mine : !isAdoptedInbox();
                     for (const addr of ids) {
                         const isMine = addr.toLowerCase() === mine;
                         const item = document.createElement('div');
                         item.className = 'flex justify-between items-center bg-gray-700 p-2 rounded gap-2';
                         const info = document.createElement('p');
                         info.className = 'font-mono text-xs break-all';
-                        info.textContent = `${addr.slice(0, 10)}…${addr.slice(-6)}` + (isMine ? ' (esta wallet)' : '');
+                        info.textContent = `${addr.slice(0, 10)}…${addr.slice(-6)}`
+                            + (isMine ? ` ${t('settings_link_this_wallet')}` : '');
                         item.appendChild(info);
-                        if (!isMine) {
+                        // El botón sólo donde PUEDE funcionar. Antes se dibujaba también en el
+                        // dispositivo prestado, al lado de la address del dueño, y ahí no hace nada.
+                        if (!isMine && soyDueno) {
                             const btn = document.createElement('button');
                             btn.className = 'unlink-account-btn text-xs bg-red-600 hover:bg-red-500 text-white py-1 px-2 rounded flex-shrink-0';
                             btn.dataset.address = addr;
-                            btn.textContent = 'Quitar';
+                            btn.textContent = t('settings_link_remove');
                             item.appendChild(btn);
                         }
                         el.appendChild(item);
                     }
+                    if (!soyDueno) {
+                        const nota = document.createElement('p');
+                        nota.className = 'text-[11px] text-yellow-500/90';
+                        nota.textContent = t('settings_archive_adopted_note');
+                        el.appendChild(nota);
+                    }
                 } catch (e) {
+                    mostrar(true);   // hubo un error: mejor dejar la sección a la vista
                     el.innerHTML = `<p class="text-red-400 text-xs">Error: ${e.message}</p>`;
                 }
             }
@@ -6491,7 +6575,7 @@
 
             (function wireChatAccessSharingUI() {
                 const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
-                on('grantChatAccessBtn', openGrantAccessModal);
+                on('grantChatAccessBtn', () => { if (CHAT_LINK_ENABLED) openGrantAccessModal(); });
                 on('closeGrantAccessModal', closeGrantAccessModal);
                 on('grantDoneCloseBtn', closeGrantAccessModal);
                 on('grantScanRequestBtn', () => { closeGrantAccessModal(); startScanner(); });
@@ -6509,7 +6593,7 @@
                     await handleIncomingLinkResponse(raw);
                 });
 
-                on('requestChatAccessBtn', openRequestAccessModal);
+                on('requestChatAccessBtn', () => { if (CHAT_LINK_ENABLED) openRequestAccessModal(); });
                 on('closeRequestAccessModal', closeRequestAccessModal);
                 on('requestCopyBtn', (e) => copyToClipboardBtn(
                     e.currentTarget, LINK_REQ_PREFIX + currentWallet.address + '|' + myCompressedPubKey()));
@@ -7048,6 +7132,10 @@
             // '1' mientras tengamos la BK de otra wallet pero todavía nuestro propio historial
             // (entre el paso 2 del pairing y la activación). Con esto puesto NO se sube nada.
             const CHATBK_BORROWED_KEY = () => `cw-backup-borrowed-${currentWallet?.address?.toLowerCase()}`;
+            // Mientras este dispositivo opera un inbox ADOPTADO: { owner, at, archiveId, bkBefore }.
+            // Es lo que permite volver solo al DID propio si la wallet dueña revoca el acceso.
+            const ADOPTED_INBOX_KEY = () => `cw-adopted-inbox-${currentWallet?.address?.toLowerCase()}`;
+            const isAdoptedInbox = () => !!localStorage.getItem(ADOPTED_INBOX_KEY());
             let chatBackupSecretCache = null;
 
             async function chatBackupSecret() {
@@ -7265,6 +7353,12 @@
                         // Sin las lápidas, restaurar (o vincular otra wallet) resucita todo lo
                         // borrado y DESBLOQUEA a los bloqueados: el respaldo tiene que llevarlas.
                         tombstones,
+                        // El perfil (alias/avatar/links) es parte de la identidad del inbox, no del
+                        // dispositivo: sin esto, restaurar en un teléfono nuevo — o adoptar el chat
+                        // desde otra wallet — dejaba la identidad vieja puesta.
+                        // PERO si estamos operando un inbox PRESTADO, la identidad de ese inbox es
+                        // del dueño: subir la nuestra se la cambiaría a él en su próximo restore.
+                        profile: isAdoptedInbox() ? undefined : readOwnProfile(),
                     }));
 
                     // Cifrar: envelope [iv(12)|ciphertext AES-GCM]
@@ -7335,6 +7429,11 @@
 
                     const data = await chatBackupDownload(cid);
                     const added = await chatBackupMerge(data);
+                    // La identidad viene con el inbox: al restaurar (teléfono nuevo) o al adoptar
+                    // el chat de otra wallet, el alias y el avatar son los del respaldo.
+                    if (adoptProfileFromBackup(data.profile)) {
+                        console.log('☁ Perfil adoptado del respaldo:', data.profile.alias || '(sin alias)');
+                    }
 
                     localStorage.setItem(CHATBK_META_KEY(), JSON.stringify({ cid, ts: data.exportedAt, count: (data.messages || []).length }));
                     if (added > 0) {
@@ -7357,7 +7456,11 @@
             async function archiveHistoryAndWipe(reason = 'link') {
                 const messages = await msgStoreGetAll();
                 const hadContacts = (contacts || []).filter(c => !isSuppressedContact(c.address)).length;
-                if (!messages.length && !hadContacts) return null;   // nada que archivar
+                // El perfil cuenta: una wallet recién estrenada puede no tener ni un mensaje y sí
+                // un alias y un avatar puestos, y ésos también hay que guardarlos antes de soltar
+                // la identidad vieja.
+                const ownProfile = readOwnProfile();
+                if (!messages.length && !hadContacts && !ownProfile) return null;   // nada que archivar
 
                 const at = Date.now();
                 const id = `arch-${at}`;
@@ -7373,12 +7476,18 @@
                         messages,
                         contacts: slimContactsForBackup(contacts),
                         tombstones,
+                        profile: ownProfile,
                     }
                 };
                 await archivePut(record);
                 historyArchiveIndexSave([
                     ...historyArchiveIndex(),
-                    { id, at, reason, count: messages.length, chats, address: record.address }
+                    // hasProfile/profileAlias van en el índice (localStorage) para poder ofrecer
+                    // "volver a mi identidad" sin abrir IndexedDB en cada render.
+                    {
+                        id, at, reason, count: messages.length, chats, address: record.address,
+                        hasProfile: !!ownProfile, profileAlias: (ownProfile && ownProfile.alias) || ''
+                    }
                 ]);
 
                 // Recién ahora se limpia lo vivo (si el archivePut falló, no se pierde nada).
@@ -7388,7 +7497,92 @@
                 tombstones = {};
                 localStorage.removeItem(TOMBSTONES_STORAGE_KEY);
                 localStorage.removeItem(CHATBK_META_KEY());   // el respaldo de referencia es otro ahora
+                // Soltar también la identidad vieja: ya quedó archivada. Si el respaldo adoptado
+                // trae perfil, el restore la reemplaza enseguida; si no trae, es correcto quedar
+                // sin alias en vez de seguir mostrando el del inbox anterior.
+                if (reason === 'link' || reason === 'revoked') {
+                    localStorage.removeItem(OWN_PROFILE_KEY);
+                    try { updateUserProfile(); } catch (e) { }
+                }
                 return { id, count: messages.length, chats };
+            }
+
+            // Volver a la identidad de antes de adoptar el chat: alias, avatar y links propios.
+            // NO toca el historial ni el inbox — sólo con quién decís ser. Lo pidió el usuario:
+            // adoptar el chat de otro no debería costarte tu cara para siempre.
+            async function restoreArchivedIdentity(id) {
+                const rec = await archiveGet(id);
+                const prof = rec && rec.blob && rec.blob.profile;
+                if (!prof) throw new Error('Ese archivo no guardó identidad.');
+                localStorage.setItem(OWN_PROFILE_KEY, JSON.stringify({
+                    alias: prof.alias || '', links: prof.links || '', avatar: prof.avatar || ''
+                }));
+                updateUserProfile();
+                try { loadUserProfile(); } catch (e) { }
+                // Que los contactos se enteren, igual que al guardar el perfil a mano (además
+                // acá viaja el wakeTopic de este dispositivo).
+                broadcastProfile().catch(() => { });
+                // Nada de markChatBackupDirty acá: si el inbox es prestado, subir tocaría el
+                // espacio del dueño. Y si es propio, el perfil ya no cambia el historial.
+                return prof.alias || '';
+            }
+
+            // ── Volver al DID propio cuando el dueño revoca el acceso ──────────────
+            // Pedido del usuario: la vuelta tiene que ser REMOTA. Si la wallet dueña toca
+            // "Quitar", este dispositivo vuelve solo a su identidad, su historial y su inbox.
+            //
+            // MEDIDO (E2E ago 19 2026, contra XMTP dev real) — por eso esto es posible:
+            //  · Ya revocado, `fetchInboxState()` NO tira error: devuelve el inbox del dueño
+            //    SIN nuestra address. Ése es el disparador, y es barato.
+            //  · Con una base local nueva, XMTP le devuelve a esta address **su inbox de
+            //    siempre** (el mismo id de antes de la adopción), no uno vacío.
+            async function checkAdoptedAccessRevoked() {
+                if (!chatwalletxmtp || !currentWallet) return false;
+                let meta = null;
+                try { meta = JSON.parse(localStorage.getItem(ADOPTED_INBOX_KEY()) || 'null'); } catch (e) { }
+                let ids;
+                try {
+                    const st = await chatwalletxmtp.preferences.fetchInboxState();
+                    ids = (st.accountIdentifiers || []).map(i => i.identifier.toLowerCase());
+                } catch (e) {
+                    return false;   // red caída o consulta fallida: NO concluir que nos revocaron
+                }
+                if (!ids.length) return false;                                    // respuesta rara
+                if (ids.includes(currentWallet.address.toLowerCase())) return false; // seguimos adentro
+                // Llegar acá ya ES la prueba: el inbox en el que estamos no tiene nuestra address,
+                // así que es prestado y nos sacaron. La marca sólo aporta datos extra (qué archivo
+                // y qué BK), y puede no existir si la adopción fue anterior a la v2.10.
+                if (!meta) {
+                    const propio = historyArchiveIndex().filter(a => a.reason === 'link').sort((a, b) => b.at - a.at)[0];
+                    meta = { archiveId: propio ? propio.id : null, bkBefore: '' };
+                }
+                console.log('🔒 El dueño revocó el acceso: volviendo al DID propio.');
+                await revertToOwnIdentity(meta);
+                return true;
+            }
+
+            async function revertToOwnIdentity(meta) {
+                showToast('🔒 Te quitaron el acceso a ese chat. Volviendo a tu identidad…', 'info', 8000);
+                // 1. El historial adoptado se ARCHIVA, no se borra: ahí adentro también están los
+                //    mensajes que escribiste vos. Queda en Configuración para borrarlo a mano.
+                try { await archiveHistoryAndWipe('revoked'); } catch (e) { console.warn('archivar lo adoptado:', e); }
+                // 2. La llave de respaldo vuelve a ser la propia. Sin esto seguiríamos escribiendo
+                //    en el espacio del otro con su llave.
+                try {
+                    if (meta.bkBefore) localStorage.setItem(CHATBK_KEY_STORE(), meta.bkBefore);
+                    else localStorage.removeItem(CHATBK_KEY_STORE());   // sin llave guardada = la derivada de la semilla
+                    chatBackupSecretCache = null;
+                } catch (e) { console.warn('restaurar la BK propia:', e); }
+                localStorage.removeItem(CHATBK_META_KEY());
+                // 3. Identidad e historial propios, del archivo que dejó la adopción.
+                if (meta.archiveId) {
+                    try { await restoreArchivedIdentity(meta.archiveId); } catch (e) { console.warn('identidad propia:', e); }
+                    try { await mergeArchivedHistory(meta.archiveId); } catch (e) { console.warn('historial propio:', e); }
+                }
+                // 4. Base local nueva → XMTP devuelve el inbox propio (medido). Y a arrancar.
+                localStorage.removeItem(ADOPTED_INBOX_KEY());
+                bumpXmtpDbEpoch(currentWallet.address);
+                setTimeout(() => location.reload(), 1200);
             }
 
             // Fusionar un archivo de vuelta al historial vivo (decisión explícita del usuario).
@@ -7438,6 +7632,8 @@
                 box.innerHTML = '';
                 if (!list.length) { box.classList.add('hidden'); return; }
                 box.classList.remove('hidden');
+                // Separador propio: este bloque ya no cuelga de la sección de compartir acceso.
+                box.appendChild(document.createElement('hr')).className = 'border-gray-600';
 
                 const title = document.createElement('p');
                 title.className = 'text-xs font-semibold text-indigo-300';
@@ -7486,6 +7682,20 @@
                         }));
                     }
 
+                    // Estando en un inbox PRESTADO, devolver sólo la identidad deja un estado
+                    // incoherente: tu nombre con los chats del otro (lo reportó el usuario). Y no
+                    // se puede hacer mejor: MEDIDO que `removeAccount` sobre uno mismo devuelve
+                    // "Unknown signer" — sólo el dueño puede sacarte. Así que acá se dice la verdad
+                    // en vez de ofrecer media vuelta.
+                    if (a.hasProfile && !isAdoptedInbox()) {
+                        btns.appendChild(mk('↩ ' + t('settings_archive_identity'), 'bg-gray-700 hover:bg-gray-600', async () => {
+                            try {
+                                const alias = await restoreArchivedIdentity(a.id);
+                                showToast(t('settings_archive_identity_done', { alias: alias || '—' }), 'success', 6000);
+                            } catch (e) { showToast(`No se pudo: ${e.message}`, 'error', 5000); }
+                        }));
+                    }
+
                     // Borrar es definitivo: dos toques, como el resto de lo destructivo.
                     const del = mk('🗑', 'bg-red-700 hover:bg-red-600 flex-none px-3', async () => {
                         if (del.dataset.armed !== '1') {
@@ -7501,6 +7711,12 @@
                     btns.appendChild(del);
 
                     row.appendChild(btns);
+                    if (a.reason === 'link' && isAdoptedInbox()) {
+                        const nota = document.createElement('p');
+                        nota.className = 'text-[11px] text-yellow-500/90';
+                        nota.textContent = t('settings_archive_adopted_note');
+                        row.appendChild(nota);
+                    }
                     box.appendChild(row);
                 }
             }
@@ -10397,9 +10613,17 @@
 
             // Al volver al primer plano (web y APK): resincronizar para traer los mensajes que
             // llegaron mientras el stream estuvo muerto (app en background/cerrada).
+            // La revocación del acceso adoptado se chequea también al volver del background, con
+            // freno de 5 min: si nos la quitaron con la app abierta, no hay que esperar al próximo
+            // arranque para volver al DID propio. Sale gratis cuando no hay inbox adoptado.
+            let lastRevokeCheck = 0;
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden) return;
                 resyncMessages();
+                if (Date.now() - lastRevokeCheck > 5 * 60 * 1000) {
+                    lastRevokeCheck = Date.now();
+                    checkAdoptedAccessRevoked().catch(e => console.warn('chequeo de revocación:', e));
+                }
                 // Al volver del background puede haber entrado un cobro on-chain sin mensaje de chat.
                 scanForIncomingPayments().catch(e => console.warn('[scan] falló el escaneo de cobros:', e));
                 if (window.__updateRefreshBtn) window.__updateRefreshBtn();
@@ -12457,9 +12681,32 @@
                 } catch (e) { return null; }
             }
 
+            // El perfil propio (alias/avatar/links) vive en una sola clave, GLOBAL — no por
+            // address. Por eso al adoptar el chat de otra wallet sobrevivía el perfil viejo:
+            // la identidad tiene que seguir al inbox, no al dispositivo.
+            const OWN_PROFILE_KEY = 'chatwallet-user-profile';
+            function readOwnProfile() {
+                try {
+                    const p = JSON.parse(localStorage.getItem(OWN_PROFILE_KEY) || 'null');
+                    return (p && (p.alias || p.avatar || p.links)) ? p : null;
+                } catch (e) { return null; }
+            }
+            // Adoptar el perfil que vino en un respaldo: sólo en RESTORE (dispositivo nuevo o
+            // acceso adoptado), NUNCA en el merge de un archivo — fusionar historial no debe
+            // cambiarte la identidad.
+            function adoptProfileFromBackup(profile) {
+                if (!profile || !(profile.alias || profile.avatar || profile.links)) return false;
+                localStorage.setItem(OWN_PROFILE_KEY, JSON.stringify({
+                    alias: profile.alias || '', links: profile.links || '', avatar: profile.avatar || ''
+                }));
+                try { updateUserProfile(); } catch (e) { }
+                try { loadUserProfile(); } catch (e) { }
+                return true;
+            }
+
             async function buildSignedProfile() {
                 let saved = {};
-                try { saved = JSON.parse(localStorage.getItem('chatwallet-user-profile') || '{}'); } catch (e) {}
+                try { saved = JSON.parse(localStorage.getItem(OWN_PROFILE_KEY) || '{}'); } catch (e) {}
                 const avatar = await makeAvatarThumb(saved.avatar);
                 // avatarHash NO va firmado: el receptor lo deriva de los bytes. Se manda igual como
                 // conveniencia (dedup), pero la firma solo cubre la cadena canónica simple.
@@ -13007,6 +13254,7 @@
                 settingsBtn.addEventListener('click', () => {
                     settingsModal.classList.remove('hidden');
                     settingsModal.classList.add('flex');
+                    updateBackupSettingsBtn();
                     listInstallations();
                     renderLinkedAccounts();
                     renderHistoryArchive();
@@ -13450,6 +13698,22 @@
                 backupNagBanner.classList.toggle('flex', show);
             }
 
+            // El primer botón de Configuración cambia de identidad según el estado del backup:
+            // mientras esté pendiente es una alarma amarilla ("Hacer Copia de Seguridad"); una vez
+            // guardado ya no hay nada urgente que hacer y pasa a ser el acceso neutro a las claves.
+            // Abre el MISMO modal (que igual pide confirmar antes de mostrar nada).
+            function updateBackupSettingsBtn() {
+                const btn = document.getElementById('backupWalletSettingsBtn');
+                if (!btn) return;
+                const done = !!localStorage.getItem(WALLET_BACKUP_DONE_KEY);
+                const key = done ? 'settings_show_private_key' : 'backup_wallet_button';
+                btn.dataset.i18nKey = key;   // así translateUI lo sigue al cambiar de idioma
+                btn.textContent = t(key);
+                btn.className = 'w-full px-4 py-2 font-semibold rounded-lg transition-colors ' + (done
+                    ? 'text-gray-200 bg-gray-700 hover:bg-gray-600'
+                    : 'text-yellow-300 bg-yellow-900/50 border border-yellow-700 hover:bg-yellow-800/50');
+            }
+
             function openBackupModal() {
                 if (!currentWallet) return;
 
@@ -13499,6 +13763,7 @@
             closeBackupModalBtn.addEventListener('click', () => {
                 localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
                 updateBackupNagBanner();
+                updateBackupSettingsBtn();
                 doCloseBackupModal();
             });
             cancelBackupBtn.addEventListener('click', doCloseBackupModal);
@@ -13721,6 +13986,7 @@
                     "language_label": "Idioma",
                     "settings_title": "Configuración",
                     "backup_wallet_button": "Hacer Copia de Seguridad",
+                    "settings_show_private_key": "Mostrar clave privada",
                     "forget_wallet_button": "Olvidar Billetera",
                     "backup_wallet_title": "Copia de Seguridad",
                     "backup_warning_title": "¡ADVERTENCIA DE SEGURIDAD!",
@@ -13762,6 +14028,7 @@
                     "settings_chatbackup_status_none": "Aún no hay respaldo. Se crea solo al chatear.",
                     "settings_chatbackup_last_backup": "Último respaldo",
                     "settings_chatbackup_messages": "mensajes",
+                    "settings_chatbackup_otherdevice": "¿Querés el mismo chat en otro dispositivo? Instalá la app ahí y restaurá esta wallet con tu frase semilla: el historial vuelve solo de este respaldo.",
                     "settings_scanner_title": "Escáner QR",
                     "settings_scanner_desc": "Si el escáner no enfoca o no lee nada, puede haber elegido la cámara equivocada.",
                     "settings_scanner_reset": "⟳ Volver a detectar la cámara",
@@ -13779,6 +14046,12 @@
                     "settings_link_desc": "Otra wallet, en otro dispositivo, con los mismos chats, contactos y bloqueados. Tu frase semilla NO viaja.",
                     "settings_link_grant": "⇪ Dar acceso",
                     "settings_link_request": "⇩ Pedir acceso",
+                    "settings_link_desc_retired": "Se retiró: era más enredado que útil. Para usar el mismo chat en otro dispositivo, restaurá la wallet con tu frase semilla. Acá abajo solo podés cortar un acceso que ya diste.",
+                    "settings_link_none": "Solo esta wallet tiene acceso a tu chat.",
+                    "settings_link_not_connected": "El chat no está conectado.",
+                    "settings_link_loading": "Cargando…",
+                    "settings_link_this_wallet": "(esta wallet)",
+                    "settings_link_remove": "Quitar",
                     "link_activate_archive_note": "📦 Tu historial actual se reemplaza por el adoptado. No se borra: queda archivado en Configuración para descargarlo o fusionarlo cuando quieras.",
                     "settings_archive_title": "📦 Historial archivado",
                     "settings_archive_entry": "{count} mensajes de {chats} chats · {date}",
@@ -13789,6 +14062,9 @@
                     "settings_archive_downloaded": "Historial guardado como {name}",
                     "settings_archive_merged_ok": "Historial fusionado: {count} mensajes.",
                     "settings_archive_deleted": "Archivo borrado.",
+                    "settings_archive_identity": "Mi identidad",
+                    "settings_archive_adopted_note": "Estás usando el chat de otra wallet. Tu identidad y tus chats vuelven solos cuando esa wallet te quite el acceso.",
+                    "settings_archive_identity_done": "Volviste a tu identidad anterior: {alias}",
                     "settings_coldtx_title": "Transacción fría ❄",
                     "settings_coldtx_desc": "Prepará una transacción para que la firme una wallet en modo frío, y transmitila cuando te devuelvan el QR firmado.",
                     "settings_coldtx_button": "❄ Preparar transacción fría",
@@ -13798,7 +14074,7 @@
                     "wc_conn_desc": "Apps vinculadas a tu wallet por XMTP para pedirte firmas. Tu llave privada nunca sale de acá.",
                     "wc_conn_none": "No hay conexiones activas.",
                     "wc_disconnect": "Desconectar",
-                    "wc_activity_title": "Actividad reciente",
+                    "wc_activity_title": "Pedidos recientes",
                     "wc_activity_none": "Sin actividad todavía.",
                     "wc_act_sign": "Firma de mensaje",
                     "wc_act_tx": "Transacción",
@@ -13855,6 +14131,7 @@
                     "language_label": "Language",
                     "settings_title": "Settings",
                     "backup_wallet_button": "Backup Wallet",
+                    "settings_show_private_key": "Show private key",
                     "forget_wallet_button": "Forget Wallet",
                     "backup_wallet_title": "Wallet Backup",
                     "backup_warning_title": "SECURITY WARNING!",
@@ -13896,6 +14173,7 @@
                     "settings_chatbackup_status_none": "No backup yet. Created automatically as you chat.",
                     "settings_chatbackup_last_backup": "Last backup",
                     "settings_chatbackup_messages": "messages",
+                    "settings_chatbackup_otherdevice": "Want the same chat on another device? Install the app there and restore this wallet with your seed phrase: the history comes back on its own from this backup.",
                     "settings_scanner_title": "QR scanner",
                     "settings_scanner_desc": "If the scanner won't focus or reads nothing, it may have picked the wrong camera.",
                     "settings_scanner_reset": "⟳ Detect the camera again",
@@ -13913,6 +14191,12 @@
                     "settings_link_desc": "Another wallet, on another device, with the same chats, contacts and blocked list. Your seed phrase does NOT travel.",
                     "settings_link_grant": "⇪ Grant access",
                     "settings_link_request": "⇩ Request access",
+                    "settings_link_desc_retired": "Retired: more tangled than useful. To use the same chat on another device, restore the wallet with your seed phrase. Below you can only cut off access you already granted.",
+                    "settings_link_none": "Only this wallet has access to your chat.",
+                    "settings_link_not_connected": "Chat is not connected.",
+                    "settings_link_loading": "Loading…",
+                    "settings_link_this_wallet": "(this wallet)",
+                    "settings_link_remove": "Remove",
                     "link_activate_archive_note": "📦 Your current history is replaced by the adopted one. Nothing is deleted: it stays archived in Settings so you can download or merge it whenever you want.",
                     "settings_archive_title": "📦 Archived history",
                     "settings_archive_entry": "{count} messages from {chats} chats · {date}",
@@ -13923,6 +14207,9 @@
                     "settings_archive_downloaded": "History saved as {name}",
                     "settings_archive_merged_ok": "History merged: {count} messages.",
                     "settings_archive_deleted": "Archive deleted.",
+                    "settings_archive_identity": "My identity",
+                    "settings_archive_adopted_note": "You are using another wallet\u2019s chat. Your identity and your chats come back on their own once that wallet removes your access.",
+                    "settings_archive_identity_done": "You are back to your previous identity: {alias}",
                     "settings_coldtx_title": "Cold transaction ❄",
                     "settings_coldtx_desc": "Prepare a transaction for a cold-storage wallet to sign, then broadcast it once you get the signed QR back.",
                     "settings_coldtx_button": "❄ Prepare cold transaction",
@@ -13932,7 +14219,7 @@
                     "wc_conn_desc": "Apps linked to your wallet over XMTP to request signatures. Your private key never leaves here.",
                     "wc_conn_none": "No active connections.",
                     "wc_disconnect": "Disconnect",
-                    "wc_activity_title": "Recent activity",
+                    "wc_activity_title": "Recent requests",
                     "wc_activity_none": "No activity yet.",
                     "wc_act_sign": "Message signature",
                     "wc_act_tx": "Transaction",
@@ -13989,6 +14276,7 @@
                     "language_label": "Langue",
                     "settings_title": "Paramètres",
                     "backup_wallet_button": "Sauvegarder le Portefeuille",
+                    "settings_show_private_key": "Afficher la clé privée",
                     "forget_wallet_button": "Oublier le Portefeuille",
                     "backup_wallet_title": "Sauvegarde du Portefeuille",
                     "backup_warning_title": "AVERTISSEMENT DE SÉCURITÉ !",
@@ -14027,6 +14315,7 @@
                     "settings_chatbackup_desc": "Historique chiffré avec votre clé, sur votre nœud IPFS. Se restaure automatiquement avec votre phrase de récupération.",
                     "settings_chatbackup_now": "☁ Sauvegarder maintenant",
                     "settings_chatbackup_restore": "⤓ Restaurer",
+                    "settings_chatbackup_otherdevice": "Vous voulez le même chat sur un autre appareil ? Installez l'app là-bas et restaurez ce portefeuille avec votre phrase de récupération : l'historique revient tout seul depuis cette sauvegarde.",
                     "settings_chatbackup_status_none": "Pas encore de sauvegarde. Créée automatiquement en discutant.",
                     "settings_chatbackup_last_backup": "Dernière sauvegarde",
                     "settings_chatbackup_messages": "messages",
@@ -14047,6 +14336,12 @@
                     "settings_link_desc": "Un autre portefeuille, sur un autre appareil, avec les mêmes discussions, contacts et bloqués. Votre phrase de récupération ne circule PAS.",
                     "settings_link_grant": "⇪ Donner l'accès",
                     "settings_link_request": "⇩ Demander l'accès",
+                    "settings_link_desc_retired": "Retirée : plus compliquée qu'utile. Pour utiliser le même chat sur un autre appareil, restaurez le portefeuille avec votre phrase de récupération. Ci-dessous vous pouvez seulement couper un accès déjà accordé.",
+                    "settings_link_none": "Seul ce portefeuille a accès à votre chat.",
+                    "settings_link_not_connected": "Le chat n'est pas connecté.",
+                    "settings_link_loading": "Chargement…",
+                    "settings_link_this_wallet": "(ce portefeuille)",
+                    "settings_link_remove": "Retirer",
                     "link_activate_archive_note": "📦 Ton historique actuel est remplacé par celui que tu adoptes. Rien n'est supprimé : il reste archivé dans les Réglages pour le télécharger ou le fusionner quand tu veux.",
                     "settings_archive_title": "📦 Historique archivé",
                     "settings_archive_entry": "{count} messages de {chats} discussions · {date}",
@@ -14057,6 +14352,9 @@
                     "settings_archive_downloaded": "Historique enregistré sous {name}",
                     "settings_archive_merged_ok": "Historique fusionné : {count} messages.",
                     "settings_archive_deleted": "Archive supprimée.",
+                    "settings_archive_identity": "Mon identité",
+                    "settings_archive_adopted_note": "Vous utilisez le chat d\u2019un autre portefeuille. Votre identité et vos discussions reviendront d\u2019elles-mêmes lorsque ce portefeuille vous retirera l\u2019accès.",
+                    "settings_archive_identity_done": "Vous avez retrouvé votre identité précédente : {alias}",
                     "settings_coldtx_title": "Transaction à froid ❄",
                     "settings_coldtx_desc": "Préparez une transaction pour qu'un portefeuille hors ligne la signe, puis diffusez-la une fois le QR signé récupéré.",
                     "settings_coldtx_button": "❄ Préparer une transaction à froid",
@@ -14066,7 +14364,7 @@
                     "wc_conn_desc": "Apps liées à votre portefeuille via XMTP pour demander des signatures. Votre clé privée ne quitte jamais cet appareil.",
                     "wc_conn_none": "Aucune connexion active.",
                     "wc_disconnect": "Déconnecter",
-                    "wc_activity_title": "Activité récente",
+                    "wc_activity_title": "Demandes récentes",
                     "wc_activity_none": "Aucune activité pour l'instant.",
                     "wc_act_sign": "Signature de message",
                     "wc_act_tx": "Transaction",

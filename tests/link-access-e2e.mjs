@@ -159,6 +159,13 @@ try {
         markChatBackupDirty();
     })()`).catch(e => { console.log('   (seed parcial:', e.message, ')'); });
 
+    // Identidad: A tiene perfil propio y B tiene OTRO. El perfil va con el inbox, así que
+    // después de adoptar el acceso B tiene que quedar mostrándose como A, no como B.
+    await A.eval(`(() => { localStorage.setItem('chatwallet-user-profile', JSON.stringify(
+        { alias: 'energiasonora', links: 'https://chatwallet.org', avatar: '' })); updateUserProfile(); })()`);
+    await B.eval(`(() => { localStorage.setItem('chatwallet-user-profile', JSON.stringify(
+        { alias: 'la-vieja-de-B', links: '', avatar: '' })); updateUserProfile(); })()`);
+
     const backedUp = await A.eval(`(async () => { try { await chatBackupNow(); return true; } catch (e) { return 'ERR:' + e.message; } })()`);
     check('A sube un respaldo al nodo soberano', backedUp === true, backedUp === true ? '' : String(backedUp));
 
@@ -264,6 +271,25 @@ try {
         dataB.tombstones.map(t => t.toLowerCase()).includes(ghost.toLowerCase()), JSON.stringify(dataB.tombstones));
     check('B recupera mensajes del historial', dataB.msgs > 0, `${dataB.msgs} mensajes`);
 
+    // La identidad sigue al permiso: B deja de ser "la-vieja-de-B" y pasa a mostrarse como A.
+    const idB = await B.eval(`(() => {
+        const p = JSON.parse(localStorage.getItem('chatwallet-user-profile') || 'null');
+        return { alias: p && p.alias, links: p && p.links,
+                 sidebar: document.getElementById('userProfileName')?.textContent || '' };
+    })()`);
+    check('B adopta el perfil del inbox (alias de A, no el suyo)', idB.alias === 'energiasonora',
+        `alias=${idB.alias} links=${idB.links}`);
+    check('…y la barra lateral de B ya muestra esa identidad', idB.sidebar === 'energiasonora', idB.sidebar);
+
+    // Y el perfil viejo de B no se perdió: quedó en el archivo, junto con su historial.
+    const archProfile = await B.eval(`(async () => {
+        const list = JSON.parse(localStorage.getItem('cw-history-archives') || '[]');
+        if (!list.length) return null;
+        const rec = await archiveGet(list[list.length - 1].id);
+        return rec && rec.blob && rec.blob.profile ? rec.blob.profile.alias : null;
+    })()`);
+    check('El perfil viejo de B queda archivado (no se pierde)', archProfile === 'la-vieja-de-B', String(archProfile));
+
     // ── Paso 6: la seed de A nunca viajó ─────────────────────────────────
     const seedLeak = await B.eval(`localStorage.getItem('xmtp-chat-wallet')`);
     check('La llave privada de B sigue siendo la suya (la seed de A no viajó)',
@@ -323,6 +349,26 @@ try {
     })()`);
     check('El inbox sigue con las dos wallets antes de revocar', stillLinked === 2, String(stillLinked));
 
+    // ── MEDICIÓN: ¿puede B salirse SOLO del inbox prestado? ───────────────────────
+    // El botón manual "↩ Mi identidad" hoy devuelve el alias pero deja los chats heredados
+    // (los del dueño) puestos: estado incoherente. Devolverle también SUS chats exige salir
+    // del inbox, y para eso B tendría que poder quitarse a sí mismo. Eso no está medido.
+    console.log('\n── MEDICIÓN: ¿B puede quitarse a sí mismo del inbox prestado? ──');
+    const autoQuit = await B.eval(`(async () => {
+        try {
+            await chatwalletxmtp.removeAccount({ identifier: currentWallet.address.toLowerCase(), identifierKind: 0 });
+            const st = await chatwalletxmtp.preferences.fetchInboxState();
+            return { ok: true, accounts: (st.accountIdentifiers || []).map(i => i.identifier.toLowerCase()) };
+        } catch (e) { return { ok: false, err: e.message }; }
+    })()`);
+    console.log('   removeAccount sobre sí mismo →', JSON.stringify(autoQuit));
+    const salioSolo = autoQuit.ok === true && Array.isArray(autoQuit.accounts)
+        && !autoQuit.accounts.includes(addrB.toLowerCase());
+    // Queda como aserción del hecho MEDIDO, no como deseo: si algún día XMTP lo permitiera,
+    // esto se pone en rojo y hay que volver a mirar el diseño de la salida.
+    check('XMTP NO deja que el prestado se saque solo (sólo el dueño puede)', salioSolo === false,
+        autoQuit.ok ? 'ahora SÍ puede: revisar el diseño' : `rechazo: ${autoQuit.err}`);
+
     // ── Paso 8: A revoca el acceso de B ──────────────────────────────────
     console.log('\n── Paso 8: A quita el acceso ──');
     // Por el botón real de Configuración, que pide dos toques (el primero avisa).
@@ -373,6 +419,61 @@ try {
         return false;
     })()`);
     check('A sigue recibiendo con normalidad después de revocar', stillSees === true);
+
+    // ── Paso 9: la vuelta al DID propio, disparada por la REVOCACIÓN ──────────────
+    // El usuario lo pidió remoto: si la wallet dueña te saca, el dispositivo revocado vuelve
+    // solo a su identidad, su historial y su inbox. Acá se prueba ese camino entero.
+    console.log('\n── Paso 9: B vuelve solo a su DID ──');
+    const senal = await B.eval(`(async () => {
+        const out = {};
+        try {
+            const st = await chatwalletxmtp.preferences.fetchInboxState();
+            out.accounts = (st.accountIdentifiers || []).map(i => i.identifier.toLowerCase());
+        } catch (e) { out.accounts = 'THROW: ' + e.message; }
+        out.miAddress = currentWallet.address.toLowerCase();
+        return out;
+    })()`);
+    check('B puede DETECTAR la revocación (fetchInboxState responde y ya no lo incluye)',
+        Array.isArray(senal.accounts) && !senal.accounts.includes(senal.miAddress),
+        JSON.stringify(senal.accounts));
+
+    // Se borra la marca a propósito: así se prueba el camino MÁS difícil, el de quien adoptó
+    // antes de que la marca existiera (v2.10). La detección no debe depender de ella — alcanza
+    // con que el inbox donde estamos ya no tenga nuestra address.
+    await B.eval(`localStorage.removeItem('cw-adopted-inbox-' + currentWallet.address.toLowerCase())`);
+    const reverted = await B.eval(`checkAdoptedAccessRevoked()`);
+    check('El chequeo dispara la vuelta al DID propio', reverted === true, String(reverted));
+
+    // La vuelta programa un location.reload() a los 1200ms. Sin esperarlo, waitXmtp lee la
+    // página VIEJA —donde chatwalletxmtp todavía apunta al inbox del dueño— y devuelve al
+    // instante un valor que ya no significa nada (me comió dos corridas).
+    await sleep(8000);
+    const inboxB3 = await B.waitXmtp(180000);
+    // Medido: XMTP le devuelve a esta address SU inbox de siempre (mismo id que antes de la
+    // adopción) en las dos corridas bien medidas. La aserción igual pide sólo lo que de verdad
+    // importa —que deje de ser el inbox del dueño— porque el id lo decide XMTP, no nosotros.
+    check('B sale del inbox del dueño y vuelve a uno PROPIO', !!inboxB3 && inboxB3 !== inboxA,
+        inboxB3 === inboxB ? 'y es el mismo de antes de adoptar' : `inbox nuevo (el original era ${inboxB.slice(0, 12)}…)`);
+
+    await sleep(4000);
+    const backB = await B.eval(`(async () => {
+        const p = JSON.parse(localStorage.getItem('chatwallet-user-profile') || 'null');
+        const arch = JSON.parse(localStorage.getItem('cw-history-archives') || '[]');
+        return {
+            alias: p && p.alias,
+            sidebar: document.getElementById('userProfileName')?.textContent || '',
+            adoptedMark: localStorage.getItem('cw-adopted-inbox-' + currentWallet.address.toLowerCase()),
+            bk: await chatBackupExportKey(),
+            razones: arch.map(a => a.reason),
+        };
+    })()`);
+    check('B vuelve a su identidad propia', backB.alias === 'la-vieja-de-B' && backB.sidebar === 'la-vieja-de-B',
+        `alias=${backB.alias} sidebar=${backB.sidebar}`);
+    check('La llave de respaldo vuelve a ser la suya (deja de escribir con la de A)',
+        backB.bk !== bkA, backB.bk === bkA ? 'SIGUE CON LA DE A' : '');
+    check('El historial adoptado queda archivado, no borrado a ciegas',
+        backB.razones.includes('revoked'), JSON.stringify(backB.razones));
+    check('Se limpia la marca de inbox adoptado', backB.adoptedMark === null, String(backB.adoptedMark));
 
 } catch (e) {
     console.error('\n💥', e.message);
