@@ -1555,7 +1555,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.13 alpha</p>
+            <p class="text-sm text-gray-400">v 2.14 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3141,6 +3141,13 @@
                     </button>
                 </div>
                 <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_networks_title">
+                    Redes y Tokens</h2>
+                <button id="manageNetworksBtn" data-i18n-key="settings_networks_button"
+                    class="w-full mt-2 px-4 py-2 font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                    Administrar redes y tokens
+                </button>
+                <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300"
                     data-i18n-key="settings_installations_title">Gestionar Instalaciones</h2>
                 <div id="installationsList"
@@ -3252,13 +3259,6 @@
                     ❄ Preparar transacción fría
                 </button>
 
-                <hr class="border-gray-600">
-                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_networks_title">
-                    Gestionar Redes</h2>
-                <button id="manageNetworksBtn" data-i18n-key="settings_networks_button"
-                    class="w-full mt-2 px-4 py-2 font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
-                    Abrir Gestor de Redes
-                </button>
 
                 <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_privacy_title">
@@ -3299,7 +3299,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.13</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.14</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3308,11 +3308,11 @@
             </div>
         </div>
 
-        <!-- Modal Gestionar Redes -->
+        <!-- Modal Redes y Tokens -->
         <div id="manageNetworksModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
             <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4 flex flex-col max-h-[90vh]">
                 <div class="flex justify-between items-center flex-shrink-0">
-                    <h3 class="text-lg font-bold">Gestionar Redes</h3>
+                    <h3 class="text-lg font-bold" data-i18n-key="settings_networks_title">Redes y Tokens</h3>
                     <button id="closeManageNetworksModalBtn"
                         class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
                 </div>
@@ -14081,8 +14081,8 @@
                     "settings_coldtx_title": "Transacción fría ❄",
                     "settings_coldtx_desc": "Prepará una transacción para que la firme una wallet en modo frío, y transmitila cuando te devuelvan el QR firmado.",
                     "settings_coldtx_button": "❄ Preparar transacción fría",
-                    "settings_networks_title": "Gestionar Redes",
-                    "settings_networks_button": "Abrir Gestor de Redes",
+                    "settings_networks_title": "Redes y Tokens",
+                    "settings_networks_button": "Administrar redes y tokens",
                     "wc_conn_title": "Conexiones activas",
                     "wc_conn_desc": "Apps vinculadas a tu wallet por XMTP para pedirte firmas. Tu llave privada nunca sale de acá.",
                     "wc_conn_none": "No hay conexiones activas.",
@@ -14226,8 +14226,8 @@
                     "settings_coldtx_title": "Cold transaction ❄",
                     "settings_coldtx_desc": "Prepare a transaction for a cold-storage wallet to sign, then broadcast it once you get the signed QR back.",
                     "settings_coldtx_button": "❄ Prepare cold transaction",
-                    "settings_networks_title": "Manage Networks",
-                    "settings_networks_button": "Open Network Manager",
+                    "settings_networks_title": "Networks & Tokens",
+                    "settings_networks_button": "Manage networks & tokens",
                     "wc_conn_title": "Active connections",
                     "wc_conn_desc": "Apps linked to your wallet over XMTP to request signatures. Your private key never leaves here.",
                     "wc_conn_none": "No active connections.",
@@ -14371,8 +14371,8 @@
                     "settings_coldtx_title": "Transaction à froid ❄",
                     "settings_coldtx_desc": "Préparez une transaction pour qu'un portefeuille hors ligne la signe, puis diffusez-la une fois le QR signé récupéré.",
                     "settings_coldtx_button": "❄ Préparer une transaction à froid",
-                    "settings_networks_title": "Gérer les Réseaux",
-                    "settings_networks_button": "Ouvrir le Gestionnaire de Réseaux",
+                    "settings_networks_title": "Réseaux et jetons",
+                    "settings_networks_button": "Gérer réseaux et jetons",
                     "wc_conn_title": "Connexions actives",
                     "wc_conn_desc": "Apps liées à votre portefeuille via XMTP pour demander des signatures. Votre clé privée ne quitte jamais cet appareil.",
                     "wc_conn_none": "Aucune connexion active.",
