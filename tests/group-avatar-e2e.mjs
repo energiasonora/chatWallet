@@ -152,6 +152,28 @@ try {
     const beforeSrc = await A.eval(`document.getElementById('groupInfoAvatar').src.slice(0, 30)`);
     check('arranca con el avatar de grupo por defecto', /^data:image\/svg/.test(beforeSrc), beforeSrc);
 
+    // ── El botón tiene que acusar recibo aunque el selector no llegue a abrirse ──
+    console.log('\n── A toca el avatar: acuse inmediato ──');
+    await A.eval(`document.getElementById('groupInfoAvatarBtn').click()`, { awaitPromise: false });
+    await sleep(500);
+    const acuse = await A.eval(`document.getElementById('groupInfoStatus').textContent`);
+    check('tocar el avatar dice algo en el acto', /Elegí una imagen/.test(acuse || ''), acuse);
+
+    // ── Un archivo que no se puede decodificar avisa, y avisa fuerte ─────
+    console.log('\n── A elige algo que no es una imagen ──');
+    await A.eval(`(() => {
+        const input = document.getElementById('groupAvatarUpload');
+        const dt = new DataTransfer();
+        dt.items.add(new File([new Uint8Array([1,2,3,4])], 'roto.png', { type: 'image/png' }));
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`, { awaitPromise: false });
+    await sleep(2500);
+    const errTxt = await A.eval(`document.getElementById('groupInfoStatus').textContent`);
+    check('el error se explica en el modal', /No se pudo leer esa imagen/.test(errTxt || ''), errTxt);
+    const errToast = await A.eval(`[...document.querySelectorAll('#cwNotifs .cw-notif')].map(e=>e.textContent).join(' | ')`);
+    check('y también sale por la pila de notificaciones', /No se pudo leer esa imagen/.test(errToast || ''), errToast.slice(0, 80));
+
     // ── A elige la imagen: se llena el input de archivo de verdad y se dispara
     //    'change', así corre el handler real (FileReader incluido). ────────
     console.log('\n── A elige una imagen en el input de archivo ──');
@@ -175,11 +197,21 @@ try {
     check('A guarda la imagen y la ve en el modal', !!savedA, savedA ? `${savedA} chars` : await A.eval(`document.getElementById('groupInfoStatus').textContent`));
     check('la miniatura entra holgada en la metadata del grupo', savedA > 0 && savedA < 24000, `${savedA} chars`);
 
+    const okToast = await A.eval(`[...document.querySelectorAll('#cwNotifs .cw-notif')].map(e=>e.textContent).join(' | ')`);
+    check('el éxito también se avisa arriba', /Imagen del grupo actualizada/.test(okToast || ''), okToast.slice(0, 80));
+
     const hdrA = await A.eval(`document.getElementById('chatHeaderAvatar').src.slice(0,20)`);
     check('A ve la imagen nueva en el header del chat', /^data:image\/(webp|jpeg)/.test(hdrA), hdrA);
 
     const rowA = await A.eval(`(() => { const c = contacts.find(c => c.isGroup); return c && c.avatar ? c.avatar.slice(0,20) : ''; })()`);
     check('A la guarda en la fila de la lista de chats', /^data:image\/(webp|jpeg)/.test(rowA), rowA);
+
+    const scrollable = await A.eval(`(() => {
+        const box = document.querySelector('#groupInfoModal > div');
+        const cs = getComputedStyle(box);
+        return cs.overflowY === 'auto' && box.getBoundingClientRect().height <= window.innerHeight;
+    })()`);
+    check('el modal entra en la pantalla y scrollea (el estado no queda afuera)', scrollable === true);
 
     // ── B, del otro lado, tiene que verla ────────────────────────────────
     console.log('\n── B sincroniza y la ve ──');

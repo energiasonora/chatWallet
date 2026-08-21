@@ -1578,7 +1578,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.18 alpha</p>
+            <p class="text-sm text-gray-400">v 2.19 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3019,7 +3019,9 @@
 
         <!-- Modal Info del Grupo -->
         <div id="groupInfoModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-[55]">
-            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
+            <!-- max-h + scroll: en un teléfono el modal se pasaba de alto y el renglón de
+                 estado (y el botón de salir) quedaban abajo, fuera de la pantalla. -->
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4 max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-start gap-2">
                     <div class="flex items-center gap-3 min-w-0">
                         <!-- Imagen del grupo: la ve todo el mundo, la cambia sólo un admin.
@@ -3037,7 +3039,11 @@
                     </div>
                     <button id="closeGroupInfo" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 </div>
-                <input type="file" id="groupAvatarUpload" accept="image/*" class="hidden">
+                <!-- Invisible pero RENDERIZADO: con `display:none` (class="hidden") algunos
+                     WebView de Android ignoran el .click() programático y el selector de
+                     archivos no abre nunca, sin error ni aviso. -->
+                <input type="file" id="groupAvatarUpload" accept="image/*"
+                    style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
 
                 <div id="groupInfoAdminBox" class="hidden space-y-2">
                     <label for="groupRenameInput" class="block text-sm text-gray-400">Nombre del grupo</label>
@@ -3340,7 +3346,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.18</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.19</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3662,7 +3668,9 @@
                 <div class="flex items-center space-x-4">
                     <img id="userDidAvatar" src="static/anonym.jpg" alt="User Avatar"
                         class="w-20 h-20 rounded-full border-2 border-indigo-500 cursor-pointer">
-                    <input type="file" id="avatarUpload" class="hidden" accept="image/*">
+                    <!-- Igual que #groupAvatarUpload: renderizado e invisible, no display:none. -->
+                    <input type="file" id="avatarUpload" accept="image/*"
+                        style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
 
                     <div class="flex-grow">
                         <label for="userDidAlias" class="block text-sm text-gray-400 mb-1">Alias Name</label>
@@ -12774,25 +12782,42 @@
 
             // Normaliza el avatar: recorte CUADRADO centrado (cover) + WebP (fallback jpeg), chico.
             // Solo aplica a data-URLs (un avatar por defecto tipo 'static/anonym.jpg' no se envía).
+            // Recorta cuadrado y escala a `max` px un bitmap ya decodificado.
+            function drawAvatarThumb(src, w, h, max) {
+                const side = Math.min(w, h);                          // recorte cuadrado centrado
+                const sx = (w - side) / 2, sy = (h - side) / 2;
+                const canvas = document.createElement('canvas');
+                canvas.width = max; canvas.height = max;
+                canvas.getContext('2d').drawImage(src, sx, sy, side, side, 0, 0, max, max);
+                let out = canvas.toDataURL('image/webp', 0.8);
+                if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', 0.8); // fallback
+                return out;
+            }
+
             async function makeAvatarThumb(dataUrl, max = 128) {
                 if (!dataUrl || !dataUrl.startsWith('data:image')) return '';
-                return new Promise((resolve) => {
+                // Segundo intento con createImageBitmap: decodifica formatos que <img> no sabe
+                // (según el dispositivo, HEIC/AVIF de la cámara del teléfono). Si tampoco puede,
+                // recién ahí devolvemos '' y quien llama avisa con el tipo de archivo.
+                const viaBitmap = async () => {
+                    try {
+                        const blob = await (await fetch(dataUrl)).blob();
+                        const bmp = await createImageBitmap(blob);
+                        const out = drawAvatarThumb(bmp, bmp.width, bmp.height, max);
+                        bmp.close && bmp.close();
+                        return out;
+                    } catch (e) { return ''; }
+                };
+                const first = await new Promise((resolve) => {
                     const img = new Image();
                     img.onload = () => {
-                        try {
-                            const side = Math.min(img.width, img.height);          // recorte cuadrado centrado
-                            const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
-                            const canvas = document.createElement('canvas');
-                            canvas.width = max; canvas.height = max;
-                            canvas.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, max, max);
-                            let out = canvas.toDataURL('image/webp', 0.8);
-                            if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', 0.8); // fallback
-                            resolve(out);
-                        } catch (e) { resolve(''); }
+                        try { resolve(drawAvatarThumb(img, img.width, img.height, max)); }
+                        catch (e) { resolve(''); }
                     };
                     img.onerror = () => resolve('');
                     img.src = dataUrl;
                 });
+                return first || await viaBitmap();
             }
 
             // sha256 hex de una string (content-addressing del avatar). Degrada a '' si no hay
@@ -13346,21 +13371,38 @@
             document.getElementById('groupInfoBtn')?.addEventListener('click', openGroupInfo);
             document.getElementById('closeGroupInfo')?.addEventListener('click', closeGroupInfoModal);
 
+            // Todo lo que pasa con la imagen del grupo se cuenta DOS veces: en el renglón de
+            // estado del modal y en la pila de notificaciones de arriba. El renglón solo no
+            // alcanzaba — se lo comía el alto del modal en un teléfono y los errores morían mudos.
+            function groupInfoSay(msg, type) {
+                const st = document.getElementById('groupInfoStatus');
+                if (st) {
+                    st.textContent = msg;
+                    st.className = 'text-xs min-h-[1rem] ' + (type === 'error' ? 'text-red-400' : 'text-gray-400');
+                }
+                if (type) showToast(msg, type, type === 'error' ? 6000 : 3000);
+            }
+
             // Imagen del grupo: elegir archivo → miniatura → metadata del grupo (la ven todos).
             document.getElementById('groupInfoAvatarBtn')?.addEventListener('click', () => {
                 if (!groupInfoIAmAdmin) {
-                    document.getElementById('groupInfoStatus').textContent = 'Sólo un admin puede cambiar la imagen del grupo.';
+                    groupInfoSay('Sólo un admin puede cambiar la imagen del grupo.', 'error');
                     return;
                 }
+                if (!currentGroup) { groupInfoSay('Abrí el grupo antes de cambiarle la imagen.', 'error'); return; }
+                // Acuse inmediato: si el selector de archivos no llega a abrirse (pasa en el
+                // WebView del APK), al menos se ve que el botón respondió y no que "no hace nada".
+                groupInfoSay('Elegí una imagen…');
                 document.getElementById('groupAvatarUpload').click();
             });
 
             document.getElementById('groupAvatarUpload')?.addEventListener('change', async (e) => {
                 const file = e.target.files && e.target.files[0];
                 e.target.value = '';   // sin esto, volver a elegir la MISMA imagen no dispara 'change'
-                if (!file || !currentGroup) return;
-                const st = document.getElementById('groupInfoStatus');
-                st.textContent = 'Preparando la imagen…';
+                if (!file) { groupInfoSay(''); return; }              // canceló el selector
+                if (!currentGroup) { groupInfoSay('Abrí el grupo antes de cambiarle la imagen.', 'error'); return; }
+                console.log('[grupo] imagen elegida:', file.name, file.type, file.size, 'bytes');
+                groupInfoSay('Preparando la imagen…');
                 try {
                     const dataUrl = await new Promise((res, rej) => {
                         const r = new FileReader();
@@ -13372,12 +13414,16 @@
                     // IndexedDB y un mensaje aparte): va DENTRO de la metadata del grupo, o sea
                     // en un commit de MLS que reciben y guardan todos los miembros. Chica de verdad.
                     const thumb = await makeAvatarThumb(dataUrl, 128);
-                    if (!thumb) { st.textContent = 'No se pudo leer esa imagen.'; return; }
-                    if (thumb.length > 24000) {
-                        st.textContent = 'Esa imagen queda demasiado pesada para la metadata del grupo. Probá con otra.';
+                    if (!thumb) {
+                        // Pasa con formatos que el canvas no sabe decodificar (HEIC de iPhone, p.ej.).
+                        groupInfoSay(`No se pudo leer esa imagen${file.type ? ' (' + file.type + ')' : ''}. Probá con un JPG o PNG.`, 'error');
                         return;
                     }
-                    st.textContent = 'Guardando…';
+                    if (thumb.length > 24000) {
+                        groupInfoSay('Esa imagen queda demasiado pesada para la metadata del grupo. Probá con otra.', 'error');
+                        return;
+                    }
+                    groupInfoSay('Guardando…');
                     const conv = await chatwalletxmtp.conversations.getConversationById(currentGroup.groupId);
                     await conv.updateImageUrl(thumb);
                     // El objeto `conv` sigue con la metadata vieja en memoria: el avatar va explícito.
@@ -13389,11 +13435,14 @@
                     document.getElementById('groupInfoAvatar').src = thumb;
                     const hdr = document.getElementById('chatHeaderAvatar');
                     if (hdr) hdr.src = thumb;
-                    st.textContent = '';
-                    showToast('Imagen del grupo actualizada.', 'success');
+                    groupInfoSay('Imagen del grupo actualizada.', 'success');
                 } catch (err) {
                     console.error('updateImageUrl:', err);
-                    st.textContent = `No se pudo guardar la imagen: ${err.message || err}`;
+                    // Causa nº1 si no sos admin: XMTP rechaza el cambio de metadata.
+                    const msg = /permission|not.*admin|unauthorized|denied/i.test(String(err.message || err))
+                        ? 'XMTP no te deja cambiar la imagen: no sos admin de este grupo.'
+                        : `No se pudo guardar la imagen: ${err.message || err}`;
+                    groupInfoSay(msg, 'error');
                 }
             });
 
