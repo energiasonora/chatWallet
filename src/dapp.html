@@ -1578,7 +1578,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.19 alpha</p>
+            <p class="text-sm text-gray-400">v 2.20 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3018,6 +3018,33 @@
         </div>
 
         <!-- Modal Info del Grupo -->
+        <!-- Recortador de imágenes: encuadre cuadrado con arrastre y zoom. Devuelve el
+             recorte por promesa (openImageCropper), así lo puede usar cualquier flujo
+             que necesite un avatar: la imagen del grupo hoy, el perfil propio mañana. -->
+        <div id="imgCropModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-[70]">
+            <div class="bg-gray-800 rounded-xl p-4 w-full max-w-sm space-y-3">
+                <h3 id="imgCropTitle" class="font-bold text-white">Recortar imagen</h3>
+                <div id="imgCropStage" class="relative w-full aspect-square bg-black rounded-lg overflow-hidden select-none"
+                    style="touch-action:none;">
+                    <canvas id="imgCropCanvas" class="w-full h-full block"></canvas>
+                    <!-- Guía del recorte: lo que queda dentro del círculo es lo que se ve de avatar. -->
+                    <div class="absolute inset-0 pointer-events-none rounded-full border-2 border-white/70"></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-400 text-xs">−</span>
+                    <input type="range" id="imgCropZoom" min="1" max="4" step="0.01" value="1" class="flex-grow">
+                    <span class="text-gray-400 text-xs">+</span>
+                </div>
+                <p class="text-[11px] text-gray-500">Arrastrá para mover, pellizcá o usá la barra para acercar.</p>
+                <div class="flex gap-2">
+                    <button type="button" id="imgCropCancel"
+                        class="flex-1 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm font-semibold">Cancelar</button>
+                    <button type="button" id="imgCropOk"
+                        class="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-bold">Usar</button>
+                </div>
+            </div>
+        </div>
+
         <div id="groupInfoModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-[55]">
             <!-- max-h + scroll: en un teléfono el modal se pasaba de alto y el renglón de
                  estado (y el botón de salir) quedaban abajo, fuera de la pantalla. -->
@@ -3346,7 +3373,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.19</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.20</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -12783,41 +12810,222 @@
             // Normaliza el avatar: recorte CUADRADO centrado (cover) + WebP (fallback jpeg), chico.
             // Solo aplica a data-URLs (un avatar por defecto tipo 'static/anonym.jpg' no se envía).
             // Recorta cuadrado y escala a `max` px un bitmap ya decodificado.
-            function drawAvatarThumb(src, w, h, max) {
+            function drawAvatarThumb(src, w, h, max, quality = 0.8) {
                 const side = Math.min(w, h);                          // recorte cuadrado centrado
                 const sx = (w - side) / 2, sy = (h - side) / 2;
                 const canvas = document.createElement('canvas');
                 canvas.width = max; canvas.height = max;
                 canvas.getContext('2d').drawImage(src, sx, sy, side, side, 0, 0, max, max);
-                let out = canvas.toDataURL('image/webp', 0.8);
-                if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', 0.8); // fallback
+                let out = canvas.toDataURL('image/webp', quality);
+                if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', quality); // fallback
                 return out;
             }
 
-            async function makeAvatarThumb(dataUrl, max = 128) {
-                if (!dataUrl || !dataUrl.startsWith('data:image')) return '';
-                // Segundo intento con createImageBitmap: decodifica formatos que <img> no sabe
-                // (según el dispositivo, HEIC/AVIF de la cámara del teléfono). Si tampoco puede,
-                // recién ahí devolvemos '' y quien llama avisa con el tipo de archivo.
-                const viaBitmap = async () => {
-                    try {
-                        const blob = await (await fetch(dataUrl)).blob();
-                        const bmp = await createImageBitmap(blob);
-                        const out = drawAvatarThumb(bmp, bmp.width, bmp.height, max);
-                        bmp.close && bmp.close();
-                        return out;
-                    } catch (e) { return ''; }
-                };
-                const first = await new Promise((resolve) => {
+            // ── Recortador de imágenes ────────────────────────────────────────────────
+            // Abre el modal con la imagen, deja encuadrar (arrastre + zoom con barra o
+            // pellizco) y resuelve con el recorte cuadrado en `out` px. Resuelve '' si se
+            // cancela. Sin dependencias: canvas + pointer events, como el resto de la app.
+            let cropState = null;
+
+            // Decodifica a algo que el canvas sepa dibujar. Primero <img>; si el formato no le
+            // entra (HEIC/AVIF de la cámara de un teléfono), segundo intento con
+            // createImageBitmap. Devuelve null si no hay caso: quien llama avisa con el tipo.
+            async function loadBitmap(dataUrl) {
+                const viaImg = await new Promise((resolve) => {
                     const img = new Image();
-                    img.onload = () => {
-                        try { resolve(drawAvatarThumb(img, img.width, img.height, max)); }
-                        catch (e) { resolve(''); }
-                    };
-                    img.onerror = () => resolve('');
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(null);
                     img.src = dataUrl;
                 });
-                return first || await viaBitmap();
+                if (viaImg) return viaImg;
+                try { return await createImageBitmap(await (await fetch(dataUrl)).blob()); }
+                catch (e) { return null; }
+            }
+
+            // Resuelve con el recorte, con '' si se canceló, o con null si la imagen ni se
+            // pudo decodificar (esos tres casos merecen mensajes distintos).
+            async function openImageCropper(dataUrl, { out = 512, title = 'Recortar imagen' } = {}) {
+                const img = await loadBitmap(dataUrl);
+                if (!img) return null;
+                return new Promise((resolve) => {
+                    const modal = document.getElementById('imgCropModal');
+                    const canvas = document.getElementById('imgCropCanvas');
+                    const zoom = document.getElementById('imgCropZoom');
+                    document.getElementById('imgCropTitle').textContent = title;
+                    // El canvas trabaja en píxeles de salida: lo que se ve es lo que se recorta.
+                    canvas.width = out; canvas.height = out;
+                    const minScale = out / Math.min(img.width, img.height);   // siempre cubre el cuadro
+                    cropState = { img, out, minScale, scale: minScale, ox: 0, oy: 0, resolve, modal };
+                    centerCrop();
+                    zoom.min = '1'; zoom.max = '4'; zoom.step = '0.01'; zoom.value = '1';
+                    modal.classList.remove('hidden'); modal.classList.add('flex');
+                    drawCrop();
+                });
+            }
+
+            function centerCrop() {
+                const st = cropState; if (!st) return;
+                st.ox = (st.out - st.img.width * st.scale) / 2;
+                st.oy = (st.out - st.img.height * st.scale) / 2;
+            }
+
+            // El encuadre nunca puede dejar huecos: la imagen tiene que tapar el cuadrado entero.
+            function clampCrop() {
+                const st = cropState; if (!st) return;
+                const w = st.img.width * st.scale, h = st.img.height * st.scale;
+                st.ox = Math.min(0, Math.max(st.out - w, st.ox));
+                st.oy = Math.min(0, Math.max(st.out - h, st.oy));
+            }
+
+            function drawCrop() {
+                const st = cropState; if (!st) return;
+                const ctx = document.getElementById('imgCropCanvas').getContext('2d');
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, st.out, st.out);
+                clampCrop();
+                ctx.drawImage(st.img, st.ox, st.oy, st.img.width * st.scale, st.img.height * st.scale);
+            }
+
+            function setCropZoom(factor, cx, cy) {
+                const st = cropState; if (!st) return;
+                const prev = st.scale;
+                st.scale = Math.max(st.minScale, Math.min(st.minScale * 4, st.minScale * factor));
+                // Acercar hacia el punto que el dedo/puntero tiene agarrado, no hacia la esquina.
+                const k = st.scale / prev;
+                st.ox = cx - (cx - st.ox) * k;
+                st.oy = cy - (cy - st.oy) * k;
+                drawCrop();
+            }
+
+            // Igual que window.cwLinkState(): asomar el estado del encuadre para poder
+            // verificarlo desde el E2E sin tocar la UI a ciegas.
+            window.cwCropState = () => cropState;
+
+            (function wireCropper() {
+                const stage = document.getElementById('imgCropStage');
+                const canvas = document.getElementById('imgCropCanvas');
+                const zoom = document.getElementById('imgCropZoom');
+                if (!stage || !canvas || !zoom) return;
+                const pointers = new Map();
+                let last = null, pinchDist = 0, pinchFactor = 1;
+
+                // Coordenadas del puntero en píxeles del canvas (el CSS lo escala).
+                const toCanvas = (e) => {
+                    const r = canvas.getBoundingClientRect();
+                    const st = cropState;
+                    return { x: (e.clientX - r.left) * (st.out / r.width), y: (e.clientY - r.top) * (st.out / r.height) };
+                };
+
+                stage.addEventListener('pointerdown', (e) => {
+                    if (!cropState) return;
+                    stage.setPointerCapture(e.pointerId);
+                    pointers.set(e.pointerId, e);
+                    if (pointers.size === 1) last = toCanvas(e);
+                    else if (pointers.size === 2) {
+                        const [a, b] = [...pointers.values()];
+                        pinchDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+                        pinchFactor = cropState.scale / cropState.minScale;
+                    }
+                });
+                stage.addEventListener('pointermove', (e) => {
+                    if (!cropState || !pointers.has(e.pointerId)) return;
+                    pointers.set(e.pointerId, e);
+                    if (pointers.size === 1 && last) {
+                        const p = toCanvas(e);
+                        cropState.ox += p.x - last.x;
+                        cropState.oy += p.y - last.y;
+                        last = p;
+                        drawCrop();
+                    } else if (pointers.size === 2 && pinchDist > 0) {
+                        const [a, b] = [...pointers.values()];
+                        const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+                        const f = Math.max(1, Math.min(4, pinchFactor * (d / pinchDist)));
+                        const r = canvas.getBoundingClientRect();
+                        const st = cropState;
+                        setCropZoom(f, ((a.clientX + b.clientX) / 2 - r.left) * (st.out / r.width),
+                                       ((a.clientY + b.clientY) / 2 - r.top) * (st.out / r.height));
+                        zoom.value = String(f);
+                    }
+                });
+                const up = (e) => { pointers.delete(e.pointerId); last = null; if (pointers.size < 2) pinchDist = 0; };
+                stage.addEventListener('pointerup', up);
+                stage.addEventListener('pointercancel', up);
+
+                zoom.addEventListener('input', () => {
+                    if (!cropState) return;
+                    setCropZoom(parseFloat(zoom.value) || 1, cropState.out / 2, cropState.out / 2);
+                });
+
+                const close = (value) => {
+                    const st = cropState;
+                    cropState = null;
+                    if (st) { st.modal.classList.add('hidden'); st.modal.classList.remove('flex'); st.resolve(value); }
+                };
+                document.getElementById('imgCropCancel')?.addEventListener('click', () => close(''));
+                document.getElementById('imgCropOk')?.addEventListener('click', () => {
+                    const st = cropState; if (!st) return;
+                    drawCrop();
+                    let outUrl = canvas.toDataURL('image/webp', 0.85);
+                    if (!outUrl.startsWith('data:image/webp')) outUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    close(outUrl);
+                });
+            })();
+
+            // ── Avatares: al nodo soberano, o inline si el nodo no está ───────────────
+            // XMTP guarda la imagen del grupo como TEXTO y corta en 2048 caracteres (medido
+            // contra la red: "Exceeded max characters for this field. Must be under: 2048").
+            // Una foto no entra ni cerca, así que ahí va una URL: el campo es para eso.
+            const MAX_GROUP_IMAGE_CHARS = 2048;
+
+            // Nodo IPFS soberano (la caja de casa, expuesta por Cloudflare Tunnel). Se declaran
+            // acá y se exponen en window porque el bloque de Docs vive en un <script type="module">
+            // aparte, que tiene su propio scope: sin esto, cada mitad tenía su copia de la URL.
+            const CW_IPFS_GATEWAY = 'https://gateway.chatwallet.org/ipfs/';
+            const CW_IPFS_UPLOAD_URL = 'https://backup.chatwallet.org/api/ipfs/upload';
+            window.CW_IPFS_GATEWAY = CW_IPFS_GATEWAY;
+            window.CW_IPFS_UPLOAD_URL = CW_IPFS_UPLOAD_URL;
+
+            // Sube bytes al nodo IPFS de la caja y devuelve la URL pública del gateway.
+            // Misma auth firmada que el respaldo de chats y los docs: "ipfs-upload:<sha>:<size>".
+            async function uploadAvatarToNode(dataUrl) {
+                const bytes = new Uint8Array(await (await fetch(dataUrl)).arrayBuffer());
+                const digest = await crypto.subtle.digest('SHA-256', bytes);
+                const sha = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+                const signer = new ethers.Wallet(currentWallet.privateKey);
+                const signature = await signer.signMessage(`ipfs-upload:${sha}:${bytes.length}`);
+                const res = await fetch(CW_IPFS_UPLOAD_URL, {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/octet-stream',
+                        'x-address': currentWallet.address,
+                        'x-signature': signature,
+                        'x-sha256': sha,
+                        'x-size': String(bytes.length),
+                    },
+                    body: bytes,
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.cid) throw new Error(data.error || `el nodo rechazó la subida (${res.status})`);
+                return CW_IPFS_GATEWAY + data.cid;
+            }
+
+            // Plan B cuando el nodo no está: una miniatura MINÚSCULA que entre en los 2048
+            // caracteres del campo. Se ve borrosa, pero el grupo queda con imagen y sin
+            // depender de ningún servidor.
+            async function tinyInlineAvatar(dataUrl, limit = MAX_GROUP_IMAGE_CHARS) {
+                for (const [px, q] of [[64, 0.7], [56, 0.6], [48, 0.5], [40, 0.4], [32, 0.4]]) {
+                    const t = await makeAvatarThumb(dataUrl, px, q);
+                    if (t && t.length <= limit - 48) return t;   // margen: el campo guarda el string entero
+                }
+                return '';
+            }
+
+            async function makeAvatarThumb(dataUrl, max = 128, quality = 0.8) {
+                if (!dataUrl || !dataUrl.startsWith('data:image')) return '';
+                const img = await loadBitmap(dataUrl);
+                if (!img) return '';
+                try { return drawAvatarThumb(img, img.width, img.height, max, quality); }
+                catch (e) { return ''; }
             }
 
             // sha256 hex de una string (content-addressing del avatar). Degrada a '' si no hay
@@ -13413,29 +13621,59 @@
                     // 128px WebP. OJO: esto NO viaja como el avatar de un contacto (que va por
                     // IndexedDB y un mensaje aparte): va DENTRO de la metadata del grupo, o sea
                     // en un commit de MLS que reciben y guardan todos los miembros. Chica de verdad.
-                    const thumb = await makeAvatarThumb(dataUrl, 128);
-                    if (!thumb) {
-                        // Pasa con formatos que el canvas no sabe decodificar (HEIC de iPhone, p.ej.).
+                    // 1. Encuadrar. El recorte cuadrado no es cosmético: el avatar se muestra
+                    //    en círculo y sin encuadre la foto sale con la cabeza cortada.
+                    groupInfoSay('');
+                    const cropped = await openImageCropper(dataUrl, { out: 512, title: 'Imagen del grupo' });
+                    if (cropped === null) {
                         groupInfoSay(`No se pudo leer esa imagen${file.type ? ' (' + file.type + ')' : ''}. Probá con un JPG o PNG.`, 'error');
                         return;
                     }
-                    if (thumb.length > 24000) {
-                        groupInfoSay('Esa imagen queda demasiado pesada para la metadata del grupo. Probá con otra.', 'error');
+                    if (!cropped) { groupInfoSay(''); return; }   // canceló el recorte
+
+                    // 2. Al nodo soberano. En el campo del grupo va la URL, no la foto: XMTP
+                    //    corta ese campo en 2048 caracteres y una imagen de verdad no entra.
+                    groupInfoSay('Subiendo la imagen…');
+                    const thumb = await makeAvatarThumb(cropped, 256, 0.85);
+                    let value = '', modo = '';
+                    try {
+                        value = await uploadAvatarToNode(thumb || cropped);
+                        modo = 'nodo';
+                    } catch (upErr) {
+                        // 3. Sin nodo (caído, sin cuota, sin red): una miniatura minúscula que
+                        //    entre inline. Se ve borrosa pero el grupo queda con su imagen.
+                        console.warn('avatar de grupo: el nodo no aceptó la subida →', upErr);
+                        groupInfoSay('El nodo no respondió; guardando una versión chica…');
+                        value = await tinyInlineAvatar(cropped);
+                        modo = 'inline';
+                        if (!value) {
+                            groupInfoSay('No se pudo subir la imagen ni achicarla lo suficiente. Probá más tarde.', 'error');
+                            return;
+                        }
+                    }
+                    if (value.length > MAX_GROUP_IMAGE_CHARS) {
+                        groupInfoSay('La imagen no entra en la metadata del grupo. Probá con otra.', 'error');
                         return;
                     }
+
                     groupInfoSay('Guardando…');
                     const conv = await chatwalletxmtp.conversations.getConversationById(currentGroup.groupId);
-                    await conv.updateImageUrl(thumb);
+                    await conv.updateImageUrl(value);
                     // El objeto `conv` sigue con la metadata vieja en memoria: el avatar va explícito.
-                    const hash = await sha256Hex(thumb);
-                    if (hash) await avatarPut(hash, thumb);
-                    upsertGroupContact(conv, hash ? { avatar: thumb, avatarHash: hash } : { avatar: thumb });
+                    // Para mostrar usamos SIEMPRE el recorte local: se ve al toque y no depende de
+                    // que el gateway conteste (los demás miembros sí van a buscarlo por la URL).
+                    const shown = thumb || cropped;
+                    const hash = await sha256Hex(shown);
+                    if (hash) await avatarPut(hash, shown);
+                    upsertGroupContact(conv, hash ? { avatar: shown, avatarHash: hash } : { avatar: shown });
                     await saveContacts();
                     renderContacts();
-                    document.getElementById('groupInfoAvatar').src = thumb;
+                    document.getElementById('groupInfoAvatar').src = shown;
                     const hdr = document.getElementById('chatHeaderAvatar');
-                    if (hdr) hdr.src = thumb;
-                    groupInfoSay('Imagen del grupo actualizada.', 'success');
+                    if (hdr) hdr.src = shown;
+                    groupInfoSay(modo === 'nodo'
+                        ? 'Imagen del grupo actualizada.'
+                        : 'Imagen del grupo actualizada (versión chica: el nodo no estaba disponible).', 'success');
                 } catch (err) {
                     console.error('updateImageUrl:', err);
                     // Causa nº1 si no sos admin: XMTP rechaza el cambio de metadata.
@@ -15687,8 +15925,10 @@
             const IPFS_MAX_MB = 100;
             // === Nodo IPFS soberano (reemplazo de Storacha) ===
             // Caja always-on de casa, expuesta por Cloudflare Tunnel.
-            const GATEWAY_BASE = 'https://gateway.chatwallet.org/ipfs/';           // era https://w3s.link/ipfs/ (Storacha, muerto)
-            const IPFS_UPLOAD_URL = 'https://backup.chatwallet.org/api/ipfs/upload'; // endpoint autenticado (upload-server en la caja)
+            // Declaradas en el <script> clásico (ver CW_IPFS_GATEWAY): este bloque es un módulo
+            // con scope propio, así que las toma de window en vez de tener su propia copia.
+            const GATEWAY_BASE = window.CW_IPFS_GATEWAY;                            // era https://w3s.link/ipfs/ (Storacha, muerto)
+            const IPFS_UPLOAD_URL = window.CW_IPFS_UPLOAD_URL;                      // endpoint autenticado (upload-server en la caja)
             const API_BASE = window.location.port === '3000' ? '' : 'http://localhost:3000';
             window.API_BASE = API_BASE; // exponer global: el <script> clásico lo usa bare (ver init diferido)
 

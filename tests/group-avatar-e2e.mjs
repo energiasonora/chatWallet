@@ -116,8 +116,6 @@ const A = new Dev('A', 9494);
 const B = new Dev('B', 9495);
 
 
-// PNG 4x4, el archivo que "elige" el admin en el diálogo del sistema.
-const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAHElEQVQI12P8z8Dwn4EIwESMolGFoworScEAAEuvAg/3jXKpAAAAAElFTkSuQmCC';
 
 try {
     console.log('\n── Levantando los dos dispositivos ──');
@@ -168,34 +166,62 @@ try {
         input.files = dt.files;
         input.dispatchEvent(new Event('change', { bubbles: true }));
     })()`, { awaitPromise: false });
-    await sleep(2500);
+    await sleep(3500);
     const errTxt = await A.eval(`document.getElementById('groupInfoStatus').textContent`);
     check('el error se explica en el modal', /No se pudo leer esa imagen/.test(errTxt || ''), errTxt);
     const errToast = await A.eval(`[...document.querySelectorAll('#cwNotifs .cw-notif')].map(e=>e.textContent).join(' | ')`);
     check('y también sale por la pila de notificaciones', /No se pudo leer esa imagen/.test(errToast || ''), errToast.slice(0, 80));
 
-    // ── A elige la imagen: se llena el input de archivo de verdad y se dispara
-    //    'change', así corre el handler real (FileReader incluido). ────────
-    console.log('\n── A elige una imagen en el input de archivo ──');
-    await A.eval(`(() => {
-        const b64 = ${JSON.stringify(PNG_B64)};
-        const bin = atob(b64);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    // ── A elige una FOTO de verdad (600x400): se llena el input y se dispara
+    //    'change', así corre el handler real — recortador incluido. ────────
+    console.log('\n── A elige una foto y la recorta ──');
+    await A.eval(`(async () => {
+        const c = document.createElement('canvas'); c.width = 600; c.height = 400;
+        const g = c.getContext('2d');
+        const grd = g.createLinearGradient(0, 0, 600, 400);
+        grd.addColorStop(0, '#f97316'); grd.addColorStop(1, '#4f46e5');
+        g.fillStyle = grd; g.fillRect(0, 0, 600, 400);
+        g.fillStyle = '#fff'; g.font = 'bold 120px sans-serif'; g.fillText('CW', 60, 260);
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
         const input = document.getElementById('groupAvatarUpload');
         const dt = new DataTransfer();
-        dt.items.add(new File([bytes], 'avatar.png', { type: 'image/png' }));
+        dt.items.add(new File([blob], 'foto.png', { type: 'image/png' }));
         input.files = dt.files;
         input.dispatchEvent(new Event('change', { bubbles: true }));
-        return input.files.length;
+    })()`);
+
+    const cropOpen = await pollFor(A, `!document.getElementById('imgCropModal').classList.contains('hidden')`, 15, 800);
+    check('se abre el recortador antes de subir nada', cropOpen === true);
+    const cropCovers = await A.eval(`(() => {
+        const st = window.cwCropState ? window.cwCropState() : null;   // el encuadre siempre tapa el cuadrado, sin huecos
+        return !!st && st.img.width * st.scale >= st.out - 0.5 && st.img.height * st.scale >= st.out - 0.5;
+    })()`).catch(() => 'no-expuesto');
+    if (cropCovers !== 'no-expuesto') check('el encuadre cubre el cuadro (sin bordes vacíos)', cropCovers === true);
+
+    // Acercar un poco y confirmar, como haría un dedo.
+    await A.eval(`(() => {
+        const z = document.getElementById('imgCropZoom');
+        z.value = '1.6'; z.dispatchEvent(new Event('input', { bubbles: true }));
+        document.getElementById('imgCropOk').click();
     })()`, { awaitPromise: false });
 
     const savedA = await pollFor(A, `(() => {
         const s = document.getElementById('groupInfoAvatar').src;
         return /^data:image\\/(webp|jpeg)/.test(s) ? s.length : 0;
-    })()`, 20, 1500);
+    })()`, 30, 2000);
     check('A guarda la imagen y la ve en el modal', !!savedA, savedA ? `${savedA} chars` : await A.eval(`document.getElementById('groupInfoStatus').textContent`));
-    check('la miniatura entra holgada en la metadata del grupo', savedA > 0 && savedA < 24000, `${savedA} chars`);
+
+    // Lo que QUEDA GUARDADO en el grupo es lo que tiene que entrar en 2048 caracteres.
+    const stored = await A.eval(`(async () => {
+        const conv = await chatwalletxmtp.conversations.getConversationById(${JSON.stringify(gid)});
+        return conv.imageUrl || '';
+    })()`);
+    check('lo guardado entra en el campo de XMTP (2048 chars)', stored.length > 0 && stored.length <= 2048,
+        `${stored.length} chars · ${stored.slice(0, 46)}…`);
+    check('y NO es la foto entera embutida en el campo',
+        stored.startsWith('https://') || stored.length < 2048,
+        stored.startsWith('https://') ? 'URL del nodo soberano' : 'miniatura inline (plan B)');
+    console.log(`   modo: ${stored.startsWith('https://') ? 'nodo IPFS' : 'inline'}`);
 
     const okToast = await A.eval(`[...document.querySelectorAll('#cwNotifs .cw-notif')].map(e=>e.textContent).join(' | ')`);
     check('el éxito también se avisa arriba', /Imagen del grupo actualizada/.test(okToast || ''), okToast.slice(0, 80));
@@ -220,14 +246,14 @@ try {
         const conv = await chatwalletxmtp.conversations.getConversationById(${JSON.stringify(gid)});
         if (!conv) return 0;
         try { await conv.sync(); } catch (e) {}
-        return /^data:image\\/(webp|jpeg)/.test(conv.imageUrl || '') ? conv.imageUrl.length : 0;
+        return (conv.imageUrl || '').length;
     })()`, 30, 3000);
     check('a B le llega la imagen del grupo por XMTP', !!seenB, seenB ? `${seenB} chars` : 'sin imagen');
 
     const rowB = await pollFor(B, `(async () => {
         await syncGroupsFromXmtp();
         const c = contacts.find(c => c.isGroup);
-        return c && /^data:image\\/(webp|jpeg)/.test(c.avatar || '') ? 1 : 0;
+        return c && c.avatar && c.avatar !== GROUP_AVATAR ? 1 : 0;
     })()`, 15, 2000);
     check('B la muestra en su lista de chats', rowB === 1);
 
