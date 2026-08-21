@@ -456,6 +456,29 @@
             padding: 0 0.25rem;
         }
 
+        /* El tilde de "dirección copiada": entra con un golpecito y se queda quieto.
+           Reemplaza al toast — la confirmación se mira donde se tocó, no en otra esquina. */
+        @keyframes cw-copied-pop {
+            0% {
+                opacity: 0;
+                transform: scale(0.4);
+            }
+
+            60% {
+                opacity: 1;
+                transform: scale(1.25);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .cw-copied-pop {
+            animation: cw-copied-pop 260ms ease-out;
+        }
+
         /* --- NUEVOS ESTILOS PARA BOTONES DE CHAT --- */
         @keyframes scale-in {
             from {
@@ -1555,7 +1578,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.14 alpha</p>
+            <p class="text-sm text-gray-400">v 2.15 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1869,13 +1892,20 @@
                                 <div class="mt-3 flex justify-center">
                                     <button type="button" id="qrAddressBtn" title="Copiar dirección"
                                         class="flex items-center space-x-1.5 px-3 py-1.5 text-gray-400 hover:text-indigo-400 rounded-full text-xs transition-colors">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13"
+                                        <span id="qrAddressLabel" class="font-mono"></span>
+                                        <!-- Los dos íconos ocupan el mismo lugar: al copiar, el tilde
+                                             reemplaza al portapapeles unos segundos y vuelve solo. -->
+                                        <svg id="qrCopyIcon" xmlns="http://www.w3.org/2000/svg" width="13" height="13"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round">
                                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                                         </svg>
-                                        <span id="qrAddressLabel" class="font-mono"></span>
+                                        <svg id="qrCopiedIcon" class="hidden text-green-400" xmlns="http://www.w3.org/2000/svg"
+                                            width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
                                     </button>
                                 </div>
                             </div>
@@ -3299,7 +3329,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.14</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.15</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -10177,10 +10207,24 @@
                 document.getElementById('initActions').classList.remove('hidden');
             }
 
+            let qrCopiedTimer = null;
             function copyAddress() {
                 if (!currentWallet) return;
                 navigator.clipboard.writeText(currentWallet.address).then(() => {
-                    showToast('Dirección copiada', 'success');
+                    const copyIcon = document.getElementById('qrCopyIcon');
+                    const okIcon = document.getElementById('qrCopiedIcon');
+                    if (!copyIcon || !okIcon) { showToast('Dirección copiada', 'success'); return; }
+                    clearTimeout(qrCopiedTimer);   // volver a tocar reinicia la cuenta, no acumula timers
+                    copyIcon.classList.add('hidden');
+                    okIcon.classList.remove('hidden');
+                    okIcon.classList.remove('cw-copied-pop');
+                    void okIcon.offsetWidth;       // reinicia la animación si ya estaba puesta
+                    okIcon.classList.add('cw-copied-pop');
+                    qrCopiedTimer = setTimeout(() => {
+                        okIcon.classList.add('hidden');
+                        okIcon.classList.remove('cw-copied-pop');
+                        copyIcon.classList.remove('hidden');
+                    }, 2000);
                 }).catch(err => console.error('Error al copiar la dirección:', err));
             }
 
@@ -10460,7 +10504,7 @@
                 try {
                     const res = await NativeKeepAlive.consumePendingDeepLink();
                     const url = res && res.url;
-                    if (url) { try { await handleScannedData(url); } catch (e) { } }
+                    if (url) { try { await handleScannedData(url, { greet: 'link' }); } catch (e) { } }
                 } catch (e) { }
             }
 
@@ -11618,7 +11662,7 @@
             }
 
             let pendingSecret = null;
-            async function handleScannedData(data) {
+            async function handleScannedData(data, opts = {}) {
                 // ¿Es una solicitud de conexión de dApp (StealthPay) vía XMTP?
                 if (typeof data === 'string' && data.startsWith('chatwallet://wc')) {
                     await startWalletConnectSession(data);
@@ -11680,7 +11724,7 @@
                 const address = extractAddressFromData(data);
                 if (address) {
                     playQRscanned();
-                    await handleScannedAddress(address, extractPubKeyFromData(data));
+                    await handleScannedAddress(address, extractPubKeyFromData(data), { greet: opts.greet || 'qr' });
                 } else {
                     alert("QR no reconocido o no contiene una dirección ni llave válida.");
                 }
@@ -11702,7 +11746,7 @@
                 if (typeof setRestoreMode === 'function') setRestoreMode('privateKey');
             };
 
-            async function handleScannedAddress(address, pubKey) {
+            async function handleScannedAddress(address, pubKey, opts = {}) {
                 if (!currentWallet) {
                     statusEl.textContent = "Creando billetera para chatear...";
                     const randomWallet = window.Wallet.createRandom();
@@ -11740,6 +11784,44 @@
                     await clearTombstone(address); // escaneaste su QR a propósito → levanta el borrado/bloqueo
                     saveContacts();
                     await startChatWithContact(newContact);
+                    if (opts.greet) await sendPairGreeting(newContact, opts.greet);
+                }
+            }
+
+            // Primer mensaje automático al estrenar un par (escaneo de QR o enlace de invitación).
+            // Antes el enlace quedaba mudo: el que escanea veía un chat vacío y el escaneado no se
+            // enteraba de nada hasta que alguien escribiera. Mandar el saludo solo dispara la
+            // notificación (y el wake push) del otro lado, así los dos confirman en el acto que
+            // quedaron conectados, sin tener que redactar nada.
+            // Sólo sale con un contacto NUEVO: reencontrarse con alguien que ya está en la agenda
+            // no vuelve a saludar.
+            async function sendPairGreeting(contact, origin) {
+                if (isOffline || !contact || contact.isGroup) return;   // en frío se compone por QR, no hay red
+                // Escanear el propio QR no es estrenar un par: no hay a quién avisarle.
+                if (currentWallet && contact.address.toLowerCase() === currentWallet.address.toLowerCase()) return;
+                const me = readOwnProfile();
+                const name = (me && me.alias) ? me.alias
+                    : (currentWallet ? `${currentWallet.address.slice(0, 6)}...${currentWallet.address.slice(-4)}` : '');
+                // La conversación la abrió startChatWithContact; si no quedó lista (createDm lento o
+                // caído) no se encola: la cola es global y el mensaje terminaría en el chat equivocado.
+                const conv = currentConversation;
+                if (!conv || (conv.peerAddress || '').toLowerCase() !== contact.address.toLowerCase()) {
+                    console.warn('sendPairGreeting: la conversación no quedó lista, no se saluda.');
+                    return;
+                }
+                const text = t(origin === 'link' ? 'chat_greeting_link' : 'chat_greeting_qr', { name });
+                try {
+                    await conv.sendText(text);
+                    pingWake(conv);                              // despertar el APK del contacto
+                    maybeSendProfile(conv, contact.address);     // que le llegue mi perfil y mi wake topic
+                    const i = contacts.findIndex(c => c.address.toLowerCase() === contact.address.toLowerCase());
+                    if (i > -1) {
+                        contacts[i].lastMessage = text;
+                        contacts[i].lastMessageTimestamp = Date.now();
+                        await saveContacts();
+                    }
+                } catch (e) {
+                    console.warn('sendPairGreeting:', e);
                 }
             }
 
@@ -11844,7 +11926,7 @@
                 const addressFromUrl = urlParams.get('address');
                 if (addressFromUrl && ethers.isAddress(addressFromUrl)) {
                     window.history.replaceState({}, document.title, window.location.pathname);
-                    await handleScannedAddress(addressFromUrl);
+                    await handleScannedAddress(addressFromUrl, null, { greet: 'link' });
                 }
             }
 
@@ -14077,6 +14159,8 @@
                     "settings_archive_deleted": "Archivo borrado.",
                     "settings_archive_identity": "Mi identidad",
                     "settings_archive_adopted_note": "Estás usando el chat de otra wallet. Tu identidad y tus chats vuelven solos cuando esa wallet te quite el acceso.",
+                    "chat_greeting_qr": "👋 {name} inició este contacto escaneando tu QR.",
+                    "chat_greeting_link": "👋 {name} inició este contacto desde tu enlace de invitación.",
                     "settings_archive_identity_done": "Volviste a tu identidad anterior: {alias}",
                     "settings_coldtx_title": "Transacción fría ❄",
                     "settings_coldtx_desc": "Prepará una transacción para que la firme una wallet en modo frío, y transmitila cuando te devuelvan el QR firmado.",
@@ -14222,6 +14306,8 @@
                     "settings_archive_deleted": "Archive deleted.",
                     "settings_archive_identity": "My identity",
                     "settings_archive_adopted_note": "You are using another wallet\u2019s chat. Your identity and your chats come back on their own once that wallet removes your access.",
+                    "chat_greeting_qr": "👋 {name} started this contact by scanning your QR.",
+                    "chat_greeting_link": "👋 {name} started this contact from your invitation link.",
                     "settings_archive_identity_done": "You are back to your previous identity: {alias}",
                     "settings_coldtx_title": "Cold transaction ❄",
                     "settings_coldtx_desc": "Prepare a transaction for a cold-storage wallet to sign, then broadcast it once you get the signed QR back.",
@@ -14367,6 +14453,8 @@
                     "settings_archive_deleted": "Archive supprimée.",
                     "settings_archive_identity": "Mon identité",
                     "settings_archive_adopted_note": "Vous utilisez le chat d\u2019un autre portefeuille. Votre identité et vos discussions reviendront d\u2019elles-mêmes lorsque ce portefeuille vous retirera l\u2019accès.",
+                    "chat_greeting_qr": "👋 {name} a démarré ce contact en scannant ton QR.",
+                    "chat_greeting_link": "👋 {name} a démarré ce contact depuis ton lien d\u2019invitation.",
                     "settings_archive_identity_done": "Vous avez retrouvé votre identité précédente : {alias}",
                     "settings_coldtx_title": "Transaction à froid ❄",
                     "settings_coldtx_desc": "Préparez une transaction pour qu'un portefeuille hors ligne la signe, puis diffusez-la une fois le QR signé récupéré.",
