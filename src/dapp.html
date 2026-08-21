@@ -1578,7 +1578,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.17 alpha</p>
+            <p class="text-sm text-gray-400">v 2.18 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3021,12 +3021,23 @@
         <div id="groupInfoModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-[55]">
             <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
                 <div class="flex justify-between items-start gap-2">
-                    <div class="min-w-0">
-                        <h3 id="groupInfoName" class="text-lg font-bold truncate">Grupo</h3>
-                        <p id="groupInfoMeta" class="text-xs text-gray-400"></p>
+                    <div class="flex items-center gap-3 min-w-0">
+                        <!-- Imagen del grupo: la ve todo el mundo, la cambia sólo un admin.
+                             Vive en la metadata del grupo (XMTP), no en tu agenda: por eso la
+                             ven todos los miembros y no hay que compartirla aparte. -->
+                        <button type="button" id="groupInfoAvatarBtn" class="relative flex-shrink-0 rounded-full">
+                            <img id="groupInfoAvatar" class="w-12 h-12 rounded-full object-cover bg-gray-700" alt="">
+                            <span id="groupInfoAvatarHint"
+                                class="hidden absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center border-2 border-gray-800">✎</span>
+                        </button>
+                        <div class="min-w-0">
+                            <h3 id="groupInfoName" class="text-lg font-bold truncate">Grupo</h3>
+                            <p id="groupInfoMeta" class="text-xs text-gray-400"></p>
+                        </div>
                     </div>
                     <button id="closeGroupInfo" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 </div>
+                <input type="file" id="groupAvatarUpload" accept="image/*" class="hidden">
 
                 <div id="groupInfoAdminBox" class="hidden space-y-2">
                     <label for="groupRenameInput" class="block text-sm text-gray-400">Nombre del grupo</label>
@@ -3329,7 +3340,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.17</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.18</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -8116,6 +8127,7 @@
 
             // ── Modal: Info del grupo ───────────────────────────────────────
             const groupAddSelection = new Set();
+            let groupInfoIAmAdmin = false;   // lo fija renderGroupInfo con lo que dice XMTP
 
             async function openGroupInfo() {
                 if (!currentGroup) return;
@@ -8143,6 +8155,18 @@
                 try { superAdmins = await conv.listSuperAdmins(); } catch (e) { }
                 const isAdminSet = new Set([...(admins || []), ...(superAdmins || [])]);
                 const iAmAdmin = isAdminSet.has(myInbox);
+                groupInfoIAmAdmin = iAmAdmin;   // lo lee el click del avatar, fuera de esta función
+
+                // Imagen del grupo: siempre visible; el lapicito y el cursor sólo si sos admin
+                // (XMTP rechaza el update de metadata si no lo sos, igual que el renombre).
+                const gAvatar = document.getElementById('groupInfoAvatar');
+                const gAvatarBtn = document.getElementById('groupInfoAvatarBtn');
+                if (gAvatar) gAvatar.src = conv.imageUrl || currentGroup.avatar || GROUP_AVATAR;
+                if (gAvatarBtn) {
+                    gAvatarBtn.title = iAmAdmin ? 'Cambiar la imagen del grupo' : 'Imagen del grupo';
+                    gAvatarBtn.classList.toggle('cursor-default', !iAmAdmin);
+                    document.getElementById('groupInfoAvatarHint')?.classList.toggle('hidden', !iAmAdmin);
+                }
 
                 const members = await groupMemberAddresses(conv);
                 document.getElementById('groupInfoName').textContent = conv.name || currentGroup.name || 'Grupo';
@@ -13321,6 +13345,57 @@
             document.getElementById('createGroupBtn')?.addEventListener('click', handleCreateGroup);
             document.getElementById('groupInfoBtn')?.addEventListener('click', openGroupInfo);
             document.getElementById('closeGroupInfo')?.addEventListener('click', closeGroupInfoModal);
+
+            // Imagen del grupo: elegir archivo → miniatura → metadata del grupo (la ven todos).
+            document.getElementById('groupInfoAvatarBtn')?.addEventListener('click', () => {
+                if (!groupInfoIAmAdmin) {
+                    document.getElementById('groupInfoStatus').textContent = 'Sólo un admin puede cambiar la imagen del grupo.';
+                    return;
+                }
+                document.getElementById('groupAvatarUpload').click();
+            });
+
+            document.getElementById('groupAvatarUpload')?.addEventListener('change', async (e) => {
+                const file = e.target.files && e.target.files[0];
+                e.target.value = '';   // sin esto, volver a elegir la MISMA imagen no dispara 'change'
+                if (!file || !currentGroup) return;
+                const st = document.getElementById('groupInfoStatus');
+                st.textContent = 'Preparando la imagen…';
+                try {
+                    const dataUrl = await new Promise((res, rej) => {
+                        const r = new FileReader();
+                        r.onload = () => res(r.result);
+                        r.onerror = () => rej(new Error('no se pudo leer el archivo'));
+                        r.readAsDataURL(file);
+                    });
+                    // 128px WebP. OJO: esto NO viaja como el avatar de un contacto (que va por
+                    // IndexedDB y un mensaje aparte): va DENTRO de la metadata del grupo, o sea
+                    // en un commit de MLS que reciben y guardan todos los miembros. Chica de verdad.
+                    const thumb = await makeAvatarThumb(dataUrl, 128);
+                    if (!thumb) { st.textContent = 'No se pudo leer esa imagen.'; return; }
+                    if (thumb.length > 24000) {
+                        st.textContent = 'Esa imagen queda demasiado pesada para la metadata del grupo. Probá con otra.';
+                        return;
+                    }
+                    st.textContent = 'Guardando…';
+                    const conv = await chatwalletxmtp.conversations.getConversationById(currentGroup.groupId);
+                    await conv.updateImageUrl(thumb);
+                    // El objeto `conv` sigue con la metadata vieja en memoria: el avatar va explícito.
+                    const hash = await sha256Hex(thumb);
+                    if (hash) await avatarPut(hash, thumb);
+                    upsertGroupContact(conv, hash ? { avatar: thumb, avatarHash: hash } : { avatar: thumb });
+                    await saveContacts();
+                    renderContacts();
+                    document.getElementById('groupInfoAvatar').src = thumb;
+                    const hdr = document.getElementById('chatHeaderAvatar');
+                    if (hdr) hdr.src = thumb;
+                    st.textContent = '';
+                    showToast('Imagen del grupo actualizada.', 'success');
+                } catch (err) {
+                    console.error('updateImageUrl:', err);
+                    st.textContent = `No se pudo guardar la imagen: ${err.message || err}`;
+                }
+            });
 
             document.getElementById('groupRenameBtn')?.addEventListener('click', async () => {
                 if (!currentGroup) return;
