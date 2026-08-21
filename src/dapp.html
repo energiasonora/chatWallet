@@ -1578,7 +1578,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.15 alpha</p>
+            <p class="text-sm text-gray-400">v 2.16 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3329,7 +3329,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.15</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.16</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -8219,17 +8219,15 @@
                         const isOnline = contact.status === 'online';
                         // Color = estado de conexión (verde en línea / gris offline).
                         const statusColor = isOnline ? 'text-green-400' : 'text-gray-500';
-                        // Alias propio del contacto (cómo se llama a sí mismo, vía su DID). Sólo lo
-                        // mostramos si difiere del pseudónimo local para no repetirlo.
-                        const selfAlias = (contact.selfAlias && contact.selfAlias !== contact.name) ? contact.selfAlias : '';
-                        // Ocupamos el espacio del "en línea/offline" con el nombre propio del contacto,
-                        // coloreado por estado; si no hay alias, un punto del mismo color cumple la función.
-                        // Un grupo no tiene "en línea": ahí va la cantidad de miembros.
+                        // Abajo, el apodo que le pusiste VOS (si le pusiste alguno), coloreado por
+                        // estado de conexión; si no hay apodo, un punto del mismo color cumple la
+                        // función. Un grupo no tiene "en línea": ahí va la cantidad de miembros.
                         const isG = !!contact.isGroup;
+                        const localAlias = contactLocalAlias(contact);
                         const statusBit = isG
                             ? `<span class="text-indigo-400">👥${contact.memberCount ? ' ' + contact.memberCount : ''}</span> · `
-                            : (selfAlias
-                                ? `<span class="${statusColor} font-medium">${selfAlias}</span> · `
+                            : (localAlias
+                                ? `<span class="${statusColor} font-medium">${localAlias}</span> · `
                                 : `<span class="${statusColor}">●</span> `);
 
                         const contactEl = document.createElement('div');
@@ -8257,7 +8255,7 @@
                         </div>
                         <div class="flex-grow overflow-hidden">
                             <div class="flex justify-between items-baseline">
-                                <p class="font-semibold truncate pr-2">${contact.name}</p>
+                                <p class="font-semibold truncate pr-2">${contactOwnName(contact)}</p>
                                 <p class="text-xs text-gray-400 flex-shrink-0">${lastMessageTime}</p>
                             </div>
                             <div class="flex items-center mt-1">
@@ -8413,6 +8411,27 @@
                 addContactModal.classList.add('flex');
             }
 
+            // ── Cómo se muestra un contacto ────────────────────────────────────────────
+            // ARRIBA va la identidad que pone SU dueño: el alias de su perfil soberano, o su
+            // address si nunca mandó perfil. ABAJO, el apodo que le pusiste vos. Al revés
+            // confundía: el nombre grande parecía ser suyo cuando en realidad lo habías escrito vos.
+            function shortAddr(address) {
+                return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
+            }
+            function contactOwnName(contact) {
+                if (!contact) return '';
+                if (contact.isGroup) return contact.name || 'Grupo';   // un grupo no tiene perfil: manda su nombre
+                return contact.selfAlias || shortAddr(contact.address) || contact.name || '';
+            }
+            // El apodo local, y SÓLO si de verdad pusiste uno: `name` nace sembrado con el alias
+            // del dueño o con la address, y repetir eso abajo no agrega información.
+            function contactLocalAlias(contact) {
+                if (!contact || contact.isGroup) return '';
+                const name = contact.name || '';
+                if (!name || name === contact.selfAlias || name === shortAddr(contact.address)) return '';
+                return name;
+            }
+
             function openEditContactModal(index) {
                 const contact = contacts[index];
                 contactModalTitle.textContent = "Editar Contacto";
@@ -8518,7 +8537,7 @@
                 // recién al terminar de cargar, con el timestamp del mensaje más nuevo que de
                 // verdad se mostró.
 
-                chattingWithEl.textContent = contact.name;
+                chattingWithEl.textContent = contactOwnName(contact);
                 const chatHeaderAvatar = document.getElementById('chatHeaderAvatar');
                 if (chatHeaderAvatar) {
                     chatHeaderAvatar.src = contact.avatar || (contact.isGroup ? GROUP_AVATAR : ANON_AVATAR);
@@ -10089,15 +10108,14 @@
                 const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
                 // ARRIBA: el nombre que el usuario eligió para sí mismo (alias de su perfil
                 // soberano, recibido por XMTP). ABAJO: el apodo local que VOS le pusiste.
-                const selfName = (contact && contact.selfAlias) ? contact.selfAlias : '';
-                const localName = (contact && contact.name) ? contact.name : '';
+                const localName = contactLocalAlias(contact);
                 const localNameEl = document.getElementById('userCardLocalName');
 
                 avatar.src = (contact && contact.avatar) ? contact.avatar : ANON_AVATAR;
-                nameEl.textContent = selfName || localName || short;
+                nameEl.textContent = contact ? contactOwnName(contact) : short;
                 if (localNameEl) {
                     if (contact) {
-                        const hasCustom = localName && localName !== nameEl.textContent;
+                        const hasCustom = !!localName;
                         localNameEl.innerHTML = '';
                         const txt = document.createElement('span');
                         txt.textContent = hasCustom ? `Tu alias: ${localName}` : 'Ponerle tu alias';
@@ -12923,7 +12941,16 @@
                     //    p.ej. Bob llama "princesa" a quien se llama a sí misma "alice").
                     const idx = contacts.findIndex(c => c.address && c.address.toLowerCase() === profile.did.toLowerCase());
                     if (idx > -1) {
-                        if (profile.alias) contacts[idx].selfAlias = profile.alias;
+                        if (profile.alias) {
+                            // Si `name` venía sembrado con su alias anterior (nunca le pusiste apodo
+                            // propio), que siga al alias del dueño. Si no, al cambiarse el nombre su
+                            // alias viejo quedaba abajo haciéndose pasar por un apodo tuyo.
+                            const seeded = !contacts[idx].name
+                                || contacts[idx].name === contacts[idx].selfAlias
+                                || contacts[idx].name === shortAddr(contacts[idx].address);
+                            if (seeded) contacts[idx].name = profile.alias;
+                            contacts[idx].selfAlias = profile.alias;
+                        }
                         if (profile.avatar) { contacts[idx].avatar = profile.avatar; contacts[idx].avatarHash = avatarHash; }
                         contacts[idx].links = profile.links || '';
                         contacts[idx].profileUpdatedAt = profile.updatedAt;
@@ -12958,7 +12985,7 @@
                         const hdrAvatar = document.getElementById('chatHeaderAvatar');
                         const hdrName = document.getElementById('chattingWith');
                         if (hdrAvatar && c.avatar) hdrAvatar.src = c.avatar;
-                        if (hdrName && c.name) hdrName.textContent = c.name;
+                        if (hdrName) hdrName.textContent = contactOwnName(c);
                         // El alias propio vive en el subtítulo del header: refrescarlo.
                         updateChatHeaderStatus(c);
                     }
@@ -12998,12 +13025,11 @@
                 } else {
                     detail = 'Desconectado';
                 }
-                // El nombre de arriba (chattingWith) es el pseudónimo local; acá mostramos el alias
-                // propio del contacto (cómo se llama a sí mismo, vía su DID) coloreado por estado,
-                // seguido del detalle de conexión. Si no hay alias distinto, un punto de color.
-                const selfAlias = (contact.selfAlias && contact.selfAlias !== contact.name) ? contact.selfAlias : '';
-                const aliasBit = selfAlias
-                    ? `<span class="${statusColor} font-medium">${selfAlias}</span> · `
+                // Arriba (chattingWith) va cómo se llama él; acá abajo, el apodo que le pusiste vos,
+                // coloreado por estado, seguido del detalle de conexión. Sin apodo, un punto de color.
+                const localAlias = contactLocalAlias(contact);
+                const aliasBit = localAlias
+                    ? `<span class="${statusColor} font-medium">${localAlias}</span> · `
                     : `<span class="${statusColor}">●</span> `;
                 chatStatusIndicator.innerHTML = `${aliasBit}<span class="text-gray-400">${detail}</span>`;
             }
