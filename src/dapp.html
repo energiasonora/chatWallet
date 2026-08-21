@@ -3045,6 +3045,32 @@
             </div>
         </div>
 
+        <!-- QR de pago argentino (Transferencias 3.0). Por ahora ChatWallet lo RECONOCE y lo
+             muestra; pagarlo con USDC es la etapa siguiente. Reconocerlo ya vale la pena: hasta
+             acá, escanear el QR de un kiosco contestaba "QR no reconocido" y ahí moría. -->
+        <div id="arsQrModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center p-4 z-[70]">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-start gap-2">
+                    <h3 class="text-lg font-bold flex items-center gap-2">
+                        <span>🇦🇷</span><span data-i18n-key="ars_qr_title">QR de pago argentino</span>
+                    </h3>
+                    <button id="closeArsQr" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+                </div>
+                <div class="bg-gray-900/60 rounded-lg p-4 space-y-1">
+                    <p class="text-xs text-gray-400" data-i18n-key="ars_qr_merchant">Comercio</p>
+                    <p id="arsQrMerchant" class="text-base font-semibold break-words">—</p>
+                </div>
+                <div class="bg-gray-900/60 rounded-lg p-4 space-y-1">
+                    <p class="text-xs text-gray-400" data-i18n-key="ars_qr_amount">Monto</p>
+                    <p id="arsQrAmount" class="text-2xl font-bold">—</p>
+                </div>
+                <p id="arsQrNote" class="text-xs text-gray-400"></p>
+                <button type="button" id="arsQrOk"
+                    class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-bold"
+                    data-i18n-key="ars_qr_close">Entendido</button>
+            </div>
+        </div>
+
         <div id="groupInfoModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-[55]">
             <!-- max-h + scroll: en un teléfono el modal se pasaba de alto y el renglón de
                  estado (y el botón de salir) quedaban abajo, fuera de la pantalla. -->
@@ -3819,9 +3845,15 @@
             // window.ZeroAddress = ZeroAddress;
 
             import { Wallet, isAddress, getBytes, formatEther, parseEther, formatUnits, parseUnits, JsonRpcProvider, Contract, ZeroAddress, computeAddress, keccak256, toUtf8Bytes, wordlists, HDNodeWallet } from 'ethers';
+            import { parseQR as p2pParseQR } from '@p2pdotme/sdk/qr-parsers';
             // Merge (no reemplazar) para preservar el namespace UMD completo cargado arriba
             // (getAddress, Interface, solidityPacked, solidityPackedKeccak256, etc. que este subset no trae).
             window.ethers = Object.assign(window.ethers || {}, { Wallet, isAddress, getBytes, formatEther, parseEther, formatUnits, parseUnits, JsonRpcProvider, Contract, ZeroAddress, computeAddress, keccak256, toUtf8Bytes, wordlists, HDNodeWallet });
+            // Parser oficial de QR de pago del protocolo P2P.me (@p2pdotme/sdk, MIT). Se usa el
+            // suyo y no uno propio para leer exactamente lo mismo que va a leer el proveedor de
+            // liquidez del otro lado. Va a window porque el resto de la app corre en un <script>
+            // clásico; sólo se llama dentro de handlers, nunca al cargar.
+            window.p2pParseQR = p2pParseQR;
             window.Wallet = Wallet;
             window.isAddress = isAddress;
             window.getBytes = getBytes;
@@ -3955,6 +3987,31 @@
                     "TOKEN_ADDRESS": '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c',
                     "TOKEN_SYMBOL": 'BTCB',
                     "DECIMALS": 18
+                },
+                {
+                    // Base (el L2 de Coinbase), mainnet. Verificado en vivo el 21/8/2026:
+                    // eth_chainId → 0x2105 (8453) y el RPC oficial responde con
+                    // access-control-allow-origin: * , así que se puede llamar desde el navegador.
+                    // El gas acá es ridículo: 0,006 gwei, tres veces más barato que Arbitrum.
+                    "TOKEN_CHAIN_NAME": 'Base',
+                    "TOKEN_CHAINID": '8453',
+                    "EXPLORER": 'https://basescan.org/',
+                    "API": 'https://mainnet.base.org',
+                    "NATIVE_SYMBOL": 'ETH'
+                },
+                {
+                    // USDC nativo de Circle en Base. Verificado en vivo el 21/8/2026 contra el RPC:
+                    // symbol() → "USDC", decimals() → 6, version() → "2".
+                    // Es FiatTokenV2, así que además soporta EIP-3009 (transferWithAuthorization):
+                    // el día que haya envíos sin gas, este token los admite sin contrato nuevo.
+                    "TOKEN_CHAIN_NAME": 'USDC on Base',
+                    "TOKEN_CHAINID": '8453',
+                    "EXPLORER": 'https://basescan.org/',
+                    "API": 'https://mainnet.base.org',
+                    "NATIVE_SYMBOL": 'ETH',
+                    "TOKEN_ADDRESS": '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+                    "TOKEN_SYMBOL": 'USDC',
+                    "DECIMALS": 6
                 }
                 // {
                 //     "TOKEN_CHAIN_NAME": 'Base Sepolia',
@@ -11764,6 +11821,88 @@
             }
 
             let pendingSecret = null;
+            // ═══════════════════ QR de pago argentino (Transferencias 3.0) ═══════════════════
+            // Un QR de comercio argentino es EMVCo: cadena de TLV con tags de dos dígitos, la
+            // moneda en el 53 (032 = ARS) y el país en el 58 (AR). Se reconoce por esos dos —el
+            // mismo criterio que usa el SDK de P2P.me— sin depender de que el módulo ya cargó.
+            function isArsQr(d) {
+                return typeof d === 'string' && d.length > 24
+                    && d.includes('5303032') && d.includes('5802AR');
+            }
+
+            // Recorrido TLV sobre BYTES, no sobre caracteres.
+            // EMVCo declara cada longitud en bytes. Cortar con substring(), que cuenta unidades
+            // UTF-16, desalinea todo lo que venga después de un acento o una ñ. Es justo el bug
+            // que tiene hoy @p2pdotme/sdk 1.2.19: a "CAFÉ MARTÍNEZ" (13 caracteres, 15 bytes) le
+            // devuelve "CAFÉ MARTÍNEZ60", con el arranque del tag siguiente pegado. Por eso el
+            // nombre lo sacamos nosotros y al SDK le pedimos sólo el veredicto.
+            // Fijado en tests/ars-qr-parse.mjs.
+            function cwArsTags(qr) {
+                const out = {};
+                try {
+                    const bytes = new TextEncoder().encode(qr);
+                    const dec = new TextDecoder();
+                    let pos = 0;
+                    while (pos + 4 <= bytes.length) {
+                        const tag = dec.decode(bytes.subarray(pos, pos + 2));
+                        const lenStr = dec.decode(bytes.subarray(pos + 2, pos + 4));
+                        if (!/^[0-9]{2}$/.test(tag) || !/^[0-9]{2}$/.test(lenStr)) break;
+                        const end = pos + 4 + parseInt(lenStr, 10);
+                        if (end > bytes.length) break;
+                        out[tag] = dec.decode(bytes.subarray(pos + 4, end));
+                        pos = end;
+                    }
+                } catch (e) { console.warn('cwArsTags:', e); }
+                return out;
+            }
+            window.cwArsTags = cwArsTags;
+
+            async function handleIncomingArsQr(data) {
+                playQRscanned();
+                const tags = cwArsTags(data);
+                const merchant = (tags['59'] || '').trim();
+                const rawAmount = (tags['54'] || '').trim();
+
+                // El veredicto (incluido el checksum CRC16) lo da el parser del protocolo, no
+                // nosotros: si el proveedor de liquidez lo va a rechazar, mejor enterarse acá.
+                let valido = true;
+                try {
+                    if (typeof window.p2pParseQR === 'function') {
+                        const r = await window.p2pParseQR({ qrData: data, currency: 'ARS', sellPrice: 1 });
+                        valido = r.isOk();
+                        if (!valido) console.warn('QR ARS rechazado:', r.error && r.error.message);
+                    }
+                } catch (e) { console.warn('p2pParseQR:', e); }
+
+                const elMerchant = document.getElementById('arsQrMerchant');
+                const elAmount = document.getElementById('arsQrAmount');
+                const elNote = document.getElementById('arsQrNote');
+                if (elMerchant) elMerchant.textContent = merchant || t('ars_qr_no_merchant');
+                if (elAmount) {
+                    let txt = t('ars_qr_open_amount');
+                    const n = Number(rawAmount);
+                    if (rawAmount && Number.isFinite(n) && n > 0) {
+                        try { txt = n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }); }
+                        catch (e) { txt = '$ ' + rawAmount; }
+                    }
+                    elAmount.textContent = txt;
+                }
+                if (elNote) {
+                    elNote.textContent = valido ? t('ars_qr_ok_note') : t('ars_qr_bad_note');
+                    elNote.className = 'text-xs ' + (valido ? 'text-gray-400' : 'text-red-400');
+                }
+
+                const modal = document.getElementById('arsQrModal');
+                if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+            }
+
+            function closeArsQrModal() {
+                const modal = document.getElementById('arsQrModal');
+                if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+            }
+            document.getElementById('closeArsQr')?.addEventListener('click', closeArsQrModal);
+            document.getElementById('arsQrOk')?.addEventListener('click', closeArsQrModal);
+
             async function handleScannedData(data, opts = {}) {
                 // ¿Es una solicitud de conexión de dApp (StealthPay) vía XMTP?
                 if (typeof data === 'string' && data.startsWith('chatwallet://wc')) {
@@ -11789,6 +11928,11 @@
                 // ¿Es un mensaje offline cifrado? (QR con prefijo CWM1|)
                 if (isOfflineMessageData(data)) {
                     await handleIncomingOfflineMessage(data);
+                    return;
+                }
+                // ¿Es el QR de pago de un comercio argentino? (Transferencias 3.0 / EMVCo)
+                if (isArsQr(data)) {
+                    await handleIncomingArsQr(data);
                     return;
                 }
                 // ¿Es un export de contactos? (QR con prefijo CWC1|/CWC0|)
@@ -14572,6 +14716,14 @@
                     "settings_archive_deleted": "Archivo borrado.",
                     "settings_archive_identity": "Mi identidad",
                     "settings_archive_adopted_note": "Estás usando el chat de otra wallet. Tu identidad y tus chats vuelven solos cuando esa wallet te quite el acceso.",
+                    "ars_qr_title": "QR de pago argentino",
+                    "ars_qr_merchant": "Comercio",
+                    "ars_qr_amount": "Monto",
+                    "ars_qr_close": "Entendido",
+                    "ars_qr_no_merchant": "Sin nombre",
+                    "ars_qr_open_amount": "Lo pone el comercio",
+                    "ars_qr_ok_note": "QR válido de Transferencias 3.0. Por ahora ChatWallet lo reconoce y te lo muestra; pagarlo con USDC todavía no está disponible.",
+                    "ars_qr_bad_note": "Este QR dice ser argentino pero el código de verificación no cierra. Puede estar dañado o mal fotografiado.",
                     "chat_greeting_qr": "👋 {name} inició este contacto escaneando tu QR.",
                     "chat_greeting_link": "👋 {name} inició este contacto desde tu enlace de invitación.",
                     "settings_archive_identity_done": "Volviste a tu identidad anterior: {alias}",
@@ -14719,6 +14871,14 @@
                     "settings_archive_deleted": "Archive deleted.",
                     "settings_archive_identity": "My identity",
                     "settings_archive_adopted_note": "You are using another wallet\u2019s chat. Your identity and your chats come back on their own once that wallet removes your access.",
+                    "ars_qr_title": "Argentine payment QR",
+                    "ars_qr_merchant": "Merchant",
+                    "ars_qr_amount": "Amount",
+                    "ars_qr_close": "Got it",
+                    "ars_qr_no_merchant": "No name",
+                    "ars_qr_open_amount": "Set by the merchant",
+                    "ars_qr_ok_note": "Valid Transferencias 3.0 QR. For now ChatWallet recognises it and shows it to you; paying it with USDC is not available yet.",
+                    "ars_qr_bad_note": "This QR claims to be Argentine but its checksum does not match. It may be damaged or badly photographed.",
                     "chat_greeting_qr": "👋 {name} started this contact by scanning your QR.",
                     "chat_greeting_link": "👋 {name} started this contact from your invitation link.",
                     "settings_archive_identity_done": "You are back to your previous identity: {alias}",
@@ -14866,6 +15026,14 @@
                     "settings_archive_deleted": "Archive supprimée.",
                     "settings_archive_identity": "Mon identité",
                     "settings_archive_adopted_note": "Vous utilisez le chat d\u2019un autre portefeuille. Votre identité et vos discussions reviendront d\u2019elles-mêmes lorsque ce portefeuille vous retirera l\u2019accès.",
+                    "ars_qr_title": "QR de paiement argentin",
+                    "ars_qr_merchant": "Commerce",
+                    "ars_qr_amount": "Montant",
+                    "ars_qr_close": "Compris",
+                    "ars_qr_no_merchant": "Sans nom",
+                    "ars_qr_open_amount": "Fixé par le commerce",
+                    "ars_qr_ok_note": "QR Transferencias 3.0 valide. Pour l'instant ChatWallet le reconnaît et te l'affiche ; le payer en USDC n'est pas encore disponible.",
+                    "ars_qr_bad_note": "Ce QR se présente comme argentin mais sa somme de contrôle ne correspond pas. Il est peut-être abîmé ou mal photographié.",
                     "chat_greeting_qr": "👋 {name} a démarré ce contact en scannant ton QR.",
                     "chat_greeting_link": "👋 {name} a démarré ce contact depuis ton lien d\u2019invitation.",
                     "settings_archive_identity_done": "Vous avez retrouvé votre identité précédente : {alias}",

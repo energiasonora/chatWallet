@@ -19,6 +19,7 @@
     "@metamask/sdk": "^0.34.0",
     "@noble/secp256k1": "^2.3.0",
     "@openzeppelin/contracts": "^5.6.1",
+    "@p2pdotme/sdk": "^1.2.19",
     "@web3modal/ethers": "^3.5.7",
     "@xmtp/browser-sdk": "^6.3.0",
     "@xmtp/content-type-reaction": "^2.0.2",
