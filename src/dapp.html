@@ -1578,7 +1578,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.16 alpha</p>
+            <p class="text-sm text-gray-400">v 2.17 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3329,7 +3329,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.16</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.17</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -3884,6 +3884,31 @@
                     "EXPLORER": 'https://hyperevmscan.io/',
                     "API": 'https://rpc.hyperliquid.xyz/evm',
                     "NATIVE_SYMBOL": 'HYPE'
+                },
+                {
+                    // BNB Smart Chain (BEP20), mainnet. Verificado en vivo el 21/8/2026:
+                    // eth_chainId → 0x38 (56) y eth_getBalance responden en el dataseed oficial.
+                    // Es EVM, así que tu misma address de siempre sirve acá.
+                    "TOKEN_CHAIN_NAME": 'BNB Chain',
+                    "TOKEN_CHAINID": '56',
+                    "EXPLORER": 'https://bscscan.com/',
+                    "API": 'https://bsc-dataseed.bnbchain.org',
+                    "NATIVE_SYMBOL": 'BNB'
+                },
+                {
+                    // Bitcoin, en la única forma que esta wallet puede sostener hoy: BTCB, el BEP20
+                    // respaldado 1:1 por BNB Chain. Bitcoin nativo NO entra como "una red más" —
+                    // no es EVM: otra derivación de address, otro formato de transacción y UTXOs en
+                    // vez de saldos. Contrato verificado en vivo el 21/8/2026 contra el RPC:
+                    // symbol() → "BTCB", decimals() → 18 (OJO: 18, no los 8 de Bitcoin).
+                    "TOKEN_CHAIN_NAME": 'BTCB on BNB Chain',
+                    "TOKEN_CHAINID": '56',
+                    "EXPLORER": 'https://bscscan.com/',
+                    "API": 'https://bsc-dataseed.bnbchain.org',
+                    "NATIVE_SYMBOL": 'BNB',
+                    "TOKEN_ADDRESS": '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c',
+                    "TOKEN_SYMBOL": 'BTCB',
+                    "DECIMALS": 18
                 }
                 // {
                 //     "TOKEN_CHAIN_NAME": 'Base Sepolia',
