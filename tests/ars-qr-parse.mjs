@@ -114,5 +114,33 @@ console.log('\n▶ Rechazos');
     check('rechaza un link de invitación', r5.isErr());
 }
 
-console.log(`\n${fail === 0 ? '✅' : '❌'} ${ok} bien, ${fail} mal\n`);
+
+// ── Regresión: el guardia nuevo no puede robarle QR a las ramas viejas ────────
+// isArsQr() se evalúa en handleScannedData junto a los otros prefijos, así que lo único
+// que puede romper es que dé true para algo que no es un QR argentino. Se prueba la
+// función sola, sin ejecutar handlers: los caminos viejos terminan en alert() cuando no
+// reconocen algo, y un alert congela la página entera.
+console.log('\n▶ Regresión: no le roba QR a las otras ramas del escáner');
+const isArsQr = d => typeof d === 'string' && d.length > 24
+    && d.includes('5303032') && d.includes('5802AR');
+
+const ajenos = [
+    ['transacción fría (CWT1|)', 'CWT1|{"from":"0x1111111111111111111111111111111111111111","to":"0x2222222222222222222222222222222222222222","value":"1000000000000000","chainId":8453}'],
+    ['transacción firmada (CWS1|)', 'CWS1|0x02f8720182...'],
+    ['mensaje offline (CWM1|)', 'CWM1|0x1111111111111111111111111111111111111111|0x02aa|firma|cifrado'],
+    ['contactos (CWC1|)', 'CWC1|1|1|eyJjIjpbXX0='],
+    ['compartir chat (CWL1|)', 'CWL1|0x1111111111111111111111111111111111111111|reto'],
+    ['enlace de invitación', 'https://chatwallet.org/dapp?address=0x1111111111111111111111111111111111111111&pk=0x02aa'],
+    ['solicitud de pago (cw:2)', 'https://chatwallet.org/dapp?pay=1&to=0x1111111111111111111111111111111111111111&value=1000&chainId=8453'],
+    ['sesión de dApp', 'chatwallet://wc?uri=wc:abc123@2'],
+    ['address pelada', '0x1111111111111111111111111111111111111111'],
+    ['frase mnemónica', 'legal winner thank year wave sausage worth useful legal winner thank yellow'],
+    ['QR de Brasil (PIX)', '00020126580014BR.GOV.BCB.PIX0136abc5204541153039865802BR5913LOJA TESTE6009SAO PAULO63041D3D'],
+];
+for (const [nombre, payload] of ajenos) check(`no se queda con ${nombre}`, !isArsQr(payload));
+
+// Y el complemento: que sí agarre lo suyo.
+check('sí agarra un QR argentino', isArsQr(armarQr({ comercio: 'TEST', monto: '10' })));
+
+console.log(`\n${fail === 0 ? '✅' : '❌'} ${ok} bien, ${fail} mal (total)\n`);
 process.exit(fail === 0 ? 0 : 1);
