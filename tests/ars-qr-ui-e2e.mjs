@@ -101,13 +101,16 @@ class Dev {
 }
 
 const leerFicha = `(() => {
-    const m = document.getElementById('arsQrModal');
+    const m = document.getElementById('payQrModal');
     return {
         abierto: !!m && !m.classList.contains('hidden'),
-        comercio: (document.getElementById('arsQrMerchant') || {}).textContent,
-        monto: (document.getElementById('arsQrAmount') || {}).textContent,
-        nota: (document.getElementById('arsQrNote') || {}).textContent,
-        notaRoja: ((document.getElementById('arsQrNote') || {}).className || '').includes('text-red'),
+        comercio: (document.getElementById('payQrMerchant') || {}).textContent,
+        monto: (document.getElementById('payQrAmount') || {}).textContent,
+        nota: (document.getElementById('payQrNote') || {}).textContent,
+        notaRoja: ((document.getElementById('payQrNote') || {}).className || '').includes('text-red'),
+        notaAmbar: ((document.getElementById('payQrNote') || {}).className || '').includes('text-amber'),
+        esquema: (document.getElementById('payQrScheme') || {}).textContent,
+        bandera: (document.getElementById('payQrFlag') || {}).textContent,
     };
 })()`;
 
@@ -122,7 +125,7 @@ try {
         await sleep(400);
         return dev.eval(leerFicha);
     };
-    const cerrar = () => dev.eval(`document.getElementById('arsQrOk').click()`);
+    const cerrar = () => dev.eval(`document.getElementById('payQrOk').click()`);
 
     console.log('▶ QR de comercio con monto');
     {
@@ -131,6 +134,8 @@ try {
         check('muestra el nombre del comercio', f.comercio === 'KIOSCO LA ESQUINA', f.comercio);
         check('muestra el monto en pesos', /1[.,]500/.test(f.monto || ''), f.monto);
         check('la nota no es de error', !f.notaRoja, f.nota);
+        check('muestra la bandera argentina', f.bandera === '🇦🇷', f.bandera);
+        check('dice el esquema', /Transferencias 3\.0/.test(f.esquema || ''), f.esquema);
         await cerrar();
         check('el botón cierra la ficha', !(await dev.eval(leerFicha)).abierto);
     }
@@ -155,6 +160,18 @@ try {
         const f = await escanear(bueno.slice(0, -4) + '0000');
         check('igual abre la ficha (no se pierde el escaneo)', f.abierto);
         check('avisa en rojo que el código no cierra', f.notaRoja, f.nota);
+        await cerrar();
+    }
+
+    console.log('\n▶ País reconocido pero sin plugin todavía');
+    {
+        // La prueba de que el mecanismo es genérico y no un `if` argentino disfrazado:
+        // un QR peruano se reconoce, se dice de dónde es, y se avisa que falta la pieza.
+        const f = await escanear(armarQr({ pais: 'PE', moneda: '604', comercio: 'BODEGA SAN MARTIN' }));
+        check('abre la ficha igual', f.abierto);
+        check('dice de qué país es', /Per[úu]/.test(f.esquema || ''), f.esquema);
+        check('avisa en ámbar que falta el plugin', f.notaAmbar, f.nota);
+        check('no inventa comercio ni monto', f.comercio === '—' && f.monto === '—', `${f.comercio} / ${f.monto}`);
         await cerrar();
     }
 
