@@ -7098,7 +7098,7 @@
             function msgStoreOpen() {
                 if (msgStoreDbPromise) return msgStoreDbPromise;
                 msgStoreDbPromise = new Promise((resolve, reject) => {
-                    const req = indexedDB.open('chatwallet-msgstore', 2);
+                    const req = indexedDB.open('chatwallet-msgstore', 3);
                     req.onupgradeneeded = () => {
                         const db = req.result;
                         if (!db.objectStoreNames.contains('messages')) {
@@ -7108,6 +7108,12 @@
                         // v2: historial archivado al vincularse a otro inbox (ver archiveHistoryAndWipe)
                         if (!db.objectStoreNames.contains('archives')) {
                             db.createObjectStore('archives', { keyPath: 'id' });
+                        }
+                        // v3: estado del respaldo incremental (qué segmentos ya se subieron y qué
+                        // mensajes cubren). Va acá y no en localStorage porque la lista de ids
+                        // cubiertos crece con el historial y no entra en la cuota de localStorage.
+                        if (!db.objectStoreNames.contains('bkstate')) {
+                            db.createObjectStore('bkstate');
                         }
                     };
                     req.onsuccess = () => resolve(req.result);
@@ -7349,6 +7355,94 @@
                 return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, usages);
             }
 
+            // ═══ RESPALDO INCREMENTAL: manifiesto + segmentos inmutables ═══════════════
+            // ANTES: cada respaldo re-subía el historial COMPLETO cifrado, cada 30s de
+            // actividad, y el servidor despineaba el blob anterior. El costo por respaldo
+            // crecía con el historial de cada usuario (no con la cantidad de usuarios), y
+            // cada ciclo hacía pin+unpin sobre el mismo LevelDB que ya se latcheó una vez.
+            // AHORA: los mensajes se suben en SEGMENTOS que nunca se vuelven a tocar (se
+            // pinean una vez y listo), y el pointer apunta a un MANIFIESTO chiquito que los
+            // enumera. Cada respaldo sube sólo los mensajes nuevos + el manifiesto.
+            // Los segmentos NO son prefijos por índice a propósito: un mensaje viejo que
+            // llega tarde (resync de XMTP, merge de otro dispositivo) desordenaría todos los
+            // cortes y obligaría a re-subir todo. Cada segmento es simplemente "lo que
+            // faltaba en este momento", y los duplicados entre segmentos son inofensivos
+            // porque msgStorePut ignora los ids repetidos.
+            const CHATBK_SEG_MAX = 500;        // mensajes por segmento nuevo
+            const CHATBK_SEG_COMPACT = 40;     // tantos segmentos → compactar todo en uno
+
+            // Estado por clave de respaldo: qué segmentos existen y qué ids ya cubren.
+            const CHATBK_STATE_KEY = () => `segstate-${currentWallet?.address?.toLowerCase()}`;
+
+            async function chatBackupStateGet() {
+                try {
+                    const db = await msgStoreOpen();
+                    const state = await new Promise((resolve, reject) => {
+                        const req = db.transaction('bkstate', 'readonly').objectStore('bkstate').get(CHATBK_STATE_KEY());
+                        req.onsuccess = () => resolve(req.result);
+                        req.onerror = () => reject(req.error);
+                    });
+                    if (state && Array.isArray(state.segments)) {
+                        return { segments: state.segments, covered: new Set(state.covered || []) };
+                    }
+                } catch (e) { console.warn('bkstate get:', e); }
+                return { segments: [], covered: new Set() };
+            }
+
+            async function chatBackupStateSet(state) {
+                try {
+                    const db = await msgStoreOpen();
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction('bkstate', 'readwrite');
+                        tx.objectStore('bkstate').put(
+                            { segments: state.segments, covered: [...state.covered] }, CHATBK_STATE_KEY());
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch (e) { console.warn('bkstate set:', e); }
+            }
+
+            // Cifra un objeto con la BK y lo sube al nodo. Devuelve el CID.
+            // Es el mismo envelope [iv(12)|ciphertext] y la misma auth firmada de siempre:
+            // lo comparten el manifiesto y cada segmento.
+            async function chatBackupUploadBlob(obj) {
+                const payload = new TextEncoder().encode(JSON.stringify(obj));
+                const cryptoKey = await chatBackupKey(['encrypt']);
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, payload));
+                const bytes = new Uint8Array(iv.length + ct.length);
+                bytes.set(iv, 0); bytes.set(ct, iv.length);
+
+                const digest = await crypto.subtle.digest('SHA-256', bytes);
+                const sha = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+                const { wallet: signer } = await chatBackupSecret();
+                const signature = await signer.signMessage(`ipfs-upload:${sha}:${bytes.length}`);
+                const res = await fetch(CHATBK_UPLOAD_URL, {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/octet-stream',
+                        'x-address': signer.address,
+                        'x-signature': signature,
+                        'x-sha256': sha,
+                        'x-size': String(bytes.length),
+                    },
+                    body: bytes,
+                });
+                const data = await res.json();
+                if (!res.ok || !data.cid) throw new Error(data.error || `Subida rechazada (${res.status})`);
+                return { cid: data.cid, size: bytes.length };
+            }
+
+            // Baja un blob del gateway y lo descifra con la BK.
+            async function chatBackupFetchBlob(cid) {
+                const blobRes = await fetch(CHATBK_GATEWAY + cid);
+                if (!blobRes.ok) throw new Error(`Gateway ${blobRes.status}`);
+                const bytes = new Uint8Array(await blobRes.arrayBuffer());
+                const cryptoKey = await chatBackupKey(['decrypt']);
+                const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, cryptoKey, bytes.slice(12));
+                return JSON.parse(new TextDecoder().decode(plain));
+            }
+
             // ── Pointer remoto: address → { cid, ts, count }; null si nunca hubo respaldo ──
             async function chatBackupFetchPointer() {
                 const { wallet } = await chatBackupSecret();
@@ -7364,21 +7458,52 @@
                 return null;
             }
 
-            // ── Baja un snapshot del gateway y lo descifra ──
+            // ── Baja un respaldo del gateway y lo descifra ──
+            // Devuelve SIEMPRE la forma v1 ({messages, contacts, tombstones, profile}), venga de
+            // un snapshot viejo o de un manifiesto v2 con segmentos. Así chatBackupMerge(), el
+            // restore y el archivo local siguen consumiendo exactamente lo mismo de antes.
             async function chatBackupDownload(cid) {
-                const blobRes = await fetch(CHATBK_GATEWAY + cid);
-                if (!blobRes.ok) throw new Error(`Gateway ${blobRes.status}`);
-                const bytes = new Uint8Array(await blobRes.arrayBuffer());
-                const cryptoKey = await chatBackupKey(['decrypt']);
-                const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, cryptoKey, bytes.slice(12));
-                const data = JSON.parse(new TextDecoder().decode(plain));
+                const data = await chatBackupFetchBlob(cid);
                 // Antes esto tiraba error si el respaldo no era de ESTA address, pero con la BK
                 // compartida un segundo dispositivo tiene otra wallet y el snapshot es legítimo.
                 // El control real lo hace AES-GCM: descifrar ya prueba que tenemos la BK.
                 if (data.address && data.address !== currentWallet.address.toLowerCase()) {
                     console.log(`☁ Respaldo generado por otra wallet del mismo respaldo (${data.address.slice(0, 10)}…)`);
                 }
-                return data;
+                if (data.v !== 2 || !Array.isArray(data.segments)) return data;   // snapshot v1: tal cual
+
+                // Manifiesto v2: juntar los mensajes de todos los segmentos.
+                const messages = [];
+                const readIds = [];
+                const failed = [];
+                const parts = await Promise.all(data.segments.map(async seg => {
+                    try {
+                        const blob = await chatBackupFetchBlob(seg.cid);
+                        return { seg, messages: blob.messages || [] };
+                    } catch (e) {
+                        // Un segmento ilegible NO puede abortar todo el respaldo ni desaparecer
+                        // del manifiesto: se anota para volver a referenciarlo y se sigue. Si se
+                        // perdiera la referencia, esos mensajes serían irrecuperables para siempre.
+                        console.warn(`☁ Segmento ${seg.cid.slice(0, 12)}… ilegible:`, e.message);
+                        failed.push(seg.cid);
+                        return null;
+                    }
+                }));
+                for (const p of parts) {
+                    if (!p) continue;
+                    for (const m of p.messages) { messages.push(m); readIds.push(m.id); }
+                }
+                if (failed.length) {
+                    console.warn(`☁ ${failed.length} de ${data.segments.length} segmentos no se pudieron leer`);
+                }
+                return {
+                    ...data,
+                    messages,
+                    // Metadata para el lado que sube: qué segmentos hay y qué ids quedaron cubiertos.
+                    _segments: data.segments,
+                    _coveredIds: readIds,
+                    _failedSegments: failed,
+                };
             }
 
             // ── Merge de un snapshot en el store local. Devuelve cuántos mensajes entraron ──
@@ -7502,22 +7627,70 @@
                     // absorbemos lo remoto y después publicamos la UNIÓN.
                     const remotePtr = await chatBackupFetchPointer();
                     const localMeta = JSON.parse(localStorage.getItem(CHATBK_META_KEY()) || 'null');
+                    const state = await chatBackupStateGet();
                     if (remotePtr && remotePtr.cid !== localMeta?.cid) {
                         // Si el remoto no se puede LEER, no lo pisamos: mejor no respaldar esta
                         // vuelta que reemplazar historial ajeno por el nuestro. Se reintenta.
-                        const merged = await chatBackupMerge(await chatBackupDownload(remotePtr.cid));
+                        const remote = await chatBackupDownload(remotePtr.cid);
+                        const merged = await chatBackupMerge(remote);
                         if (merged > 0) console.log(`☁ Respaldo remoto absorbido antes de subir: ${merged} mensajes`);
+                        // Absorber también SUS segmentos: si el otro dispositivo ya subió estos
+                        // mensajes, re-subirlos sería exactamente la amplificación que vinimos a
+                        // sacar. Los segmentos que no se pudieron leer se conservan igual en la
+                        // lista (perder la referencia sería perder esos mensajes para siempre).
+                        if (remote._segments) {
+                            const known = new Set(state.segments.map(s => s.cid));
+                            for (const seg of remote._segments) {
+                                if (!known.has(seg.cid)) { state.segments.push(seg); known.add(seg.cid); }
+                            }
+                            for (const id of (remote._coveredIds || [])) state.covered.add(id);
+                        }
                     }
 
                     const messages = await msgStoreGetAll();
                     if (!messages.length) { chatBackupDirty = false; return; }
+
+                    // ── Subir SOLO lo que ningún segmento cubre todavía ──
+                    const pending = messages.filter(m => !state.covered.has(m.id));
+                    for (let i = 0; i < pending.length; i += CHATBK_SEG_MAX) {
+                        const chunk = pending.slice(i, i + CHATBK_SEG_MAX);
+                        const { cid } = await chatBackupUploadBlob({ v: 2, seg: true, messages: chunk });
+                        state.segments.push({
+                            cid, count: chunk.length,
+                            from: Math.min(...chunk.map(m => m.ts || 0)),
+                            to: Math.max(...chunk.map(m => m.ts || 0)),
+                        });
+                        for (const m of chunk) state.covered.add(m.id);
+                    }
+
+                    // ── Compactación: muchos segmentos chicos vuelven a ser uno ──
+                    // Es la ÚNICA vez que se re-sube el historial entero, y pasa cada
+                    // CHATBK_SEG_COMPACT respaldos, no cada 30 segundos.
+                    // PENDIENTE: los segmentos viejos quedan pineados y sin referencia (el
+                    // servidor sólo despinea el manifiesto anterior, y hoy no puede verificar
+                    // que un CID sea de quien pide borrarlo — sin eso, un endpoint de unpin
+                    // dejaría despinear los respaldos ajenos). Se limpia cuando el servidor
+                    // registre dueño por CID en SQLite (Fase 2 del plan de escalado).
+                    if (state.segments.length > CHATBK_SEG_COMPACT) {
+                        const { cid } = await chatBackupUploadBlob({ v: 2, seg: true, messages });
+                        console.log(`☁ Compactando ${state.segments.length} segmentos en uno (${messages.length} mensajes)`);
+                        state.segments = [{
+                            cid, count: messages.length,
+                            from: Math.min(...messages.map(m => m.ts || 0)),
+                            to: Math.max(...messages.map(m => m.ts || 0)),
+                        }];
+                        state.covered = new Set(messages.map(m => m.id));
+                    }
+
                     // Contactos: solo lo restaurable (sin bytes de avatar; esos rehidratan vía perfiles XMTP).
                     const slimContacts = slimContactsForBackup(contacts);
-                    const payload = new TextEncoder().encode(JSON.stringify({
-                        v: 1,
+                    // El manifiesto va cifrado como todo lo demás: en claro filtraría cuántos
+                    // mensajes tenés y con quién hablás.
+                    const manifest = {
+                        v: 2,
+                        segments: state.segments,
                         address: currentWallet.address.toLowerCase(),
                         exportedAt: Date.now(),
-                        messages,
                         contacts: slimContacts,
                         // Sin las lápidas, restaurar (o vincular otra wallet) resucita todo lo
                         // borrado y DESBLOQUEA a los bloqueados: el respaldo tiene que llevarlas.
@@ -7528,52 +7701,33 @@
                         // PERO si estamos operando un inbox PRESTADO, la identidad de ese inbox es
                         // del dueño: subir la nuestra se la cambiaría a él en su próximo restore.
                         profile: isAdoptedInbox() ? undefined : readOwnProfile(),
-                    }));
+                    };
 
-                    // Cifrar: envelope [iv(12)|ciphertext AES-GCM]
-                    const cryptoKey = await chatBackupKey(['encrypt']);
-                    const iv = crypto.getRandomValues(new Uint8Array(12));
-                    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, payload));
-                    const bytes = new Uint8Array(iv.length + ct.length);
-                    bytes.set(iv, 0); bytes.set(ct, iv.length);
-
-                    // Subir al nodo (misma auth firmada que los docs: "ipfs-upload:<sha>:<size>")
-                    const digest = await crypto.subtle.digest('SHA-256', bytes);
-                    const sha = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
-                    // Firma con la wallet DERIVADA de la BK, no con la del usuario: así el
-                    // segundo dispositivo (otra wallet, misma BK) puede subir y publicar igual.
-                    const { wallet: signer } = await chatBackupSecret();
-                    const signature = await signer.signMessage(`ipfs-upload:${sha}:${bytes.length}`);
-                    const res = await fetch(CHATBK_UPLOAD_URL, {
-                        method: 'POST',
-                        headers: {
-                            'content-type': 'application/octet-stream',
-                            'x-address': signer.address,
-                            'x-signature': signature,
-                            'x-sha256': sha,
-                            'x-size': String(bytes.length),
-                        },
-                        body: bytes,
-                    });
-                    const data = await res.json();
-                    if (!res.ok || !data.cid) throw new Error(data.error || `Subida rechazada (${res.status})`);
+                    // Subir el manifiesto (chico: ~60 bytes por segmento) y guardar el estado.
+                    // El estado se persiste ANTES de publicar el pointer: si la publicación falla,
+                    // los segmentos ya subidos siguen contando como subidos y el reintento no los
+                    // duplica. Al revés (pointer primero) se re-subiría todo en cada reintento.
+                    const { cid: manifestCid, size: manifestSize } = await chatBackupUploadBlob(manifest);
+                    await chatBackupStateSet(state);
 
                     // Publicar el pointer (address → CID) firmado, para encontrar el respaldo desde un dispositivo nuevo.
                     // El ts tiene que ser monótono: el servidor rechaza con 409 cualquier ts <= al
                     // del pointer actual, así que un dispositivo con el reloj atrasado respecto del
                     // otro nunca lograría respaldar (y fallaba en silencio).
+                    const { wallet: signer } = await chatBackupSecret();
                     const ts = Math.max(Date.now(), (remotePtr?.ts || 0) + 1);
-                    const ptrSig = await signer.signMessage(`chatwallet-backup:${data.cid}:${ts}`);
+                    const ptrSig = await signer.signMessage(`chatwallet-backup:${manifestCid}:${ts}`);
                     const ptrRes = await fetch(CHATBK_POINTER_URL, {
                         method: 'POST',
                         headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ address: signer.address, cid: data.cid, ts, count: messages.length, signature: ptrSig }),
+                        body: JSON.stringify({ address: signer.address, cid: manifestCid, ts, count: messages.length, signature: ptrSig }),
                     });
                     if (!ptrRes.ok) throw new Error(`Pointer rechazado (${ptrRes.status})`);
 
                     chatBackupDirty = false;
-                    localStorage.setItem(CHATBK_META_KEY(), JSON.stringify({ cid: data.cid, ts, count: messages.length }));
-                    console.log(`☁ Respaldo de chats subido: ${messages.length} mensajes → ${data.cid}`);
+                    localStorage.setItem(CHATBK_META_KEY(), JSON.stringify({ cid: manifestCid, ts, count: messages.length }));
+                    console.log(`☁ Respaldo subido: ${pending.length} mensajes nuevos en ${state.segments.length} segmento(s), ` +
+                        `manifiesto ${manifestSize} B → ${manifestCid}`);
                     renderChatBackupStatus();
                 } finally {
                     chatBackupBusy = false;
@@ -7598,6 +7752,15 @@
 
                     const data = await chatBackupDownload(cid);
                     const added = await chatBackupMerge(data);
+                    // Heredar el estado de segmentos: sin esto, el primer respaldo del dispositivo
+                    // nuevo no reconocería nada como ya subido y volvería a subir el historial
+                    // entero — justo lo que el formato incremental viene a evitar.
+                    if (data._segments) {
+                        await chatBackupStateSet({
+                            segments: data._segments,
+                            covered: new Set(data._coveredIds || []),
+                        });
+                    }
                     // La identidad viene con el inbox: al restaurar (teléfono nuevo) o al adoptar
                     // el chat de otra wallet, el alias y el avatar son los del respaldo.
                     if (adoptProfileFromBackup(data.profile)) {

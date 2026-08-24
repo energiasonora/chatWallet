@@ -10,7 +10,7 @@ import express from 'express';
 import cors from 'cors';
 import { ethers } from 'ethers';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const KUBO_API = process.env.KUBO_API || 'http://127.0.0.1:5001';
@@ -22,15 +22,52 @@ const quotas = {}; // addr(lower) -> bytes disponibles
 function seedQuota(addr, mb) { quotas[addr.toLowerCase()] = mb * 1024 * 1024; }
 export { seedQuota };
 
+// ── Métricas ────────────────────────────────────────────────────────────────
+// Sin dependencias ni base de datos: contadores en memoria que se leen por /metrics.
+// POR QUÉ: hasta ahora la única señal era /health devolviendo {ok:true}, que no dice
+// nada sobre el volumen ni sobre las fallas. Sin esto no hay forma de saber si estamos
+// cerca de un límite ni de decidir cuándo activar la capa siguiente de escalado.
+const metrics = {
+  startedAt: Date.now(),
+  uploads: 0,
+  uploadBytes: 0,
+  uploadMsTotal: 0,
+  pointerPublishes: 0,
+  errors: {},          // código HTTP -> cantidad
+};
+function countError(code) { metrics.errors[code] = (metrics.errors[code] || 0) + 1; }
+
 const app = express();
 app.use(cors());
 
 // Health check liviano: el banner de Docs lo usa para mostrar el estado del nodo.
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+// Métricas en texto plano (formato Prometheus, legible a ojo con curl).
+app.get('/metrics', (req, res) => {
+  const uptime = Math.floor((Date.now() - metrics.startedAt) / 1000);
+  const avgMs = metrics.uploads ? Math.round(metrics.uploadMsTotal / metrics.uploads) : 0;
+  const lines = [
+    `chatwallet_uptime_seconds ${uptime}`,
+    `chatwallet_uploads_total ${metrics.uploads}`,
+    `chatwallet_upload_bytes_total ${metrics.uploadBytes}`,
+    `chatwallet_upload_duration_ms_avg ${avgMs}`,
+    `chatwallet_pointer_publishes_total ${metrics.pointerPublishes}`,
+    `chatwallet_pointers_current ${Object.keys(backupPointers).length}`,
+  ];
+  for (const [code, n] of Object.entries(metrics.errors)) {
+    lines.push(`chatwallet_errors_total{code="${code}"} ${n}`);
+  }
+  res.type('text/plain').send(lines.join('\n') + '\n');
+});
 // Bytes crudos del archivo (hasta 100MB, igual que IPFS_MAX_MB del uploader actual).
 app.use('/api/ipfs/upload', express.raw({ type: '*/*', limit: '100mb' }));
 
 app.post('/api/ipfs/upload', async (req, res) => {
+  const t0 = Date.now();
+  // Un solo lugar donde se contabiliza el resultado: así ninguna rama de error se
+  // escapa de las métricas (que es como no enterarse de que algo falla sistemáticamente).
+  const fail = (code, error) => { countError(code); return res.status(code).json({ error }); };
   try {
     const address = req.header('x-address');
     const signature = req.header('x-signature');
@@ -39,7 +76,7 @@ app.post('/api/ipfs/upload', async (req, res) => {
     const bytes = req.body; // Buffer
 
     if (!address || !signature || !claimedSha || !bytes?.length) {
-      return res.status(400).json({ error: 'Faltan address/signature/sha256 o body vacío' });
+      return fail(400, 'Faltan address/signature/sha256 o body vacío');
     }
 
     // 1. Verificar firma: el usuario firma "ipfs-upload:<sha256>:<size>" con su wallet (DID).
@@ -47,22 +84,22 @@ app.post('/api/ipfs/upload', async (req, res) => {
     const message = `ipfs-upload:${claimedSha}:${size}`;
     let recovered;
     try { recovered = ethers.verifyMessage(message, signature); }
-    catch (e) { return res.status(401).json({ error: 'Firma ilegible' }); }
+    catch (e) { return fail(401, 'Firma ilegible'); }
     if (recovered.toLowerCase() !== address.toLowerCase()) {
-      return res.status(401).json({ error: 'Firma no corresponde a la address' });
+      return fail(401, 'Firma no corresponde a la address');
     }
 
     // 1b. Integridad: los bytes recibidos deben hashear al sha256 firmado (cualquier tamaño).
     const actualSha = createHash('sha256').update(bytes).digest('hex');
     if (actualSha !== claimedSha) {
-      return res.status(409).json({ error: `sha256 no coincide: firmado ${claimedSha} vs recibido ${actualSha}` });
+      return fail(409, `sha256 no coincide: firmado ${claimedSha} vs recibido ${actualSha}`);
     }
 
     // 2. Cuota (hook — en el POC se puede saltar si no hay cuota seteada).
     const addr = address.toLowerCase();
     if (addr in quotas) {
       if (bytes.length > quotas[addr]) {
-        return res.status(403).json({ error: `Cuota insuficiente (${quotas[addr]} bytes)` });
+        return fail(403, `Cuota insuficiente (${quotas[addr]} bytes)`);
       }
     }
 
@@ -74,7 +111,7 @@ app.post('/api/ipfs/upload', async (req, res) => {
       method: 'POST', body: form,
     });
     if (!kuboRes.ok) {
-      return res.status(502).json({ error: `Kubo add falló: ${kuboRes.status}` });
+      return fail(502, `Kubo add falló: ${kuboRes.status}`);
     }
     const text = await kuboRes.text();
     const last = text.trim().split('\n').pop();
@@ -82,9 +119,13 @@ app.post('/api/ipfs/upload', async (req, res) => {
 
     // 4. Descontar cuota y responder.
     if (addr in quotas) quotas[addr] -= bytes.length;
+    metrics.uploads++;
+    metrics.uploadBytes += bytes.length;
+    metrics.uploadMsTotal += Date.now() - t0;
     res.json({ success: true, cid: kuboCid, gateway: `${GATEWAY}/ipfs/${kuboCid}`, pinned: true });
   } catch (e) {
     console.error('upload error', e);
+    countError(500);
     res.status(500).json({ error: e.message });
   }
 });
@@ -100,7 +141,48 @@ const POINTERS_FILE = fileURLToPath(new URL('./backup-pointers.json', import.met
 let backupPointers = {};
 try { if (existsSync(POINTERS_FILE)) backupPointers = JSON.parse(readFileSync(POINTERS_FILE, 'utf8')); }
 catch (e) { console.warn('backup-pointers.json ilegible, arrancando vacío:', e.message); }
-function savePointers() { writeFileSync(POINTERS_FILE, JSON.stringify(backupPointers, null, 2)); }
+// Escritura ATÓMICA y coalescida del padrón.
+// Antes esto era un writeFileSync directo sobre el archivo final, con dos problemas:
+//   · un corte a mitad de escritura no perdía UN pointer, perdía el padrón ENTERO
+//     (queda truncado y al arrancar se parsea mal → todos los respaldos quedan huérfanos);
+//   · el costo es O(usuarios) por publicación, y cada respaldo de cada usuario publica.
+// Ahora se escribe a un temporal y se renombra (rename es atómico dentro del mismo
+// filesystem: o está el archivo viejo entero o el nuevo entero, nunca a medias), y las
+// publicaciones que llegan juntas se agrupan en un solo flush.
+const POINTERS_FLUSH_MS = 1000;
+let pointersDirty = false;
+let pointersTimer = null;
+let pointersLastFlush = 0;
+
+function flushPointers() {
+  if (pointersTimer) { clearTimeout(pointersTimer); pointersTimer = null; }
+  if (!pointersDirty) return;
+  try {
+    const tmp = POINTERS_FILE + '.tmp';
+    writeFileSync(tmp, JSON.stringify(backupPointers, null, 2));
+    renameSync(tmp, POINTERS_FILE);
+    pointersDirty = false;
+    pointersLastFlush = Date.now();
+  } catch (e) {
+    // Queda sucio a propósito: que lo reintente el próximo flush en vez de dar por
+    // guardado algo que no se guardó.
+    console.error('No se pudo persistir backup-pointers.json:', e.message);
+  }
+}
+
+function savePointers() {
+  pointersDirty = true;
+  const since = Date.now() - pointersLastFlush;
+  // La primera publicación se escribe YA (no queremos una ventana de pérdida cuando el
+  // tráfico es bajo, que es siempre salvo en una ráfaga); las de una ráfaga se agrupan.
+  if (since >= POINTERS_FLUSH_MS) flushPointers();
+  else if (!pointersTimer) pointersTimer = setTimeout(flushPointers, POINTERS_FLUSH_MS - since);
+}
+
+// Un apagado ordenado no puede llevarse lo que quedó pendiente en la ventana de coalescencia.
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => { flushPointers(); process.exit(0); });
+}
 
 app.post('/api/backup/pointer', express.json(), async (req, res) => {
   try {
@@ -123,6 +205,7 @@ app.post('/api/backup/pointer', express.json(), async (req, res) => {
     }
     backupPointers[addr] = { cid, ts, count: count ?? null };
     savePointers();
+    metrics.pointerPublishes++;
 
     // Best-effort: despinear el respaldo anterior para no acumular blobs viejos en Kubo.
     if (prev && prev.cid && prev.cid !== cid) {

@@ -6,6 +6,7 @@ y sirve el dashboard web embebido en un thread HTTP liviano.
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -21,6 +22,11 @@ DASHBOARD_PORT = 8900
 CHECK_INTERVAL = 30
 LOG_FILE = os.path.join(HOME, "chatwallet-node/monitor/monitor.log")
 XMTP_ALERT_JS = os.path.join(HOME, "chatwallet-node/monitor/xmtp-alert.js")
+
+IPFS_BIN = os.path.join(HOME, "bin/ipfs")
+PIN_PROBE_INTERVAL = 900   # 15 min: la sonda escribe en el datastore, no conviene abusar
+REPO_WARN_PCT = 80         # RepoSize sobre StorageMax
+DISK_WARN_PCT = 90
 
 # ── Definición de servicios ──────────────────────────────────────────────
 
@@ -122,6 +128,80 @@ def send_xmtp(message):
         logline(f"⚠️ XMTP alert error: {e}")
         return False
 
+def ipfs(*args, timeout=25):
+    return subprocess.run([IPFS_BIN, *args], capture_output=True, text=True, timeout=timeout)
+
+def check_pin_persistence():
+    """Sonda ACTIVA del pinset: sube un blob minúsculo, verifica que el pin QUEDÓ y lo borra.
+
+    POR QUÉ existe: del 11 al 13/8/2026 el LevelDB del datastore quedó latcheado en error
+    tras un ENOSPC y `ipfs add --pin` seguía devolviendo CID sin persistir el pin. El puerto
+    5001 contestaba perfecto todo ese tiempo, así que el chequeo de proceso+puerto lo dio
+    por sano dos días mientras los respaldos de los usuarios quedaban a merced de un gc.
+    Un pin que no persiste solo se detecta intentando pinear de verdad.
+    """
+    cid = None
+    try:
+        blob = os.urandom(32)
+        r = subprocess.run([IPFS_BIN, "add", "-Q", "--pin", "--cid-version=1"],
+                           input=blob, capture_output=True, timeout=25)
+        if r.returncode != 0:
+            return "down", {"error": f"add falló: {r.stderr.decode(errors='replace').strip()[:200]}"}
+        cid = r.stdout.decode().strip()
+        if not cid:
+            return "down", {"error": "add no devolvió CID"}
+
+        # El chequeo que importa: ¿el pin quedó realmente escrito en el datastore?
+        chk = ipfs("pin", "ls", "--type=recursive", cid)
+        if chk.returncode != 0:
+            return "down", {"cid": cid, "error": "el pin NO persistió (datastore latcheado)"}
+        return "ok", {"cid": cid}
+    except subprocess.TimeoutExpired:
+        return "down", {"error": "timeout en la sonda de pin"}
+    except Exception as e:
+        return "down", {"error": f"sonda de pin falló: {e}"}
+    finally:
+        # Limpiar siempre: la sonda no debe dejar basura acumulándose en el repo.
+        if cid:
+            try: ipfs("pin", "rm", cid, timeout=15)
+            except Exception: pass
+
+def check_capacity():
+    """Espacio del repo IPFS y del disco. El ENOSPC de agosto empezó por acá."""
+    info = {}
+    status = "ok"
+    try:
+        r = ipfs("repo", "stat", "-s", timeout=20)
+        if r.returncode == 0:
+            stats = {}
+            for line in r.stdout.splitlines():
+                parts = line.split()
+                if len(parts) >= 2:
+                    stats[parts[0].rstrip(":")] = parts[1]
+            size, cap = int(stats.get("RepoSize", 0)), int(stats.get("StorageMax", 0))
+            if cap:
+                pct = round(size * 100 / cap, 1)
+                info["repo_pct"] = pct
+                info["repo"] = f"{round(size/1e6)} MB de {round(cap/1e9, 1)} GB"
+                if pct >= REPO_WARN_PCT:
+                    status = "degraded"
+                    info["error"] = f"repo IPFS al {pct}% de StorageMax"
+    except Exception as e:
+        info["repo_error"] = str(e)
+
+    try:
+        du = shutil.disk_usage(HOME)
+        pct = round(du.used * 100 / du.total, 1)
+        info["disk_pct"] = pct
+        info["disk_free"] = f"{round(du.free/1e9, 1)} GB libres"
+        if pct >= DISK_WARN_PCT:
+            status = "degraded"
+            info["error"] = f"disco al {pct}%"
+    except Exception as e:
+        info["disk_error"] = str(e)
+
+    return status, info
+
 def restart_service(svc):
     logline(f"🔄 Reiniciando {svc['name']}...")
     try:
@@ -139,6 +219,11 @@ def restart_service(svc):
 # ── Check loop ───────────────────────────────────────────────────────────
 
 last_alert = {}  # svc_id -> timestamp, para no spamear XMTP
+
+# La sonda de pin corre cada PIN_PROBE_INTERVAL, no en cada ciclo de 30s: escribe en el
+# datastore. Entre corridas se muestra el último resultado conocido.
+_pin_probe_at = 0
+_pin_probe = ("unknown", {"note": "todavía sin correr"})
 
 def check_all():
     now = datetime.now(timezone.utc).isoformat()
@@ -186,6 +271,30 @@ def check_all():
                 if sid not in last_alert or time.time() - last_alert[sid] > 3600:
                     send_xmtp(f"⚠️ {svc['name']} CAÍDO — servicio sin auto-restart. Revisá manualmente.")
                     last_alert[sid] = time.time()
+
+    # ── Salud del almacenamiento (no es un proceso: no se reinicia, se avisa) ──
+    global _pin_probe_at, _pin_probe
+    if time.time() - _pin_probe_at >= PIN_PROBE_INTERVAL:
+        _pin_probe = check_pin_persistence()
+        _pin_probe_at = time.time()
+    pin_status, pin_info = _pin_probe
+    results.append({"id": "pin_probe", "name": "Persistencia de pins", "status": pin_status, "info": pin_info})
+    if pin_status == "down":
+        any_down = True
+        if "pin_probe" not in last_alert or time.time() - last_alert["pin_probe"] > 3600:
+            send_xmtp("💀 Los pins NO están persistiendo: el datastore de Kubo quedó latcheado "
+                      "(pasó del 11 al 13/8). Los respaldos nuevos están a merced de un gc. "
+                      "Fix: reiniciar el daemon y re-pinear.")
+            last_alert["pin_probe"] = time.time()
+
+    cap_status, cap_info = check_capacity()
+    results.append({"id": "capacity", "name": "Espacio (repo/disco)", "status": cap_status, "info": cap_info})
+    if cap_status != "ok":
+        any_down = True
+        if "capacity" not in last_alert or time.time() - last_alert["capacity"] > 3600:
+            send_xmtp(f"⚠️ Almacenamiento apretado: {cap_info.get('error', '')}. "
+                      f"{cap_info.get('repo', '')} · {cap_info.get('disk_free', '')}")
+            last_alert["capacity"] = time.time()
 
     report = {"timestamp": now, "all_ok": not any_down, "services": results}
 
