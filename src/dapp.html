@@ -5632,10 +5632,96 @@
                 cancelBtn.onclick = onCancel;
             }
 
+            // ── ERC-20: el saldo de un token NO es la moneda de la cadena ──────────────
+            // Una red "de token" apunta a un contrato: tu saldo es una fila en su mapping, no
+            // algo que la cadena sepa mover sola. Por eso no se transfiere con el campo `value`
+            // (ese mueve la moneda nativa y nada más): hay que LLAMAR a transfer(), y el
+            // destinatario y el monto viajan codificados en el calldata.
+            function esRedDeToken(net) {
+                return !!(net && net.TOKEN_ADDRESS && ethers.isAddress(net.TOKEN_ADDRESS));
+            }
+
+            // Los decimales se le preguntan AL CONTRATO, que es la única fuente de verdad: el
+            // campo DECIMALS del formulario de redes lo escribe el usuario y puede estar mal.
+            // Equivocarse acá no es un error de formato, es mandar el monto equivocado.
+            async function decimalesDeToken(contrato, net) {
+                try { return Number(await contrato.decimals()); }
+                catch (e) {
+                    console.warn('decimals() falló, uso el configurado:', e);
+                    return Number(net.DECIMALS ?? 18);
+                }
+            }
+
+            // Devuelve el txResponse, o null si ya explicó por qué no se puede enviar.
+            async function enviarToken(signer, net, recipient, amount) {
+                const sym = net.TOKEN_SYMBOL || 'tokens';
+                const nativo = net.NATIVE_SYMBOL || 'la moneda nativa';
+                const token = new ethers.Contract(net.TOKEN_ADDRESS, erc20Abi, signer);
+
+                setTxStatus(`Paso 1: ${sym} es un token, leyendo su contrato…`, true);
+                const dec = await decimalesDeToken(token, net);
+
+                let unidades;
+                try {
+                    unidades = ethers.parseUnits(amount, dec);
+                } catch (e) {
+                    setTxStatus(`<span class="text-red-400">${sym} admite hasta ${dec} decimales.</span>`, false);
+                    return null;
+                }
+                if (unidades <= 0n) {
+                    setTxStatus('<span class="text-red-400">Monto inválido.</span>', false);
+                    return null;
+                }
+
+                setTxStatus('Paso 2: verificando saldo y gas…', true);
+                const [saldoToken, saldoNativo] = await Promise.all([
+                    token.balanceOf(signer.address),
+                    provider.getBalance(signer.address)
+                ]);
+                if (saldoToken < unidades) {
+                    setTxStatus(`<span class="text-red-400">Saldo insuficiente: tenés ` +
+                        `${ethers.formatUnits(saldoToken, dec)} ${sym}.</span>`, false);
+                    return null;
+                }
+
+                // El gas SIEMPRE se paga en la moneda nativa, aunque lo que mandes sea un token.
+                // Es la confusión más común: "tengo USDC" y la transacción igual no sale.
+                let costoGas = 0n;
+                try {
+                    const [gas, fee] = await Promise.all([
+                        token.transfer.estimateGas(recipient, unidades),
+                        provider.getFeeData()
+                    ]);
+                    costoGas = gas * (fee.maxFeePerGas || fee.gasPrice || 0n);
+                } catch (e) {
+                    console.warn('estimateGas transfer:', e);
+                }
+                if (saldoNativo === 0n || (costoGas > 0n && saldoNativo < costoGas)) {
+                    setTxStatus(`<span class="text-red-400">No alcanza el ${nativo} para el gas: ` +
+                        `tenés ${ethers.formatEther(saldoNativo)} y hacen falta ~` +
+                        `${ethers.formatEther(costoGas)}. El gas se paga en ${nativo}, no en ${sym}.</span>`, false);
+                    return null;
+                }
+
+                setTxStatus(`Paso 3: enviando ${amount} ${sym}…`, true);
+                return await token.transfer(recipient, unidades);
+            }
+
             let txWaitTicker = null;
 
             async function executeTransaction(recipient, amount) {
                 const isStealth = isStealthAddress(recipient);
+                const red = optionsList[currentTokenIndex];
+
+                // El Registry stealth anuncia y transfiere VALOR NATIVO (sendStealth es payable y
+                // no toca ningún ERC-20). Enviar un token a una meta-address por acá mandaría la
+                // moneda de la cadena en su lugar, que es exactamente el error que se arregla acá.
+                if (isStealth && esRedDeToken(red)) {
+                    setTxStatus('<span class="text-red-400">Una meta-address stealth solo recibe ' +
+                        `${red.NATIVE_SYMBOL || 'la moneda nativa'} en esta red. Elegí la red nativa ` +
+                        'para pagarle a una dirección stealth.</span>', false);
+                    return;
+                }
 
                 setTxStatus('Preparando transacción...', true);
 
@@ -5684,9 +5770,14 @@
                             setTxStatus('<span class="text-red-400">Dirección de destinatario inválida.</span>', false);
                             return;
                         }
-                        setTxStatus('Paso 1: Dirección estándar. Enviando transacción...', true);
-                        const tx = { to: recipient, value: ethers.parseEther(amount) };
-                        txResponse = await signer.sendTransaction(tx);
+                        if (esRedDeToken(red)) {
+                            txResponse = await enviarToken(signer, red, recipient, amount);
+                            if (!txResponse) return;   // enviarToken ya explicó por qué no salió
+                        } else {
+                            setTxStatus('Paso 1: Dirección estándar. Enviando transacción...', true);
+                            const tx = { to: recipient, value: ethers.parseEther(amount) };
+                            txResponse = await signer.sendTransaction(tx);
+                        }
                     }
 
                     // La tx ya salió a la red: mostrar el hash y contar el tiempo de espera
@@ -15594,7 +15685,28 @@
             // ── Lado ONLINE: preparar la tx con datos frescos de la red ──
             async function prepareColdTx(from, to, amount) {
                 const net = optionsList[currentTokenIndex];
-                const value = ethers.parseEther(amount);
+
+                // En una transferencia de token el DESTINO de la transacción es el contrato, el
+                // value es cero, y el destinatario real va adentro del calldata. Lo que se firma
+                // en frío es ese calldata, así que hay que armarlo del lado online.
+                const esToken = esRedDeToken(net);
+                let destino = to, value = 0n, data = '0x', tok = null;
+                if (esToken) {
+                    const c = new ethers.Contract(net.TOKEN_ADDRESS, erc20Abi, provider);
+                    const dec = await decimalesDeToken(c, net);
+                    const sym = net.TOKEN_SYMBOL || 'tokens';
+                    const unidades = ethers.parseUnits(amount, dec);
+                    const saldoToken = await c.balanceOf(from);
+                    if (saldoToken < unidades) {
+                        throw new Error(`Saldo insuficiente: la wallet fría tiene ${ethers.formatUnits(saldoToken, dec)} ${sym}.`);
+                    }
+                    destino = net.TOKEN_ADDRESS;
+                    data = c.interface.encodeFunctionData('transfer', [to, unidades]);
+                    tok = { dec, sym };
+                } else {
+                    value = ethers.parseEther(amount);
+                }
+
                 const [nonce, feeData, balance] = await Promise.all([
                     provider.getTransactionCount(from, 'pending'),
                     provider.getFeeData(),
@@ -15603,12 +15715,12 @@
                 let gasLimit;
                 try {
                     // margen 20%: el gas no usado se devuelve
-                    gasLimit = (await provider.estimateGas({ from, to, value })) * 12n / 10n;
+                    gasLimit = (await provider.estimateGas({ from, to: destino, value, data })) * 12n / 10n;
                 } catch (e) {
-                    gasLimit = 21000n;
+                    gasLimit = esToken ? 100000n : 21000n;
                 }
                 const tx = {
-                    from, to, value: value.toString(), nonce,
+                    from, to: destino, value: value.toString(), data, nonce,
                     chainId: String(net.TOKEN_CHAINID), gasLimit: gasLimit.toString()
                 };
                 if (feeData.maxFeePerGas) {
@@ -15619,20 +15731,45 @@
                     tx.type = 0;
                     tx.gasPrice = (feeData.gasPrice || 0n).toString();
                 }
+                // El gas se paga en la moneda nativa aunque se esté mandando un token: en ese
+                // caso `value` es cero y este chequeo mira exclusivamente el gas.
+                const nativoSym = net.NATIVE_SYMBOL || 'ETH';
                 const maxCost = value + BigInt(tx.gasLimit) * BigInt(tx.maxFeePerGas || tx.gasPrice);
                 if (balance < maxCost) {
-                    throw new Error(`Saldo insuficiente en la wallet fría: tiene ${parseFloat(ethers.formatEther(balance)).toFixed(6)} y necesita hasta ${parseFloat(ethers.formatEther(maxCost)).toFixed(6)}.`);
+                    throw new Error(`Saldo insuficiente en la wallet fría: tiene ${parseFloat(ethers.formatEther(balance)).toFixed(6)} ${nativoSym} y necesita hasta ${parseFloat(ethers.formatEther(maxCost)).toFixed(6)} ${nativoSym} para el gas.`);
                 }
-                const payload = { v: 1, net: net.TOKEN_CHAIN_NAME, sym: net.NATIVE_SYMBOL || 'ETH', tx };
+                // sym es SIEMPRE la moneda nativa (con eso se muestra el gas); `tok` describe el
+                // token cuando lo hay. v:2 marca los payloads que llevan calldata.
+                const payload = { v: esToken ? 2 : 1, net: net.TOKEN_CHAIN_NAME, sym: nativoSym, tx };
+                if (tok) payload.tok = tok;
                 return { payload, qrData: COLD_TX_PREFIX + b64urlEncode(new TextEncoder().encode(JSON.stringify(payload))) };
             }
 
             function coldTxDetailsHtml(payload) {
                 const t = payload.tx;
+                // `__erc20` lo produce handleIncomingColdTx DECODIFICANDO el calldata que se va a
+                // firmar. No se muestra nada que venga suelto en el QR: en modo frío la pantalla
+                // tiene que decir lo mismo que la firma, o el circuito no sirve para nada.
+                const d = payload.__erc20;
+                const dec = payload.tok?.dec ?? 18;
+                const sym = payload.tok?.sym || 'tokens';
+                const destino = d ? d.to : t.to;
+                const monto = d
+                    ? `${ethers.formatUnits(d.amount, dec)} ${sym}`
+                    : `${ethers.formatEther(BigInt(t.value))} ${payload.sym}`;
+                // Los decimales y el símbolo viajan en el QR y acá no hay red para contrastarlos
+                // contra el contrato. Un QR mentiroso podría declarar 21 decimales y mostrar
+                // "1 USDC" donde el calldata dice mil. Por eso además se muestran las unidades
+                // crudas, que son el único número que no depende de creerle al QR.
+                const crudo = d
+                    ? `<p class="text-xs text-gray-400">${d.amount.toString()} unidades · ${dec} decimales declarados por el QR</p>`
+                    : '';
                 return `
                     <p><strong>Desde (firma):</strong> <span class="font-mono break-all">${t.from}</span></p>
-                    <p><strong>Hacia:</strong> <span class="font-mono break-all">${t.to}</span></p>
-                    <p><strong>Monto:</strong> <span class="font-bold text-white">${ethers.formatEther(BigInt(t.value))} ${payload.sym}</span></p>
+                    <p><strong>Hacia:</strong> <span class="font-mono break-all">${destino}</span></p>
+                    <p><strong>Monto:</strong> <span class="font-bold text-white">${monto}</span></p>
+                    ${crudo}
+                    ${d ? `<p><strong>Contrato del token:</strong> <span class="font-mono break-all">${t.to}</span></p>` : ''}
                     <p><strong>Red:</strong> ${payload.net} (chainId ${t.chainId})</p>
                     <p><strong>Nonce:</strong> ${t.nonce} · <strong>Gas máx:</strong> ${parseFloat(coldTxMaxFeeEth(t)).toFixed(8)} ${payload.sym}</p>`;
             }
@@ -15649,6 +15786,16 @@
                     const t = payload.tx;
                     if (!ethers.isAddress(t.to) || !ethers.isAddress(t.from)) throw new Error('direcciones inválidas');
                     BigInt(t.value); BigInt(t.gasLimit); BigInt(t.chainId); // valida numéricos
+                    if (t.data && t.data !== '0x') {
+                        if (!/^0x([0-9a-fA-F]{2})+$/.test(t.data)) throw new Error('calldata inválida');
+                        // Sólo se firma calldata que esta wallet sepa LEER. Firmar bytes opacos es
+                        // firmar a ciegas, justo lo que el circuito frío existe para evitar.
+                        const iface = new ethers.Contract(t.to, erc20Abi).interface;
+                        const parsed = iface.parseTransaction({ data: t.data });
+                        if (!parsed || parsed.name !== 'transfer') throw new Error('calldata no reconocida');
+                        if (BigInt(t.value) !== 0n) throw new Error('una transferencia de token no lleva value');
+                        payload.__erc20 = { to: parsed.args[0], amount: parsed.args[1] };
+                    }
                 } catch (e) {
                     showToast('QR de transacción fría inválido.', 'error');
                     return;
@@ -15681,7 +15828,7 @@
                 if (!pendingColdTx || !currentWallet) return;
                 const t = pendingColdTx.tx;
                 const txObj = {
-                    to: t.to, value: BigInt(t.value), nonce: Number(t.nonce),
+                    to: t.to, value: BigInt(t.value), data: t.data || '0x', nonce: Number(t.nonce),
                     chainId: BigInt(t.chainId), gasLimit: BigInt(t.gasLimit), type: t.type
                 };
                 if (t.type === 2) {
