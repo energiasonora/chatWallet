@@ -298,7 +298,38 @@
   @media (max-width:560px){
     .paso{padding:1.1rem 1rem}
     .hdr-acciones .btn{padding:.5rem .8rem;font-size:.78rem}
+    .nav-vistas .tab{padding:.45rem 1rem;font-size:.92rem}
+    .paso-resumen{max-width:9rem}
   }
+
+  /* ---------- nav de vistas (Atestiguar / Verificar) ---------- */
+  .nav-vistas{display:flex;justify-content:center;gap:.4rem;padding:1.4rem 1rem .2rem}
+  .nav-vistas .tab{
+    font-family:'Cormorant Garamond',serif;font-size:1.02rem;letter-spacing:.03em;
+    background:transparent;border:1px solid var(--linea);color:var(--bruma);
+    padding:.5rem 1.35rem;border-radius:999px;cursor:pointer;transition:.2s;
+  }
+  .nav-vistas .tab:hover{color:var(--lavanda);border-color:var(--violeta)}
+  .nav-vistas .tab[aria-selected="true"]{
+    background:var(--violeta);border-color:var(--violeta);color:#fff;
+    box-shadow:0 8px 30px -14px rgba(139,92,246,.7);
+  }
+  .vista[hidden]{display:none}
+
+  /* ---------- wizard: un paso a la vez ---------- */
+  /* pasos futuros (ni activo ni hecho): atenuados y bloqueados */
+  .paso:not(.activo):not(.hecho){opacity:.42}
+  .paso:not(.activo):not(.hecho) .paso-num{color:var(--bruma)}
+  /* solo el paso activo muestra descripción, cuerpo e identidad */
+  .paso:not(.activo) .desc,
+  .paso:not(.activo) .cuerpo,
+  .paso:not(.activo) .ident{display:none}
+  /* resumen compacto en los pasos ya cumplidos */
+  .paso-resumen{display:none;margin-left:auto;color:var(--oro);font-size:.78rem;
+    font-family:'JetBrains Mono',monospace;max-width:18rem;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .paso.hecho .paso-resumen{display:inline-block}
+  .paso.hecho .sello{display:none}
 </style>
 </head>
 <body>
@@ -325,6 +356,12 @@
   </div>
 </header>
 
+<nav class="nav-vistas" aria-label="Vistas">
+  <button type="button" class="tab" data-vista="atestiguar" data-i18n="nav_attest" aria-selected="true">Atestiguar</button>
+  <button type="button" class="tab" data-vista="verificar" data-i18n="nav_verify" aria-selected="false">Verificar</button>
+</nav>
+
+<div class="vista" id="vista-atestiguar">
 <section class="hero">
   <div id="flor" aria-hidden="true"></div>
   <h1>Ius <em>Naturalis</em></h1>
@@ -335,7 +372,7 @@
   <div class="rito" id="rito">
 
     <article class="paso activo" id="paso1">
-      <div class="paso-cab"><span class="paso-num">I</span><h2 data-i18n="s1_title">Presencia</h2><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <div class="paso-cab"><span class="paso-num">I</span><h2 data-i18n="s1_title">Presencia</h2><span class="paso-resumen" id="resumen1"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
       <p class="desc" data-i18n="s1_desc">Conectá tu wallet web3 (MetaMask, Rabby u otra compatible). Tu dirección es tu única identidad ante la red — nadie más la emite ni la revoca.</p>
       <div class="cuerpo">
         <button class="btn lleno" id="btn-conectar2" data-i18n="connect">Conectar wallet</button>
@@ -344,7 +381,7 @@
     </article>
 
     <article class="paso" id="paso2">
-      <div class="paso-cab"><span class="paso-num">II</span><h2 data-i18n="s2_title">Firma</h2><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <div class="paso-cab"><span class="paso-num">II</span><h2 data-i18n="s2_title">Firma</h2><span class="paso-resumen" id="resumen2"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
       <p class="desc" data-i18n="s2_desc">Firmá tu propia dirección. Esa firma —y nada más— te autentica ante los gateways IPFS de Crust (W3Auth). No es una transacción: no tiene costo.</p>
       <div class="ident" id="ident2" hidden>
         <span data-i18n="ident_signing_as">Firmás como</span>
@@ -358,7 +395,7 @@
     </article>
 
     <article class="paso" id="paso3">
-      <div class="paso-cab"><span class="paso-num">III</span><h2 data-i18n="s3_title">Palabra</h2><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <div class="paso-cab"><span class="paso-num">III</span><h2 data-i18n="s3_title">Palabra</h2><span class="paso-resumen" id="resumen3"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
       <p class="desc" data-i18n="s3_desc">Elegí tu documento PDF. Antes de que nada salga de tu equipo verás su huella criptográfica local (SHA-256). Decidí si querés que sea público o cifrado, y subilo al gateway IPFS para obtener su CID.</p>
       <div class="cuerpo">
         <label class="zona" id="zona" tabindex="0" role="button" data-i18n-aria="drop_aria" aria-label="Elegir o soltar un PDF">
@@ -386,7 +423,7 @@
     </article>
 
     <article class="paso" id="paso4">
-      <div class="paso-cab"><span class="paso-num">IV</span><h2 data-i18n="s4_title">Atestación</h2><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <div class="paso-cab"><span class="paso-num">IV</span><h2 data-i18n="s4_title">Atestación</h2><span class="paso-resumen" id="resumen4"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
       <p class="desc" data-i18n="s4_desc">Este es el acto soberano: declarás y firmás. Tu firma ata tu identidad, la huella del documento y la fecha en una atestación portable que <em>cualquiera</em> puede verificar sin depender de esta web ni de Crust. No tiene costo.</p>
       <div class="cuerpo">
         <div class="plantillas" id="plantillas">
@@ -401,7 +438,7 @@
     </article>
 
     <article class="paso" id="paso5">
-      <div class="paso-cab"><span class="paso-num">V</span><h2 data-i18n="s5_title">Anclaje</h2><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <div class="paso-cab"><span class="paso-num">V</span><h2 data-i18n="s5_title">Anclaje</h2><span class="paso-resumen" id="resumen5"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
       <p class="desc" data-i18n="s5_desc">Pagá el anclaje desde tu propia wallet llamando al contrato <em>StorageOrder</em> de Crust. Los nodos de la red replican tu documento y prueban on-chain que lo conservan. Se paga una sola vez.</p>
       <div class="cuerpo">
         <span class="precio" id="precio" hidden></span>
@@ -424,7 +461,11 @@
     </div>
     <div id="lista-docs"></div>
   </section>
+</main>
+</div><!-- /vista-atestiguar -->
 
+<div class="vista" id="vista-verificar" hidden>
+<main>
   <section class="verificador">
     <h2 data-i18n="verif_title">Verificar una atestación</h2>
     <p data-i18n="verif_desc">Pegá el certificado (JSON) de una atestación de cualquiera para comprobar quién la firmó y sobre qué documento. La verificación es 100% local y offline.</p>
@@ -435,6 +476,7 @@
     </div>
   </section>
 </main>
+</div><!-- /vista-verificar -->
 
 <footer>
   <p data-i18n="footer_text" data-i18n-html><strong>Ius Naturalis</strong> es una interfaz soberana: no custodia fondos, no guarda tus archivos y no requiere cuenta. La subida usa los gateways públicos <a href="https://wiki.crust.network/docs/en/buildIPFSWeb3AuthGW" target="_blank" rel="noopener">IPFS W3Auth</a> de Crust Network y el pago llama directamente a los contratos StorageOrder desplegados por Crust. Verificá siempre las direcciones antes de firmar.</p>
@@ -495,6 +537,7 @@ window.IusI18n = (function(){
     s5_title:'Anclaje', s5_desc:'Pagá el anclaje desde tu propia wallet llamando al contrato <em>StorageOrder</em> de Crust. Los nodos de la red replican tu documento y prueban on-chain que lo conservan. Se paga una sola vez.', s5_btn:'Anclar en la red',
     reg_title:'Registro', reg_sub:'documentos atestiguados por esta wallet', reg_export:'Exportar registro', reg_import:'Importar',
     reg_empty:'Aún no hay documentos atestiguados. El primero abre el registro.',
+    nav_attest:'Atestiguar', nav_verify:'Verificar',
     verif_title:'Verificar una atestación', verif_desc:'Pegá el certificado (JSON) de una atestación de cualquiera para comprobar quién la firmó y sobre qué documento. La verificación es 100% local y offline.', verif_btn:'Verificar firma',
     footer_text:'<strong>Ius Naturalis</strong> es una interfaz soberana: no custodia fondos, no guarda tus archivos y no requiere cuenta. La subida usa los gateways públicos <a href="https://wiki.crust.network/docs/en/buildIPFSWeb3AuthGW" target="_blank" rel="noopener">IPFS W3Auth</a> de Crust Network y el pago llama directamente a los contratos StorageOrder desplegados por Crust. Verificá siempre las direcciones antes de firmar.',
     modal_title:'Elegí tu wallet', modal_sub:'Conectá con la billetera soberana de tu elección. Tu wallet firma y paga; nadie más interviene.', modal_foot:'¿No tenés wallet? Necesitás una billetera web3 compatible con EVM (chatWallet, MetaMask, Rabby…).',
@@ -542,6 +585,7 @@ window.IusI18n = (function(){
     s5_title:'Anchoring', s5_desc:'Pay for the anchoring from your own wallet by calling Crust\'s <em>StorageOrder</em> contract. The network nodes replicate your document and prove on-chain that they keep it. Paid once.', s5_btn:'Anchor on the network',
     reg_title:'Registry', reg_sub:'documents attested by this wallet', reg_export:'Export registry', reg_import:'Import',
     reg_empty:'No documents attested yet. The first one opens the registry.',
+    nav_attest:'Attest', nav_verify:'Verify',
     verif_title:'Verify an attestation', verif_desc:'Paste anyone\'s attestation certificate (JSON) to check who signed it and over which document. Verification is 100% local and offline.', verif_btn:'Verify signature',
     footer_text:'<strong>Ius Naturalis</strong> is a sovereign interface: it holds no funds, stores no files and requires no account. Uploads use Crust Network\'s public <a href="https://wiki.crust.network/docs/en/buildIPFSWeb3AuthGW" target="_blank" rel="noopener">IPFS W3Auth</a> gateways and payment calls the StorageOrder contracts deployed by Crust directly. Always verify addresses before signing.',
     modal_title:'Choose your wallet', modal_sub:'Connect with the sovereign wallet of your choice. Your wallet signs and pays; no one else intervenes.', modal_foot:'No wallet? You need an EVM-compatible web3 wallet (chatWallet, MetaMask, Rabby…).',
@@ -589,6 +633,7 @@ window.IusI18n = (function(){
     s5_title:'Ancrage', s5_desc:'Payez l\'ancrage depuis votre propre portefeuille en appelant le contrat <em>StorageOrder</em> de Crust. Les nœuds du réseau répliquent votre document et prouvent on-chain qu\'ils le conservent. Payé une seule fois.', s5_btn:'Ancrer sur le réseau',
     reg_title:'Registre', reg_sub:'documents attestés par ce portefeuille', reg_export:'Exporter le registre', reg_import:'Importer',
     reg_empty:'Aucun document attesté pour l\'instant. Le premier ouvre le registre.',
+    nav_attest:'Attester', nav_verify:'Vérifier',
     verif_title:'Vérifier une attestation', verif_desc:'Collez le certificat (JSON) d\'une attestation de n\'importe qui pour vérifier qui l\'a signée et sur quel document. La vérification est 100% locale et hors ligne.', verif_btn:'Vérifier la signature',
     footer_text:'<strong>Ius Naturalis</strong> est une interface souveraine : elle ne détient aucun fonds, ne stocke aucun fichier et ne requiert aucun compte. Le téléversement utilise les passerelles publiques <a href="https://wiki.crust.network/docs/en/buildIPFSWeb3AuthGW" target="_blank" rel="noopener">IPFS W3Auth</a> de Crust Network et le paiement appelle directement les contrats StorageOrder déployés par Crust. Vérifiez toujours les adresses avant de signer.',
     modal_title:'Choisissez votre portefeuille', modal_sub:'Connectez-vous avec le portefeuille souverain de votre choix. Votre portefeuille signe et paie ; personne d\'autre n\'intervient.', modal_foot:'Pas de portefeuille ? Il vous faut un portefeuille web3 compatible EVM (chatWallet, MetaMask, Rabby…).',
@@ -696,7 +741,7 @@ window.IusI18n = (function(){
   ];
   const GATEWAYS = ['https://gw.crustfiles.app','https://crustipfs.xyz'];
   const NORMA = 'ius-naturalis/atestacion/1';
-  const VERSION = '0.5.0';
+  const VERSION = '0.6.0';
 
   /* ================= estado ================= */
   const S = {
@@ -720,9 +765,10 @@ window.IusI18n = (function(){
     el.className = 'estado' + (tipo ? ' '+tipo : '');
     el.innerHTML = (spinner ? '<span class="girando"></span>' : '') + msj;
   }
-  function cumplir(n){
+  function cumplir(n, resumen){
     pasos[n].classList.remove('activo'); pasos[n].classList.add('hecho');
     if(pasos[n+1]) pasos[n+1].classList.add('activo');
+    if(resumen != null) $('resumen'+n).textContent = resumen;
     florSvg.classList.add('p'+n);
   }
   const abreviar = a => a.slice(0,6)+'…'+a.slice(-4);
@@ -803,7 +849,7 @@ window.IusI18n = (function(){
     $('ident2').classList.toggle('local', !S.remoto);
     $('ident2').hidden = false;
     estado(1, t('st_wallet_ok',{addr:abreviar(S.cuenta)}), 'ok');
-    cumplir(1);
+    cumplir(1, (S.remoto?'📡 ':'') + abreviar(S.cuenta));
     $('btn-firmar').disabled = false;
     await cargarRegistro();
   }
@@ -988,7 +1034,7 @@ window.IusI18n = (function(){
       const sig = await S.signer.signMessage(S.cuenta);
       S.auth = btoa('eth-' + S.cuenta + ':' + sig);
       estado(2,t('st_sign_ok'),'ok');
-      cumplir(2);
+      cumplir(2, 'W3Auth ✓');
       actualizarBotonSubida();
     }catch(e){
       estado(2,t('st_sign_err',{e:(e.shortMessage||e.message)}),'err');
@@ -1085,7 +1131,7 @@ window.IusI18n = (function(){
         $('cid-txt').textContent = S.cid;
         $('cid-caja').hidden = false;
         estado(3, t('st_uploaded',{what:(S.cifrado?t('what_enc'):t('what_plain')), size:bytesLindos(S.tam)}),'ok');
-        cumplir(3);
+        cumplir(3, (S.cifrado?'🔒 ':'🌐 ') + abreviar(S.cid));
         $('btn-atestiguar').disabled = false;
         return;
       }catch(e){ ultimo = e; }
@@ -1123,7 +1169,7 @@ window.IusI18n = (function(){
       const firma = await S.signer.signMessage(mensaje);
       S.atestacion = { mensaje, firma, fecha:fechaISO, declaracion };
       estado(4,t('st_att_ok'),'ok');
-      cumplir(4);
+      cumplir(4, '✦ ' + abreviar(firma));
       await cotizar();
     }catch(e){
       estado(4,t('st_att_err',{e:(e.shortMessage||e.message)}),'err');
@@ -1169,7 +1215,7 @@ window.IusI18n = (function(){
       estado(5,t('st_tx_sent'),null,true);
       const rec = await tx.wait(1);
       estado(5,t('st_anchored'),'ok');
-      cumplir(5);
+      cumplir(5, '⚓ ' + abreviar(tx.hash));
       const doc = {
         norma: NORMA,
         documento: S.archivo.name, sha256: S.sha256, cifrado: S.cifrado,
@@ -1195,7 +1241,7 @@ window.IusI18n = (function(){
     S.archivo = null; S.cid = null; S.sha256 = null; S.precio = null; S.atestacion = null;
     $('archivo-info').textContent=''; $('cid-caja').hidden = true; $('precio').hidden = true;
     $('huella-caja').hidden = true; $('privacidad').hidden = true; $('declaracion').value = '';
-    ['3','4','5'].forEach(n=> estado(n,'',''));
+    ['3','4','5'].forEach(n=>{ estado(n,'',''); $('resumen'+n).textContent=''; });
     [3,4,5].forEach(n=>{ pasos[n].classList.remove('hecho'); });
     pasos[3].classList.add('activo');
     florSvg.classList.remove('p3','p4','p5');
@@ -1374,6 +1420,17 @@ window.IusI18n = (function(){
 
   fijarVisibilidad(true);
   pintarRegistro();
+
+  // router de vistas (Atestiguar / Verificar)
+  const vistas = { atestiguar: $('vista-atestiguar'), verificar: $('vista-verificar') };
+  const tabs = document.querySelectorAll('.nav-vistas .tab');
+  function mostrarVista(v){
+    if(!vistas[v]) return;
+    Object.keys(vistas).forEach(k=>{ vistas[k].hidden = (k!==v); });
+    tabs.forEach(b=> b.setAttribute('aria-selected', String(b.dataset.vista===v)));
+    window.scrollTo({top:0, behavior:'auto'});
+  }
+  tabs.forEach(b=> b.addEventListener('click', ()=> mostrarVista(b.dataset.vista)));
 
   // re-render de textos dinámicos al cambiar de idioma (los estáticos los hace applyI18n)
   window.iusOnLangChange = function(){
