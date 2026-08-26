@@ -621,6 +621,205 @@
 
         .sel.hidden { display: none; }
 
+        /* País de entrega: no es un paso más de la lista, es una consecuencia de haber
+           elegido "Físico". Va anidado bajo el formato (filete + sangría) y entra animado
+           para que se lea como algo que se abrió ahí, no como otro campo suelto al final. */
+        .sel.substep {
+            margin-top: -.65rem;
+            padding-left: .95rem;
+            border-left: 2px solid color-mix(in srgb, var(--pay) 50%, var(--border));
+            animation: substepIn .26s cubic-bezier(.16, 1, .3, 1);
+        }
+
+        @keyframes substepIn {
+            from { opacity: 0; transform: translateY(-6px); }
+        }
+
+        .sel.substep .sel-label { color: var(--fg-muted); }
+
+        /* ── Hoja de país de entrega ──
+           Se abre al elegir un formato físico. En desktop es un panel abajo a la derecha
+           (no tapa la portada ni el precio: se sigue viendo qué se está comprando);
+           en mobile ocupa la pantalla, que es donde el paso se perdía de vista. */
+        #country-sheet {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+        }
+
+        #country-sheet[hidden] { display: none; }
+
+        .sheet-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(10, 10, 10, .45);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            animation: fadeIn .25s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+        }
+
+        .sheet-panel {
+            position: absolute;
+            right: 2rem;
+            bottom: 2rem;
+            width: min(420px, calc(100vw - 4rem));
+            max-height: calc(100vh - 4rem);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 32px 80px -20px rgba(0, 0, 0, .55);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: sheetIn .3s cubic-bezier(.16, 1, .3, 1);
+        }
+
+        @keyframes sheetIn {
+            from { opacity: 0; transform: translateY(20px) scale(.98); }
+        }
+
+        .sheet-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.15rem 1.25rem .5rem;
+        }
+
+        .sheet-kicker {
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            color: var(--fg-subtle);
+            font-size: .6563rem;
+            font-weight: 600;
+            margin-bottom: .35rem;
+        }
+
+        .sheet-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -.02em;
+        }
+
+        .sheet-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: .85rem 1.25rem 0;
+            display: flex;
+            flex-direction: column;
+            gap: .55rem;
+        }
+
+        .country-card {
+            display: flex;
+            align-items: flex-start;
+            gap: .8rem;
+            width: 100%;
+            text-align: left;
+            font-family: 'DM Sans', sans-serif;
+            color: var(--fg);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: .8rem .9rem;
+            cursor: pointer;
+            transition: border-color .2s, background .2s, transform .1s;
+        }
+
+        .country-card:hover {
+            border-color: var(--fg-subtle);
+            background: var(--bg);
+        }
+
+        .country-card:active { transform: scale(.99); }
+
+        .country-card.active {
+            border-color: var(--fg);
+            background: var(--bg);
+            box-shadow: inset 0 0 0 1px var(--fg);
+        }
+
+        .country-flag {
+            font-size: 1.35rem;
+            line-height: 1.2;
+        }
+
+        .country-txt {
+            display: flex;
+            flex-direction: column;
+            gap: .2rem;
+            min-width: 0;
+        }
+
+        .country-name {
+            font-family: 'Syne', sans-serif;
+            font-size: .95rem;
+            font-weight: 700;
+        }
+
+        .country-desc {
+            color: var(--fg-muted);
+            font-size: .78rem;
+            line-height: 1.5;
+        }
+
+        .country-soon {
+            display: inline-block;
+            margin-left: .4rem;
+            vertical-align: middle;
+            font-family: 'DM Sans', sans-serif;
+            font-size: .6rem;
+            font-weight: 600;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--fg-subtle);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            padding: .1rem .45rem;
+        }
+
+        .sheet-foot {
+            padding: .9rem 1.25rem calc(1.15rem + env(safe-area-inset-bottom));
+            color: var(--fg-subtle);
+            font-size: .75rem;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            /* El sub-paso centrado no se lleva bien con el filete lateral */
+            .sel.substep {
+                margin-top: 0;
+                padding: .9rem 1rem;
+                border-left: none;
+                background: var(--surface);
+                border-radius: 12px;
+            }
+
+            .sheet-panel {
+                /* OJO: nada de right/bottom:auto acá — pisan al inset:0 y la hoja queda
+                   a media pantalla (alto por contenido) en vez de ocupar el viewport. */
+                inset: 0;
+                width: auto;
+                max-height: none;
+                border: none;
+                border-radius: 0;
+                animation: sheetUp .3s cubic-bezier(.16, 1, .3, 1);
+            }
+
+            @keyframes sheetUp {
+                from { transform: translateY(100%); }
+            }
+
+            .sheet-head { padding-top: calc(1.5rem + env(safe-area-inset-top)); }
+            .sheet-title { font-size: 1.35rem; }
+            .country-card { padding: 1rem; }
+        }
+
         .sel-label {
             letter-spacing: .2em;
             text-transform: uppercase;
@@ -1160,6 +1359,16 @@
                 </div>
             </div>
 
+            <!-- PAÍS · sub-paso del formato: nace pegado a "Físico", no suelto más abajo -->
+            <div class="sel substep hidden" id="country-step">
+                <p class="sel-label">País de entrega</p>
+                <div class="pills" id="country-pills">
+                    <button type="button" class="pill active" data-country="ar" onclick="chooseCountry('ar')">🇦🇷 Argentina</button>
+                    <button type="button" class="pill" data-country="fr" onclick="chooseCountry('fr')">🇫🇷 Francia</button>
+                    <button type="button" class="pill" data-country="es" onclick="chooseCountry('es')">🇪🇸 España</button>
+                </div>
+            </div>
+
             <!-- CÓDIGO DE DESCUENTO -->
             <div class="discount-row">
                 <input type="text" id="discount-input" class="discount-input" placeholder="¿Tenés un código de descuento?" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();applyDiscountCode();}">
@@ -1167,16 +1376,6 @@
                 <button type="button" id="discount-clear-btn" class="discount-apply" onclick="clearDiscountCode()" style="display:none;">Quitar</button>
             </div>
             <p class="discount-msg" id="discount-msg"></p>
-
-            <!-- PAÍS -->
-            <div class="sel hidden" id="country-step">
-                <p class="sel-label">País de entrega</p>
-                <div class="pills" id="country-pills">
-                    <button type="button" class="pill active" data-country="ar" onclick="selectCountry('ar')">Argentina</button>
-                    <button type="button" class="pill" data-country="fr" onclick="selectCountry('fr')">Francia</button>
-                    <button type="button" class="pill" data-country="es" onclick="selectCountry('es')">España</button>
-                </div>
-            </div>
 
             <!-- NOTA -->
             <p class="note" id="delivery-note"></p>
@@ -1268,7 +1467,7 @@
                     rel="noopener">FR</a>) · Contacto:
                 <a href="mailto:energiasonorasoftware@protonmail.com">energiasonorasoftware@protonmail.com</a></p>
             <!-- Bumpear en CADA deploy de book.html (trackeo de versiones de la página) -->
-            <p class="foot" id="book-version">v 1.08</p>
+            <p class="foot" id="book-version">v 1.09</p>
         </div>
     </div>
 
@@ -1281,6 +1480,46 @@
                 <button class="demo-close" onclick="closeTrack()" aria-label="Cerrar">&times;</button>
             </div>
             <div class="track-body" id="track-body"></div>
+        </div>
+    </div>
+
+    <!-- Elegir país de entrega: se abre sola al pasar a un formato físico -->
+    <div id="country-sheet" hidden>
+        <div class="sheet-backdrop" onclick="closeCountrySheet()"></div>
+        <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="country-sheet-title">
+            <div class="sheet-head">
+                <div>
+                    <p class="sheet-kicker" id="country-sheet-kicker">Formato físico</p>
+                    <h3 class="sheet-title" id="country-sheet-title">¿A dónde te lo mandamos?</h3>
+                </div>
+                <button class="demo-close" onclick="closeCountrySheet()" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="sheet-body" id="country-cards">
+                <button type="button" class="country-card active" data-country="ar" onclick="chooseCountry('ar')">
+                    <span class="country-flag">🇦🇷</span>
+                    <span class="country-txt">
+                        <span class="country-name">Argentina</span>
+                        <span class="country-desc">Impreso y encuadernado por el autor · llega a todo el país en
+                            ~10 días · pagás en pesos o con cripto.</span>
+                    </span>
+                </button>
+                <button type="button" class="country-card" data-country="fr" onclick="chooseCountry('fr')">
+                    <span class="country-flag">🇫🇷</span>
+                    <span class="country-txt">
+                        <span class="country-name">Francia</span>
+                        <span class="country-desc">Impresión bajo demanda vía Amazon.fr · edición en français ·
+                            envío y pago los maneja Amazon.</span>
+                    </span>
+                </button>
+                <button type="button" class="country-card" data-country="es" onclick="chooseCountry('es')">
+                    <span class="country-flag">🇪🇸</span>
+                    <span class="country-txt">
+                        <span class="country-name">España<span class="country-soon">pronto</span></span>
+                        <span class="country-desc">La edición física para España está en camino vía Amazon.es.</span>
+                    </span>
+                </button>
+            </div>
+            <p class="sheet-foot">Lo podés cambiar cuando quieras desde “País de entrega”.</p>
         </div>
     </div>
 
@@ -1416,16 +1655,40 @@
         }
 
         function selectFormat(f) {
+            const eraDigital = !isPhysical();
             selectedFormat = f;
             setActivePill('format-pills', 'format', f);
             updateUI();
             revalidateDiscountForFormat();
+            // Al pasar de digital a físico hace falta saber a dónde va. Se pregunta una
+            // sola vez: después el sub-paso bajo "Formato" alcanza para cambiarlo.
+            if (eraDigital && isPhysical() && !paisElegido) openCountrySheet();
         }
 
         function selectCountry(c) {
             selectedCountry = c;
             setActivePill('country-pills', 'country', c);
+            document.querySelectorAll('#country-cards .country-card').forEach(card =>
+                card.classList.toggle('active', card.dataset.country === c));
             updateUI();
+        }
+
+        // ── Hoja de país de entrega ──
+        let paisElegido = false;   // ya lo eligió a mano: no volver a interrumpir
+
+        function openCountrySheet() {
+            selectCountry(selectedCountry);   // refleja el actual en las tarjetas
+            document.getElementById('country-sheet').hidden = false;
+        }
+
+        function closeCountrySheet() {
+            document.getElementById('country-sheet').hidden = true;
+        }
+
+        function chooseCountry(c) {
+            paisElegido = true;
+            selectCountry(c);
+            closeCountrySheet();
         }
 
         function selectLang(l) {
@@ -1715,7 +1978,7 @@
             document.getElementById('format-pills').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDemo(); closeTrack(); } });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDemo(); closeTrack(); closeCountrySheet(); } });
 
         // ── Seguimiento de pedido (?pedido=CW-XXXXXX) ──
         // Etapas: 1 pedido creado · 2 imprimiendo (físico) / verificando pago (digital) · 3 en distribución / PDF enviado
