@@ -80,22 +80,51 @@
 
   /* ---------- hero ---------- */
   .hero{
+    position:relative;overflow:hidden;
     display:grid;place-items:center;text-align:center;
-    padding:clamp(2.5rem,7vh,5rem) 1.2rem 3rem;
+    padding:clamp(3rem,8vh,6rem) 1.2rem 3.5rem;min-height:82vh;
   }
   .hero[hidden]{display:none}   /* el atributo hidden debe ganarle al display:grid */
-  .hero-texto{display:flex;flex-direction:column;align-items:center;gap:.2rem}
-  .hero-cta{margin-top:1.8rem;padding:.75rem 2rem;font-size:.95rem}
+  .hero > *{position:relative;z-index:1}
+  /* resplandor violáceo detrás del logo */
+  .hero-glow{
+    position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse 70% 60% at 50% 34%, rgba(139,92,246,.20), transparent 62%);
+  }
+  .hero-flor{animation:bloom 1.7s cubic-bezier(.16,.84,.28,1) both}
+  @keyframes bloom{0%{opacity:0;transform:scale(.78) rotate(-6deg);filter:blur(3px)}
+                   60%{opacity:1;filter:blur(0)}100%{opacity:1;transform:none}}
+  .hero-texto{display:flex;flex-direction:column;align-items:center;gap:.15rem;max-width:34rem}
+  .hero-kicker{
+    display:flex;align-items:center;gap:.7rem;margin-bottom:1.1rem;
+    font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:500;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--bruma);
+  }
+  .hero-kicker:before{content:"";width:1.8rem;height:1px;background:linear-gradient(90deg,transparent,var(--violeta))}
+  .hero-cycle{margin-top:.5rem;font-family:'Cormorant Garamond',serif;font-style:italic;
+    font-size:clamp(1.15rem,3vw,1.5rem);color:var(--bruma)}
+  #word-cycle{display:inline-block;color:var(--lavanda);font-style:normal;font-weight:500;
+    transition:opacity .4s ease,transform .4s ease}
+  #word-cycle.word-out{opacity:0;transform:translateY(-8px)}
+  .hero-cta{margin-top:2rem;padding:.85rem 2.2rem;font-size:.98rem;box-shadow:0 12px 40px -14px rgba(139,92,246,.7)}
+  .hero-cta:hover{transform:translateY(-2px)}
   #flor .flor-viva{width:min(300px,64vw);height:auto;margin-bottom:1.6rem}
-  /* laptop: logo central + texto al costado, aire de landing */
+  /* laptop: logo grande a un lado + texto al costado, aire de landing */
   @media(min-width:860px){
     .hero{
-      grid-template-columns:auto minmax(0,26rem);align-items:center;justify-items:start;
-      text-align:left;gap:clamp(2rem,5vw,4.5rem);max-width:60rem;margin:0 auto;min-height:60vh;
+      grid-template-columns:auto minmax(0,28rem);align-items:center;justify-items:start;
+      text-align:left;gap:clamp(2.5rem,6vw,5rem);max-width:64rem;margin:0 auto;
     }
+    .hero-glow{background:radial-gradient(ellipse 42% 62% at 28% 50%, rgba(139,92,246,.22), transparent 60%)}
     .hero-texto{align-items:flex-start;text-align:left}
-    #flor .flor-viva{margin-bottom:0;width:min(340px,34vw)}
+    #flor .flor-viva{margin-bottom:0;width:min(360px,36vw)}
   }
+  /* reveal: entrada escalonada (inspirado en energiasonora) */
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}
+  .reveal.visible{opacity:1;transform:none}
+  .reveal-d1{transition-delay:.12s}
+  .reveal-d2{transition-delay:.24s}
+  .reveal-d3{transition-delay:.36s}
   /* antes de loguear: solo la landing; el rito y el registro aparecen al conectar */
   body:not(.sesion) #rito,
   body:not(.sesion) #registro-sec{display:none}
@@ -114,11 +143,11 @@
   .flor-viva.p5 circle{stroke:var(--oro);opacity:1;filter:drop-shadow(0 0 6px rgba(201,161,94,.65))}
   .hero h1{
     font-family:'Cormorant Garamond',serif;font-weight:500;
-    font-size:clamp(2.6rem,7vw,4.6rem);letter-spacing:.05em;line-height:1.05;
+    font-size:clamp(3rem,7.5vw,5.6rem);letter-spacing:.03em;line-height:1;
   }
   .hero h1 em{font-style:italic;color:var(--lavanda)}
   .hero .lema{
-    margin-top:.9rem;max-width:40rem;color:var(--bruma);font-size:clamp(.95rem,2vw,1.05rem);
+    margin-top:1.1rem;max-width:38rem;color:var(--bruma);font-size:clamp(.95rem,2vw,1.05rem);line-height:1.75;
   }
   .hero .lema strong{color:var(--lavanda);font-weight:500}
 
@@ -311,6 +340,9 @@
     .modal{animation:none}
     .girando{animation-duration:2s}
     html{scroll-behavior:auto}
+    .hero-flor{animation:none}
+    .reveal{opacity:1;transform:none;transition:none}
+    #word-cycle{transition:none}
   }
   @media (max-width:560px){
     .paso{padding:1.1rem 1rem}
@@ -380,11 +412,16 @@
 
 <div class="vista" id="vista-atestiguar">
 <section class="hero">
-  <div id="flor" aria-hidden="true"></div>
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="hero-flor" id="flor" aria-hidden="true"></div>
   <div class="hero-texto">
-    <h1>Ius <em>Naturalis</em></h1>
-    <p class="lema" data-i18n="hero_lema" data-i18n-html>Firmá, <strong>atestiguá</strong> y anclá tus documentos de autodeterminación en <strong>IPFS</strong> a través de la red descentralizada <strong>Crust</strong>. Sin cuentas, sin intermediarios: tu wallet firma, tu wallet paga, la red conserva. La atestación es tuya y verificable por cualquiera, para siempre.</p>
-    <button class="btn lleno hero-cta" id="btn-conectar-hero" data-i18n="connect">Conectar wallet</button>
+    <p class="hero-kicker reveal" data-i18n="hero_kicker">Atestación soberana · IPFS · Crust</p>
+    <h1 class="reveal reveal-d1">Ius <em>Naturalis</em></h1>
+    <p class="hero-cycle reveal reveal-d1"><span data-i18n="hero_cycle_pre">Tuya y</span> <span id="word-cycle">verificable</span></p>
+    <p class="lema reveal reveal-d2" data-i18n="hero_lema" data-i18n-html>Firmá, <strong>atestiguá</strong> y anclá tus documentos de autodeterminación en <strong>IPFS</strong> a través de la red descentralizada <strong>Crust</strong>. Sin cuentas, sin intermediarios: tu wallet firma, tu wallet paga, la red conserva. La atestación es tuya y verificable por cualquiera, para siempre.</p>
+    <div class="reveal reveal-d3">
+      <button class="btn lleno hero-cta" id="btn-conectar-hero" data-i18n="connect">Conectar wallet</button>
+    </div>
   </div>
 </section>
 
@@ -541,6 +578,7 @@ window.IusI18n = (function(){
   const D = {
   es:{
     connect:'Conectar wallet', net_aria:'Red de anclaje', close:'Cerrar', done:'✦ cumplido',
+    hero_kicker:'Atestación soberana · IPFS · Crust', hero_cycle_pre:'Tuya y',
     hero_lema:'Firmá, <strong>atestiguá</strong> y anclá tus documentos de autodeterminación en <strong>IPFS</strong> a través de la red descentralizada <strong>Crust</strong>. Sin cuentas, sin intermediarios: tu wallet firma, tu wallet paga, la red conserva. La atestación es tuya y verificable por cualquiera, para siempre.',
     s1_title:'Presencia', s1_desc:'Conectá tu wallet web3 (MetaMask, Rabby u otra compatible). Tu dirección es tu única identidad ante la red — nadie más la emite ni la revoca.',
     s2_title:'Firma', s2_desc:'Firmá tu propia dirección. Esa firma —y nada más— te autentica ante los gateways IPFS de Crust (W3Auth). No es una transacción: no tiene costo.', s2_btn:'Firmar identidad',
@@ -589,6 +627,7 @@ window.IusI18n = (function(){
   },
   en:{
     connect:'Connect wallet', net_aria:'Anchoring network', close:'Close', done:'✦ done',
+    hero_kicker:'Sovereign attestation · IPFS · Crust', hero_cycle_pre:'Yours and',
     hero_lema:'Sign, <strong>attest</strong> and anchor your self-determination documents on <strong>IPFS</strong> through the decentralized <strong>Crust</strong> network. No accounts, no middlemen: your wallet signs, your wallet pays, the network keeps. The attestation is yours and verifiable by anyone, forever.',
     s1_title:'Presence', s1_desc:'Connect your web3 wallet (MetaMask, Rabby or any compatible one). Your address is your only identity before the network — no one else issues or revokes it.',
     s2_title:'Signature', s2_desc:'Sign your own address. That signature —and nothing else— authenticates you to Crust\'s IPFS gateways (W3Auth). It is not a transaction: no cost.', s2_btn:'Sign identity',
@@ -637,6 +676,7 @@ window.IusI18n = (function(){
   },
   fr:{
     connect:'Connecter le portefeuille', net_aria:'Réseau d\'ancrage', close:'Fermer', done:'✦ accompli',
+    hero_kicker:'Attestation souveraine · IPFS · Crust', hero_cycle_pre:'À toi et',
     hero_lema:'Signez, <strong>attestez</strong> et ancrez vos documents d\'autodétermination sur <strong>IPFS</strong> via le réseau décentralisé <strong>Crust</strong>. Sans comptes, sans intermédiaires : votre portefeuille signe, votre portefeuille paie, le réseau conserve. L\'attestation est la vôtre et vérifiable par tous, pour toujours.',
     s1_title:'Présence', s1_desc:'Connectez votre portefeuille web3 (MetaMask, Rabby ou autre compatible). Votre adresse est votre seule identité devant le réseau — personne d\'autre ne l\'émet ni ne la révoque.',
     s2_title:'Signature', s2_desc:'Signez votre propre adresse. Cette signature —et rien d\'autre— vous authentifie auprès des passerelles IPFS de Crust (W3Auth). Ce n\'est pas une transaction : sans coût.', s2_btn:'Signer l\'identité',
@@ -761,7 +801,7 @@ window.IusI18n = (function(){
   ];
   const GATEWAYS = ['https://gw.crustfiles.app','https://crustipfs.xyz'];
   const NORMA = 'ius-naturalis/atestacion/1';
-  const VERSION = '0.8.0';
+  const VERSION = '0.9.0';
 
   /* ================= estado ================= */
   const S = {
@@ -1477,10 +1517,43 @@ window.IusI18n = (function(){
   }
   tabs.forEach(b=> b.addEventListener('click', ()=> mostrarVista(b.dataset.vista)));
 
+  /* ============ landing: reveal escalonado + palabra que cicla ============ */
+  (function initReveal(){
+    const els = document.querySelectorAll('.reveal');
+    if(!('IntersectionObserver' in window)){ els.forEach(e=>e.classList.add('visible')); return; }
+    const obs = new IntersectionObserver(ent=>ent.forEach(e=>{
+      if(e.isIntersecting){ e.target.classList.add('visible'); obs.unobserve(e.target); }
+    }), { threshold:0 });
+    els.forEach(e=>obs.observe(e));
+  })();
+
+  const CICLO = {
+    es:['verificable','soberana','inmutable','eterna'],
+    en:['verifiable','sovereign','immutable','eternal'],
+    fr:['vérifiable','souveraine','immuable','éternelle'],
+  };
+  let cicloTimer = null;
+  function startWordCycle(){
+    const el = $('word-cycle'); if(!el) return;
+    if(cicloTimer) clearInterval(cicloTimer);
+    let words = CICLO[window.IusI18n.lang()] || CICLO.es, i = words.indexOf(el.textContent.trim());
+    if(i < 0) i = 0;
+    el.textContent = words[i];
+    cicloTimer = setInterval(()=>{
+      el.classList.add('word-out');
+      setTimeout(()=>{
+        words = CICLO[window.IusI18n.lang()] || CICLO.es; i = (i+1) % words.length;
+        el.textContent = words[i]; el.classList.remove('word-out');
+      }, 400);
+    }, 3200);
+  }
+  startWordCycle();
+
   // re-render de textos dinámicos al cambiar de idioma (los estáticos los hace applyI18n)
   window.iusOnLangChange = function(){
     fijarVisibilidad(S.cifrado);
     pintarRegistro();
+    startWordCycle();
     if(S.cuenta && !$('ident2').hidden) $('ident2-modo').textContent = S.remoto ? t('ident_remote') : t('ident_local');
   };
 
