@@ -83,6 +83,7 @@
     display:grid;place-items:center;text-align:center;
     padding:clamp(2.5rem,7vh,5rem) 1.2rem 2rem;
   }
+  .hero[hidden]{display:none}   /* el atributo hidden debe ganarle al display:grid */
   #flor .flor-viva{width:min(300px,64vw);height:auto;margin-bottom:1.6rem}
   .flor-viva circle{
     fill:none;stroke:var(--violeta);stroke-width:1.1;
@@ -234,6 +235,8 @@
   }
   footer a{color:var(--lavanda);text-decoration:none}
   footer .contratos{font-family:'JetBrains Mono',monospace;font-size:.68rem;word-break:break-all;margin-top:.6rem;line-height:1.9}
+  footer .contratos a{color:var(--lavanda);text-decoration:none;border-bottom:1px dotted rgba(199,181,241,.4);transition:color .2s,border-color .2s}
+  footer .contratos a:hover{color:var(--oro);border-bottom-color:var(--oro)}
 
   /* ---------- versión ---------- */
   .version{
@@ -481,9 +484,9 @@
 <footer>
   <p data-i18n="footer_text" data-i18n-html><strong>Ius Naturalis</strong> es una interfaz soberana: no custodia fondos, no guarda tus archivos y no requiere cuenta. La subida usa los gateways públicos <a href="https://wiki.crust.network/docs/en/buildIPFSWeb3AuthGW" target="_blank" rel="noopener">IPFS W3Auth</a> de Crust Network y el pago llama directamente a los contratos StorageOrder desplegados por Crust. Verificá siempre las direcciones antes de firmar.</p>
   <p class="contratos">
-    Ethereum · 0x6e9469673257e21b3e75bb9292c9ab009bc481d4<br>
-    Arbitrum One · 0x6E9469673257E21B3E75bb9292c9aB009bc481D4<br>
-    Polygon · 0xE1E8ff8e51DA7066CB1009a4c1dE68AE2d095655
+    Ethereum · <a href="https://etherscan.io/address/0x6e9469673257e21b3e75bb9292c9ab009bc481d4" target="_blank" rel="noopener">0x6e9469673257e21b3e75bb9292c9ab009bc481d4</a><br>
+    Arbitrum One · <a href="https://arbiscan.io/address/0x6E9469673257E21B3E75bb9292c9aB009bc481D4" target="_blank" rel="noopener">0x6E9469673257E21B3E75bb9292c9aB009bc481D4</a><br>
+    Polygon · <a href="https://polygonscan.com/address/0xE1E8ff8e51DA7066CB1009a4c1dE68AE2d095655" target="_blank" rel="noopener">0xE1E8ff8e51DA7066CB1009a4c1dE68AE2d095655</a>
   </p>
   <p style="margin-top:.9rem">Ius Naturalis <span class="version-pie" id="version-pie"></span></p>
 </footer>
@@ -741,7 +744,7 @@ window.IusI18n = (function(){
   ];
   const GATEWAYS = ['https://gw.crustfiles.app','https://crustipfs.xyz'];
   const NORMA = 'ius-naturalis/atestacion/1';
-  const VERSION = '0.7.0';
+  const VERSION = '0.7.1';
 
   /* ================= estado ================= */
   const S = {
