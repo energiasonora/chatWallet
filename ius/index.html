@@ -81,10 +81,24 @@
   /* ---------- hero ---------- */
   .hero{
     display:grid;place-items:center;text-align:center;
-    padding:clamp(2.5rem,7vh,5rem) 1.2rem 2rem;
+    padding:clamp(2.5rem,7vh,5rem) 1.2rem 3rem;
   }
   .hero[hidden]{display:none}   /* el atributo hidden debe ganarle al display:grid */
+  .hero-texto{display:flex;flex-direction:column;align-items:center;gap:.2rem}
+  .hero-cta{margin-top:1.8rem;padding:.75rem 2rem;font-size:.95rem}
   #flor .flor-viva{width:min(300px,64vw);height:auto;margin-bottom:1.6rem}
+  /* laptop: logo central + texto al costado, aire de landing */
+  @media(min-width:860px){
+    .hero{
+      grid-template-columns:auto minmax(0,26rem);align-items:center;justify-items:start;
+      text-align:left;gap:clamp(2rem,5vw,4.5rem);max-width:60rem;margin:0 auto;min-height:60vh;
+    }
+    .hero-texto{align-items:flex-start;text-align:left}
+    #flor .flor-viva{margin-bottom:0;width:min(340px,34vw)}
+  }
+  /* antes de loguear: solo la landing; el rito y el registro aparecen al conectar */
+  body:not(.sesion) #rito,
+  body:not(.sesion) #registro-sec{display:none}
   .flor-viva circle{
     fill:none;stroke:var(--violeta);stroke-width:1.1;
     opacity:.28;transition:opacity 1.2s ease,stroke 1.2s ease,filter 1.2s ease;
@@ -367,8 +381,11 @@
 <div class="vista" id="vista-atestiguar">
 <section class="hero">
   <div id="flor" aria-hidden="true"></div>
-  <h1>Ius <em>Naturalis</em></h1>
-  <p class="lema" data-i18n="hero_lema" data-i18n-html>Firmá, <strong>atestiguá</strong> y anclá tus documentos de autodeterminación en <strong>IPFS</strong> a través de la red descentralizada <strong>Crust</strong>. Sin cuentas, sin intermediarios: tu wallet firma, tu wallet paga, la red conserva. La atestación es tuya y verificable por cualquiera, para siempre.</p>
+  <div class="hero-texto">
+    <h1>Ius <em>Naturalis</em></h1>
+    <p class="lema" data-i18n="hero_lema" data-i18n-html>Firmá, <strong>atestiguá</strong> y anclá tus documentos de autodeterminación en <strong>IPFS</strong> a través de la red descentralizada <strong>Crust</strong>. Sin cuentas, sin intermediarios: tu wallet firma, tu wallet paga, la red conserva. La atestación es tuya y verificable por cualquiera, para siempre.</p>
+    <button class="btn lleno hero-cta" id="btn-conectar-hero" data-i18n="connect">Conectar wallet</button>
+  </div>
 </section>
 
 <main>
@@ -744,7 +761,7 @@ window.IusI18n = (function(){
   ];
   const GATEWAYS = ['https://gw.crustfiles.app','https://crustipfs.xyz'];
   const NORMA = 'ius-naturalis/atestacion/1';
-  const VERSION = '0.7.1';
+  const VERSION = '0.8.0';
 
   /* ================= estado ================= */
   const S = {
@@ -864,6 +881,7 @@ window.IusI18n = (function(){
   // Post-conexión compartido entre wallet local (inyectada) y chatWallet remoto (XMTP).
   async function trasConectar(){
     document.querySelector('.hero').hidden = true;   // logueado: fuera el hero grande, la UX arranca en el rito
+    document.body.classList.add('sesion');           // revela el rito + registro (ocultos en la landing)
     $('cuenta').textContent = (S.remoto?'📡 ':'') + abreviar(S.cuenta);
     $('cuenta').hidden = false;
     $('btn-conectar').hidden = true;
@@ -1404,6 +1422,7 @@ window.IusI18n = (function(){
     if(!$('modal-wallet').hidden) cerrarModal();
     if(!$('pair-modal').hidden) cancelPairing();
   });
+  $('btn-conectar-hero').addEventListener('click', conectar);
   $('btn-firmar').addEventListener('click', firmar);
   $('btn-subir').addEventListener('click', subir);
   $('btn-atestiguar').addEventListener('click', atestiguar);
