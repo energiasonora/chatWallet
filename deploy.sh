@@ -61,6 +61,41 @@ nvm use 20.19.0 >/dev/null
 echo "✦ Deploy con Node $(node -v)…"
 firebase deploy --only hosting
 
+# ── 4a. Espejo en el nodo IPFS soberano ──
+# Vía alternativa si Firebase/Fastly falla (ver publish-ipfs.sh). Nunca rompe el deploy.
+./publish-ipfs.sh || echo "⚠️  El espejo IPFS no se actualizó (el deploy web sigue OK)"
+
+# ── 4b. Purgar la caché de Cloudflare ──
+# chatwallet.org va Cloudflare → Firebase Hosting → origen. Desde que existe la cache
+# rule (ver cf-cache-rule.sh), Cloudflare cachea el HTML en el borde con TTL de 1 día:
+# sin purgar, un deploy tarda hasta 24h en verse. Y OJO: la regla EXCLUYE el query
+# string de la cache key, así que el viejo truco de `?cb=$RANDOM` ya NO saltea la
+# caché — purgar es la única forma de ver lo nuevo (y por eso va ANTES de verificar).
+# Sin token configurado el paso se saltea con un aviso, no rompe el deploy.
+[ -f .cloudflare.env ] && . ./.cloudflare.env
+if [ -n "${CF_API_TOKEN:-}" ]; then
+  CF_ZONE_ID=$(curl -s -H "Authorization: Bearer $CF_API_TOKEN" \
+    "https://api.cloudflare.com/client/v4/zones?name=${CF_ZONE_NAME:-chatwallet.org}" \
+    | python3 -c 'import sys,json;d=json.load(sys.stdin);r=d.get("result") or [];print(r[0]["id"] if r else "",end="")')
+  if [ -n "$CF_ZONE_ID" ]; then
+    PURGE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+      -H "Authorization: Bearer $CF_API_TOKEN" -H "content-type: application/json" \
+      --data '{"purge_everything":true}')
+    if echo "$PURGE" | grep -q '"success":true'; then
+      echo "✦ Caché de Cloudflare purgada"
+      sleep 5   # darle al borde un momento antes de verificar
+    else
+      echo "⚠️  Purga rechazada por Cloudflare: $PURGE"
+      echo "   (el deploy está publicado; los usuarios pueden ver la versión vieja hasta que expire el TTL)"
+    fi
+  else
+    echo "⚠️  No pude resolver la zona en Cloudflare; NO se purgó la caché"
+  fi
+else
+  echo "ℹ️  Sin CF_API_TOKEN (.cloudflare.env): no se purga Cloudflare."
+  echo "   Si la cache rule está activa, lo nuevo puede tardar hasta 24h en verse."
+fi
+
 # ── 5. Verificación post-deploy ──
 # Una página que desaparece de public/ NO rompe el build ni el deploy: se cae en silencio
 # con 404 (le pasó a book-admin.html entre el 20/7 y el 1/8 de 2026). Si le pasa a book.html
@@ -78,10 +113,23 @@ for RUTA in / /book.html /dapp.html /manifiesto.html /book-admin.html /tools/ind
   fi
 done
 
+# Un 200 NO alcanza: el 11/8/2026 se publicó la v2.01 creyendo que era la v2.02 porque
+# la caché de Parcel no reescribió public/dapp.html. Todo daba 200… con el contenido
+# viejo adentro. Así que acá se compara la versión REALMENTE servida contra la que se
+# acaba de bumpear. (Si esto falla: rm -rf .parcel-cache-build y volver a deployar.)
+SERVIDA=$(curl -s "https://chatwallet.org/dapp.html" | grep -oE 'v [0-9]+\.[0-9]+ alpha' | head -1 | grep -oE '[0-9]+\.[0-9]+')
+if [ "$SERVIDA" != "$NEW_NUM" ]; then
+  echo "   ✗ /dapp.html sirve v${SERVIDA:-?} y esperábamos v${NEW_NUM}"
+  FALLOS=$((FALLOS + 1))
+else
+  echo "   ✓ versión servida: v${SERVIDA}"
+fi
+
 echo ""
 if [ "$FALLOS" -gt 0 ]; then
-  echo "⚠️  Publicado v${NEW_NUM} PERO ${FALLOS} página(s) quedaron caídas."
-  echo "   Casi siempre es que falta como entry en el 'yarn parcel build' de arriba."
+  echo "⚠️  Publicado v${NEW_NUM} PERO ${FALLOS} chequeo(s) fallaron."
+  echo "   Página caída → casi siempre falta como entry en el 'yarn parcel build' de arriba."
+  echo "   Versión vieja → caché de Parcel: rm -rf .parcel-cache-build y redeployar."
   exit 1
 fi
 echo "✅ Publicado v${NEW_NUM} → https://chatwallet.org  (hard-refresh o reinstalar PWA para tomar el SW nuevo)"
