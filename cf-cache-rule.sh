@@ -15,6 +15,14 @@
 #     invitación son /dapp?address=…&pk=… y con la key por defecto cada invitación
 #     sería una entrada nueva → MISS siempre → seguiríamos expuestos exactamente en
 #     la URL que falló. El HTML es idéntico para cualquier query (lo lee el JS).
+#   · NO cachea los medios (mp4/webm/mov/m4v). Esto no es una optimización, es un
+#     arreglo: Cloudflare guardaba el mp4 ya comprimido en Brotli y después respondía
+#     los Range requests recortando ESOS bytes, declarando el total comprimido
+#     (content-range .../1775267 cuando el archivo mide 1874556). Todo <video> pide
+#     rangos, así que Chrome recibía bytes inconsistentes y abortaba con
+#     DEMUXER_ERROR_COULD_NOT_OPEN: los tres videos de la landing quedaban en blanco.
+#     El origen (Firebase) responde bien; el destrozo lo hacía el borde. Verificado el
+#     27/8/2026 comparando origen vs. borde y con Chrome headless.
 #   · edge TTL 1 día (el deploy purga, ver deploy.sh), browser TTL el del origen (1h).
 #   · serve-stale mientras revalida → si el origen hipa, se sirve la copia vieja.
 #
@@ -44,6 +52,26 @@ echo "✦ Zona ${ZONE_NAME} = ${ZONE_ID}"
 
 # ── 2. Regla ──
 RULE_DESC="chatWallet: cachear estático e ignorar query (links de invitación)"
+MEDIA_DESC="chatWallet: no cachear medios (Brotli + Range rompe el <video>)"
+# OJO: el operador `matches` (regex) pide plan Business — la lista se arma con
+# `ends_with`, que sí está en el plan actual.
+MEDIA_EXTS=".mp4 .webm .mov .m4v .ogg .ogv .mp3 .m4a"
+MEDIA_EXPR=""
+for ext in $MEDIA_EXTS; do
+  [ -n "$MEDIA_EXPR" ] && MEDIA_EXPR="$MEDIA_EXPR or "
+  MEDIA_EXPR="${MEDIA_EXPR}http.request.uri.path ends_with \\\"${ext}\\\""
+done
+
+read -r -d '' MEDIA_RULE <<JSON || true
+{
+  "description": "${MEDIA_DESC}",
+  "expression": "(http.host eq \"${ZONE_NAME}\" and (${MEDIA_EXPR}))",
+  "action": "set_cache_settings",
+  "enabled": true,
+  "action_parameters": { "cache": false }
+}
+JSON
+
 read -r -d '' RULE <<JSON || true
 {
   "description": "${RULE_DESC}",
@@ -82,13 +110,13 @@ for r in rules:
 BODY=$(python3 -c '
 import json,sys
 existing=json.loads(sys.argv[1] or "{}")
-rule=json.loads(sys.argv[2])
+ours=[json.loads(sys.argv[2]), json.loads(sys.argv[3])]   # medios primero: la fase evalúa en orden
+mine={r["description"] for r in ours}
 rules=(existing.get("result") or {}).get("rules") or []
-rules=[r for r in rules if r.get("description")!=rule["description"]]
-rules.append(rule)
+rules=[r for r in rules if r.get("description") not in mine]
 keep=lambda r:{k:v for k,v in r.items() if k in ("description","expression","action","action_parameters","enabled")}
-print(json.dumps({"rules":[keep(r) for r in rules]}))
-' "$EXISTING" "$RULE")
+print(json.dumps({"rules":[keep(r) for r in ours+rules]}))
+' "$EXISTING" "$MEDIA_RULE" "$RULE")
 
 if [ "$DRY" = "1" ]; then
   echo "✦ --dry-run; esto es lo que se mandaría:"; echo "$BODY" | python3 -m json.tool; exit 0
@@ -108,3 +136,6 @@ for r in (d.get("result") or {}).get("rules") or []:
 echo ""
 echo "Verificar (esperar unos segundos y pedir dos veces; la 2da debería dar HIT):"
 echo "  curl -sI https://${ZONE_NAME}/dapp | grep -i cf-cache-status"
+echo ""
+echo "Y que los medios queden FUERA de la caché (debe decir BYPASS y el total real del archivo):"
+echo "  curl -s -D- -o /dev/null -H 'Range: bytes=0-99' https://${ZONE_NAME}/animatedChatWallet.df2a4a55.mp4 | grep -iE 'cf-cache-status|content-range'"
