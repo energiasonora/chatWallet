@@ -43,6 +43,36 @@ function armarQr({ pais = 'AR', moneda = '032', comercio = 'COMERCIO', monto = n
     return p + crc16ccitt(p);
 }
 
+// ── RPC falso: la cotización sin tocar la red ────────────────────────────────
+// Valores reales del Diamond en Base el 25/8/2026, 6 decimales. getPriceConfig devuelve una
+// tupla ESTÁTICA, así que se codifica como sus cuatro palabras pegadas, sin offset.
+const PRECIO = { compra: 1601870000n, venta: 1554530000n, offset: 4000000n, spread: 3000000n };
+const RPC_FALSO = `
+const PAL = n => BigInt(n).toString(16).padStart(64, '0');
+const fetchReal = window.fetch.bind(window);
+window.fetch = async (url, opts) => {
+    // OJO: ethers manda el cuerpo como Uint8Array, no como string. Si sólo se mira el caso
+    // string, el pedido se escapa al RPC de verdad y el test miente sin fallar.
+    const cuerpo = opts && opts.body;
+    let texto = null;
+    if (typeof cuerpo === 'string') texto = cuerpo;
+    else if (cuerpo && typeof cuerpo.byteLength === 'number') texto = new TextDecoder().decode(cuerpo);
+    if (!texto || texto.indexOf('jsonrpc') < 0) return fetchReal(url, opts);
+    const responder = m => {
+        if (m.method === 'eth_chainId') return '0x2105';
+        if (m.method === 'eth_call') return '0x' + PAL(${PRECIO.compra}n) + PAL(${PRECIO.venta}n) +
+            PAL(${PRECIO.offset}n) + PAL(${PRECIO.spread}n);
+        if (m.method === 'eth_blockNumber') return '0x100';
+        return null;
+    };
+    const pedido = JSON.parse(texto);
+    const uno = m => ({ jsonrpc: '2.0', id: m.id, result: responder(m) });
+    const salida = Array.isArray(pedido) ? pedido.map(uno) : uno(pedido);
+    return new Response(JSON.stringify(salida), { status: 200, headers: { 'content-type': 'application/json' } });
+};
+try { localStorage.removeItem('cw-precio-p2p-ARS'); } catch (e) {}
+`;
+
 // ── CDP mínimo ────────────────────────────────────────────────────────────────
 class Dev {
     constructor(port) { this.port = port; this.id = 0; this.pending = new Map(); }
@@ -68,6 +98,7 @@ class Dev {
             this.ws = new WebSocket(url);
             this.ws.onopen = async () => {
                 await this.rpc('Page.enable'); await this.rpc('Runtime.enable');
+                await this.rpc('Page.addScriptToEvaluateOnNewDocument', { source: RPC_FALSO });
                 resolve();
             };
             this.ws.onerror = reject;
@@ -110,6 +141,10 @@ const leerFicha = `(() => {
         notaRoja: ((document.getElementById('payQrNote') || {}).className || '').includes('text-red'),
         notaAmbar: ((document.getElementById('payQrNote') || {}).className || '').includes('text-amber'),
         esquema: (document.getElementById('payQrScheme') || {}).textContent,
+        costoVisible: !!document.getElementById('payQrCostRow') &&
+            !document.getElementById('payQrCostRow').classList.contains('hidden'),
+        costo: (document.getElementById('payQrCost') || {}).textContent,
+        tasa: (document.getElementById('payQrRate') || {}).textContent,
         bandera: (document.getElementById('payQrFlag') || {}).textContent,
     };
 })()`;
@@ -172,6 +207,35 @@ try {
         check('dice de qué país es', /Per[úu]/.test(f.esquema || ''), f.esquema);
         check('avisa en ámbar que falta el plugin', f.notaAmbar, f.nota);
         check('no inventa comercio ni monto', f.comercio === '—' && f.monto === '—', `${f.comercio} / ${f.monto}`);
+        await cerrar();
+    }
+
+    console.log('\n▶ Cuánto sale en USDC');
+    {
+        // La pregunta que uno se hace parado en el kiosco. 5000 / 1554,53 = 3,2164.
+        await dev.eval(`window.handleScannedData(${JSON.stringify(armarQr({ comercio: 'KIOSCO LA ESQUINA', monto: '5000.00' }))})`);
+        await sleep(1200);   // la cotización llega DESPUÉS de la ficha, a propósito
+        const f = await dev.eval(leerFicha);
+        check('aparece la tarjeta del costo', f.costoVisible, f.costo);
+        check('dice cuántos USDC son', /3,22\s*USDC/.test(f.costo || ''), f.costo);
+        check('muestra la cotización usada', /1\.554,53/.test(f.tasa || ''), f.tasa);
+        check('y el spread, sin letra chica', /3\s*%/.test(f.tasa || ''), f.tasa);
+        await cerrar();
+    }
+    {
+        // Sin monto en el QR no hay cuenta que hacer, pero la cotización sigue sirviendo.
+        await dev.eval(`window.handleScannedData(${JSON.stringify(armarQr({ comercio: 'FERRETERIA' }))})`);
+        await sleep(1200);
+        const f = await dev.eval(leerFicha);
+        check('con monto abierto no inventa un costo', (f.costo || '').trim() === '—', f.costo);
+        check('pero igual muestra la cotización', /1\.554,53/.test(f.tasa || ''), f.tasa);
+        await cerrar();
+    }
+    {
+        // País sin plugin: no corresponde mostrar precio de nada.
+        await dev.eval(`window.handleScannedData(${JSON.stringify(armarQr({ pais: 'PE', moneda: '604', comercio: 'BODEGA' }))})`);
+        await sleep(900);
+        check('sin plugin no se muestra costo', !(await dev.eval(leerFicha)).costoVisible);
         await cerrar();
     }
 

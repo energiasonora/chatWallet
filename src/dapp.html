@@ -3068,6 +3068,11 @@
                     <p class="text-xs text-gray-400" data-i18n-key="ars_qr_amount">Monto</p>
                     <p id="payQrAmount" class="text-2xl font-bold">—</p>
                 </div>
+                <div id="payQrCostRow" class="bg-gray-900/60 rounded-lg p-4 space-y-1 hidden">
+                    <p class="text-xs text-gray-400" data-i18n-key="pay_qr_cost">Te sale</p>
+                    <p id="payQrCost" class="text-2xl font-bold text-emerald-400">—</p>
+                    <p id="payQrRate" class="text-xs text-gray-400"></p>
+                </div>
                 <p id="payQrNote" class="text-xs text-gray-400"></p>
                 <button type="button" id="payQrOk"
                     class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-bold"
@@ -11704,6 +11709,70 @@
                 }
             }
 
+            // ── Qué dice DE VERDAD la transacción que pide una dApp ────────────────────
+            // El resumen viejo miraba sólo tx.value. En un ERC-20 ese campo es cero, así que el
+            // modal decía "0 ETH" mientras el calldata movía 500 USDC: la operación era correcta
+            // y la pantalla no informaba. Acá se decodifica el calldata, y lo que no se sabe
+            // leer se dice que no se sabe leer — nunca se aparenta haber entendido.
+            async function cwDescribirTx(tx, red, prov) {
+                const nativo = (red && red.NATIVE_SYMBOL) || 'ETH';
+                const chain = tx.chainId || (red && red.TOKEN_CHAINID) || '?';
+                const data = (tx && tx.data) || '0x';
+                const valor = tx && tx.value ? ethers.formatEther(BigInt(tx.value)) : '0';
+                const corto = a => (a ? wcShortId(a) : '?');
+
+                if (data === '0x' || data === '') {
+                    return {
+                        resumen: '→ ' + corto(tx.to) + ' · ' + valor + ' ' + nativo,
+                        cuerpo: t('wc_tx_body', { to: tx.to, value: valor, sym: nativo, chain })
+                    };
+                }
+
+                let leido = null;
+                try {
+                    leido = new ethers.Contract(tx.to, erc20Abi).interface.parseTransaction({ data });
+                } catch (e) { /* calldata que no encaja con el ABI: cae al caso desconocido */ }
+
+                if (leido && (leido.name === 'transfer' || leido.name === 'approve')) {
+                    // Acá hay red, así que el símbolo y los decimales se leen del contrato en vez
+                    // de adivinarse. Si el contrato no contesta, se dice "tokens" y se muestra la
+                    // dirección: preferible a inventar un símbolo.
+                    let sym = t('wc_tx_tokens'), dec = 18;
+                    try {
+                        const c = new ethers.Contract(tx.to, erc20Abi, prov);
+                        const [sy, de] = await Promise.all([c.symbol(), decimalesDeToken(c, {})]);
+                        sym = sy || sym; dec = de;
+                    } catch (e) { console.warn('cwDescribirTx: el token no contesta', e); }
+
+                    const destino = leido.args[0];
+                    const bruto = leido.args[1];
+                    // Un permiso "infinito" es el vector clásico de vaciado: mientras siga en pie,
+                    // el contrato puede mover el token cuando quiera. Se nombra, no se disimula.
+                    const sinLimite = bruto >= (2n ** 255n);
+                    const monto = sinLimite ? t('wc_tx_unlimited') : ethers.formatUnits(bruto, dec);
+
+                    if (leido.name === 'transfer') {
+                        return {
+                            resumen: '→ ' + corto(destino) + ' · ' + monto + ' ' + sym,
+                            cuerpo: t('wc_tx_token', { amount: monto, sym, to: destino, token: tx.to, chain })
+                        };
+                    }
+                    return {
+                        peligro: sinLimite,
+                        resumen: '⚠ ' + corto(destino) + ' · ' + monto + ' ' + sym,
+                        cuerpo: t('wc_tx_approve', { spender: destino, amount: monto, sym, token: tx.to, chain })
+                    };
+                }
+
+                const selector = data.slice(0, 10);
+                const bytes = Math.max(0, (data.length - 2) / 2);
+                return {
+                    resumen: '? ' + corto(tx.to) + ' · ' + selector,
+                    cuerpo: t('wc_tx_unknown', { to: tx.to, selector, bytes, value: valor, sym: nativo, chain })
+                };
+            }
+            window.cwDescribirTx = cwDescribirTx;
+
             async function handleWalletConnectRpc(message, data) {
                 // Only serve inboxes the user explicitly connected to.
                 if (!wcApprovedInboxes.has(message.senderInboxId)) return;
@@ -11739,10 +11808,9 @@
                             wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: t('wc_wrong_net_log', { chain: tx.chainId }), result: 'error' });
                             return reply({ type: 'error', error: `wrong network: wallet on chain ${walletChainId}, dApp requested ${tx.chainId}` });
                         }
-                        const valEth = tx.value ? ethers.formatEther(BigInt(tx.value)) : '0';
-                        const resumen = '→ ' + wcShortId(tx.to) + ' · ' + valEth + ' ETH';
-                        const ok = await wcApprove(t('wc_tx_title'),
-                            t('wc_tx_body', { to: tx.to, value: valEth, chain: tx.chainId }), t('wc_tx_cta'));
+                        const desc = await cwDescribirTx(tx, optionsList[currentTokenIndex], provider);
+                        const resumen = desc.resumen;
+                        const ok = await wcApprove(t('wc_tx_title'), desc.cuerpo, t('wc_tx_cta'));
                         if (!ok) { wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected' }); }
                         const s = currentWallet.connect(provider);
                         const resp = await s.sendTransaction({ to: tx.to, data: tx.data || '0x', value: tx.value ? BigInt(tx.value) : 0n });
@@ -12088,10 +12156,10 @@
             // NO entran acá: usan envoltorios distintos (`upi://`, `BR.GOV.BCB.PIX`), así que
             // cuando lleguen sus plugins traen su propia firma de reconocimiento.
             const CW_PAYMENT_QR = {
-                'AR|032': { id: 'ars',  pais: 'Argentina', bandera: '🇦🇷', esquema: 'Transferencias 3.0', listo: true  },
-                'BO|068': { id: 'bob',  pais: 'Bolivia',   bandera: '🇧🇴', esquema: 'QR Simple',          listo: false },
-                'PE|604': { id: 'pen',  pais: 'Perú',      bandera: '🇵🇪', esquema: 'QR peruano',         listo: false },
-                'PH|608': { id: 'qrph', pais: 'Filipinas', bandera: '🇵🇭', esquema: 'QR Ph',              listo: false },
+                'AR|032': { id: 'ars',  pais: 'Argentina', bandera: '🇦🇷', esquema: 'Transferencias 3.0', listo: true,  iso: 'ARS', locale: 'es-AR' },
+                'BO|068': { id: 'bob',  pais: 'Bolivia',   bandera: '🇧🇴', esquema: 'QR Simple',          listo: false, iso: 'BOB', locale: 'es-BO' },
+                'PE|604': { id: 'pen',  pais: 'Perú',      bandera: '🇵🇪', esquema: 'QR peruano',         listo: false, iso: 'PEN', locale: 'es-PE' },
+                'PH|608': { id: 'qrph', pais: 'Filipinas', bandera: '🇵🇭', esquema: 'QR Ph',              listo: false, iso: 'PHP', locale: 'en-PH' },
             };
 
             // Recorrido TLV sobre BYTES, no sobre caracteres.
@@ -12157,6 +12225,58 @@
             }
             window.cwArsCrcOk = cwArsCrcOk;
 
+            // ── Cotización del protocolo P2P.me ────────────────────────────────────────
+            // Es UNA llamada view al Diamond en Base: getPriceConfig(bytes32) devuelve
+            // (buyPrice, sellPrice, buyPriceOffset, baseSpread), los cuatro con 6 decimales.
+            // Quince líneas con ethers en vez de los 11 KB gzip del módulo `prices` del SDK,
+            // que además viene con viem adentro. La paridad con el SDK la fija el test.
+            //
+            // Va `sellPrice` y no `buyPrice`: pagar un QR es GASTAR USDC, y ese es el mismo
+            // criterio del SDK, que define el saldo en fiat como `usdc * sellPrice`.
+            const CW_P2P_DIAMOND = '0x4cad6eC90e65baBec9335cAd728DDC610c316368';
+            const CW_P2P_RPC = 'https://mainnet.base.org';   // responde con CORS abierto
+            const CW_P2P_ABI = ['function getPriceConfig(bytes32 _currency) view returns (tuple(uint256 buyPrice, uint256 sellPrice, int256 buyPriceOffset, uint256 baseSpread))'];
+            const CW_PRECIO_KEY = iso => 'cw-precio-p2p-' + iso;
+            const CW_PRECIO_FRESCO_MS = 10 * 60 * 1000;
+            const cwPrecioMem = {};
+
+            function cwPrecioGuardado(iso) {
+                if (cwPrecioMem[iso]) return cwPrecioMem[iso];
+                try {
+                    const s = localStorage.getItem(CW_PRECIO_KEY(iso));
+                    if (s) return JSON.parse(s);
+                } catch (e) { }
+                return null;
+            }
+
+            function cwPrecioEdadMin(p) {
+                return p ? Math.floor((Date.now() - p.cuando) / 60000) : null;
+            }
+            window.cwPrecioEdadMin = cwPrecioEdadMin;
+
+            async function cwPrecioP2P(iso) {
+                const guardado = cwPrecioGuardado(iso);
+                if (guardado && Date.now() - guardado.cuando < CW_PRECIO_FRESCO_MS) return guardado;
+                try {
+                    const prov = new ethers.JsonRpcProvider(CW_P2P_RPC);
+                    const c = new ethers.Contract(CW_P2P_DIAMOND, CW_P2P_ABI, prov);
+                    const r = await c.getPriceConfig(ethers.encodeBytes32String(iso));
+                    const num = v => Number(ethers.formatUnits(v, 6));
+                    const p = { iso, compra: num(r[0]), venta: num(r[1]), spread: num(r[3]), cuando: Date.now() };
+                    // Una moneda que el protocolo no cotiza vuelve en cero: eso no es un precio.
+                    if (!(p.venta > 0)) throw new Error('el contrato no cotiza ' + iso);
+                    cwPrecioMem[iso] = p;
+                    try { localStorage.setItem(CW_PRECIO_KEY(iso), JSON.stringify(p)); } catch (e) { }
+                    return p;
+                } catch (e) {
+                    console.warn('cwPrecioP2P:', e);
+                    // Sin red vale más una cotización vieja ETIQUETADA que ninguna. Quien la
+                    // muestra tiene que decir de cuándo es: ver cwPrecioEdadMin.
+                    return guardado || null;
+                }
+            }
+            window.cwPrecioP2P = cwPrecioP2P;
+
             // Hoy el plugin argentino vive adentro del bundle y esto es un envoltorio de dos
             // líneas. Cuando llegue el pago de verdad (que arrastra viem) esta función pasa a
             // bajar el bundle del nodo propio, verificar su SHA-256 y arrancarlo en un Worker sin
@@ -12167,6 +12287,10 @@
             async function cargarPlugin(id) {
                 return CW_PLUGINS_LOCALES[id] || null;
             }
+
+            // Sube con cada QR escaneado: una cotización que llega tarde se descarta comparando
+            // contra este número en vez de pintar la ficha equivocada.
+            let cwPayQrGen = 0;
 
             async function handleIncomingPaymentQr(data, info) {
                 playQRscanned();
@@ -12185,6 +12309,7 @@
                     // sabe que la wallet entendió el QR y que falta la pieza, no que falló.
                     if (el('payQrMerchant')) el('payQrMerchant').textContent = '—';
                     if (el('payQrAmount')) el('payQrAmount').textContent = '—';
+                    if (el('payQrCostRow')) el('payQrCostRow').classList.add('hidden');
                     if (el('payQrNote')) {
                         el('payQrNote').textContent = t('pay_qr_soon', { pais: info.pais, esquema: info.esquema });
                         el('payQrNote').className = 'text-xs text-amber-400';
@@ -12200,15 +12325,56 @@
                 if (!valido) console.warn('QR de pago rechazado: el CRC16 no cierra');
 
                 if (el('payQrMerchant')) el('payQrMerchant').textContent = merchant || t('ars_qr_no_merchant');
+                const n = Number(rawAmount);
+                const montoFiat = (rawAmount && Number.isFinite(n) && n > 0) ? n : null;
                 if (el('payQrAmount')) {
                     let txt = t('ars_qr_open_amount');
-                    const n = Number(rawAmount);
-                    if (rawAmount && Number.isFinite(n) && n > 0) {
-                        try { txt = n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }); }
+                    if (montoFiat !== null) {
+                        try { txt = montoFiat.toLocaleString(info.locale, { style: 'currency', currency: info.iso }); }
                         catch (e) { txt = '$ ' + rawAmount; }
                     }
                     el('payQrAmount').textContent = txt;
                 }
+
+                // Cotización: se pide DESPUÉS de tener la ficha lista y nunca la bloquea. Si el
+                // RPC no contesta, el usuario igual ve comercio y monto — que es lo que necesita
+                // para decidir — y una línea diciendo que el precio no llegó.
+                const gen = ++cwPayQrGen;
+                const filaCosto = el('payQrCostRow');
+                if (filaCosto) filaCosto.classList.add('hidden');
+                cwPrecioP2P(info.iso).then(precio => {
+                    // Si mientras tanto se escaneó otro QR, esta respuesta llegó tarde y pintarla
+                    // sería mostrar el precio de un comercio sobre la ficha de otro.
+                    if (gen !== cwPayQrGen || !filaCosto) return;
+                    const elCosto = el('payQrCost'), elTasa = el('payQrRate');
+                    if (!precio) {
+                        if (elCosto) elCosto.textContent = '—';
+                        if (elTasa) elTasa.textContent = t('pay_qr_rate_fail');
+                        filaCosto.classList.remove('hidden');
+                        return;
+                    }
+                    if (elCosto) {
+                        if (montoFiat === null) {
+                            elCosto.textContent = '—';
+                        } else {
+                            const usdc = montoFiat / precio.venta;
+                            const d = usdc < 1 ? 4 : 2;
+                            elCosto.textContent = usdc.toLocaleString(info.locale,
+                                { minimumFractionDigits: d, maximumFractionDigits: d }) + ' USDC';
+                        }
+                    }
+                    if (elTasa) {
+                        let linea = t('pay_qr_rate', {
+                            precio: precio.venta.toLocaleString(info.locale, { maximumFractionDigits: 2 }),
+                            moneda: info.iso,
+                            spread: precio.spread
+                        });
+                        const edad = cwPrecioEdadMin(precio);
+                        if (edad >= 1) linea += ' · ' + t('pay_qr_rate_old', { min: edad });
+                        elTasa.textContent = linea;
+                    }
+                    filaCosto.classList.remove('hidden');
+                });
                 if (el('payQrNote')) {
                     el('payQrNote').textContent = valido ? t('ars_qr_ok_note') : t('ars_qr_bad_note');
                     el('payQrNote').className = 'text-xs ' + (valido ? 'text-gray-400' : 'text-red-400');
@@ -15046,6 +15212,10 @@
                     "ars_qr_open_amount": "Lo pone el comercio",
                     "ars_qr_ok_note": "QR válido de Transferencias 3.0. Por ahora ChatWallet lo reconoce y te lo muestra; pagarlo con USDC todavía no está disponible.",
                     "ars_qr_bad_note": "Este QR dice ser argentino pero el código de verificación no cierra. Puede estar dañado o mal fotografiado.",
+                    "pay_qr_cost": "Te sale",
+                    "pay_qr_rate": "1 USDC = {precio} {moneda} · spread del protocolo {spread} %",
+                    "pay_qr_rate_old": "cotización de hace {min} min",
+                    "pay_qr_rate_fail": "No pude traer la cotización ahora.",
                     "chat_greeting_qr": "👋 {name} inició este contacto escaneando tu QR.",
                     "chat_greeting_link": "👋 {name} inició este contacto desde tu enlace de invitación.",
                     "settings_archive_identity_done": "Volviste a tu identidad anterior: {alias}",
@@ -15081,7 +15251,12 @@
                     "wc_sign_body": "La dApp pide firmar este mensaje:\n\n\"{msg}\"\n\nEsto NO envía fondos.",
                     "wc_sign_cta": "Firmar",
                     "wc_tx_title": "Enviar transacción",
-                    "wc_tx_body": "La dApp pide ENVIAR una transacción:\n\nA: {to}\nValor: {value} ETH\nchainId: {chain}\n\nSe firmará y transmitirá con tu wallet.",
+                    "wc_tx_body": "La dApp pide ENVIAR una transacción:\n\nA: {to}\nValor: {value} {sym}\nchainId: {chain}\n\nSe firmará y transmitirá con tu wallet.",
+                    "wc_tx_tokens": "tokens",
+                    "wc_tx_unlimited": "SIN LÍMITE",
+                    "wc_tx_token": "La dApp pide ENVIAR {amount} {sym}:\n\nA: {to}\nContrato del token: {token}\nchainId: {chain}\n\nSe firmará y transmitirá con tu wallet.",
+                    "wc_tx_approve": "La dApp pide PERMISO para que otro contrato gaste tus {sym}:\n\nQuién: {spender}\nHasta: {amount} {sym}\nContrato del token: {token}\nchainId: {chain}\n\nMientras el permiso siga en pie, ese contrato puede mover ese monto cuando quiera, sin volver a preguntarte.",
+                    "wc_tx_unknown": "La dApp pide ejecutar algo que ChatWallet NO sabe leer:\n\nContrato: {to}\nFunción: {selector}\nDatos: {bytes} bytes\nValor: {value} {sym}\nchainId: {chain}\n\nNo puedo mostrarte qué hace. Aprobá sólo si sabés exactamente qué estás firmando.",
                     "wc_tx_cta": "Enviar",
                     "wc_wrong_net": "⚠️ La dApp pide la red {req} pero ChatWallet está en la {cur}. Cambiá de red y reintentá.",
                     "wc_wrong_net_log": "red incorrecta (chainId {chain})",
@@ -15202,6 +15377,10 @@
                     "ars_qr_open_amount": "Set by the merchant",
                     "ars_qr_ok_note": "Valid Transferencias 3.0 QR. For now ChatWallet recognises it and shows it to you; paying it with USDC is not available yet.",
                     "ars_qr_bad_note": "This QR claims to be Argentine but its checksum does not match. It may be damaged or badly photographed.",
+                    "pay_qr_cost": "You pay",
+                    "pay_qr_rate": "1 USDC = {precio} {moneda} · protocol spread {spread} %",
+                    "pay_qr_rate_old": "quote is {min} min old",
+                    "pay_qr_rate_fail": "Could not fetch the quote right now.",
                     "chat_greeting_qr": "👋 {name} started this contact by scanning your QR.",
                     "chat_greeting_link": "👋 {name} started this contact from your invitation link.",
                     "settings_archive_identity_done": "You are back to your previous identity: {alias}",
@@ -15237,7 +15416,12 @@
                     "wc_sign_body": "The dApp asks you to sign this message:\n\n\"{msg}\"\n\nThis does NOT send funds.",
                     "wc_sign_cta": "Sign",
                     "wc_tx_title": "Send transaction",
-                    "wc_tx_body": "The dApp asks to SEND a transaction:\n\nTo: {to}\nValue: {value} ETH\nchainId: {chain}\n\nIt will be signed and broadcast with your wallet.",
+                    "wc_tx_body": "The dApp asks to SEND a transaction:\n\nTo: {to}\nValue: {value} {sym}\nchainId: {chain}\n\nIt will be signed and broadcast with your wallet.",
+                    "wc_tx_tokens": "tokens",
+                    "wc_tx_unlimited": "UNLIMITED",
+                    "wc_tx_token": "The dApp asks to SEND {amount} {sym}:\n\nTo: {to}\nToken contract: {token}\nchainId: {chain}\n\nIt will be signed and broadcast with your wallet.",
+                    "wc_tx_approve": "The dApp asks for PERMISSION for another contract to spend your {sym}:\n\nWho: {spender}\nUp to: {amount} {sym}\nToken contract: {token}\nchainId: {chain}\n\nWhile the permission stands, that contract can move that amount whenever it wants, without asking again.",
+                    "wc_tx_unknown": "The dApp asks to execute something ChatWallet CANNOT read:\n\nContract: {to}\nFunction: {selector}\nData: {bytes} bytes\nValue: {value} {sym}\nchainId: {chain}\n\nI cannot show you what it does. Approve only if you know exactly what you are signing.",
                     "wc_tx_cta": "Send",
                     "wc_wrong_net": "⚠️ The dApp asks for network {req} but ChatWallet is on {cur}. Switch networks and try again.",
                     "wc_wrong_net_log": "wrong network (chainId {chain})",
@@ -15358,6 +15542,10 @@
                     "ars_qr_open_amount": "Fixé par le commerce",
                     "ars_qr_ok_note": "QR Transferencias 3.0 valide. Pour l'instant ChatWallet le reconnaît et te l'affiche ; le payer en USDC n'est pas encore disponible.",
                     "ars_qr_bad_note": "Ce QR se présente comme argentin mais sa somme de contrôle ne correspond pas. Il est peut-être abîmé ou mal photographié.",
+                    "pay_qr_cost": "Ça te coûte",
+                    "pay_qr_rate": "1 USDC = {precio} {moneda} · spread du protocole {spread} %",
+                    "pay_qr_rate_old": "cotation d'il y a {min} min",
+                    "pay_qr_rate_fail": "Impossible de récupérer la cotation pour le moment.",
                     "chat_greeting_qr": "👋 {name} a démarré ce contact en scannant ton QR.",
                     "chat_greeting_link": "👋 {name} a démarré ce contact depuis ton lien d\u2019invitation.",
                     "settings_archive_identity_done": "Vous avez retrouvé votre identité précédente : {alias}",
@@ -15391,7 +15579,12 @@
                     "wc_sign_body": "La dApp demande de signer ce message :\n\n« {msg} »\n\nCela n'envoie PAS de fonds.",
                     "wc_sign_cta": "Signer",
                     "wc_tx_title": "Envoyer la transaction",
-                    "wc_tx_body": "La dApp demande d'ENVOYER une transaction :\n\nÀ : {to}\nValeur : {value} ETH\nchainId : {chain}\n\nElle sera signée et diffusée avec votre portefeuille.",
+                    "wc_tx_body": "La dApp demande d'ENVOYER une transaction :\n\nÀ : {to}\nValeur : {value} {sym}\nchainId : {chain}\n\nElle sera signée et diffusée avec votre portefeuille.",
+                    "wc_tx_tokens": "jetons",
+                    "wc_tx_unlimited": "SANS LIMITE",
+                    "wc_tx_token": "La dApp demande d'ENVOYER {amount} {sym} :\n\nÀ : {to}\nContrat du jeton : {token}\nchainId : {chain}\n\nElle sera signée et diffusée avec votre portefeuille.",
+                    "wc_tx_approve": "La dApp demande la PERMISSION qu'un autre contrat dépense vos {sym} :\n\nQui : {spender}\nJusqu'à : {amount} {sym}\nContrat du jeton : {token}\nchainId : {chain}\n\nTant que la permission tient, ce contrat peut déplacer ce montant quand il veut, sans vous redemander.",
+                    "wc_tx_unknown": "La dApp demande d'exécuter quelque chose que ChatWallet NE SAIT PAS lire :\n\nContrat : {to}\nFonction : {selector}\nDonnées : {bytes} octets\nValeur : {value} {sym}\nchainId : {chain}\n\nJe ne peux pas vous montrer ce qu'elle fait. N'approuvez que si vous savez exactement ce que vous signez.",
                     "wc_tx_cta": "Envoyer",
                     "wc_wrong_net": "⚠️ La dApp demande le réseau {req} mais ChatWallet est sur {cur}. Changez de réseau et réessayez.",
                     "wc_wrong_net_log": "réseau incorrect (chainId {chain})",
