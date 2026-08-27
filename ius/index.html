@@ -960,7 +960,7 @@ window.IusI18n = (function(){
   /* ============ chatWallet remoto: "WalletConnect soberano" sobre XMTP (protocolo cw:1) ============ */
   // La laptop hace de dApp: identidad XMTP efímera + QR; el APK escanea, firma
   // (personal_sign) y ancla (eth_sendTransaction). El transporte es un DM XMTP cifrado.
-  const XMTP_ENV = 'dev';        // el APK del bridge corre en XMTP dev (verificado)
+  const XMTP_ENV = 'production';  // mudado con la app el 27/8/2026 (día D)
   const CW_PROTO = 1;
   let pairClient=null, pairWallet=null, pairPeerDm=null, pairStreamStop=null;
   const pairPending = new Map();

@@ -1,12 +1,12 @@
 // ════════════════════════════════════════════════
 //  chatWallet · Notificador XMTP de ventas del libro
 //  Corre en la caja always-on: polling a /admin/events del book-api
-//  y manda un DM XMTP (env dev, misma red que ChatWallet) al autor.
+//  y manda un DM XMTP (misma red que ChatWallet) al autor.
 //
 //  Config por env o archivo .env junto al script:
 //    NOTIFIER_TOKEN  · token de solo-lectura de /admin/events (secret del Worker)
 //    NOTIFY_TO       · address ChatWallet del autor (0x…)
-//    XMTP_ENV        · dev (default) | production — debe coincidir con la dapp
+//    XMTP_ENV        · production (default) | dev — debe coincidir con la dapp
 //    API_BASE        · default https://api.chatwallet.org
 //    POLL_MS         · default 60000
 //
@@ -36,7 +36,7 @@ const CFG = {
   API_BASE: process.env.API_BASE || 'https://api.chatwallet.org',
   NOTIFIER_TOKEN: process.env.NOTIFIER_TOKEN,
   NOTIFY_TO: (process.env.NOTIFY_TO || '').toLowerCase(),
-  XMTP_ENV: process.env.XMTP_ENV || 'dev',
+  XMTP_ENV: process.env.XMTP_ENV || 'production', // la app se mudó el 27/8/2026
   POLL_MS: Number(process.env.POLL_MS || 60000),
   DIGEST_AT: process.env.DIGEST_AT || '21:00', // hora local de la caja; 'off' lo desactiva
 };

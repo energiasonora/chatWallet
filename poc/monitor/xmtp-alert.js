@@ -8,7 +8,7 @@
  *   echo "texto" | node xmtp-alert.js
  *
  * Variables de entorno:
- *   XMTP_ENV        — "dev" (default) | "production"
+ *   XMTP_ENV        — "production" (default) | "dev"
  *   NOTIFY_TO       — address XMTP destino (default: la del jefe)
  */
 
@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const STATE_FILE = join(HERE, "alert-state.json");
-const XMTP_ENV = process.env.XMTP_ENV || "dev";
+const XMTP_ENV = process.env.XMTP_ENV || "production"; // la app se mudó el 27/8/2026
 const NOTIFY_TO = (process.env.NOTIFY_TO || "0x7a38722ff7d1139dca52dbbc368378a178e6d572").toLowerCase();
 
 // ── Estado persistente (burner PK) ──

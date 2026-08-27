@@ -2333,7 +2333,7 @@
                 getIdentifier: () => ({ identifier, identifierKind: 0 }),
                 signMessage: async (msg) => ethers.getBytes(await cwEphemeralWallet.signMessage(msg)),
             };
-            cwXmtpClient = await window.XmtpClient.create(xmtpSigner, { env: 'dev', dbEncryptionKey: ethers.randomBytes(32) });
+            cwXmtpClient = await window.XmtpClient.create(xmtpSigner, { env: 'production', dbEncryptionKey: ethers.randomBytes(32) });
             return cwXmtpClient;
         }
 
