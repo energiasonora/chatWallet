@@ -1678,6 +1678,73 @@
         </div>
     </div>
 
+    <!-- Aviso de mudanza: sólo en la APK vieja (firma debug + XMTP dev). En la build
+         firmada por EnergíaSonora, XMTP_ENV es 'production' y este cartel no existe. -->
+    <div id="migrationSplash" class="fixed inset-0 z-[110] hidden flex-col items-center justify-center px-6 overflow-y-auto py-10"
+        style="background: radial-gradient(circle at 50% 26%, #1a1333 0%, #07040f 68%);">
+        <div class="w-full max-w-sm">
+            <!-- Eclipse: la luna tapando al sol, con la corona asomando -->
+            <div class="mx-auto mb-7 w-24 h-24 relative flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full"
+                    style="background: radial-gradient(circle, rgba(167,139,250,0) 52%, rgba(167,139,250,.55) 58%, rgba(167,139,250,0) 76%);"></div>
+                <div class="w-16 h-16 rounded-full bg-[#07040f] border border-violet-300/40"></div>
+            </div>
+
+            <h2 class="text-2xl font-bold text-white text-center">ChatWallet se muda</h2>
+            <p class="text-violet-200/80 mt-3 text-sm leading-relaxed text-center">
+                Hoy la app pasa a su <strong class="text-white">red definitiva</strong> y a su
+                <strong class="text-white">firma propia</strong>, la de EnergíaSonora.<br>
+                Esta versión que tenés instalada deja de recibir mensajes.
+            </p>
+
+            <div class="mt-6 rounded-lg border border-violet-400/25 bg-violet-500/5 p-3">
+                <p class="text-xs text-violet-100/70 leading-relaxed">
+                    Android no deja cambiar la firma de una app instalada, así que la nueva
+                    <strong class="text-violet-100">no se instala encima</strong>: hay que desinstalar esta.
+                    Al desinstalar se borra todo lo que hay en el teléfono — por eso los dos primeros pasos.
+                </p>
+            </div>
+
+            <div class="mt-6 space-y-3">
+                <div class="flex items-start gap-3">
+                    <span id="migStep1Mark" class="w-6 h-6 shrink-0 rounded-full border border-violet-400/40 flex items-center justify-center text-xs text-violet-200">1</span>
+                    <div class="flex-1">
+                        <p class="text-sm text-white font-semibold">Respaldá tus chats</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Se guardan cifrados en el nodo soberano y vuelven solos en la app nueva.</p>
+                        <button id="migBackupChatsBtn"
+                            class="mt-2 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold">Respaldar ahora</button>
+                        <p id="migBackupChatsMsg" class="text-xs mt-1 min-h-[1rem]"></p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                    <span id="migStep2Mark" class="w-6 h-6 shrink-0 rounded-full border border-violet-400/40 flex items-center justify-center text-xs text-violet-200">2</span>
+                    <div class="flex-1">
+                        <p class="text-sm text-white font-semibold">Anotá tu frase de 12 palabras</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Es lo único que recupera tu wallet. En papel, no en una foto.</p>
+                        <button id="migShowSeedBtn"
+                            class="mt-2 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold">Ver mi frase</button>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-3">
+                    <span id="migStep3Mark" class="w-6 h-6 shrink-0 rounded-full border border-violet-400/40 flex items-center justify-center text-xs text-violet-200">3</span>
+                    <div class="flex-1">
+                        <p class="text-sm text-white font-semibold">Descargá la app nueva</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Se abre en Chrome. Después: desinstalá esta, instalá la nueva y restaurá con tu frase.</p>
+                        <button id="migDownloadBtn"
+                            class="mt-2 px-3 py-1.5 rounded-lg bg-white/90 hover:bg-white text-violet-900 text-xs font-bold">Descargar ChatWallet</button>
+                    </div>
+                </div>
+            </div>
+
+            <button id="migLaterBtn"
+                class="mt-7 w-full p-2.5 rounded-lg border border-white/15 text-gray-300 hover:text-white hover:border-white/30 text-sm">
+                Ahora no
+            </button>
+        </div>
+    </div>
+
     <!-- Modal Confirmar Olvidar Billetera -->
     <div id="forgetWalletModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
         <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
@@ -4094,6 +4161,18 @@
             // (WebView Capacitor) es "localhost" y el QR compartido apuntaría ahí. Siempre el dominio
             // público → quien no tiene la dapp la abre en la web; con la APK instalada, el App Link la abre.
             const PUBLIC_INVITE_BASE = 'https://chatwallet.org/dapp';
+
+            // Red XMTP. Cambiar esta línea ES la mudanza: 'dev' y 'production' son redes
+            // distintas y no se ven entre sí — los inboxes de una no existen en la otra, así
+            // que al cruzar se pierden las conversaciones y los grupos (MLS vive en la red).
+            // El historial local y los contactos se salvan por el respaldo soberano.
+            // La build del puente (APK vieja, firmada con la llave debug) se queda en 'dev' y
+            // sólo muestra el aviso de mudanza; la firmada por EnergíaSonora va en 'production'.
+            const XMTP_ENV = 'dev';
+            // APK nueva, firmada con la llave de EnergíaSonora. La firma cambia, así que Android
+            // NO deja instalarla encima: hay que desinstalar la vieja. Por eso es un asset aparte
+            // y no `chatwallet.apk`, que es el que baja el auto-updater.
+            const APK_MIGRACION_URL = 'https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk';
             const erc20Abi = [
                 "function balanceOf(address owner) view returns (uint256)",
                 "function decimals() view returns (uint8)",
@@ -4983,6 +5062,8 @@
                 try {
                     // Start XMTP setup in background
                     setupXmtpService(wallet);
+                    // Mudanza: el aviso va después de tener wallet (los pasos 1 y 2 la necesitan).
+                    setTimeout(initMigrationSplash, 600);
                 } catch (e) {
                     console.error("Immediate XMTP trigger error:", e);
                 }
@@ -5006,11 +5087,14 @@
 
                     console.log("Iniciando XMTP (Background)...");
                     chatwalletxmtp = await Client.create(walletSigner, {
-                        env: 'dev',
+                        env: XMTP_ENV,
                         codecs: [new PresenceCodec(), new ProfileCodec(), new window.ReadReceiptCodec(), new window.ReactionCodec(), new window.ReplyCodec()],
                         // El sufijo de época sólo aparece si esta wallet se vinculó al inbox de
                         // otra: la base vieja apuntaba al inbox propio. Ver bumpXmtpDbEpoch.
-                        dbPath: `chatwallet_v3_${wallet.address.toLowerCase()}${xmtpDbSuffix(wallet.address)}`
+                        // OJO: el env va en el nombre. Sin esto, al pasar a producción el cliente
+                        // reusaría la base MLS construida contra dev (otra red, otro inbox) y
+                        // arrancaría corrupto. 'dev' no lleva sufijo para no mover la base de nadie.
+                        dbPath: `chatwallet_v3_${wallet.address.toLowerCase()}${xmtpDbEnvSuffix()}${xmtpDbSuffix(wallet.address)}`
                     });
 
                     console.log("✅ Cliente XMTP creado.");
@@ -6487,6 +6571,11 @@
             // subiendo la "época" en vez de borrar (así el rollback sigue siendo posible).
             function xmtpDbEpoch(address) {
                 return parseInt(localStorage.getItem(`cw-xmtp-db-epoch-${address.toLowerCase()}`) || '0', 10) || 0;
+            }
+            // 'dev' se queda sin sufijo a propósito: es la base que ya existe en los
+            // dispositivos instalados y moverla sería borrarles el historial descifrable.
+            function xmtpDbEnvSuffix() {
+                return XMTP_ENV === 'dev' ? '' : `_${XMTP_ENV}`;
             }
             function xmtpDbSuffix(address) {
                 const e = xmtpDbEpoch(address);
@@ -14924,6 +15013,73 @@
                 document.getElementById('backupWarningView').classList.add('hidden');
                 document.getElementById('backupKeysView').classList.remove('hidden');
             });
+
+            // ===== Aviso de mudanza =====
+            // Se muestra sólo en la APK vieja (firma debug, XMTP dev). La build firmada por
+            // EnergíaSonora corre con XMTP_ENV='production' y nunca entra acá. En la web tampoco:
+            // ahí no hay nada que desinstalar, alcanza con recargar.
+            const MIG_CHATS_OK_KEY = 'cw-mig-chats-respaldados';
+
+            function migMarcarPaso(id) {
+                const m = document.getElementById(id);
+                if (!m) return;
+                m.textContent = '✓';
+                m.className = 'w-6 h-6 shrink-0 rounded-full bg-violet-500 flex items-center justify-center text-xs text-white font-bold';
+            }
+
+            function initMigrationSplash() {
+                if (!IS_NATIVE || XMTP_ENV !== 'dev') return;
+                const el = document.getElementById('migrationSplash');
+                if (!el || !currentWallet) return;
+
+                if (localStorage.getItem(MIG_CHATS_OK_KEY)) migMarcarPaso('migStep1Mark');
+                if (localStorage.getItem(WALLET_BACKUP_DONE_KEY)) migMarcarPaso('migStep2Mark');
+
+                const backupBtn = document.getElementById('migBackupChatsBtn');
+                const backupMsg = document.getElementById('migBackupChatsMsg');
+                backupBtn.onclick = async () => {
+                    backupBtn.disabled = true;
+                    backupMsg.className = 'text-xs mt-1 min-h-[1rem] text-gray-400';
+                    backupMsg.textContent = 'Respaldando…';
+                    try {
+                        await chatBackupNow();
+                        localStorage.setItem(MIG_CHATS_OK_KEY, String(Date.now()));
+                        migMarcarPaso('migStep1Mark');
+                        backupMsg.className = 'text-xs mt-1 min-h-[1rem] text-green-400';
+                        backupMsg.textContent = 'Listo, tus chats están a salvo.';
+                    } catch (e) {
+                        console.warn('respaldo de mudanza:', e);
+                        // No marcamos el paso: que reintente. Perder esto es perder el historial.
+                        backupMsg.className = 'text-xs mt-1 min-h-[1rem] text-red-400';
+                        backupMsg.textContent = 'No se pudo respaldar. Probá de nuevo con señal.';
+                    } finally {
+                        backupBtn.disabled = false;
+                    }
+                };
+
+                document.getElementById('migShowSeedBtn').onclick = () => {
+                    // El modal de claves vive por encima: se cierra el splash y queda el flujo de siempre.
+                    el.classList.add('hidden');
+                    el.classList.remove('flex');
+                    openBackupModal();
+                };
+
+                document.getElementById('migDownloadBtn').onclick = () => {
+                    // github.com no está en allowNavigation, así que Capacitor dispara ACTION_VIEW y
+                    // abre Chrome — que sí sabe descargar. Dentro del WebView la descarga moriría en
+                    // silencio (Capacitor no registra DownloadListener).
+                    window.open(APK_MIGRACION_URL, '_system');
+                };
+
+                document.getElementById('migLaterBtn').onclick = () => {
+                    el.classList.add('hidden');
+                    el.classList.remove('flex');
+                };
+
+                // Sin persistir el descarte: vuelve a aparecer en cada arranque hasta que migren.
+                el.classList.remove('hidden');
+                el.classList.add('flex');
+            }
 
 
 
