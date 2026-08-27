@@ -12975,19 +12975,6 @@
                 chatRecipientAddress = currentConversation.peerAddress;
             }
 
-            async function sendMessageWithOptimisticUI(conversation, messageText) {
-                try {
-                    conversation.sendOptimistic(messageText);
-                    await conversation.publishMessages();
-                    pingWake(conversation); // wake push: despertar el APK del contacto
-                    maybeSendProfile(conversation, conversation?.peerAddress);
-                    return true;
-                } catch (error) {
-                    console.error('Failed to send message:', error);
-                    return false;
-                }
-            }
-
             // --- INICIO: LÓGICA DE BOTONES DE ACCIÓN EN HEADER DE CHAT ---
             const headerSendBtn = document.getElementById('headerSendBtn');
             const headerRequestBtn = document.getElementById('headerRequestBtn');
