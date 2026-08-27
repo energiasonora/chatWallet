@@ -15,17 +15,18 @@
 #     invitación son /dapp?address=…&pk=… y con la key por defecto cada invitación
 #     sería una entrada nueva → MISS siempre → seguiríamos expuestos exactamente en
 #     la URL que falló. El HTML es idéntico para cualquier query (lo lee el JS).
-#   · NO cachea los medios (mp4/webm/mov/m4v/ogg/mp3/m4a). Esto no es una optimización,
-#     es un arreglo. Medido el 27/8/2026 con el MISMO archivo, el MISMO Chrome y en el
-#     mismo instante:
-#         https://chatwallet-demo.web.app/...mp4  → carga, 1280x720
-#         https://chatwallet.org/...mp4           → DEMUXER_ERROR_COULD_NOT_OPEN
-#     El archivo servido es byte a byte idéntico al fuente y suena bien por curl; el que
-#     lo rompe es el borde. Todo <video> pide Range, y Cloudflare responde esos rangos
-#     recortando su copia comprimida en Brotli y declarando el total comprimido
-#     (content-range .../1775267 para un archivo de 1874556). Sacando los medios de la
-#     caché, el rango deja de salir de esa copia. Los tres videos de la landing estaban
-#     en rectángulos blancos desde que esta regla empezó a cachear todo el host.
+#   · NO cachea los medios (mp4/webm/mov/m4v/ogg/mp3/m4a). Necesario, pero por sí solo NO
+#     arregla los videos de la landing. Lo medido el 27/8/2026, pidiendo el mismo mp4 con
+#     el Accept-Encoding que Chrome usa para media (identity):
+#         origen Firebase   → content-range: bytes 0-99/1874556   (el tamaño real)
+#         chatwallet.org    → content-range: bytes 0-99/1775267   (el tamaño COMPRIMIDO)
+#     Cloudflare le pide brotli al origen, se lo descomprime al cliente que pidió identity,
+#     pero le pasa el content-range del cuerpo comprimido. Chrome pide rangos para todo
+#     <video>, recibe bytes inconsistentes y aborta con DEMUXER_ERROR_COULD_NOT_OPEN.
+#     El arreglo de verdad es una COMPRESSION RULE que deje los medios sin comprimir; el
+#     token de .cloudflare.env no tiene permiso sobre esa fase (http_response_compression),
+#     así que va por el panel. Esta regla igual conviene: evita que el borde se quede con
+#     una copia rota cacheada un día entero.
 #   · edge TTL 1 día (el deploy purga, ver deploy.sh), browser TTL el del origen (1h).
 #   · serve-stale mientras revalida → si el origen hipa, se sirve la copia vieja.
 #
@@ -56,19 +57,16 @@ echo "✦ Zona ${ZONE_NAME} = ${ZONE_ID}"
 # ── 2. Regla ──
 RULE_DESC="chatWallet: cachear estático e ignorar query (links de invitación)"
 MEDIA_DESC="chatWallet: no cachear medios (Brotli + Range rompe el <video>)"
-# OJO: el operador `matches` (regex) pide plan Business — la lista se arma con
-# `ends_with`, que sí está en el plan actual.
-MEDIA_EXTS=".mp4 .webm .mov .m4v .ogg .ogv .mp3 .m4a"
-MEDIA_EXPR=""
-for ext in $MEDIA_EXTS; do
-  [ -n "$MEDIA_EXPR" ] && MEDIA_EXPR="$MEDIA_EXPR or "
-  MEDIA_EXPR="${MEDIA_EXPR}http.request.uri.path ends_with \\\"${ext}\\\""
-done
+# OJO con la expresión: `matches` (regex) pide plan Business, y `ends_with` es una FUNCIÓN,
+# no un operador — escrito como operador, la API lo rechaza con "expected ComparisonOp".
+# Se usa el campo dedicado a la extensión, que además es más legible.
+# Las comillas van escapadas: este valor se interpola DENTRO de un string JSON.
+MEDIA_SET='\"mp4\" \"webm\" \"mov\" \"m4v\" \"ogg\" \"ogv\" \"mp3\" \"m4a\"'
 
 read -r -d '' MEDIA_RULE <<JSON || true
 {
   "description": "${MEDIA_DESC}",
-  "expression": "(http.host eq \"${ZONE_NAME}\" and (${MEDIA_EXPR}))",
+  "expression": "(http.host eq \"${ZONE_NAME}\" and http.request.uri.path.extension in {${MEDIA_SET}})",
   "action": "set_cache_settings",
   "enabled": true,
   "action_parameters": { "cache": false }
@@ -113,7 +111,7 @@ for r in rules:
 BODY=$(python3 -c '
 import json,sys
 existing=json.loads(sys.argv[1] or "{}")
-ours=[json.loads(sys.argv[2]), json.loads(sys.argv[3])]   # medios primero: la fase evalúa en orden
+ours=[json.loads(sys.argv[3]), json.loads(sys.argv[2])]   # la general PRIMERO y medios AL FINAL: en la fase de cache la última regla que matchea pisa a las anteriores (con medios primero, el catch-all volvía a poner cache:true y el mp4 seguía cacheándose)
 mine={r["description"] for r in ours}
 rules=(existing.get("result") or {}).get("rules") or []
 rules=[r for r in rules if r.get("description") not in mine]
