@@ -1587,7 +1587,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 2.27 alpha</p>
+            <p class="text-sm text-gray-400">v 2.28 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3484,7 +3484,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.27</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 2.28</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -5147,6 +5147,10 @@
                     // Grupos: los que existen en XMTP pero todavía no en la lista de chats
                     // (recién creados desde otro dispositivo, o restore en instalación nueva).
                     try { if (await syncGroupsFromXmtp()) await saveContacts(); } catch (e) { console.warn('syncGroups al arrancar:', e); }
+                    // Aviso de mudanza para los de web/PWA, que cruzaron sin desinstalar nada.
+                    // Va acá y no antes: recién ahora `contacts` está poblada (restore incluido),
+                    // que es lo que distingue a un usuario de siempre de uno que recién llega.
+                    try { avisarMudanzaUnaVez(); } catch (e) { console.warn('aviso de mudanza:', e); }
                     // Detectar y contar los mensajes que llegaron mientras la app estuvo cerrada/offline.
                     try {
                         const missed = await reconcileUnreadFromStore();
@@ -9734,10 +9738,18 @@
                         await loadAndStreamMessages(currentConversation);
                         await processMessageQueue();
                     } catch (e) {
-                        statusEl.textContent = `Error: No se pudo iniciar la conversación. ¿Está la dirección en la red?`;
                         console.error("Error en createDmWithIdentifier:", e);
                         currentConversation = null;
-                        if (token === chatOpenToken) showChatLoadError('No se pudo abrir la conversación.', e);
+                        if (token !== chatOpenToken) return;
+                        // ¿Falló porque del otro lado no se mudaron todavía, o de verdad se rompió algo?
+                        const enRed = await peerEnLaRed(recipientAddress);
+                        if (enRed === false) {
+                            statusEl.textContent = 'Tu contacto todavía no se mudó.';
+                            showPeerNotMigrated(recipientAddress);
+                        } else {
+                            statusEl.textContent = `Error: No se pudo iniciar la conversación. ¿Está la dirección en la red?`;
+                            showChatLoadError('No se pudo abrir la conversación.', e);
+                        }
                     }
                 }
             }
@@ -9760,6 +9772,74 @@
             // Estado de "no se pudo cargar el chat": en vez de dejar el hilo EN BLANCO (que era lo
             // que pasaba y parecía un cuelgue), se explica qué pasó y se ofrece reintentar.
             // El mismo reintento se dispara tirando del hilo hacia abajo (pull-to-refresh).
+            // ── Mudanza: avisarle UNA vez a quien ya usaba la app ──
+            // Los de web/PWA no desinstalan nada: cruzan solos con el deploy y no se enteran.
+            // Lo que sí cambia bajo sus pies es que las conversaciones arrancan de cero. A
+            // quien recién llega no se le dice nada: no vivió ninguna mudanza.
+            const MUDANZA_AVISADA_KEY = 'cw-mudanza-avisada-v1';
+
+            function avisarMudanzaUnaVez() {
+                if (XMTP_ENV !== 'production') return;
+                if (localStorage.getItem(MUDANZA_AVISADA_KEY)) return;
+                const yaUsabaLaApp = Array.isArray(contacts) && contacts.length > 0;
+                localStorage.setItem(MUDANZA_AVISADA_KEY, yaUsabaLaApp ? String(Date.now()) : 'nuevo');
+                if (!yaUsabaLaApp) return;
+
+                cwNotify({
+                    type: 'info',
+                    duration: 0,   // queda hasta que lo cierren: no es un aviso de paso
+                    tag: 'mudanza',
+                    title: 'ChatWallet se mudó de red',
+                    html: `Tu wallet, tu historial y tu agenda siguen intactos.
+                           Lo que arranca de cero son las <b>conversaciones</b>: escribile de nuevo
+                           a quien quieras hablar. Si a alguien le aparece
+                           <i>&ldquo;todavía no se mudó&rdquo;</i>, es que le falta actualizar la app.
+                           Los <b>grupos</b> hay que volver a crearlos.`,
+                });
+            }
+
+            // ── Mudanza (27/8/2026): distinguir "tu contacto no se mudó" de "la app falló" ──
+            // Los inboxes de la red vieja no existen en producción, así que createDm contra
+            // alguien que todavía no cruzó tira error. Sin esta distinción el usuario lee
+            // "No se pudo abrir la conversación" y entiende que la app está rota, cuando en
+            // realidad lo único que pasa es que del otro lado no actualizaron.
+            async function peerEnLaRed(address) {
+                try {
+                    const mapa = await withTimeout(
+                        chatwalletxmtp.canMessage([{ identifier: address.toLowerCase(), identifierKind: 0 }]),
+                        10000, 'canMessage');
+                    return mapa.get(address.toLowerCase()) === true;
+                } catch (e) {
+                    console.warn('canMessage:', e);
+                    return null;   // no sabemos: no afirmamos nada y cae al error genérico
+                }
+            }
+
+            function showPeerNotMigrated(address) {
+                if (!messagesContainer) return;
+                const corto = `${address.slice(0, 6)}…${address.slice(-4)}`;
+                messagesContainer.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full p-6 text-center">
+                    <div class="w-14 h-14 mb-3 rounded-full flex items-center justify-center bg-violet-500/10 border border-violet-400/30">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/></svg>
+                    </div>
+                    <p class="text-white font-semibold">Todavía no se mudó</p>
+                    <p class="text-gray-400 text-xs mt-2 leading-relaxed max-w-xs">
+                        ChatWallet cambió de red y <span class="text-gray-300">${corto}</span> sigue en la anterior.
+                        Tus mensajes viejos con esta persona están acá abajo y no se perdieron, pero para
+                        volver a escribirle tiene que actualizar la app.
+                    </p>
+                    <button type="button" id="invitarAMudarseBtn"
+                        class="mt-4 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold">
+                        Pasarle el link para actualizar
+                    </button>
+                    <button type="button" onclick="window.reloadCurrentChat && window.reloadCurrentChat()"
+                        class="mt-2 px-4 py-1.5 rounded-lg text-gray-400 hover:text-white text-xs">Ya actualizó, reintentar</button>
+                </div>`;
+                const b = document.getElementById('invitarAMudarseBtn');
+                if (b) b.onclick = () => shareInviteLink();
+            }
+
             function showChatLoadError(title, error) {
                 if (!messagesContainer) return;
                 const detail = error && error.message ? String(error.message) : '';
