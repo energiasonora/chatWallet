@@ -78,6 +78,30 @@ if (aparecio) {
        'el paso 1 tiene el respaldo de chats cableado');
 }
 
+// ── 3. Tema claro: el aviso pinta su propio fondo oscuro, así que su texto tiene que
+// seguir siendo claro. El override `body.theme-light .text-white{color:#111827}` dejaba
+// las palabras en negrita casi negras sobre negro — invisible — y así salió la 2.26.
+console.log('→ probando con tema claro…');
+await ev(`document.body.classList.add('theme-light')`);
+await sleep(300);
+
+const luminancia = async sel => await ev(`(() => {
+    const el = document.querySelector(${JSON.stringify(sel)});
+    if (!el) return null;
+    const m = getComputedStyle(el).color.match(/\\d+/g).map(Number);
+    return Math.round(0.2126*m[0] + 0.7152*m[1] + 0.0722*m[2]);
+})()`);
+
+for (const [sel, que] of [
+    ['#migrationSplash h2', 'el título'],
+    ['#migrationSplash strong', 'las palabras en negrita'],
+    ['#migrationSplash #migLaterBtn', 'el botón "Ahora no"'],
+]) {
+    const L = await luminancia(sel);
+    ok(L !== null && L > 120, `en tema claro, ${que} sigue siendo legible sobre el fondo oscuro (luminancia ${L})`);
+}
+await ev(`document.body.classList.remove('theme-light')`);
+
 // ── 3. La red: esta build es el PUENTE, tiene que seguir hablando XMTP dev ──
 // Se mira el fuente, no el bundle: Parcel minifica y renombra, así que buscar la
 // constante en el HTML servido daría un falso negativo.

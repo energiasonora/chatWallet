@@ -19,11 +19,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# El puente NO debe llevarse la mudanza puesta: si esta build ya apunta a producción,
-# el aviso no aparecería y estaríamos publicando una APK que nadie puede instalar.
-grep -q "const XMTP_ENV = 'dev';" src/dapp.html || {
-  echo "✗ src/dapp.html no está en XMTP dev — esta no es la build del puente"; exit 1; }
-echo "✦ el fuente está en XMTP dev (build de puente) ✓"
+# Se mira el BUILD, no el fuente: el test carga lo que hay en $BUILD, y el árbol de trabajo
+# puede estar en producción mientras se verifica un build de puente hecho aparte.
+grep -q 'XMTP_ENV="dev"' "$BUILD/dapp.html" || {
+  echo "✗ $BUILD/dapp.html no está en XMTP dev — el aviso sólo existe en la build del puente"
+  echo "  generala con:  ./build-apk.sh dev debug   (o buildeá dist-apk con XMTP_ENV='dev')"
+  exit 1; }
+echo "✦ el build servido está en XMTP dev ✓"
 
 echo "✦ sirviendo $BUILD en :${WEB_PORT}…"
 (cd "$BUILD" && python3 -m http.server "$WEB_PORT" --bind 127.0.0.1 > /tmp/web-mig.log 2>&1) &
