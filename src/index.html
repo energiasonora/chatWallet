@@ -1675,6 +1675,11 @@
                     <div class="col__image-wrap">
                         <!-- Animated cat video replacing static image -->
                         <video class="img img--1" autoplay loop muted playsinline>
+                            <!-- Primero el nodo soberano: Firebase precomprime el mp4 en Brotli y Cloudflare
+                                 le pasa a Chrome el content-range del cuerpo comprimido, así que por
+                                 chatwallet.org el <video> aborta con DEMUXER_ERROR_COULD_NOT_OPEN.
+                                 El CID es inmutable; el archivo local queda de respaldo si la caja no está. -->
+                            <source src="https://gateway.chatwallet.org/ipfs/QmeRfqLcjPWPDc4ZTzsekuwNtBi9xtWYmRxrUzXNWfg56U" type="video/mp4">
                             <source src="./vid/animatedChatWallet.mp4" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
@@ -1708,6 +1713,11 @@
                 <div class="col col--2">
                     <div class="col__image-wrap">
                         <video class="img img--1" autoplay loop muted playsinline>
+                            <!-- Primero el nodo soberano: Firebase precomprime el mp4 en Brotli y Cloudflare
+                                 le pasa a Chrome el content-range del cuerpo comprimido, así que por
+                                 chatwallet.org el <video> aborta con DEMUXER_ERROR_COULD_NOT_OPEN.
+                                 El CID es inmutable; el archivo local queda de respaldo si la caja no está. -->
+                            <source src="https://gateway.chatwallet.org/ipfs/QmXXuSgUMBZJn5Tc4vej6bGtgCXJBBQCsgwGgB49JsgHKN" type="video/mp4">
                             <source src="./vid/animacionchatcifrado.mp4" type="video/mp4">
                         </video>
                     </div>
@@ -1870,6 +1880,11 @@
                     <div class="col__image-wrap">
                         <!-- Animated video for chat/wallet interaction -->
                         <video class="img img--1" autoplay loop muted playsinline>
+                            <!-- Primero el nodo soberano: Firebase precomprime el mp4 en Brotli y Cloudflare
+                                 le pasa a Chrome el content-range del cuerpo comprimido, así que por
+                                 chatwallet.org el <video> aborta con DEMUXER_ERROR_COULD_NOT_OPEN.
+                                 El CID es inmutable; el archivo local queda de respaldo si la caja no está. -->
+                            <source src="https://gateway.chatwallet.org/ipfs/QmSL7X927uKn3gfZuTSZ9sRRCvn7wj5ZmKvxfKehhvkCNk" type="video/mp4">
                             <source src="./vid/animatedChatWalletv2.mp4" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
@@ -1890,7 +1905,12 @@
                             <img lang="es" src="./img/tapacpsES.jpg" alt="Portada del libro 'Cripto para Soberanos'">
                             <img lang="fr" src="./img/tapacpsFR.jpg" alt="Couverture du livre 'Crypto for Sovereigns'">
                             <video id="animated-video-mint" muted playsinline style="display: none;">
-                                <source src="./vid/animatedChatWallet.mp4" type="video/mp4">
+                                <!-- Primero el nodo soberano: Firebase precomprime el mp4 en Brotli y Cloudflare
+                                 le pasa a Chrome el content-range del cuerpo comprimido, así que por
+                                 chatwallet.org el <video> aborta con DEMUXER_ERROR_COULD_NOT_OPEN.
+                                 El CID es inmutable; el archivo local queda de respaldo si la caja no está. -->
+                            <source src="https://gateway.chatwallet.org/ipfs/QmeRfqLcjPWPDc4ZTzsekuwNtBi9xtWYmRxrUzXNWfg56U" type="video/mp4">
+                            <source src="./vid/animatedChatWallet.mp4" type="video/mp4">
                                 Your browser does not support the video tag.
                             </video>
                         </div>
