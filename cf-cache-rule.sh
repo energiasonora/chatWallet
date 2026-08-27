@@ -15,14 +15,17 @@
 #     invitación son /dapp?address=…&pk=… y con la key por defecto cada invitación
 #     sería una entrada nueva → MISS siempre → seguiríamos expuestos exactamente en
 #     la URL que falló. El HTML es idéntico para cualquier query (lo lee el JS).
-#   · NO cachea los medios (mp4/webm/mov/m4v). Esto no es una optimización, es un
-#     arreglo: Cloudflare guardaba el mp4 ya comprimido en Brotli y después respondía
-#     los Range requests recortando ESOS bytes, declarando el total comprimido
-#     (content-range .../1775267 cuando el archivo mide 1874556). Todo <video> pide
-#     rangos, así que Chrome recibía bytes inconsistentes y abortaba con
-#     DEMUXER_ERROR_COULD_NOT_OPEN: los tres videos de la landing quedaban en blanco.
-#     El origen (Firebase) responde bien; el destrozo lo hacía el borde. Verificado el
-#     27/8/2026 comparando origen vs. borde y con Chrome headless.
+#   · NO cachea los medios (mp4/webm/mov/m4v/ogg/mp3/m4a). Esto no es una optimización,
+#     es un arreglo. Medido el 27/8/2026 con el MISMO archivo, el MISMO Chrome y en el
+#     mismo instante:
+#         https://chatwallet-demo.web.app/...mp4  → carga, 1280x720
+#         https://chatwallet.org/...mp4           → DEMUXER_ERROR_COULD_NOT_OPEN
+#     El archivo servido es byte a byte idéntico al fuente y suena bien por curl; el que
+#     lo rompe es el borde. Todo <video> pide Range, y Cloudflare responde esos rangos
+#     recortando su copia comprimida en Brotli y declarando el total comprimido
+#     (content-range .../1775267 para un archivo de 1874556). Sacando los medios de la
+#     caché, el rango deja de salir de esa copia. Los tres videos de la landing estaban
+#     en rectángulos blancos desde que esta regla empezó a cachear todo el host.
 #   · edge TTL 1 día (el deploy purga, ver deploy.sh), browser TTL el del origen (1h).
 #   · serve-stale mientras revalida → si el origen hipa, se sirve la copia vieja.
 #
