@@ -286,6 +286,37 @@
             box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4);
         }
 
+        /* En Android el APK es la instalación de verdad: notificaciones que llegan con el
+           navegador cerrado, servicio en primer plano, firma propia. La PWA no puede eso,
+           así que ahí pasa a ser la alternativa y no la opción que lidera. */
+        body.is-android .hero-btn--apk {
+            order: -1;
+        }
+
+        body.is-android .hero-btn--pwa {
+            background: none;
+            box-shadow: none;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            color: #c8c4ff !important;
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 12px 22px;
+            min-height: 46px;
+        }
+
+        .hero__android-hint {
+            display: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            color: #9be7ac;
+            margin-top: 0.9rem;
+            line-height: 1.45;
+        }
+
+        body.is-android .hero__android-hint {
+            display: block;
+        }
+
         .intro__try {
             display: inline-block;
             margin-top: 1.4rem;
@@ -1615,8 +1646,10 @@
                             <span lang="es">Instalar App (PWA)</span>
                             <span lang="fr">Installer l'App (PWA)</span>
                         </button>
-                        <!-- Descarga del APK Android: URL estable del último release de GitHub (siempre la versión más nueva). -->
-                        <a href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet.apk"
+                        <!-- Descarga del APK Android: URL estable del último release de GitHub (siempre la versión más nueva).
+                             chatwallet-energiasonora.apk es la firmada, en red XMTP producción: la que usa la gente.
+                             chatwallet.apk queda como puente en red dev para los que vienen de antes de la mudanza. -->
+                        <a href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk"
                             class="hero-btn hero-btn--apk" rel="noopener">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                 <path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.23A11.46 11.46 0 0 0 12 7.99c-1.74 0-3.38.41-4.83 1.15L5.31 5.9a.4.4 0 1 0-.69.4l1.84 3.18A11.37 11.37 0 0 0 .5 18.5h23a11.37 11.37 0 0 0-5.9-9.02zM7 15.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
@@ -1626,6 +1659,13 @@
                             <span lang="fr">Télécharger l'APK Android</span>
                         </a>
                     </div>
+
+                    <!-- Solo visible en Android (body.is-android): dice por qué el APK va primero. -->
+                    <p class="hero__android-hint">
+                        <span lang="en">✓ Recommended on Android: notifications arrive even with the browser closed.</span>
+                        <span lang="es">✓ Recomendado en Android: las notificaciones llegan aunque cierres el navegador.</span>
+                        <span lang="fr">✓ Recommandé sur Android : les notifications arrivent même navigateur fermé.</span>
+                    </p>
 
                     <!-- Probar sin instalar: secundario a propósito -->
                     <a href="/dapp" class="intro__try">
@@ -2033,7 +2073,7 @@
                             <span lang="es">Llevate la app</span>
                             <span lang="fr">Obtenez l'app</span>
                         </h4>
-                        <a href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet.apk" class="btn btn--primary" rel="noopener">
+                        <a href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk" class="btn btn--primary" rel="noopener">
                             <span lang="en">Download Android APK</span>
                             <span lang="es">Descargar APK Android</span>
                             <span lang="fr">Télécharger l'APK Android</span>
@@ -2150,6 +2190,13 @@
             || window.matchMedia('(display-mode: fullscreen)').matches
             || window.navigator.standalone === true;
         if (pwaRunningStandalone) heroInstallBtn.style.display = 'none';
+
+        // En Android el APK gana: la PWA no puede tener notificaciones que lleguen con el
+        // navegador cerrado, ni el servicio en primer plano que mantiene vivo el chat.
+        // Se excluye Windows Subsystem for Android y cualquier UA que diga "Android" sin serlo
+        // de verdad; alcanza con el UA porque el único efecto es reordenar dos botones.
+        const esAndroid = /Android/i.test(navigator.userAgent) && !/Windows/i.test(navigator.userAgent);
+        if (esAndroid && !pwaRunningStandalone) document.body.classList.add('is-android');
 
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();

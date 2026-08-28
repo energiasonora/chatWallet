@@ -1587,7 +1587,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.00 alpha</p>
+            <p class="text-sm text-gray-400">v 3.01 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1920,6 +1920,25 @@
                 <button type="button" id="pwaInstallBtn"
                     class="bg-white text-indigo-600 px-3 py-1 rounded text-sm font-bold shrink-0">Instalar</button>
                 <button type="button" id="pwaDismissBtn" title="Ocultar"
+                    class="text-white/80 hover:text-white text-2xl leading-none shrink-0 px-1">&times;</button>
+            </div>
+
+            <!-- En Android ofrecemos el APK en lugar de la PWA: es la única forma de que las
+                 notificaciones lleguen con el navegador cerrado. Reemplaza al banner PWA, no
+                 se muestran los dos. -->
+            <div id="apkInstallBanner"
+                class="hidden items-center gap-3 bg-green-700 text-white px-4 py-2 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                    fill="currentColor" class="shrink-0" aria-hidden="true">
+                    <path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.23A11.46 11.46 0 0 0 12 7.99c-1.74 0-3.38.41-4.83 1.15L5.31 5.9a.4.4 0 1 0-.69.4l1.84 3.18A11.37 11.37 0 0 0 .5 18.5h23a11.37 11.37 0 0 0-5.9-9.02zM7 15.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
+                </svg>
+                <span id="apkInstallText" class="text-sm font-medium flex-grow min-w-0"
+                    data-i18n-key="apk_banner_text">Instalá la app Android: las notificaciones llegan aunque cierres el
+                    navegador.</span>
+                <a id="apkInstallBtn" href="#" rel="noopener"
+                    class="bg-white text-green-700 px-3 py-1 rounded text-sm font-bold shrink-0"
+                    data-i18n-key="apk_banner_cta">Descargar</a>
+                <button type="button" id="apkDismissBtn" title="Ocultar"
                     class="text-white/80 hover:text-white text-2xl leading-none shrink-0 px-1">&times;</button>
             </div>
         </div>
@@ -3484,7 +3503,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.00</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.01</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -10920,7 +10939,11 @@
 
             // ===== Auto-updater (chequea el último release de GitHub y, en APK, descarga+instala) =====
             const GITHUB_REPO = 'energiasonora/chatWallet';
-            const APK_DOWNLOAD_URL = `https://github.com/${GITHUB_REPO}/releases/latest/download/chatwallet.apk`;
+            // Cada build tiene que actualizarse con el asset de SU MISMA firma: Android rechaza
+            // instalar encima un APK firmado con otra llave. La firmada (EnergíaSonora) va en
+            // producción y la de debug es el puente en dev, así que el env alcanza para elegir.
+            const APK_ASSET = XMTP_ENV === 'production' ? 'chatwallet-energiasonora.apk' : 'chatwallet.apk';
+            const APK_DOWNLOAD_URL = `https://github.com/${GITHUB_REPO}/releases/latest/download/${APK_ASSET}`;
 
             // Versión actual: se lee del texto "Versión X.YY" del panel (lo bumpea deploy.sh, queda siempre en sync).
             function getCurrentVersion() {
@@ -15367,6 +15390,8 @@
                     "backup_mnemonic_label": "Frase Mnemónica (12 palabras)",
                     "backup_nag_text": "Respaldá tu frase secreta: sin backup, perder este dispositivo es perder tu billetera.",
                     "backup_nag_cta": "Respaldar",
+                    "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
+                    "apk_banner_cta": "Descargar",
                     "backup_private_key_label": "Clave Privada",
                     "backup_keys_saved": "He guardado mis claves",
                     "init_title": "Crypto Wallet & Chat",
@@ -15532,6 +15557,8 @@
                     "backup_mnemonic_label": "Mnemonic Phrase (12 words)",
                     "backup_nag_text": "Back up your secret phrase: without a backup, losing this device means losing your wallet.",
                     "backup_nag_cta": "Back up",
+                    "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
+                    "apk_banner_cta": "Download",
                     "backup_private_key_label": "Private Key",
                     "backup_keys_saved": "I have saved my keys",
                     "init_title": "Crypto Wallet & Chat",
@@ -15697,6 +15724,8 @@
                     "backup_mnemonic_label": "Phrase Mnémonique (12 mots)",
                     "backup_nag_text": "Sauvegardez votre phrase secrète : sans copie, perdre cet appareil c'est perdre votre portefeuille.",
                     "backup_nag_cta": "Sauvegarder",
+                    "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",
+                    "apk_banner_cta": "Télécharger",
                     "backup_private_key_label": "Clé Privée",
                     "backup_keys_saved": "J'ai sauvegardé mes clés",
                     "init_title": "Crypto Wallet & Chat",
@@ -17405,13 +17434,40 @@
             || window.navigator.standalone === true
             || !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 
+        // ===== Android: ofrecer el APK en vez de la PWA =====
+        // La PWA no puede recibir notificaciones con el navegador cerrado ni sostener el
+        // servicio en primer plano que mantiene vivo el chat: en Android el APK no es una
+        // alternativa, es la instalación buena. Así que ahí este banner reemplaza al de PWA.
+        // Se ofrece la firmada en red producción, la misma que enlaza la landing.
+        const APK_PUBLICO_URL = 'https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk';
+        const APK_BANNER_DISMISSED_KEY = 'cw-apk-banner-dismissed';
+        const esAndroidWeb = /Android/i.test(navigator.userAgent)
+            && !/Windows/i.test(navigator.userAgent)
+            && !pwaRunningStandalone;
+
+        (function initApkBanner() {
+            const el = document.getElementById('apkInstallBanner');
+            if (!el || !esAndroidWeb || localStorage.getItem(APK_BANNER_DISMISSED_KEY)) return;
+            const link = document.getElementById('apkInstallBtn');
+            if (link) link.href = APK_PUBLICO_URL;
+            el.classList.remove('hidden');
+            el.classList.add('flex');   // vive en un flex-row: sin esto queda invisible
+        })();
+
+        document.getElementById('apkDismissBtn').addEventListener('click', () => {
+            localStorage.setItem(APK_BANNER_DISMISSED_KEY, '1');
+            const el = document.getElementById('apkInstallBanner');
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        });
+
         window.addEventListener('beforeinstallprompt', (e) => {
             // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
             // Stash the event so it can be triggered later.
             deferredPrompt = e;
             // Update UI notify the user they can install the PWA
-            if (!pwaRunningStandalone && !localStorage.getItem(PWA_BANNER_DISMISSED_KEY)) showPwaBanner();
+            if (!pwaRunningStandalone && !esAndroidWeb && !localStorage.getItem(PWA_BANNER_DISMISSED_KEY)) showPwaBanner();
         });
 
         document.getElementById('pwaInstallBtn').addEventListener('click', async () => {
