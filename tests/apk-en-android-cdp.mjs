@@ -116,7 +116,49 @@ await ev(`document.getElementById('apkDismissBtn').click()`);
 await sleep(300);
 ok(!(await ev(bannerApkVisible)), 'la ✕ lo oculta');
 ok(await cargar() && !(await ev(bannerApkVisible)), 'y no vuelve al recargar');
+
+// ── Configuración: la opción tiene que seguir existiendo después de la ✕ ──
+// (se llega acá con el banner ya descartado a propósito: es el caso que importa)
+console.log('\n── Configuración → Instalar la app (con el banner ya descartado) ──');
+const abrirConfig = `(() => { const m = document.getElementById('settingsModal');
+    m.classList.remove('hidden'); m.classList.add('flex'); return true; })()`;
+// offsetParent es null si el elemento o cualquier padre está en display:none.
+const seVe = id => `!!document.getElementById('${id}') && document.getElementById('${id}').offsetParent !== null`;
+
+await ev(abrirConfig);
+await sleep(300);
+ok(await ev(seVe('installAppSection')),
+    'en Android la sección "Instalar la app" está en Configuración aunque el banner se haya cerrado');
+ok(await ev(seVe('settingsApkBtn')), 'ofrece el APK');
+const hrefSettings = await ev(`document.getElementById('settingsApkBtn').href`);
+ok(ASSET_ESPERADO.test(hrefSettings || ''), `y baja el APK firmado (${hrefSettings})`);
+ok(await ev(seVe('settingsPwaBtn')), 'y también deja instalar la PWA, por si la prefiere');
+ok(await ev(seVe('settingsApkWhy')), 'dice por qué recomienda el APK');
+
+// El botón de PWA usa el prompt nativo cuando lo hay (Chrome headless sí lo ofrece acá,
+// con manifest + SW), así que para probar el otro camino hay que vaciarlo a propósito:
+// sin prompt disponible (iOS, ya usado, browser sin soporte) tiene que explicar, no
+// quedarse mudo. `deferredPrompt` es un let de script clásico → visible en el scope global.
+ok(await ev(`typeof deferredPrompt === 'object' && deferredPrompt !== null`),
+    'el navegador ofreció el prompt de instalación y quedó guardado');
+await ev(`deferredPrompt = null`);
+await ev(`document.getElementById('settingsPwaBtn').click()`);
+await sleep(400);
+const estado = await ev(`document.getElementById('settingsInstallStatus').textContent`);
+ok(/manual|⋮/i.test(estado || ''),
+    `sin prompt disponible explica cómo instalarla a mano (“${(estado || '').trim().slice(0, 55)}…”)`);
+
 await ev(`localStorage.removeItem('cw-apk-banner-dismissed')`);
+
+// En escritorio la sección existe igual, pero sin el APK (no serviría de nada).
+await comoEscritorio();
+ok(await cargar(), 'la app cargó en escritorio');
+await ev(abrirConfig);
+await sleep(300);
+ok(await ev(seVe('installAppSection')), 'en escritorio la sección sigue estando');
+ok(await ev(seVe('settingsPwaBtn')), 'con la PWA');
+ok(!(await ev(seVe('settingsApkBtn'))), 'y sin el APK, que ahí no sirve');
+await comoAndroid();
 
 // Ya instalada como APK (Capacitor): no tiene sentido ofrecerle bajar el APK.
 console.log('\n── ya instalada (APK / Capacitor) ──');
@@ -127,6 +169,10 @@ ok(await cargar(), 'la app cargó fingiendo ser nativa');
 await sleep(1200);
 ok(await ev(`!!(window.Capacitor && window.Capacitor.isNativePlatform())`), 'la app se cree nativa');
 ok(!(await ev(bannerApkVisible)), 'dentro del APK no se ofrece bajar el APK');
+await ev(abrirConfig);
+await sleep(300);
+ok(!(await ev(seVe('installAppSection'))),
+    'y Configuración tampoco ofrece instalar nada: ya está instalada');
 
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);
 ws.close();

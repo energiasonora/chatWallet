@@ -1587,7 +1587,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.01 alpha</p>
+            <p class="text-sm text-gray-400">v 3.02 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3344,6 +3344,28 @@
                         Hacer Copia de Seguridad
                     </button>
                 </div>
+                <!-- Instalar la app. Los banners se pueden ocultar para siempre con la ✕, así que
+                     éste es el lugar donde la opción sigue existiendo después. Se esconde entera
+                     cuando ya corre instalada (APK o PWA standalone): ahí no hay nada que ofrecer. -->
+                <div id="installAppSection" class="hidden">
+                    <hr class="border-gray-600">
+                    <h2 class="text-md text-center font-semibold text-indigo-300 mt-4"
+                        data-i18n-key="settings_install_title">Instalar la app</h2>
+                    <div class="space-y-2 mt-2">
+                        <!-- Sólo en Android: el href lo pone el mismo sitio que usa el banner. -->
+                        <a id="settingsApkBtn" href="#" rel="noopener"
+                            class="hidden w-full px-4 py-2 font-semibold text-white bg-green-700 rounded-lg hover:bg-green-600 transition-colors text-center"
+                            data-i18n-key="settings_install_apk">Descargar la app Android (APK)</a>
+                        <p id="settingsApkWhy" class="hidden text-xs text-gray-500 px-1"
+                            data-i18n-key="settings_install_apk_why">Recomendada: las notificaciones llegan aunque
+                            cierres el navegador.</p>
+                        <button type="button" id="settingsPwaBtn"
+                            class="w-full px-4 py-2 font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                            data-i18n-key="settings_install_pwa">Instalar como app web (PWA)</button>
+                        <p id="settingsInstallStatus" class="text-xs text-gray-400 min-h-[1rem] px-1"></p>
+                    </div>
+                </div>
+
                 <hr class="border-gray-600">
                 <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="settings_networks_title">
                     Redes y Tokens</h2>
@@ -3503,7 +3525,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.01</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.02</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -15392,6 +15414,13 @@
                     "backup_nag_cta": "Respaldar",
                     "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
                     "apk_banner_cta": "Descargar",
+                    "settings_install_title": "Instalar la app",
+                    "settings_install_apk": "Descargar la app Android (APK)",
+                    "settings_install_apk_why": "Recomendada: las notificaciones llegan aunque cierres el navegador.",
+                    "settings_install_pwa": "Instalar como app web (PWA)",
+                    "install_pwa_manual": "Instalación manual: menú ⋮ del navegador → \"Instalar app\" / \"Añadir a pantalla de inicio\". Si ya está instalada, desinstalá la anterior primero.",
+                    "install_pwa_cancelled": "Instalación cancelada.",
+                    "install_pwa_done": "Instalada — mirá tu pantalla de inicio.",
                     "backup_private_key_label": "Clave Privada",
                     "backup_keys_saved": "He guardado mis claves",
                     "init_title": "Crypto Wallet & Chat",
@@ -15559,6 +15588,13 @@
                     "backup_nag_cta": "Back up",
                     "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
                     "apk_banner_cta": "Download",
+                    "settings_install_title": "Install the app",
+                    "settings_install_apk": "Download the Android app (APK)",
+                    "settings_install_apk_why": "Recommended: notifications arrive even with the browser closed.",
+                    "settings_install_pwa": "Install as a web app (PWA)",
+                    "install_pwa_manual": "Manual install: browser menu ⋮ → \"Install app\" / \"Add to Home screen\". If it is already installed, uninstall the old one first.",
+                    "install_pwa_cancelled": "Install cancelled.",
+                    "install_pwa_done": "Installed — check your home screen.",
                     "backup_private_key_label": "Private Key",
                     "backup_keys_saved": "I have saved my keys",
                     "init_title": "Crypto Wallet & Chat",
@@ -15726,6 +15762,13 @@
                     "backup_nag_cta": "Sauvegarder",
                     "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",
                     "apk_banner_cta": "Télécharger",
+                    "settings_install_title": "Installer l'app",
+                    "settings_install_apk": "Télécharger l'app Android (APK)",
+                    "settings_install_apk_why": "Recommandée : les notifications arrivent même navigateur fermé.",
+                    "settings_install_pwa": "Installer comme app web (PWA)",
+                    "install_pwa_manual": "Installation manuelle : menu ⋮ du navigateur → « Installer l'application » / « Ajouter à l'écran d'accueil ». Si elle est déjà installée, désinstallez d'abord l'ancienne.",
+                    "install_pwa_cancelled": "Installation annulée.",
+                    "install_pwa_done": "Installée — voir l'écran d'accueil.",
                     "backup_private_key_label": "Clé Privée",
                     "backup_keys_saved": "J'ai sauvegardé mes clés",
                     "init_title": "Crypto Wallet & Chat",
@@ -15900,6 +15943,9 @@
                 if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
                 return s;
             }
+            // El bloque de instalación (banners + Configuración) vive en otro <script> y no
+            // alcanza este scope: se expone para que también pueda traducir su texto dinámico.
+            window.cwT = t;
 
             // --- Language Switcher Logic ---
             const LANGUAGE_STORAGE_KEY = 'chatwallet-lang';
@@ -17470,23 +17516,48 @@
             if (!pwaRunningStandalone && !esAndroidWeb && !localStorage.getItem(PWA_BANNER_DISMISSED_KEY)) showPwaBanner();
         });
 
-        document.getElementById('pwaInstallBtn').addEventListener('click', async () => {
-            if(deferredPrompt) {
-                // Hide the app provided install promotion
+        // Una sola vía para instalar la PWA: la usan el banner y Configuración. `destino` es
+        // el elemento donde contar qué pasó — si el navegador no ofrece el prompt (ya usada,
+        // ya instalada, iOS, browser sin soporte) hay que explicarlo, no fallar en silencio.
+        const tr = (k, fallback) => (window.cwT ? window.cwT(k) : fallback);
+        async function pedirInstalarPwa(destino) {
+            if (deferredPrompt) {
                 hidePwaBanner();
                 deferredPrompt.prompt();
-                // Wait for the user to respond to the prompt
                 const { outcome } = await deferredPrompt.userChoice;
                 console.log(`User response to the install prompt: ${outcome}`);
-                // We've used the prompt, and can't use it again, throw it away
                 deferredPrompt = null;
-            } else {
-                // El navegador no ofrece instalación ahora (prompt ya usado/descartado, ya instalada,
-                // o browser sin soporte): explicar en vez de fallar en silencio.
-                document.getElementById('pwaInstallText').textContent =
-                    'Instalación manual: menú ⋮ del navegador → "Instalar app" / "Añadir a pantalla de inicio". Si ya está instalada, desinstalá la anterior primero.';
+                if (destino && outcome === 'dismissed') {
+                    destino.textContent = tr('install_pwa_cancelled', 'Instalación cancelada.');
+                }
+            } else if (destino) {
+                destino.textContent = tr('install_pwa_manual',
+                    'Instalación manual: menú ⋮ del navegador → "Instalar app" / "Añadir a pantalla de inicio". Si ya está instalada, desinstalá la anterior primero.');
             }
-        });
+        }
+
+        document.getElementById('pwaInstallBtn').addEventListener('click',
+            () => pedirInstalarPwa(document.getElementById('pwaInstallText')));
+
+        // ── Configuración → "Instalar la app" ──
+        // El mismo par de opciones que los banners, pero permanente: los banners se ocultan
+        // con la ✕ para siempre, y quien se arrepiente tiene que poder volver a encontrarlas.
+        (function initInstallSettings() {
+            const sec = document.getElementById('installAppSection');
+            if (!sec) return;
+            // Ya corriendo instalada (APK o PWA standalone): no hay nada que ofrecer.
+            if (pwaRunningStandalone) return;
+            sec.classList.remove('hidden');
+
+            if (esAndroidWeb) {
+                const apk = document.getElementById('settingsApkBtn');
+                apk.href = APK_PUBLICO_URL;
+                apk.classList.remove('hidden');
+                document.getElementById('settingsApkWhy').classList.remove('hidden');
+            }
+            document.getElementById('settingsPwaBtn').addEventListener('click',
+                () => pedirInstalarPwa(document.getElementById('settingsInstallStatus')));
+        })();
 
         document.getElementById('pwaDismissBtn').addEventListener('click', () => {
             localStorage.setItem(PWA_BANNER_DISMISSED_KEY, '1');
@@ -17497,6 +17568,8 @@
             // Clear the deferredPrompt so it can be garbage collected
             deferredPrompt = null;
             hidePwaBanner();
+            const est = document.getElementById('settingsInstallStatus');
+            if (est) est.textContent = tr('install_pwa_done', 'Instalada — mirá tu pantalla de inicio.');
             console.log('PWA was installed');
         });
     </script>
