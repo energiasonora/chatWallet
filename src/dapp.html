@@ -1587,7 +1587,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.02 alpha</p>
+            <p class="text-sm text-gray-400">v 3.03 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3353,15 +3353,17 @@
                         data-i18n-key="settings_install_title">Instalar la app</h2>
                     <div class="space-y-2 mt-2">
                         <!-- Sólo en Android: el href lo pone el mismo sitio que usa el banner. -->
+                        <!-- block: un <a> es inline, y sin esto w-full no lo estira — el fondo
+                             queda en escalera detrás del texto en dos renglones. -->
                         <a id="settingsApkBtn" href="#" rel="noopener"
-                            class="hidden w-full px-4 py-2 font-semibold text-white bg-green-700 rounded-lg hover:bg-green-600 transition-colors text-center"
-                            data-i18n-key="settings_install_apk">Descargar la app Android (APK)</a>
+                            class="hidden block w-full px-4 py-2 font-semibold text-white bg-green-700 rounded-lg hover:bg-green-600 transition-colors text-center"
+                            data-i18n-key="settings_install_apk">Descargar el APK Android</a>
                         <p id="settingsApkWhy" class="hidden text-xs text-gray-500 px-1"
                             data-i18n-key="settings_install_apk_why">Recomendada: las notificaciones llegan aunque
                             cierres el navegador.</p>
                         <button type="button" id="settingsPwaBtn"
                             class="w-full px-4 py-2 font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
-                            data-i18n-key="settings_install_pwa">Instalar como app web (PWA)</button>
+                            data-i18n-key="settings_install_pwa">Instalar la app web (PWA)</button>
                         <p id="settingsInstallStatus" class="text-xs text-gray-400 min-h-[1rem] px-1"></p>
                     </div>
                 </div>
@@ -3525,7 +3527,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.02</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.03</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -15415,9 +15417,9 @@
                     "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
                     "apk_banner_cta": "Descargar",
                     "settings_install_title": "Instalar la app",
-                    "settings_install_apk": "Descargar la app Android (APK)",
+                    "settings_install_apk": "Descargar el APK Android",
                     "settings_install_apk_why": "Recomendada: las notificaciones llegan aunque cierres el navegador.",
-                    "settings_install_pwa": "Instalar como app web (PWA)",
+                    "settings_install_pwa": "Instalar la app web (PWA)",
                     "install_pwa_manual": "Instalación manual: menú ⋮ del navegador → \"Instalar app\" / \"Añadir a pantalla de inicio\". Si ya está instalada, desinstalá la anterior primero.",
                     "install_pwa_cancelled": "Instalación cancelada.",
                     "install_pwa_done": "Instalada — mirá tu pantalla de inicio.",
@@ -15589,9 +15591,9 @@
                     "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
                     "apk_banner_cta": "Download",
                     "settings_install_title": "Install the app",
-                    "settings_install_apk": "Download the Android app (APK)",
+                    "settings_install_apk": "Download the Android APK",
                     "settings_install_apk_why": "Recommended: notifications arrive even with the browser closed.",
-                    "settings_install_pwa": "Install as a web app (PWA)",
+                    "settings_install_pwa": "Install the web app (PWA)",
                     "install_pwa_manual": "Manual install: browser menu ⋮ → \"Install app\" / \"Add to Home screen\". If it is already installed, uninstall the old one first.",
                     "install_pwa_cancelled": "Install cancelled.",
                     "install_pwa_done": "Installed — check your home screen.",
@@ -15763,9 +15765,9 @@
                     "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",
                     "apk_banner_cta": "Télécharger",
                     "settings_install_title": "Installer l'app",
-                    "settings_install_apk": "Télécharger l'app Android (APK)",
+                    "settings_install_apk": "Télécharger l'APK Android",
                     "settings_install_apk_why": "Recommandée : les notifications arrivent même navigateur fermé.",
-                    "settings_install_pwa": "Installer comme app web (PWA)",
+                    "settings_install_pwa": "Installer l'app web (PWA)",
                     "install_pwa_manual": "Installation manuelle : menu ⋮ du navigateur → « Installer l'application » / « Ajouter à l'écran d'accueil ». Si elle est déjà installée, désinstallez d'abord l'ancienne.",
                     "install_pwa_cancelled": "Installation annulée.",
                     "install_pwa_done": "Installée — voir l'écran d'accueil.",

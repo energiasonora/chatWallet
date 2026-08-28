@@ -130,6 +130,15 @@ await sleep(300);
 ok(await ev(seVe('installAppSection')),
     'en Android la sección "Instalar la app" está en Configuración aunque el banner se haya cerrado');
 ok(await ev(seVe('settingsApkBtn')), 'ofrece el APK');
+// Un <a> es inline: sin `block`, w-full no lo estira y el fondo verde queda en escalera
+// detrás del texto partido en dos renglones. Se mide, no se confía en la clase.
+const cajaApk = JSON.parse(await ev(`(() => { const a = document.getElementById('settingsApkBtn');
+    const cs = getComputedStyle(a), r = a.getBoundingClientRect(), p = a.parentElement.getBoundingClientRect();
+    return JSON.stringify({ display: cs.display, ancho: Math.round(r.width), padre: Math.round(p.width),
+        alto: Math.round(r.height), linea: parseFloat(cs.lineHeight) }); })()`) || '{}');
+ok(cajaApk.display === 'block', `parece un botón y no texto suelto (display: ${cajaApk.display})`);
+ok(cajaApk.ancho === cajaApk.padre, `ocupa todo el ancho (${cajaApk.ancho}px de ${cajaApk.padre}px)`);
+ok(cajaApk.alto <= cajaApk.linea + 20, `y la etiqueta entra en un renglón (alto ${cajaApk.alto}px)`);
 const hrefSettings = await ev(`document.getElementById('settingsApkBtn').href`);
 ok(ASSET_ESPERADO.test(hrefSettings || ''), `y baja el APK firmado (${hrefSettings})`);
 ok(await ev(seVe('settingsPwaBtn')), 'y también deja instalar la PWA, por si la prefiere');
