@@ -1587,7 +1587,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.03 alpha</p>
+            <p class="text-sm text-gray-400">v 3.04 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3527,7 +3527,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.03</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.04</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -15423,6 +15423,7 @@
                     "install_pwa_manual": "Instalación manual: menú ⋮ del navegador → \"Instalar app\" / \"Añadir a pantalla de inicio\". Si ya está instalada, desinstalá la anterior primero.",
                     "install_pwa_cancelled": "Instalación cancelada.",
                     "install_pwa_done": "Instalada — mirá tu pantalla de inicio.",
+                    "apk_download_hint": "Se está bajando. Cuando termine, abrilo desde Descargas o desde la notificación: algunos navegadores se quedan en «Descargando…» aunque el archivo ya esté completo. Si aparece Play Protect, tocá «Más detalles» → «Instalar de todos modos».",
                     "backup_private_key_label": "Clave Privada",
                     "backup_keys_saved": "He guardado mis claves",
                     "init_title": "Crypto Wallet & Chat",
@@ -15597,6 +15598,7 @@
                     "install_pwa_manual": "Manual install: browser menu ⋮ → \"Install app\" / \"Add to Home screen\". If it is already installed, uninstall the old one first.",
                     "install_pwa_cancelled": "Install cancelled.",
                     "install_pwa_done": "Installed — check your home screen.",
+                    "apk_download_hint": "It is downloading. When it finishes, open it from Downloads or from the notification: some browsers stay on “Downloading…” even when the file is already complete. If Play Protect appears, tap “More details” → “Install anyway”.",
                     "backup_private_key_label": "Private Key",
                     "backup_keys_saved": "I have saved my keys",
                     "init_title": "Crypto Wallet & Chat",
@@ -15771,6 +15773,7 @@
                     "install_pwa_manual": "Installation manuelle : menu ⋮ du navigateur → « Installer l'application » / « Ajouter à l'écran d'accueil ». Si elle est déjà installée, désinstallez d'abord l'ancienne.",
                     "install_pwa_cancelled": "Installation annulée.",
                     "install_pwa_done": "Installée — voir l'écran d'accueil.",
+                    "apk_download_hint": "Le téléchargement est en cours. Une fois terminé, ouvrez-le depuis Téléchargements ou la notification : certains navigateurs restent sur « Téléchargement… » même quand le fichier est complet. Si Play Protect apparaît, touchez « Plus de détails » → « Installer quand même ».",
                     "backup_private_key_label": "Clé Privée",
                     "backup_keys_saved": "J'ai sauvegardé mes clés",
                     "init_title": "Crypto Wallet & Chat",
@@ -17541,6 +17544,20 @@
         document.getElementById('pwaInstallBtn').addEventListener('click',
             () => pedirInstalarPwa(document.getElementById('pwaInstallText')));
 
+        // Tocar el botón entrega la descarga al navegador y ahí se pierde el hilo: no hay
+        // evento que avise cuándo terminó. Peor, algunos navegadores (visto en Brave, en una
+        // Custom Tab) se quedan en "Descargando…" con el archivo YA completo — el usuario mira
+        // una barra llena que nunca cambia y no se entera de que el APK está en Descargas.
+        // No se puede arreglar el navegador; sí se puede dejar de callarse qué hacer después.
+        function avisarDescargaApk(destino) {
+            if (!destino) return;
+            destino.textContent = tr('apk_download_hint',
+                'Se está bajando. Cuando termine, abrilo desde Descargas o desde la notificación: algunos navegadores se quedan en «Descargando…» aunque el archivo ya esté completo. Si aparece Play Protect, tocá «Más detalles» → «Instalar de todos modos».');
+        }
+
+        document.getElementById('apkInstallBtn').addEventListener('click',
+            () => avisarDescargaApk(document.getElementById('apkInstallText')));
+
         // ── Configuración → "Instalar la app" ──
         // El mismo par de opciones que los banners, pero permanente: los banners se ocultan
         // con la ✕ para siempre, y quien se arrepiente tiene que poder volver a encontrarlas.
@@ -17557,6 +17574,8 @@
                 apk.classList.remove('hidden');
                 document.getElementById('settingsApkWhy').classList.remove('hidden');
             }
+            document.getElementById('settingsApkBtn').addEventListener('click',
+                () => avisarDescargaApk(document.getElementById('settingsInstallStatus')));
             document.getElementById('settingsPwaBtn').addEventListener('click',
                 () => pedirInstalarPwa(document.getElementById('settingsInstallStatus')));
         })();

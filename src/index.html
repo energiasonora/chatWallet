@@ -304,6 +304,24 @@
             min-height: 46px;
         }
 
+        /* Lo que pasa DESPUÉS de tocar descargar: el navegador se lleva la descarga y no
+           avisa cuándo terminó — en Brave (Custom Tab) se queda en "Descargando…" con el
+           archivo ya completo. Se muestra al tocar el botón. */
+        .hero__apk-note {
+            display: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            color: #cfcfcf;
+            max-width: 32rem;
+            margin: 0.9rem auto 0;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .hero__apk-note.visible {
+            display: block;
+        }
+
         .hero__android-hint {
             display: none;
             font-family: 'Inter', sans-serif;
@@ -1667,6 +1685,19 @@
                         <span lang="fr">✓ Recommandé sur Android : les notifications arrivent même navigateur fermé.</span>
                     </p>
 
+                    <p id="heroApkNote" class="hero__apk-note">
+                        <span lang="en">Downloading. When it finishes, open it from <b>Downloads</b> or from the
+                            notification — some browsers stay on “Downloading…” even when the file is already
+                            complete. If Play Protect appears: “More details” → “Install anyway”.</span>
+                        <span lang="es">Se está bajando. Cuando termine, abrilo desde <b>Descargas</b> o desde la
+                            notificación — algunos navegadores se quedan en «Descargando…» aunque el archivo ya esté
+                            completo. Si aparece Play Protect: «Más detalles» → «Instalar de todos modos».</span>
+                        <span lang="fr">Téléchargement en cours. Une fois terminé, ouvrez-le depuis
+                            <b>Téléchargements</b> ou la notification — certains navigateurs restent sur
+                            « Téléchargement… » même quand le fichier est complet. Si Play Protect apparaît :
+                            « Plus de détails » → « Installer quand même ».</span>
+                    </p>
+
                     <!-- Probar sin instalar: secundario a propósito -->
                     <a href="/dapp" class="intro__try">
                         <span lang="en">or try it in your browser →</span>
@@ -2197,6 +2228,12 @@
         // de verdad; alcanza con el UA porque el único efecto es reordenar dos botones.
         const esAndroid = /Android/i.test(navigator.userAgent) && !/Windows/i.test(navigator.userAgent);
         if (esAndroid && !pwaRunningStandalone) document.body.classList.add('is-android');
+
+        // Al tocar descargar, contar qué sigue: la descarga pasa a manos del navegador y desde
+        // ahí no hay forma de saber cuándo terminó (y a veces el propio navegador miente).
+        document.querySelectorAll('a[href*="releases/latest/download"]').forEach(a => {
+            a.addEventListener('click', () => document.getElementById('heroApkNote').classList.add('visible'));
+        });
 
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();

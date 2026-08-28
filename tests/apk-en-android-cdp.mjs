@@ -65,6 +65,21 @@ ok(await ev(`getComputedStyle(document.querySelector('.hero-btn--pwa')).boxShado
 ok(await ev(`getComputedStyle(document.getElementById('heroInstallBtn')).display !== 'none'`),
     'la PWA sigue disponible para quien la quiera');
 
+// Al tocar descargar, la landing tiene que contar qué sigue: la descarga se va al
+// navegador y desde ahí no hay evento de "terminó" (y Brave se queda en "Descargando…"
+// con el archivo ya completo). Se previene la navegación para no bajar 21 MB en el test.
+ok(await ev(`!document.getElementById('heroApkNote').classList.contains('visible')`),
+    'la nota de "qué hacer después" no molesta hasta que hace falta');
+await ev(`(() => { const a = document.querySelector('.hero-btn--apk');
+    a.addEventListener('click', e => e.preventDefault(), { once: true }); a.click(); })()`);
+await sleep(300);
+const notaHero = await ev(`document.getElementById('heroApkNote').innerText`);
+ok(await ev(`getComputedStyle(document.getElementById('heroApkNote')).display !== 'none'`),
+    'al tocar descargar aparece qué hacer cuando termine');
+ok(/Descargas|Downloads|Téléchargements/.test(notaHero || ''),
+    'dice dónde va a quedar el archivo');
+ok(/Play Protect/.test(notaHero || ''), 'y avisa del cartel de Play Protect');
+
 // Que apunte al APK firmado (producción), no al puente en dev.
 const hrefs = await ev(`JSON.stringify([...document.querySelectorAll('a[href*="releases/latest/download"]')].map(a => a.href))`);
 const lista = JSON.parse(hrefs || '[]');
@@ -139,6 +154,13 @@ const cajaApk = JSON.parse(await ev(`(() => { const a = document.getElementById(
 ok(cajaApk.display === 'block', `parece un botón y no texto suelto (display: ${cajaApk.display})`);
 ok(cajaApk.ancho === cajaApk.padre, `ocupa todo el ancho (${cajaApk.ancho}px de ${cajaApk.padre}px)`);
 ok(cajaApk.alto <= cajaApk.linea + 20, `y la etiqueta entra en un renglón (alto ${cajaApk.alto}px)`);
+// Mismo aviso que en la landing, acá en Configuración.
+await ev(`(() => { const a = document.getElementById('settingsApkBtn');
+    a.addEventListener('click', e => e.preventDefault(), { once: true }); a.click(); })()`);
+await sleep(300);
+const notaCfg = await ev(`document.getElementById('settingsInstallStatus').textContent`);
+ok(/Descargas|Downloads|Téléchargements/.test(notaCfg || '') && /Play Protect/.test(notaCfg || ''),
+    'al tocarlo explica dónde queda el archivo y el cartel de Play Protect');
 const hrefSettings = await ev(`document.getElementById('settingsApkBtn').href`);
 ok(ASSET_ESPERADO.test(hrefSettings || ''), `y baja el APK firmado (${hrefSettings})`);
 ok(await ev(seVe('settingsPwaBtn')), 'y también deja instalar la PWA, por si la prefiere');
