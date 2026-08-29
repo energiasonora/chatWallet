@@ -110,6 +110,42 @@ ok(await ev(`getComputedStyle(document.getElementById('userCardCopyIcon')).displ
 ok(await esperar(`!document.getElementById('userCardCopyIcon').classList.contains('hidden')`, 5),
     'y al rato vuelve a ser un botón de copiar');
 
+// ────────────────── 3. apoyar el proyecto (modal de marca) ──────────────────
+console.log('\n── modal de marca: apoyar / GitHub ──');
+
+await ev(`(() => { const m = document.getElementById('brandModal');
+    m.classList.remove('hidden'); m.classList.add('flex'); return true; })()`);
+await sleep(300);
+
+// Ningún link puede apuntar a /presale: la ruta tiene rewrite a un archivo inexistente.
+const muertos = JSON.parse(await ev(`JSON.stringify(
+    [...document.querySelectorAll('#brandModal a')].map(a => ({ href: a.getAttribute('href'), txt: a.innerText.trim() })))`) || '[]');
+ok(!muertos.some(a => /presale/.test(a.href || '')), 'no queda ningún link a /presale');
+ok(!muertos.some(a => /buy token/i.test(a.txt || '')), 'ya no ofrece un token que no existe');
+
+const apoyo = muertos.find(a => /book\.html/.test(a.href || ''));
+ok(!!apoyo, `hay una vía para apoyar y va al libro (${apoyo ? apoyo.href : 'no está'})`);
+ok(/^https:\/\//.test(apoyo ? apoyo.href : ''),
+    'con URL absoluta, que dentro de la APK una relativa sería localhost');
+ok(await ev(`document.getElementById('brandModal').innerText.includes('libro')
+    || document.getElementById('brandModal').innerText.toLowerCase().includes('book')
+    || document.getElementById('brandModal').innerText.toLowerCase().includes('livre')`),
+    'y explica que el proyecto se financia con el libro');
+
+// GitHub deja de ser un botón del mismo peso que el de apoyar.
+const pesos = JSON.parse(await ev(`(() => {
+    const links = [...document.querySelectorAll('#brandModal a')];
+    const gh = links.find(a => /github/i.test(a.href));
+    const sup = links.find(a => /book\.html/.test(a.href));
+    const r = e => { const b = e.getBoundingClientRect(); const cs = getComputedStyle(e);
+        return { ancho: Math.round(b.width), fondo: cs.backgroundColor, display: cs.display }; };
+    return JSON.stringify({ gh: r(gh), sup: r(sup) });
+})()`) || '{}');
+ok(pesos.gh && pesos.sup && pesos.gh.ancho < pesos.sup.ancho,
+    `GitHub queda como link, no como botón ancho (${pesos.gh?.ancho}px vs ${pesos.sup?.ancho}px)`);
+ok(/rgba\(0, 0, 0, 0\)|transparent/.test(pesos.gh?.fondo || ''),
+    'sin fondo de botón');
+
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);
 ws.close();
 process.exit(fails === 0 ? 0 : 1);

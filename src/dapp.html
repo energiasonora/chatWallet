@@ -1626,7 +1626,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.05 alpha</p>
+            <p class="text-sm text-gray-400">v 3.06 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1639,16 +1639,21 @@
             </button>
             <p id="updateStatus" class="text-xs text-gray-400 min-h-[1rem]"></p>
             <div class="space-y-2 pt-2">
-                <!-- <a href="https://chatwallet.org/presale" target="_blank" rel="noopener noreferrer"
-                    class="inline-block w-full px-4 py-2 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors duration-200">
-                    Buy Token
-                </a> -->
-                <a href="/presale" target="_blank" rel="noopener noreferrer"
-                    class="inline-block w-full px-4 py-2 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors duration-200">
-                    Buy Token
+                <!-- Apoyar = comprar el libro. No hay token ni preventa: el proyecto se financia
+                     así, y el botón "Buy Token" que estaba acá apuntaba a /presale, una ruta con
+                     rewrite a un archivo que no existe (404 en la web, nada en la APK).
+                     URL absoluta a propósito: dentro de la APK una relativa sería localhost. -->
+                <a href="https://chatwallet.org/book.html" target="_blank" rel="noopener noreferrer"
+                    class="block w-full px-4 py-2 font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500 transition-colors duration-200"
+                    data-i18n-key="brand_support_cta">
+                    Apoyá el proyecto
                 </a>
+                <p class="text-xs text-gray-400 leading-snug" data-i18n-key="brand_support_why">
+                    Se financia con el libro «Cripto para Soberanos». Sin inversores, sin token.
+                </p>
                 <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
-                    class="inline-block w-full px-4 py-2 font-semibold text-white bg-gray-600 rounded-lg hover:bg-gray-500 transition-colors duration-200">
+                    class="inline-block pt-1 text-sm text-indigo-400 hover:underline"
+                    data-i18n-key="settings_github_link">
                     Ver en GitHub
                 </a>
             </div>
@@ -3581,7 +3586,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.05</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.06</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -15514,6 +15519,8 @@
                     "install_pwa_manual": "Instalación manual: menú ⋮ del navegador → \"Instalar app\" / \"Añadir a pantalla de inicio\". Si ya está instalada, desinstalá la anterior primero.",
                     "install_pwa_cancelled": "Instalación cancelada.",
                     "install_pwa_done": "Instalada — mirá tu pantalla de inicio.",
+                    "brand_support_cta": "Apoyá el proyecto",
+                    "brand_support_why": "Se financia con el libro «Cripto para Soberanos». Sin inversores, sin token.",
                     "apk_download_hint": "Se está bajando. Cuando termine, abrilo desde Descargas o desde la notificación: algunos navegadores se quedan en «Descargando…» aunque el archivo ya esté completo. Si aparece Play Protect, tocá «Más detalles» → «Instalar de todos modos».",
                     "backup_private_key_label": "Clave Privada",
                     "backup_keys_saved": "He guardado mis claves",
@@ -15689,6 +15696,8 @@
                     "install_pwa_manual": "Manual install: browser menu ⋮ → \"Install app\" / \"Add to Home screen\". If it is already installed, uninstall the old one first.",
                     "install_pwa_cancelled": "Install cancelled.",
                     "install_pwa_done": "Installed — check your home screen.",
+                    "brand_support_cta": "Support the project",
+                    "brand_support_why": "It is funded by the book “Cripto para Soberanos”. No investors, no token.",
                     "apk_download_hint": "It is downloading. When it finishes, open it from Downloads or from the notification: some browsers stay on “Downloading…” even when the file is already complete. If Play Protect appears, tap “More details” → “Install anyway”.",
                     "backup_private_key_label": "Private Key",
                     "backup_keys_saved": "I have saved my keys",
@@ -15864,6 +15873,8 @@
                     "install_pwa_manual": "Installation manuelle : menu ⋮ du navigateur → « Installer l'application » / « Ajouter à l'écran d'accueil ». Si elle est déjà installée, désinstallez d'abord l'ancienne.",
                     "install_pwa_cancelled": "Installation annulée.",
                     "install_pwa_done": "Installée — voir l'écran d'accueil.",
+                    "brand_support_cta": "Soutenir le projet",
+                    "brand_support_why": "Financé par le livre « Cripto para Soberanos ». Sans investisseurs, sans token.",
                     "apk_download_hint": "Le téléchargement est en cours. Une fois terminé, ouvrez-le depuis Téléchargements ou la notification : certains navigateurs restent sur « Téléchargement… » même quand le fichier est complet. Si Play Protect apparaît, touchez « Plus de détails » → « Installer quand même ».",
                     "backup_private_key_label": "Clé Privée",
                     "backup_keys_saved": "J'ai sauvegardé mes clés",
