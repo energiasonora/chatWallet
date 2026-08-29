@@ -699,6 +699,45 @@
             margin-bottom: 1rem;
         }
 
+        /* La dirección y el botón de copiar en la misma fila; la dirección se parte en
+           varias líneas, así que el botón se alinea arriba y no al medio del bloque. */
+        #userCardAddressRow {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: .4rem;
+            margin-bottom: 1rem;
+        }
+
+        /* min-width:0 es lo que deja que la dirección se parta: por defecto un item de flex
+           no encoge más allá de su contenido, y el hexa largo empujaba el botón fuera de la
+           tarjeta. break-all porque no tiene espacios donde cortar. */
+        #userInfoCard #userCardAddressRow p {
+            margin-bottom: 0;
+            min-width: 0;
+            word-break: break-all;
+        }
+
+        #userCardCopyBtn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #818cf8;
+            padding: 2px;
+            margin-top: 1px;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        #userCardCopyBtn:hover {
+            color: #a5b4fc;
+        }
+
+        #userCardCopyBtn .hidden {
+            display: none;
+        }
+
         #userCardLinks {
             display: flex;
             flex-direction: column;
@@ -1587,7 +1626,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.04 alpha</p>
+            <p class="text-sm text-gray-400">v 3.05 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1787,7 +1826,22 @@
              abajo el apodo local que VOS le pusiste al contacto (si difieren). -->
         <h4 id="userCardName"></h4>
         <p id="userCardLocalName" class="hidden"></p>
-        <p id="userCardAddress" class="font-mono"></p>
+        <div id="userCardAddressRow">
+            <p id="userCardAddress" class="font-mono"></p>
+            <button type="button" id="userCardCopyBtn" title="Copiar la dirección">
+                <svg id="userCardCopyIcon" xmlns="http://www.w3.org/2000/svg" width="15" height="15"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                <svg id="userCardCopiedIcon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="15" height="15"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+            </button>
+        </div>
         <!-- Links del DID del contacto (poblados desde el perfil soberano recibido por XMTP) -->
         <div id="userCardLinks"></div>
     </div>
@@ -3527,7 +3581,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.04</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.05</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -10975,6 +11029,11 @@
                 const m = el && el.textContent.match(/(\d+)\.(\d+)/);
                 return m ? [parseInt(m[1], 10), parseInt(m[2], 10)] : [0, 0];
             }
+            // Se compara por componentes, pero se MUESTRA con el minor de dos dígitos: el
+            // esquema real es "3.01" y escribir "3.1" nombra una versión que no existe — y que
+            // encima parece anterior a la 3.04 que sirve la web.
+            const fmtVersion = v => `${v[0]}.${String(v[1]).padStart(2, '0')}`;
+
             // Compara "X.YY" por componente (NO como float: 1.32 > 1.4 porque minor 32 > 4).
             function isNewerVersion(latest, current) {
                 if (latest[0] !== current[0]) return latest[0] > current[0];
@@ -11002,7 +11061,7 @@
                     if (!latest) throw new Error('release sin versión');
 
                     if (isNewerVersion(latest, current)) {
-                        const vStr = `v${latest[0]}.${latest[1]}`;
+                        const vStr = `v${fmtVersion(latest)}`;
                         status.className = 'mt-2 min-h-[1rem] text-green-400';
                         if (NativeUpdater) {
                             // APK: ofrecer descargar + instalar directamente.
@@ -11019,7 +11078,7 @@
                         }
                     } else {
                         status.className = 'mt-2 min-h-[1rem] text-gray-400';
-                        status.textContent = `Estás al día (v${current[0]}.${current[1]}).`;
+                        status.textContent = `Estás al día (v${fmtVersion(current)}).`;
                     }
                 } catch (e) {
                     console.warn('checkForUpdates:', e);
@@ -14325,6 +14384,38 @@
                 closeUserCard.addEventListener('click', () => {
                     const userInfoCard = document.getElementById('userInfoCard');
                     if (userInfoCard) userInfoCard.style.display = 'none';
+                });
+            }
+
+            // Copiar la dirección del contacto. Mismo gesto que el de la propia dirección:
+            // el ícono se convierte en un tilde un momento en vez de sólo tirar un toast.
+            const userCardCopyBtn = document.getElementById('userCardCopyBtn');
+            if (userCardCopyBtn) {
+                let userCardCopiedTimer = null;
+                userCardCopyBtn.addEventListener('click', async () => {
+                    const addr = document.getElementById('userCardAddress').textContent.trim();
+                    if (!addr) return;
+                    try {
+                        await navigator.clipboard.writeText(addr);
+                    } catch (e) {
+                        console.warn('copiar dirección:', e);
+                        showToast('No se pudo copiar', 'error');
+                        return;
+                    }
+                    const copyIcon = document.getElementById('userCardCopyIcon');
+                    const okIcon = document.getElementById('userCardCopiedIcon');
+                    clearTimeout(userCardCopiedTimer);   // volver a tocar reinicia, no acumula timers
+                    copyIcon.classList.add('hidden');
+                    okIcon.classList.remove('hidden');
+                    okIcon.classList.remove('cw-copied-pop');
+                    void okIcon.offsetWidth;             // reinicia la animación si ya estaba puesta
+                    okIcon.classList.add('cw-copied-pop');
+                    showToast('Dirección copiada', 'success');
+                    userCardCopiedTimer = setTimeout(() => {
+                        okIcon.classList.add('hidden');
+                        okIcon.classList.remove('cw-copied-pop');
+                        copyIcon.classList.remove('hidden');
+                    }, 1600);
                 });
             }
 
