@@ -1652,7 +1652,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.07 alpha</p>
+            <p class="text-sm text-gray-400">v 3.08 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3612,7 +3612,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.07</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.08</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -4564,6 +4564,13 @@
             const WALLET_MNEMONIC_KEY = 'xmtp-chat-wallet-mnemonic';
             // '1' cuando el usuario confirmó "He guardado mis claves" — apaga el recordatorio.
             const WALLET_BACKUP_DONE_KEY = 'xmtp-chat-wallet-backup-done';
+            // De dónde salió esta wallet: 'invitacion' = se creó sola al tocar un link para
+            // chatear; 'propia' = la pidió el usuario. Sin marca se asume 'propia', así que
+            // ninguna wallet ya existente cambia de conducta.
+            const WALLET_ORIGIN_KEY = 'cw-wallet-origen';
+            // Por wallet, como LAST_PAID_KEY: una vez que tuvo fondos no se apaga más, aunque
+            // después se vacíe. Haber tenido plata ya justifica el aviso para siempre.
+            const WALLET_HAD_FUNDS_KEY = () => `cw-wallet-con-fondos-${currentWallet?.address?.toLowerCase()}`;
             const CONTACTS_STORAGE_KEY = 'xmtp-chat-contacts';
             const NETWORKS_STORAGE_KEY = 'xmtp-chat-networks';
             const SELECTED_NETWORK_KEY = 'xmtp-chat-selected-network';
@@ -5543,6 +5550,9 @@
 
 
                     setBalanceText('gas', `${nativeBalanceFormatted} ${nativeSymbol}`);
+                    // No es sólo "recibiste": una wallet que YA venía con saldo también tiene
+                    // algo que perder, aunque el cobro no haya pasado por esta app.
+                    if (parseFloat(nativeBalanceFormatted) > 0) marcarWalletConFondos();
                     gasBalanceValue.classList.toggle('text-red-400', parseFloat(nativeBalanceFormatted) < 0.001);
                     localStorage.setItem('currentRpcIndex', currentRpcIndex); // Guardar el RPC que funcionó
                     // localStorage.setItem('currentRpcIndex', currentRpcIndex); // Guardar el RPC que funcionó
@@ -5571,6 +5581,7 @@
                         // const formattedBalance = parseFloat(ethers.formatUnits(balanceWei, decimals)).toFixed(4);
                         console.log("erc20 balance:", formattedBalance);
 
+                        if (formattedBalance > 0) marcarWalletConFondos();
                         setBalanceText('main', `${formattedBalance} ${tokenLabel}`);
                         // El modal de envío muestra el saldo del TOKEN que se va a enviar (no el gas nativo)
                         setModalBalance(formattedBalance, tokenLabel, false);
@@ -5651,6 +5662,7 @@
                     source: source || 'chat'
                 };
                 try { localStorage.setItem(LAST_PAID_KEY(), JSON.stringify(entry)); } catch (e) { }
+                marcarWalletConFondos();   // ahora sí hay algo que perder: el aviso se gana
 
                 const current = optionsList[currentTokenIndex];
                 if (current && netId(current) === entry.id) return;   // ya estás mirando esa red
@@ -12813,9 +12825,13 @@
                     statusEl.textContent = "Creando billetera para chatear...";
                     const randomWallet = window.Wallet.createRandom();
                     localStorage.setItem(WALLET_STORAGE_KEY, randomWallet.privateKey);
-                    rememberCreatedMnemonic(randomWallet);
+                    // Vino a chatear, no a abrir una billetera: la wallet es un medio, no el
+                    // tema. El aviso de respaldo espera a que haya fondos (ver
+                    // updateBackupNagBanner); el acceso al backup vive en Configuración desde
+                    // el primer arranque.
+                    rememberCreatedMnemonic(randomWallet, 'invitacion');
                     await initializeWalletAndXmtp(randomWallet, true);
-                    showToast('wallet creada, <a href="#" onclick="openBackupModal()" class="underline font-bold">backup</a> | <a href="#" onclick="openRestoreModal()" class="underline font-bold">restore wallet</a>', 'success', 10000);
+                    showToast(t('toast_wallet_lista'), 'success', 4000);
                 }
 
                 if (isStealthAddress(address)) {
@@ -15141,8 +15157,16 @@
             const closeBackupModal = document.getElementById('closeBackupModal'); // Botón 'X'
             const backupNagBanner = document.getElementById('backupNagBanner');
 
-            function rememberCreatedMnemonic(wallet) {
+            function rememberCreatedMnemonic(wallet, origen = 'propia') {
                 if (wallet && wallet.mnemonic && wallet.mnemonic.phrase) {
+                    localStorage.setItem(WALLET_ORIGIN_KEY, origen);
+                    // Una wallet que nace HOY no vivió la mudanza. avisarMudanzaUnaVez() decide
+                    // por contacts.length, pero corre después del sync de XMTP: para quien entra
+                    // por un link, el contacto que lo invitó ya está cargado y el aviso salía —
+                    // contándole a un recién llegado que "sus grupos hay que rehacerlos".
+                    if (!localStorage.getItem(MUDANZA_AVISADA_KEY)) {
+                        localStorage.setItem(MUDANZA_AVISADA_KEY, 'nuevo');
+                    }
                     localStorage.setItem(WALLET_MNEMONIC_KEY, wallet.mnemonic.phrase);
                     localStorage.removeItem(WALLET_BACKUP_DONE_KEY); // wallet nueva: backup pendiente
                     // Silenciar el aviso de la wallet anterior no puede silenciar el de la nueva.
@@ -15174,13 +15198,44 @@
             // va de verdad al confirmar "He guardado mis claves".
             const BACKUP_NAG_DISMISSED_KEY = 'cw-backup-nag-dismissed';
 
+            // Una wallet que se creó sola para chatear y nunca tuvo un centavo no tiene todavía
+            // nada que perder en plata: el aviso rojo llega antes de que la persona entienda qué
+            // es una frase semilla, y lo único que logra es asustarla. Se calla hasta que entren
+            // fondos. OJO: sin la frase igual se pierde la identidad de chat y el historial —
+            // por eso el backup NO se esconde, sigue en Configuración desde el primer arranque.
+            function walletTuvoFondos() {
+                return !!currentWallet && !!localStorage.getItem(WALLET_HAD_FUNDS_KEY());
+            }
+
+            // Se llama desde los dos lugares que ya saben que hay plata: recordIncomingPayment()
+            // (entró un cobro) y updateBalance() (ya tenía saldo). Idempotente.
+            function marcarWalletConFondos() {
+                if (!currentWallet || walletTuvoFondos()) return;
+                try { localStorage.setItem(WALLET_HAD_FUNDS_KEY(), String(Date.now())); } catch (e) { }
+                updateBackupNagBanner();
+            }
+
             // Banner rojo persistente: wallet creada acá + frase disponible + backup sin confirmar.
             function updateBackupNagBanner() {
                 if (!backupNagBanner) return;
+                const porInvitacion = localStorage.getItem(WALLET_ORIGIN_KEY) === 'invitacion';
+                const conFondos = walletTuvoFondos();
                 const show = !!currentWallet
                     && !localStorage.getItem(WALLET_BACKUP_DONE_KEY)
                     && !sessionStorage.getItem(BACKUP_NAG_DISMISSED_KEY)
-                    && !!getStoredMnemonic();
+                    && !!getStoredMnemonic()
+                    && (!porInvitacion || conFondos);
+                // Si aparece recién ahora porque entró plata, hay que decir por qué: un cartel
+                // rojo que se materializa sin explicación se lee como que algo se rompió.
+                // Selector por prefijo, no el primer [data-i18n-key] que aparezca: en el banner
+                // también vive el botón (backup_nag_cta) y un reordenamiento del markup lo haría
+                // ganar en silencio, escribiendo el texto del aviso encima del botón.
+                const textoEl = backupNagBanner.querySelector('[data-i18n-key^="backup_nag_text"]');
+                if (textoEl) {
+                    const key = (porInvitacion && conFondos) ? 'backup_nag_text_fondos' : 'backup_nag_text';
+                    textoEl.dataset.i18nKey = key;   // así translateUI lo sigue al cambiar de idioma
+                    textoEl.textContent = t(key);
+                }
                 backupNagBanner.classList.toggle('hidden', !show);
                 backupNagBanner.classList.toggle('flex', show);
             }
@@ -15549,6 +15604,8 @@
                     "cancel_button": "Cancelar",
                     "backup_mnemonic_label": "Frase Mnemónica (12 palabras)",
                     "backup_nag_text": "Respaldá tu frase secreta: sin backup, perder este dispositivo es perder tu billetera.",
+                    "backup_nag_text_fondos": "Ya tenés fondos: respaldá tu frase secreta. Sin ella, perder este dispositivo es perder la billetera.",
+                    "toast_wallet_lista": "Listo, ya podés chatear.",
                     "backup_nag_cta": "Respaldar",
                     "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
                     "apk_banner_cta": "Descargar",
@@ -15726,6 +15783,8 @@
                     "cancel_button": "Cancel",
                     "backup_mnemonic_label": "Mnemonic Phrase (12 words)",
                     "backup_nag_text": "Back up your secret phrase: without a backup, losing this device means losing your wallet.",
+                    "backup_nag_text_fondos": "You have funds now: back up your secret phrase. Without it, losing this device means losing the wallet.",
+                    "toast_wallet_lista": "All set — you can chat now.",
                     "backup_nag_cta": "Back up",
                     "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
                     "apk_banner_cta": "Download",
@@ -15903,6 +15962,8 @@
                     "cancel_button": "Annuler",
                     "backup_mnemonic_label": "Phrase Mnémonique (12 mots)",
                     "backup_nag_text": "Sauvegardez votre phrase secrète : sans copie, perdre cet appareil c'est perdre votre portefeuille.",
+                    "backup_nag_text_fondos": "Vous avez des fonds : sauvegardez votre phrase secrète. Sans elle, perdre cet appareil c'est perdre le portefeuille.",
+                    "toast_wallet_lista": "C'est prêt, vous pouvez discuter.",
                     "backup_nag_cta": "Sauvegarder",
                     "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",
                     "apk_banner_cta": "Télécharger",
