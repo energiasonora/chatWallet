@@ -1652,7 +1652,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.09 alpha</p>
+            <p class="text-sm text-gray-400">v 3.10 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3612,7 +3612,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.09</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.10</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -9575,6 +9575,16 @@
                                     return;
                                 }
 
+                                // De dónde salió este par (QR o enlace). Se aprende al LLEGAR, no al
+                                // dibujar: el handshake se renderiza antes que el saludo, así que
+                                // aprenderlo en el render dejaba la primera apertura en genérico.
+                                if (!isSentByMe && origenDeSaludo(message.content)) {
+                                    try {
+                                        const { key: parPeer } = await resolveChatKey(message, false);
+                                        recordarOrigenDePar(parPeer, origenDeSaludo(message.content));
+                                    } catch (e) { console.warn('origen del par:', e); }
+                                }
+
                                 if (!isSentByMe && typeof message.content === 'string' && message.content.startsWith('[TRANSACTION]')) {
                                     console.log('Incoming transaction detected, refreshing balance.');
                                     // El emisor manda su objeto de red completo: eso identifica
@@ -10691,43 +10701,38 @@
                     messageRow.className = 'handshake-message';
                     const handshakeData = JSON.parse(messageContent);
                     const initiatorInbox = handshakeData.initiatedByInboxId;
-                    const addedInboxesIds = handshakeData.addedInboxes.map(inbox => inbox.inboxId);
 
-                    const shortInbox = id => id.substring(0, 10);
-                    // El número corto es el INBOX ID de XMTP, no la address. Mostramos "<address> (id: <inboxId>)".
-                    const fmtParty = (addr, inboxId) => {
-                        if (addr) {
-                            const contact = contacts.find(c => c.address && c.address.toLowerCase() === addr.toLowerCase());
-                            const label = contact ? contact.name : `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-                            return `${label} (id: ${shortInbox(inboxId)}…)`;
-                        }
-                        return `id: ${shortInbox(inboxId)}…`;
-                    };
+                    // Esta línea se DIBUJA en cada dispositivo a partir del evento del protocolo,
+                    // así que es la única que puede estar en el idioma de quien mira y hablarle de
+                    // vos/él. (El saludo de texto queda congelado en el idioma de quien lo mandó:
+                    // por eso el que informa es este renglón y aquél va oculto.)
+                    // Antes decía "Contacto iniciado por 0x… (id: 78442c84bc…) y se agregó a 0x…
+                    // (id: 5f314c54ef…)": dos inbox ids que no significan nada para nadie, y era lo
+                    // primero que veía alguien que acababa de instalar la app.
+                    const loIniciéYo = !!(window.chatwalletxmtp && initiatorInbox
+                        && initiatorInbox === window.chatwalletxmtp.inboxId);
+                    const origen = origenDePar(currentChatContact && currentChatContact.address);   // 'qr' | 'link' | null
+                    const clave = `pair_line_${origen || 'generic'}_${loIniciéYo ? 'mine' : 'theirs'}`;
 
                     const contentSpan = document.createElement('span');
                     contentSpan.className = 'content';
-                    // Fecha-hora exacta del handshake (cuándo se inició el contacto)
                     const hsDate = autoDetectDate(message.sentAtNs);
                     const hsWhen = hsDate
                         ? ` · ${hsDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${hsDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`
                         : '';
-                    const render = (initiatorAddr, addedAddrs) => {
-                        let s = `🤝 Contacto iniciado por ${fmtParty(initiatorAddr, initiatorInbox)}`;
-                        if (addedInboxesIds.length) {
-                            const addedStr = addedInboxesIds
-                                .map((ib, i) => fmtParty(addedAddrs && addedAddrs[i], ib))
-                                .join(', ');
-                            s += ` y se agregó a ${addedStr}`;
-                        }
-                        contentSpan.textContent = s + hsWhen;
-                    };
-                    render(null, null); // render inmediato con el inbox id; luego resolvemos la address
+                    contentSpan.textContent = `🤝 ${t(clave)}${hsWhen}`;
                     messageRow.appendChild(contentSpan);
 
-                    Promise.all([
-                        getAddressFromInboxId(initiatorInbox),
-                        Promise.all(addedInboxesIds.map(ib => getAddressFromInboxId(ib)))
-                    ]).then(([initAddr, addedAddrs]) => render(initAddr, addedAddrs)).catch(() => {});
+                    // Ya no hace falta resolver inboxId→address: el renglón no nombra a nadie.
+                } else if (!currentGroup && origenDeSaludo(messageContent)) {
+                    // El saludo de par ya cumplió su trabajo (notificar del otro lado). En el hilo
+                    // sería un segundo renglón diciendo lo mismo que la línea 🤝, y encima en el
+                    // idioma del que lo mandó. Se aprovecha para aprender de dónde salió el par y
+                    // que la línea 🤝 pueda decir "escaneó tu QR" en vez de sólo "inició".
+                    if (currentChatContact) {
+                        recordarOrigenDePar(currentChatContact.address, origenDeSaludo(messageContent));
+                    }
+                    return;
 
                 } else {
                     messageRow.className = `w-full flex ${type === 'sent' ? 'justify-end' : 'justify-start'}`;
@@ -12895,13 +12900,47 @@
                 return null;
             }
 
+            // El saludo de par existe para UNA cosa: disparar la notificación y el wake push del
+            // otro lado. En el hilo no aporta — la línea 🤝 del handshake cuenta lo mismo, en el
+            // idioma de quien mira y desde su punto de vista, mientras que este texto queda
+            // congelado en el idioma de quien lo mandó. Así que se manda y no se dibuja.
+            // Se reconoce por su forma (no hay un tipo de contenido propio) e incluye las formas
+            // VIEJAS, con nombre: quien todavía no actualizó las sigue enviando.
+            const FORMAS_DE_SALUDO = [
+                { origen: 'qr', re: /escaneando (el|tu) QR|scanning (the|your) QR|scannant (le|ton) QR/i },
+                { origen: 'link', re: /enlace de invitaci[oó]n|invitation link|lien d[’']invitation/i },
+            ];
+            function origenDeSaludo(texto) {
+                // El 👋 inicial acota los falsos positivos: alguien podría escribir a mano una
+                // frase parecida, y esconderle un mensaje propio sería peor que mostrar uno de más.
+                if (typeof texto !== 'string' || !texto.startsWith('👋 ')) return null;
+                const m = FORMAS_DE_SALUDO.find(f => f.re.test(texto));
+                return m ? m.origen : null;
+            }
+
+            // Cómo se estrenó el par, para poder contarlo en la línea del handshake. Lo sabe quien
+            // escanea (se lo pasa handleScannedAddress) y lo deduce quien recibe, leyendo el saludo
+            // justo antes de ocultarlo.
+            // NO va en el contacto: cuando el saludo llega, quien lo recibe todavía no tiene al
+            // otro en la agenda (el contacto se crea después, en el mismo flujo), así que
+            // guardarlo ahí se perdía en silencio y el renglón quedaba en genérico.
+            const PAR_ORIGEN_KEY = a => `cw-par-origen-${(a || '').toLowerCase()}`;
+            function recordarOrigenDePar(address, origen) {
+                if (!address || !origen) return;
+                try { localStorage.setItem(PAR_ORIGEN_KEY(address), origen); } catch (e) { }
+            }
+            function origenDePar(address) {
+                if (!address) return null;
+                try { return localStorage.getItem(PAR_ORIGEN_KEY(address)); } catch (e) { return null; }
+            }
+
             async function sendPairGreeting(contact, origin) {
                 if (isOffline || !contact || contact.isGroup) return;   // en frío se compone por QR, no hay red
                 // Escanear el propio QR no es estrenar un par: no hay a quién avisarle.
                 if (currentWallet && contact.address.toLowerCase() === currentWallet.address.toLowerCase()) return;
-                const me = readOwnProfile();
-                const name = (me && me.alias) ? me.alias
-                    : (currentWallet ? `${currentWallet.address.slice(0, 6)}...${currentWallet.address.slice(-4)}` : '');
+                // El texto ya no nombra a nadie: escrito una vez y leído por los dos, cualquier
+                // nombre queda en tercera persona para quien lo mandó. Quién fue lo dice la línea
+                // 🤝, que cada lado dibuja a su manera.
                 // startChatWithContact NO deja la conversación lista al volver: si XMTP todavía
                 // está arrancando, startOrLoadConversation se re-agenda con setTimeout y retorna
                 // enseguida. Mirar una sola vez daba por perdido el saludo justo en el caso para
@@ -12912,7 +12951,8 @@
                     console.warn('sendPairGreeting: la conversación no quedó lista, no se saluda.');
                     return;
                 }
-                const text = t(origin === 'link' ? 'chat_greeting_link' : 'chat_greeting_qr', { name });
+                recordarOrigenDePar(contact.address, origin === 'link' ? 'link' : 'qr');
+                const text = t(origin === 'link' ? 'chat_greeting_link' : 'chat_greeting_qr');
                 try {
                     await conv.sendText(text);
                     pingWake(conv);                              // despertar el APK del contacto
@@ -15725,8 +15765,14 @@
                     "pay_qr_rate": "1 USDC = {precio} {moneda} · spread del protocolo {spread} %",
                     "pay_qr_rate_old": "cotización de hace {min} min",
                     "pay_qr_rate_fail": "No pude traer la cotización ahora.",
-                    "chat_greeting_qr": "👋 {name} inició este contacto escaneando tu QR.",
-                    "chat_greeting_link": "👋 {name} inició este contacto desde tu enlace de invitación.",
+                    "chat_greeting_qr": "👋 Contacto iniciado escaneando el QR.",
+                    "chat_greeting_link": "👋 Contacto iniciado desde el enlace de invitación.",
+                    "pair_line_qr_mine": "Escaneaste su QR",
+                    "pair_line_qr_theirs": "Escaneó tu QR",
+                    "pair_line_link_mine": "Entraste por su enlace de invitación",
+                    "pair_line_link_theirs": "Entró por tu enlace de invitación",
+                    "pair_line_generic_mine": "Iniciaste este contacto",
+                    "pair_line_generic_theirs": "Inició este contacto",
                     "settings_archive_identity_done": "Volviste a tu identidad anterior: {alias}",
                     "settings_coldtx_title": "Transacción fría ❄",
                     "settings_coldtx_desc": "Prepará una transacción para que la firme una wallet en modo frío, y transmitila cuando te devuelvan el QR firmado.",
@@ -15904,8 +15950,14 @@
                     "pay_qr_rate": "1 USDC = {precio} {moneda} · protocol spread {spread} %",
                     "pay_qr_rate_old": "quote is {min} min old",
                     "pay_qr_rate_fail": "Could not fetch the quote right now.",
-                    "chat_greeting_qr": "👋 {name} started this contact by scanning your QR.",
-                    "chat_greeting_link": "👋 {name} started this contact from your invitation link.",
+                    "chat_greeting_qr": "👋 Contact started by scanning the QR.",
+                    "chat_greeting_link": "👋 Contact started from the invitation link.",
+                    "pair_line_qr_mine": "You scanned their QR",
+                    "pair_line_qr_theirs": "They scanned your QR",
+                    "pair_line_link_mine": "You came in through their invitation link",
+                    "pair_line_link_theirs": "They came in through your invitation link",
+                    "pair_line_generic_mine": "You started this contact",
+                    "pair_line_generic_theirs": "They started this contact",
                     "settings_archive_identity_done": "You are back to your previous identity: {alias}",
                     "settings_coldtx_title": "Cold transaction ❄",
                     "settings_coldtx_desc": "Prepare a transaction for a cold-storage wallet to sign, then broadcast it once you get the signed QR back.",
@@ -16083,8 +16135,14 @@
                     "pay_qr_rate": "1 USDC = {precio} {moneda} · spread du protocole {spread} %",
                     "pay_qr_rate_old": "cotation d'il y a {min} min",
                     "pay_qr_rate_fail": "Impossible de récupérer la cotation pour le moment.",
-                    "chat_greeting_qr": "👋 {name} a démarré ce contact en scannant ton QR.",
-                    "chat_greeting_link": "👋 {name} a démarré ce contact depuis ton lien d\u2019invitation.",
+                    "chat_greeting_qr": "👋 Contact démarré en scannant le QR.",
+                    "chat_greeting_link": "👋 Contact démarré depuis le lien d\u2019invitation.",
+                    "pair_line_qr_mine": "Vous avez scanné son QR",
+                    "pair_line_qr_theirs": "Il/elle a scanné votre QR",
+                    "pair_line_link_mine": "Vous êtes entré par son lien d\u2019invitation",
+                    "pair_line_link_theirs": "Il/elle est entré par votre lien d\u2019invitation",
+                    "pair_line_generic_mine": "Vous avez démarré ce contact",
+                    "pair_line_generic_theirs": "Il/elle a démarré ce contact",
                     "settings_archive_identity_done": "Vous avez retrouvé votre identité précédente : {alias}",
                     "settings_coldtx_title": "Transaction à froid ❄",
                     "settings_coldtx_desc": "Préparez une transaction pour qu'un portefeuille hors ligne la signe, puis diffusez-la une fois le QR signé récupéré.",
