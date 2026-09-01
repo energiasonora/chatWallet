@@ -165,6 +165,10 @@ const abrirSelector = async () => {
             contrasteNormal: contraste(getComputedStyle(normal).color, fondo),
             contrasteSeleccionado: contraste(getComputedStyle(items[0]).color, fondo),
             ultimoEntero: ultimo ? ultimo.getBoundingClientRect().bottom <= pr.bottom + 1 : true,
+            // Lo que se pidió: que entren TODAS sin scrollear. Se mide antes de haber scrolleado
+            // arriba — scrollHeight/clientHeight no dependen de la posición.
+            necesitaScroll: lista.scrollHeight - lista.clientHeight,
+            altoDelPanel: Math.round(pr.height), ventana: innerHeight,
             panelDentroDeLaVentana: pr.bottom <= innerHeight + 1 && pr.top >= -1,
             tieneTitulo: !!document.querySelector('#tokenSelectorMenu h3')
         });
@@ -180,6 +184,10 @@ ok(selClaro.aPantallaCompleta, 'ocupa la pantalla en vez de colgar sobre el QR')
 ok(selClaro.tieneTitulo, 'tiene título y botón de cerrar: se lee como una pantalla');
 ok(selClaro.redes > 0, `lista ${selClaro.redes} red(es)`);
 ok(selClaro.ultimoEntero, 'al llegar al final, la última red se ve entera');
+ok(selClaro.necesitaScroll === 0,
+    `las ${selClaro.redes} redes entran sin scrollear (sobra ${selClaro.necesitaScroll}px)`);
+ok(selClaro.altoDelPanel > selClaro.ventana * 0.85,
+    `el panel usa la pantalla (${selClaro.altoDelPanel}px de ${selClaro.ventana})`);
 ok(selClaro.panelDentroDeLaVentana, 'y el panel entra en la ventana');
 // El bug: bg-gray-700/90 no tenía override de tema claro y quedaba gris oscuro.
 ok(selClaro.fondoPanel > 150,
@@ -194,6 +202,7 @@ console.log('\n── selector de red (tema oscuro) ──');
 await cargar('dark');
 const selOsc = await abrirSelector();
 ok(selOsc.abierto && selOsc.ultimoEntero, 'se abre y la última red entra');
+ok(selOsc.necesitaScroll === 0, `y tampoco scrollea (sobra ${selOsc.necesitaScroll}px)`);
 ok(selOsc.fondoPanel < 100, `el panel sigue oscuro (luminancia ${Math.round(selOsc.fondoPanel)})`);
 ok(selOsc.textoItem > 150, `con texto claro (luminancia ${Math.round(selOsc.textoItem)})`);
 ok(selOsc.contrasteNormal >= 4.5, `contraste de una red sin seleccionar: ${selOsc.contrasteNormal}:1`);
@@ -209,6 +218,55 @@ await ev(`(() => { const m = document.getElementById('tokenSelectorMenu');
 await sleep(400);
 ok(await ev(`document.getElementById('tokenSelectorMenu').classList.contains('hidden')`),
     'y tocar el fondo también');
+
+// ─────────── 5. la tarjeta propia se ve como tarjeta ───────────
+console.log('\n── tu propia tarjeta ──');
+await conAlto(900);
+await cargar('dark');
+await ev(`localStorage.setItem('chatwallet-user-profile', JSON.stringify({
+    alias: 'Xunorus', links: 'energiasonora.eth', avatar: '' }))`);
+await rpc('Page.navigate', { url: BASE + '/dapp.html' }); await sleep(3000);
+await esperar(`!!currentWallet`);
+
+await ev(`document.getElementById('userDidTrigger').click()`);
+await sleep(600);
+const propia = JSON.parse(await ev(`(() => {
+    const card = document.getElementById('userInfoCard');
+    const editor = document.getElementById('userDidWindow');
+    return JSON.stringify({
+        tarjetaAbierta: getComputedStyle(card).display !== 'none',
+        editorAbierto: !editor.classList.contains('hidden'),
+        nombre: document.getElementById('userCardName').textContent.trim(),
+        address: document.getElementById('userCardAddress').textContent.trim(),
+        lapiz: !document.getElementById('userCardEditBtn').classList.contains('hidden'),
+        aliasDeContacto: !document.getElementById('userCardLocalName').classList.contains('hidden'),
+        links: document.querySelectorAll('#userCardLinks .did-link').length
+    });
+})()`) || '{}');
+ok(propia.tarjetaAbierta, 'se abre la tarjeta');
+ok(!propia.editorAbierto, 'y NO el formulario de edición de una');
+ok(propia.nombre === 'Xunorus', `con tu alias (“${propia.nombre}”)`);
+ok(/^0x[0-9a-fA-F]{40}$/.test(propia.address), 'y tu address completa');
+ok(propia.links === 1, `y tus links (${propia.links})`);
+ok(propia.lapiz, 'tiene el lápiz para editar');
+ok(!propia.aliasDeContacto, '"Tu alias: …" no aparece: eso es de un contacto, no de vos');
+
+// El lápiz lleva al editor que ya existía.
+await ev(`document.getElementById('userCardEditBtn').click()`);
+await sleep(600);
+ok(await ev(`!document.getElementById('userDidWindow').classList.contains('hidden')`),
+    'el lápiz abre el editor');
+ok(await ev(`getComputedStyle(document.getElementById('userInfoCard')).display === 'none'`),
+    'y cierra la tarjeta para dejarlo ver');
+ok(await ev(`document.getElementById('userDidAlias').value === 'Xunorus'`),
+    'el editor viene cargado con lo que ya tenías');
+
+// Y en la tarjeta de OTRO el lápiz no tiene que estar.
+await ev(`(() => { document.getElementById('userDidWindow').classList.add('hidden');
+    showUserInfo('0x2233445566778899aabbccddeeff001122334455'); return true; })()`);
+await sleep(400);
+ok(await ev(`document.getElementById('userCardEditBtn').classList.contains('hidden')`),
+    'en la tarjeta de un contacto no aparece el lápiz');
 
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);
 ws.close();

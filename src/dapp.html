@@ -788,6 +788,27 @@
             text-decoration: underline;
         }
 
+        #userInfoCard .edit-btn {
+            position: absolute;
+            top: 12px;
+            left: 15px;
+            background: none;
+            border: none;
+            color: #818cf8;
+            cursor: pointer;
+            padding: 2px;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        #userInfoCard .edit-btn:hover {
+            color: #a5b4fc;
+        }
+
+        #userInfoCard .edit-btn.hidden {
+            display: none;
+        }
+
         #userInfoCard .close-btn {
             position: absolute;
             top: 10px;
@@ -1697,7 +1718,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.13 alpha</p>
+            <p class="text-sm text-gray-400">v 3.14 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1897,6 +1918,16 @@
     <!-- User Info Card (hidden by default) -->
     <div id="userInfoCard">
         <button id="closeUserCard" class="close-btn">&times;</button>
+        <!-- Sólo en la tarjeta PROPIA: tocar tu identidad abría el formulario de edición de una,
+             sin mostrarte antes cómo te ve el resto. Ahora se ve la misma tarjeta que la de un
+             contacto, y el lápiz lleva a editarla. -->
+        <button id="userCardEditBtn" class="edit-btn hidden" title="Editar mi perfil">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+        </button>
         <img id="userCardAvatar" src="static/anonym.jpg" alt="User Avatar">
         <!-- Arriba el nombre que el usuario eligió para sí (alias del perfil soberano);
              abajo el apodo local que VOS le pusiste al contacto (si difieren). -->
@@ -3448,7 +3479,11 @@
              override de tema claro (sí lo tienen bg-gray-700 y bg-gray-800): quedaba gris oscuro
              sobre fondo claro. Como modal hereda el tema como el resto. -->
         <div id="tokenSelectorMenu" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
-            <div class="bg-gray-800 rounded-xl w-full max-w-sm max-h-[80vh] flex flex-col shadow-2xl">
+            <!-- h-full, no max-h: con una caja de 80vh la lista scrolleaba dentro de un
+                 rectángulo chico y seguía leyéndose como una sección cortada. Ocupando el alto
+                 entero entran todas las redes de una, que es lo que se pedía. Si algún día hay
+                 tantas que no entran, el scroll es el de una pantalla y no el de un recuadro. -->
+            <div class="bg-gray-800 rounded-xl w-full max-w-sm h-full flex flex-col shadow-2xl">
                 <div class="flex justify-between items-center p-4 border-b border-gray-700 shrink-0">
                     <h3 class="text-lg font-bold" data-i18n-key="network_picker_title">Elegí la red</h3>
                     <button type="button" id="closeTokenSelector"
@@ -3669,7 +3704,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.13</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.14</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -10934,23 +10969,45 @@
                 addressEl.textContent = address;
 
                 // Links del DID del contacto: string con un link por línea (mismo formato que el perfil propio).
+                pintarLinks(linksEl, contact && contact.links);
+
+                document.getElementById('userCardEditBtn')?.classList.add('hidden');   // no es la tuya
+                card.style.display = 'block';
+            }
+
+            // Un link por línea. Se muestra lo que escribió el usuario, pero se navega a una URL
+            // validada: sin esquema se asume https, y lo que no sea http(s) se descarta.
+            function pintarLinks(linksEl, raw) {
+                if (!linksEl) return;
                 linksEl.innerHTML = '';
-                const rawLinks = (contact && contact.links) ? contact.links : '';
-                rawLinks.split(/\r?\n/).map(l => l.trim()).filter(Boolean).forEach(raw => {
-                    let href = raw;
-                    if (!/^https?:\/\//i.test(href)) href = 'https://' + href; // asumir https si falta esquema
+                (raw || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).forEach(linea => {
+                    let href = linea;
+                    if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
                     let safe;
                     try { const u = new URL(href); if (u.protocol !== 'http:' && u.protocol !== 'https:') return; safe = u.href; }
-                    catch (e) { return; } // descartar entradas que no son URLs válidas
+                    catch (e) { return; }
                     const a = document.createElement('a');
                     a.className = 'did-link';
                     a.href = safe;
                     a.target = '_blank';
                     a.rel = 'noopener noreferrer';
-                    a.textContent = raw; // mostramos lo que escribió el usuario
+                    a.textContent = linea;
                     linksEl.appendChild(a);
                 });
+            }
 
+            // La misma tarjeta, pero la tuya: así ves lo que ve el resto antes de editarlo.
+            function showOwnCard() {
+                const card = document.getElementById('userInfoCard');
+                if (!card || !currentWallet) return;
+                const me = readOwnProfile() || {};
+                document.getElementById('userCardAvatar').src = me.avatar || ANON_AVATAR;
+                document.getElementById('userCardName').textContent = me.alias || shortAddr(currentWallet.address);
+                document.getElementById('userCardAddress').textContent = currentWallet.address;
+                // "Tu alias: …" es el apodo que le ponés a OTRO: en la propia no significa nada.
+                document.getElementById('userCardLocalName')?.classList.add('hidden');
+                pintarLinks(document.getElementById('userCardLinks'), me.links);
+                document.getElementById('userCardEditBtn')?.classList.remove('hidden');
                 card.style.display = 'block';
             }
 
@@ -16994,10 +17051,15 @@
                 }
             }
 
-            userDidTrigger.addEventListener('click', () => {
+            function abrirEditorDePerfil() {
                 loadUserProfile();
                 userDidWindow.classList.remove('hidden');
                 userDidWindow.classList.add('flex');
+            }
+            userDidTrigger.addEventListener('click', showOwnCard);
+            document.getElementById('userCardEditBtn')?.addEventListener('click', () => {
+                document.getElementById('userInfoCard').style.display = 'none';
+                abrirEditorDePerfil();
             });
 
             function saveUserProfile() {
