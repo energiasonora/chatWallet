@@ -2438,7 +2438,9 @@
             clearStatus();
             const openBtn = document.getElementById('cw-open-btn');
             openBtn.href = payUrl;
-            openBtn.onclick = (e) => { e.preventDefault(); window.open(payUrl, '_blank', 'noopener'); };
+            // Sin onclick propio: una navegación normal del <a> es lo que Android intercepta
+            // para abrir el APK (App Link). Abrirlo a mano con window.open lo empuja al
+            // navegador y deja al que tiene la app instalada pagando desde la web.
             renderCwQr(payUrl);
             document.getElementById('cw-pay-status').textContent = 'Esperando confirmación desde tu ChatWallet…';
             document.getElementById('cw-pay-box').hidden = false;
