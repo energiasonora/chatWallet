@@ -321,6 +321,67 @@ const vacioEnIngles = await lineaAlias(shortDe(OTRO));
 ok(/add an alias/i.test(vacioEnIngles || ''), `y se traduce (“${vacioEnIngles}”)`);
 await ev(`localStorage.setItem('chatwallet-lang','es')`);
 
+// ─────────── 7. el modo frío vive en Configuración ───────────
+console.log('\n── modo frío en Configuración ──');
+await conAlto(900);
+await cargar('dark');
+
+ok(!(await ev(`!!document.getElementById('mode-toggle-btn')`)),
+    'el botón de apagado ya no ocupa lugar en el header');
+
+const abrirConfig = `(() => { const m = document.getElementById('settingsModal');
+    m.classList.remove('hidden'); m.classList.add('flex'); return true; })()`;
+await ev(abrirConfig); await sleep(400);
+
+const cfg = JSON.parse(await ev(`(() => {
+    const sw = document.getElementById('coldModeSwitch');
+    const modal = document.getElementById('settingsModal');
+    const orden = [...modal.querySelectorAll('h2[data-i18n-key], label[data-i18n-key], hr')]
+        .map(e => e.tagName === 'HR' ? '───' : (e.textContent || '').trim().split('\\n')[0]);
+    const y = id => { const e = document.getElementById(id); return e ? Math.round(e.getBoundingClientRect().top) : null; };
+    return JSON.stringify({
+        existe: !!sw,
+        visible: sw ? sw.closest('label').offsetParent !== null : false,
+        centrado: (() => { const l = sw && sw.closest('label'); if (!l) return null;
+            const r = l.getBoundingClientRect(), p = l.parentElement.getBoundingClientRect();
+            return Math.abs((r.left + r.right) / 2 - (p.left + p.right) / 2) < 3; })(),
+        orden,
+        yIdioma: y('settings-lang-selector'), ySwitch: y('coldModeSwitch'),
+        yClaves: y('backupWalletSettingsBtn')
+    });
+})()`) || '{}');
+
+ok(cfg.existe && cfg.visible, 'hay un switch de modo frío en Configuración');
+ok(cfg.centrado, 'y está centrado');
+ok(cfg.yIdioma < cfg.ySwitch, `va después del idioma (${cfg.yIdioma} → ${cfg.ySwitch})`);
+ok(cfg.ySwitch < cfg.yClaves, `y antes de las claves (${cfg.ySwitch} → ${cfg.yClaves})`);
+ok(/Modo frío/.test(cfg.orden.join(' | ')), `hay sección "Modo frío" (${cfg.orden.slice(0, 6).join(' | ')})`);
+ok(/Gestión de claves/.test(cfg.orden.join(' | ')), 'y sección "Gestión de claves"');
+// Cada sección con su línea: el orden tiene que ser ─── título ─── título.
+const i1 = cfg.orden.findIndex(x => /Modo frío/.test(x));
+const i2 = cfg.orden.findIndex(x => /Gestión de claves/.test(x));
+ok(cfg.orden[i1 - 1] === '───' && cfg.orden[i2 - 1] === '───',
+    'cada una precedida por su línea divisoria');
+
+// Prender NO es directo: pasa por el modal de confirmación, y hasta confirmar sigue apagado.
+await ev(`document.getElementById('coldModeSwitch').click()`);
+await sleep(500);
+ok(await ev(`!document.getElementById('offlineModeModal').classList.contains('hidden')`),
+    'prenderlo abre la confirmación de siempre');
+ok(!(await ev(`document.getElementById('coldModeSwitch').checked`)),
+    'y el switch NO queda prendido hasta que se confirme');
+
+// Traducción de las dos secciones nuevas.
+await ev(`(() => { document.getElementById('offlineModeModal').classList.add('hidden');
+    localStorage.setItem('chatwallet-lang','fr'); return true; })()`);
+await rpc('Page.navigate', { url: BASE + '/dapp.html' }); await sleep(3000);
+await esperar(`!!document.getElementById('coldModeSwitch')`);
+await ev(abrirConfig); await sleep(400);
+const fr = await ev(`document.getElementById('settingsModal').innerText`);
+ok(/Mode hors ligne/.test(fr || ''), 'el título del modo frío se traduce');
+ok(/Gestion des clés/.test(fr || ''), 'y el de gestión de claves también');
+await ev(`localStorage.setItem('chatwallet-lang','es')`);
+
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);
 ws.close();
 process.exit(fails === 0 ? 0 : 1);

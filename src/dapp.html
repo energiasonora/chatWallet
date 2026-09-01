@@ -701,6 +701,57 @@
 
         /* La dirección y el botón de copiar en la misma fila; la dirección se parte en
            varias líneas, así que el botón se alinea arriba y no al medio del bloque. */
+        /* Interruptor de Configuración (modo frío). Amarillo encendido, que es el color con el
+           que el resto de la app marca el modo frío. */
+        .cw-switch {
+            display: inline-flex;
+            cursor: pointer;
+        }
+
+        .cw-switch input {
+            position: absolute;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+        }
+
+        .cw-switch-track {
+            display: block;
+            width: 52px;
+            height: 30px;
+            border-radius: 999px;
+            background: #4b5563;
+            transition: background-color .2s ease;
+            padding: 3px;
+        }
+
+        .cw-switch-thumb {
+            display: block;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #f9fafb;
+            transition: transform .2s ease;
+        }
+
+        .cw-switch input:checked+.cw-switch-track {
+            background: #ca8a04;
+        }
+
+        .cw-switch input:checked+.cw-switch-track .cw-switch-thumb {
+            transform: translateX(22px);
+        }
+
+        /* El foco tiene que verse: el input real es invisible, así que el anillo va en la pista. */
+        .cw-switch input:focus-visible+.cw-switch-track {
+            outline: 2px solid #818cf8;
+            outline-offset: 2px;
+        }
+
+        body.theme-light .cw-switch-track {
+            background: #d1d5db;
+        }
+
         /* Fila de chat: el nombre que no confirmaste vos, y la address que lo respalda. */
         .contact-unconfirmed {
             font-style: italic;
@@ -1714,7 +1765,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.17 alpha</p>
+            <p class="text-sm text-gray-400">v 3.18 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2015,14 +2066,8 @@
                     </svg>
                 </button>
 
-                <button id="mode-toggle-btn" title="Modo Offline (Cold Wallet)"
-                    class="text-gray-500 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-                        <line x1="12" y1="2" x2="12" y2="12"></line>
-                    </svg>
-                </button>
+                <!-- El modo frío se mudó a Configuración: se usa poco y ocupaba un lugar de
+                     primera fila en el header. Ver #coldModeSwitch. -->
 
             </div>
 
@@ -3508,6 +3553,25 @@
                         <option value="fr">Français</option>
                     </select>
                 </div>
+                <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300"
+                    data-i18n-key="settings_cold_title">Modo frío</h2>
+                <div class="flex flex-col items-center gap-2">
+                    <!-- Switch, no botón: el modo frío es un estado en el que se entra y del que se
+                         sale, y el interruptor lo dice sin tener que explicarlo. Prender pasa por el
+                         modal de confirmación de siempre; apagar es directo. -->
+                    <label class="cw-switch" title="Modo frío (billetera fría)">
+                        <input type="checkbox" id="coldModeSwitch">
+                        <span class="cw-switch-track"><span class="cw-switch-thumb"></span></span>
+                    </label>
+                    <p id="coldModeHint" class="text-xs text-gray-500 text-center px-2"
+                        data-i18n-key="settings_cold_desc">Sin conexión: firmás y componés por QR,
+                        sin que la llave toque la red.</p>
+                </div>
+
+                <hr class="border-gray-600">
+                <h2 class="text-md text-center font-semibold text-indigo-300"
+                    data-i18n-key="settings_keys_title">Gestión de claves</h2>
                 <div class="space-y-2">
                     <!-- El texto y el color los pone updateBackupSettingsBtn(): urgente mientras el
                          backup esté pendiente, neutro ("Mostrar clave privada") una vez hecho. -->
@@ -3700,7 +3764,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.17</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.18</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -15799,6 +15863,9 @@
                     "toast_wallet_lista": "Listo, ya podés chatear.",
                     "backup_nag_cta": "Respaldar",
                     "network_picker_title": "Elegí la red",
+                    "settings_cold_title": "Modo frío",
+                    "settings_cold_desc": "Sin conexión: firmás y componés por QR, sin que la llave toque la red.",
+                    "settings_keys_title": "Gestión de claves",
                     "card_your_name_for_them": "Alias: {alias}",
                     "card_give_them_a_name": "Ponerle un alias",
                     "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
@@ -15987,6 +16054,9 @@
                     "toast_wallet_lista": "All set — you can chat now.",
                     "backup_nag_cta": "Back up",
                     "network_picker_title": "Choose the network",
+                    "settings_cold_title": "Cold mode",
+                    "settings_cold_desc": "Offline: you sign and compose over QR, without the key ever touching the network.",
+                    "settings_keys_title": "Key management",
                     "card_your_name_for_them": "Alias: {alias}",
                     "card_give_them_a_name": "Add an alias",
                     "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
@@ -16175,6 +16245,9 @@
                     "toast_wallet_lista": "C'est prêt, vous pouvez discuter.",
                     "backup_nag_cta": "Sauvegarder",
                     "network_picker_title": "Choisissez le réseau",
+                    "settings_cold_title": "Mode hors ligne",
+                    "settings_cold_desc": "Hors ligne : vous signez et composez par QR, sans que la clé touche le réseau.",
+                    "settings_keys_title": "Gestion des clés",
                     "card_your_name_for_them": "Alias : {alias}",
                     "card_give_them_a_name": "Ajouter un alias",
                     "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",
@@ -16419,7 +16492,7 @@
             const reserveDidButton = document.getElementById('reserveDidButton');
             const modeToggle = document.getElementById('mode-toggle');
             const contactNameStatusEl = document.getElementById('contactNameStatus');
-            const modeToggleBtn = document.getElementById('mode-toggle-btn');
+
             // Brand Modal
             const brandTag = document.getElementById('brand-tag');
             const brandModal = document.getElementById('brandModal');
@@ -16445,13 +16518,16 @@
             brandModal.addEventListener('click', (e) => { if (e.target === brandModal) hideBrandModal(); });
 
             // --- MODO OFFLINE ---
-            modeToggleBtn.addEventListener('click', () => {
+            // El switch NO decide solo: prender pasa por el modal de confirmación, y hasta que el
+            // usuario confirme el estado real sigue siendo "caliente". Por eso se revierte en el
+            // acto y es updateOfflineUI() quien lo deja donde corresponde.
+            const coldModeSwitch = document.getElementById('coldModeSwitch');
+            coldModeSwitch?.addEventListener('change', () => {
                 if (!isOffline) {
-                    // Going offline - Show confirmation
+                    coldModeSwitch.checked = false;   // lo confirma el modal, no el tap
                     offlineModeModal.classList.remove('hidden');
                     offlineModeModal.classList.add('flex');
                 } else {
-                    // Going online - Direct action
                     goOnlineWrapper();
                 }
             });
@@ -16530,7 +16606,11 @@
                 const body = document.body;
                 body.classList.toggle('cold-mode', isOffline);
                 body.classList.toggle('hot-mode', !isOffline);
-                modeToggleBtn.classList.toggle('text-yellow-400', isOffline);
+                // Se busca acá y no por una referencia de arriba: updateOfflineUI() puede
+                // correr durante el arranque, antes de que se ejecute el const del cableado —
+                // y una const en zona muerta tira ReferenceError, no undefined.
+                const sw = document.getElementById('coldModeSwitch');
+                if (sw) sw.checked = isOffline;
                 if (!isOffline) currentOfflineContact = null;
                 if (typeof updateOfflineComposeUI === 'function') updateOfflineComposeUI();
                 if (currentWallet) renderAddressQr(currentWallet.address); // recolorear QR (gris en frío)
