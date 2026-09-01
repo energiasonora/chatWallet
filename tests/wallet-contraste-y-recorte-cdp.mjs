@@ -115,6 +115,23 @@ for (const alto of [760, 700]) {
     ok(!r.tapada, `tema claro, ventana ${alto}px: la fila entra (bottom ${r.filaBottom} < nav ${r.navTop})`);
 }
 
+// ─────────── 3. cambiar de tema no tira un cartel ───────────
+console.log('\n── el toggle de tema es silencioso ──');
+await conAlto(900);
+await cargar('dark');
+await ev(`(document.getElementById('cwNotifs') || {}).innerHTML = ''`);
+await ev(`document.getElementById('themeHeaderBtn').click()`);
+await sleep(700);
+ok(await ev(`document.body.classList.contains('theme-light')`), 'el tema cambió a claro');
+const cartel = await ev(`((document.getElementById('cwNotifs') || {}).innerText || '').trim()`);
+ok(!cartel, `y no apareció ningún aviso (“${cartel.slice(0, 40)}”)`);
+
+await ev(`document.getElementById('themeHeaderBtn').click()`);
+await sleep(700);
+ok(!(await ev(`document.body.classList.contains('theme-light')`)), 'vuelve a oscuro');
+ok(!(await ev(`((document.getElementById('cwNotifs') || {}).innerText || '').trim()`)),
+    'tampoco al volver');
+
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);
 ws.close();
 process.exit(fails === 0 ? 0 : 1);
