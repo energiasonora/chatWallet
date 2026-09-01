@@ -1803,24 +1803,25 @@
     <div id="offlineModeModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
         <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
             <div class="flex justify-between items-center">
-                <h3 class="text-lg font-bold text-yellow-300">Modo Frío (Offline)</h3>
+                <h3 class="text-lg font-bold text-yellow-300" data-i18n-key="cold_modal_title">Modo frío (offline)</h3>
                 <button id="closeOfflineModeModal"
                     class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
             </div>
-            <p class="text-gray-300 text-sm">
-                Vas a pasar la wallet a <strong class="text-white">modo frío</strong>: se desconecta de internet y
-                queda como un dispositivo de firma offline. Las transferencias se hacen por código QR.
+            <!-- Sin <strong> adentro: translateUI escribe textContent, así que cualquier
+                 etiqueta que viva dentro de un data-i18n-key se pierde al traducir. -->
+            <p class="text-gray-300 text-sm" data-i18n-key="cold_modal_desc">
+                Vas a pasar la wallet a modo frío: se desconecta de internet y queda como un
+                dispositivo de firma offline. Las transferencias se hacen por código QR.
             </p>
-            <a href="/docs/" target="_blank" class="text-indigo-400 hover:underline text-sm block">¿Qué es esto?</a>
+            <a href="/docs/" target="_blank" class="text-indigo-400 hover:underline text-sm block"
+                data-i18n-key="cold_modal_what">¿Qué es esto?</a>
             <div class="flex space-x-4 pt-2">
                 <button id="cancelOfflineModeBtn"
-                    class="w-full p-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg transition-all text-white font-semibold">
-                    Cancelar
-                </button>
+                    class="w-full p-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg transition-all text-white font-semibold"
+                    data-i18n-key="cancel_button">Cancelar</button>
                 <button id="confirmOfflineModeBtn"
-                    class="w-full p-3 bg-red-600 hover:bg-red-500 border border-red-500 rounded-lg transition-all text-white font-semibold">
-                    Confirmar
-                </button>
+                    class="w-full p-3 bg-red-600 hover:bg-red-500 border border-red-500 rounded-lg transition-all text-white font-semibold"
+                    data-i18n-key="cold_modal_confirm">Confirmar</button>
             </div>
         </div>
     </div>
@@ -1841,32 +1842,33 @@
                     <path d="m8 20 4-4 4 4" />
                 </svg>
             </div>
-            <h2 class="text-2xl font-bold text-white">Modo Frío Activado</h2>
+            <h2 class="text-2xl font-bold text-white" data-i18n-key="cold_splash_title">Modo frío activado</h2>
+            <!-- Un renglón por <span>, en vez de texto suelto + <br>: cada hoja traducible
+                 tiene que ser un elemento propio, sin HTML adentro. -->
             <p class="text-cyan-200/80 mt-2 text-sm leading-relaxed">
-                Tu wallet está <strong class="text-white">desconectada de internet</strong>.<br>
-                Ahora es un dispositivo de firma offline.
+                <span class="block text-white font-semibold" data-i18n-key="cold_splash_line1">Tu wallet está desconectada de internet.</span>
+                <span class="block" data-i18n-key="cold_splash_line2">Ahora es un dispositivo de firma offline.</span>
             </p>
             <div class="mt-7 space-y-3 text-left">
                 <div class="flex items-start gap-3 text-gray-200 text-sm">
                     <span class="text-lg leading-none mt-0.5">🔌</span>
-                    <span><strong class="text-white">Aislada de la red:</strong> toda conexión a internet queda
-                        desactivada.</span>
+                    <span><strong class="text-white" data-i18n-key="cold_splash_f1_t">Aislada de la red:</strong>
+                        <span data-i18n-key="cold_splash_f1_d">toda conexión a internet queda desactivada.</span></span>
                 </div>
                 <div class="flex items-start gap-3 text-gray-200 text-sm">
                     <span class="text-lg leading-none mt-0.5">✍️</span>
-                    <span><strong class="text-white">Firma offline / offchain:</strong> firmá transacciones sin
-                        exponer la clave.</span>
+                    <span><strong class="text-white" data-i18n-key="cold_splash_f2_t">Firma offline / offchain:</strong>
+                        <span data-i18n-key="cold_splash_f2_d">firmá transacciones sin exponer la clave.</span></span>
                 </div>
                 <div class="flex items-start gap-3 text-gray-200 text-sm">
                     <span class="text-lg leading-none mt-0.5">📷</span>
-                    <span><strong class="text-white">Transferí por QR:</strong> mové lo firmado a un dispositivo
-                        online escaneando.</span>
+                    <span><strong class="text-white" data-i18n-key="cold_splash_f3_t">Transferí por QR:</strong>
+                        <span data-i18n-key="cold_splash_f3_d">mové lo firmado a un dispositivo online escaneando.</span></span>
                 </div>
             </div>
             <button id="coldModeSplashOk"
-                class="mt-8 w-full p-3 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold transition-all">
-                Entendido
-            </button>
+                class="mt-8 w-full p-3 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold transition-all"
+                data-i18n-key="cold_splash_ok">Entendido</button>
         </div>
     </div>
 
@@ -15863,6 +15865,20 @@
                     "toast_wallet_lista": "Listo, ya podés chatear.",
                     "backup_nag_cta": "Respaldar",
                     "network_picker_title": "Elegí la red",
+                    "cold_modal_title": "Modo frío (offline)",
+                    "cold_modal_desc": "Vas a pasar la wallet a modo frío: se desconecta de internet y queda como un dispositivo de firma offline. Las transferencias se hacen por código QR.",
+                    "cold_modal_what": "¿Qué es esto?",
+                    "cold_modal_confirm": "Confirmar",
+                    "cold_splash_title": "Modo frío activado",
+                    "cold_splash_line1": "Tu wallet está desconectada de internet.",
+                    "cold_splash_line2": "Ahora es un dispositivo de firma offline.",
+                    "cold_splash_f1_t": "Aislada de la red:",
+                    "cold_splash_f1_d": "toda conexión a internet queda desactivada.",
+                    "cold_splash_f2_t": "Firma offline / offchain:",
+                    "cold_splash_f2_d": "firmá transacciones sin exponer la clave.",
+                    "cold_splash_f3_t": "Transferí por QR:",
+                    "cold_splash_f3_d": "mové lo firmado a un dispositivo online escaneando.",
+                    "cold_splash_ok": "Entendido",
                     "settings_cold_title": "Modo frío",
                     "settings_cold_desc": "Sin conexión: firmás y componés por QR, sin que la llave toque la red.",
                     "settings_keys_title": "Gestión de claves",
@@ -16054,6 +16070,20 @@
                     "toast_wallet_lista": "All set — you can chat now.",
                     "backup_nag_cta": "Back up",
                     "network_picker_title": "Choose the network",
+                    "cold_modal_title": "Cold mode (offline)",
+                    "cold_modal_desc": "You are about to switch the wallet to cold mode: it disconnects from the internet and becomes an offline signing device. Transfers happen over QR codes.",
+                    "cold_modal_what": "What is this?",
+                    "cold_modal_confirm": "Confirm",
+                    "cold_splash_title": "Cold mode is on",
+                    "cold_splash_line1": "Your wallet is disconnected from the internet.",
+                    "cold_splash_line2": "It is now an offline signing device.",
+                    "cold_splash_f1_t": "Isolated from the network:",
+                    "cold_splash_f1_d": "every internet connection is turned off.",
+                    "cold_splash_f2_t": "Offline / offchain signing:",
+                    "cold_splash_f2_d": "sign transactions without exposing the key.",
+                    "cold_splash_f3_t": "Transfer over QR:",
+                    "cold_splash_f3_d": "move what you signed to an online device by scanning.",
+                    "cold_splash_ok": "Got it",
                     "settings_cold_title": "Cold mode",
                     "settings_cold_desc": "Offline: you sign and compose over QR, without the key ever touching the network.",
                     "settings_keys_title": "Key management",
@@ -16245,6 +16275,20 @@
                     "toast_wallet_lista": "C'est prêt, vous pouvez discuter.",
                     "backup_nag_cta": "Sauvegarder",
                     "network_picker_title": "Choisissez le réseau",
+                    "cold_modal_title": "Mode hors ligne",
+                    "cold_modal_desc": "Vous allez passer le portefeuille en mode hors ligne : il se déconnecte d'internet et devient un dispositif de signature hors ligne. Les transferts se font par code QR.",
+                    "cold_modal_what": "Qu'est-ce que c'est ?",
+                    "cold_modal_confirm": "Confirmer",
+                    "cold_splash_title": "Mode hors ligne activé",
+                    "cold_splash_line1": "Votre portefeuille est déconnecté d'internet.",
+                    "cold_splash_line2": "C’est désormais un dispositif de signature hors ligne.",
+                    "cold_splash_f1_t": "Isolé du réseau :",
+                    "cold_splash_f1_d": "toute connexion internet est désactivée.",
+                    "cold_splash_f2_t": "Signature hors ligne / offchain :",
+                    "cold_splash_f2_d": "signez des transactions sans exposer la clé.",
+                    "cold_splash_f3_t": "Transfert par QR :",
+                    "cold_splash_f3_d": "déplacez ce qui est signé vers un appareil en ligne en scannant.",
+                    "cold_splash_ok": "Compris",
                     "settings_cold_title": "Mode hors ligne",
                     "settings_cold_desc": "Hors ligne : vous signez et composez par QR, sans que la clé touche le réseau.",
                     "settings_keys_title": "Gestion des clés",
