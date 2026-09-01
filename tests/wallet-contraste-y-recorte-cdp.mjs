@@ -287,20 +287,23 @@ const conApodo = await lineaAlias('Clau');
 ok(!/tu alias/i.test(conApodo || ''),
     `ya no dice "Tu alias" (“${conApodo}”)`);
 ok(/Clau/.test(conApodo || ''), 'pero sigue mostrando el apodo que pusiste');
-ok(/para vos|you call|appelez/i.test(conApodo || ''),
-    'y deja claro que el nombre es TUYO para esa persona, no de ella');
+// Sin posesivo: ni "Tu alias" ni "Para vos" — los dos se leían como que el alias es de uno.
+ok(!/tu |para vos|you call|vous/i.test(conApodo || ''),
+    'y sin posesivo, que era lo que confundía');
+ok(/^alias/i.test(conApodo || ''), 'la etiqueta sola alcanza');
 
 // Sin apodo: la invitación a ponerle uno.
 const sinApodo = await lineaAlias(shortDe(OTRO));
 ok(!/tu alias/i.test(sinApodo || ''), `tampoco en el estado vacío (“${sinApodo}”)`);
-ok(/nombre|name|nom/i.test(sinApodo || ''), 'y ofrece ponerle uno');
+ok(/alias/i.test(sinApodo || ''), 'y ofrece ponerle uno');
 
 // El texto ahora es i18n: en inglés tiene que cambiar.
 await ev(`localStorage.setItem('chatwallet-lang','en')`);
 await rpc('Page.navigate', { url: BASE + '/dapp.html' }); await sleep(3000);
 await esperar(`!!currentWallet`);
-const enIngles = await lineaAlias('Clau');
-ok(/you call/i.test(enIngles || ''), `y se traduce (“${enIngles}”)`);
+// "Alias" es igual en los tres idiomas; lo que tiene que cambiar es el estado vacío.
+const vacioEnIngles = await lineaAlias(shortDe(OTRO));
+ok(/add an alias/i.test(vacioEnIngles || ''), `y se traduce (“${vacioEnIngles}”)`);
 await ev(`localStorage.setItem('chatwallet-lang','es')`);
 
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);

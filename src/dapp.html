@@ -1718,7 +1718,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.15 alpha</p>
+            <p class="text-sm text-gray-400">v 3.16 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3704,7 +3704,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.15</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.16</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -10948,9 +10948,9 @@
                         const hasCustom = !!localName;
                         localNameEl.innerHTML = '';
                         const txt = document.createElement('span');
-                        // "Tu alias" se leía como si fuera el alias DE UNO. Es al revés: es el
-                        // nombre con el que vos guardaste a esa persona. Arriba está el nombre que
-                        // eligió ella; acá, el tuyo para ella.
+                        // Sin posesivo: "Tu alias" se leía como el alias DE UNO, y "Para vos"
+                        // tampoco aclaraba. La etiqueta sola alcanza — arriba está el nombre que
+                        // eligió esa persona, y el lápiz al lado dice que esto se edita.
                         txt.textContent = hasCustom
                             ? t('card_your_name_for_them', { alias: localName })
                             : t('card_give_them_a_name');
@@ -15803,8 +15803,8 @@
                     "toast_wallet_lista": "Listo, ya podés chatear.",
                     "backup_nag_cta": "Respaldar",
                     "network_picker_title": "Elegí la red",
-                    "card_your_name_for_them": "Para vos: {alias}",
-                    "card_give_them_a_name": "Ponerle un nombre",
+                    "card_your_name_for_them": "Alias: {alias}",
+                    "card_give_them_a_name": "Ponerle un alias",
                     "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
                     "apk_banner_cta": "Descargar",
                     "settings_install_title": "Instalar la app",
@@ -15991,8 +15991,8 @@
                     "toast_wallet_lista": "All set — you can chat now.",
                     "backup_nag_cta": "Back up",
                     "network_picker_title": "Choose the network",
-                    "card_your_name_for_them": "You call them: {alias}",
-                    "card_give_them_a_name": "Give them a name",
+                    "card_your_name_for_them": "Alias: {alias}",
+                    "card_give_them_a_name": "Add an alias",
                     "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
                     "apk_banner_cta": "Download",
                     "settings_install_title": "Install the app",
@@ -16179,8 +16179,8 @@
                     "toast_wallet_lista": "C'est prêt, vous pouvez discuter.",
                     "backup_nag_cta": "Sauvegarder",
                     "network_picker_title": "Choisissez le réseau",
-                    "card_your_name_for_them": "Vous l\u2019appelez : {alias}",
-                    "card_give_them_a_name": "Lui donner un nom",
+                    "card_your_name_for_them": "Alias : {alias}",
+                    "card_give_them_a_name": "Ajouter un alias",
                     "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",
                     "apk_banner_cta": "Télécharger",
                     "settings_install_title": "Installer l'app",
