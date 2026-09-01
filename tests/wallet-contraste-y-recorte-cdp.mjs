@@ -132,6 +132,84 @@ ok(!(await ev(`document.body.classList.contains('theme-light')`)), 'vuelve a osc
 ok(!(await ev(`((document.getElementById('cwNotifs') || {}).innerText || '').trim()`)),
     'tampoco al volver');
 
+// ─────────── 4. el selector de red es una pantalla, no un desplegable cortado ───────────
+const abrirSelector = async () => {
+    await ev(`document.getElementById('tokenSelectorToggle').click()`);
+    await sleep(600);
+    return JSON.parse(await ev(`(() => {
+        const m = document.getElementById('tokenSelectorMenu');
+        const lista = document.getElementById('tokenSelectorList');
+        const panel = m.firstElementChild;
+        const items = [...lista.children];
+        // Con muchas redes la lista scrollea, y eso está bien: lo que NO puede pasar es que la
+        // última quede inalcanzable o cortada al llegar al final.
+        lista.scrollTop = lista.scrollHeight;
+        const ultimo = items[items.length - 1];
+        const pr = panel.getBoundingClientRect();
+        const lum = c => { const [r,g,b] = c.match(/\\d+/g).map(Number); return .299*r + .587*g + .114*b; };
+        const contraste = (a, b) => { const L = c => { const [r,g,b2] = c.match(/\\d+/g).map(Number)
+            .map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); });
+            return .2126*r + .7152*g + .0722*b2; };
+            const L1 = Math.max(L(a), L(b)), L2 = Math.min(L(a), L(b));
+            return +((L1 + .05) / (L2 + .05)).toFixed(2); };
+        // El primero es el seleccionado (va en índigo); para ver si la lista sigue el tema hay
+        // que mirar uno NO seleccionado.
+        const normal = items.find(i => !/indigo/.test(i.className)) || items[0];
+        const fondo = getComputedStyle(panel).backgroundColor;
+        return JSON.stringify({
+            abierto: !m.classList.contains('hidden'),
+            aPantallaCompleta: getComputedStyle(m).position === 'fixed',
+            redes: items.length,
+            fondoPanel: lum(fondo),
+            textoItem: lum(getComputedStyle(normal).color),
+            contrasteNormal: contraste(getComputedStyle(normal).color, fondo),
+            contrasteSeleccionado: contraste(getComputedStyle(items[0]).color, fondo),
+            ultimoEntero: ultimo ? ultimo.getBoundingClientRect().bottom <= pr.bottom + 1 : true,
+            panelDentroDeLaVentana: pr.bottom <= innerHeight + 1 && pr.top >= -1,
+            tieneTitulo: !!document.querySelector('#tokenSelectorMenu h3')
+        });
+    })()`) || '{}');
+};
+
+console.log('\n── selector de red (tema claro) ──');
+await conAlto(700);
+await cargar('light');
+const selClaro = await abrirSelector();
+ok(selClaro.abierto, 'se abre');
+ok(selClaro.aPantallaCompleta, 'ocupa la pantalla en vez de colgar sobre el QR');
+ok(selClaro.tieneTitulo, 'tiene título y botón de cerrar: se lee como una pantalla');
+ok(selClaro.redes > 0, `lista ${selClaro.redes} red(es)`);
+ok(selClaro.ultimoEntero, 'al llegar al final, la última red se ve entera');
+ok(selClaro.panelDentroDeLaVentana, 'y el panel entra en la ventana');
+// El bug: bg-gray-700/90 no tenía override de tema claro y quedaba gris oscuro.
+ok(selClaro.fondoPanel > 150,
+    `el panel sigue el tema claro (luminancia ${Math.round(selClaro.fondoPanel)})`);
+ok(selClaro.textoItem < 140,
+    `y el texto es oscuro sobre él (luminancia ${Math.round(selClaro.textoItem)})`);
+ok(selClaro.contrasteNormal >= 4.5, `contraste de una red sin seleccionar: ${selClaro.contrasteNormal}:1`);
+ok(selClaro.contrasteSeleccionado >= 4.5,
+    `y de la seleccionada, que va en índigo: ${selClaro.contrasteSeleccionado}:1`);
+
+console.log('\n── selector de red (tema oscuro) ──');
+await cargar('dark');
+const selOsc = await abrirSelector();
+ok(selOsc.abierto && selOsc.ultimoEntero, 'se abre y la última red entra');
+ok(selOsc.fondoPanel < 100, `el panel sigue oscuro (luminancia ${Math.round(selOsc.fondoPanel)})`);
+ok(selOsc.textoItem > 150, `con texto claro (luminancia ${Math.round(selOsc.textoItem)})`);
+ok(selOsc.contrasteNormal >= 4.5, `contraste de una red sin seleccionar: ${selOsc.contrasteNormal}:1`);
+ok(selOsc.contrasteSeleccionado >= 4.5, `y de la seleccionada: ${selOsc.contrasteSeleccionado}:1`);
+
+// Cerrar: por la ✕ y tocando el fondo.
+await ev(`document.getElementById('closeTokenSelector').click()`);
+await sleep(400);
+ok(await ev(`document.getElementById('tokenSelectorMenu').classList.contains('hidden')`), 'la ✕ lo cierra');
+await abrirSelector();
+await ev(`(() => { const m = document.getElementById('tokenSelectorMenu');
+    m.dispatchEvent(new MouseEvent('click', { bubbles: true })); return true; })()`);
+await sleep(400);
+ok(await ev(`document.getElementById('tokenSelectorMenu').classList.contains('hidden')`),
+    'y tocar el fondo también');
+
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);
 ws.close();
 process.exit(fails === 0 ? 0 : 1);

@@ -1228,6 +1228,10 @@
         body.theme-light .bg-gray-900\/50 { background-color: #f9fafb !important; }
         body.theme-light .bg-gray-800\/50 { background-color: #f9fafb !important; }
         body.theme-light .bg-gray-700\/50 { background-color: #f3f4f6 !important; }
+        /* indigo-400 nació para leerse sobre fondo oscuro: sobre blanco da ~3:1, por debajo del
+           4.5 que pide WCAG para texto normal. En tema claro se baja a indigo-600. */
+        body.theme-light .text-indigo-400 { color: #4f46e5 !important; }
+        body.theme-light .text-indigo-300 { color: #4338ca !important; }
         body.theme-light .hover\:bg-gray-700:hover { background-color: #d1d5db !important; }
         body.theme-light .hover\:bg-gray-600:hover { background-color: #d1d5db !important; }
         body.theme-light .hover\:bg-gray-700\/50:hover { background-color: #e5e7eb !important; }
@@ -1442,14 +1446,6 @@
             }
 
             /* El selector de tokens abre hacia ABAJO (arriba no hay lugar) */
-            #tokenSelectorMenu {
-                bottom: auto;
-                top: 100%;
-                margin-bottom: 0;
-                margin-top: 0.5rem;
-                transform-origin: top;
-            }
-
             /* ── Chat apaisado: mensajes ocupan TODA la mitad izquierda;
                   a la derecha los detalles del contacto (arriba) y el input (abajo) ── */
             #chatView.active {
@@ -1701,7 +1697,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.12 alpha</p>
+            <p class="text-sm text-gray-400">v 3.13 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2212,10 +2208,6 @@
                                 <span id="smartWalletBalanceValue">0 CWLT</span>
                             </div>
                             <!-- Token Selector Menu -->
-                            <div id="tokenSelectorMenu"
-                                class="absolute z-10 bottom-full left-0 mb-2 w-full bg-gray-700/90 backdrop-blur-sm rounded-xl shadow-lg hidden origin-bottom animate-scale-in max-h-[50vh] overflow-y-auto">
-                                <!-- Tokens will be populated here by JS -->
-                            </div>
                         </div>
                     </div>
 
@@ -3450,6 +3442,22 @@
         </div>
 
         <!-- Modal Configuración -->
+        <!-- Elegir red: pantalla propia, no un desplegable. Como desplegable colgaba sobre el QR
+             con max-h-[50vh] y scroll, así que la última red aparecía cortada y el conjunto se
+             leía como una sección a medio mostrar. Encima usaba bg-gray-700/90, que no tiene
+             override de tema claro (sí lo tienen bg-gray-700 y bg-gray-800): quedaba gris oscuro
+             sobre fondo claro. Como modal hereda el tema como el resto. -->
+        <div id="tokenSelectorMenu" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl w-full max-w-sm max-h-[80vh] flex flex-col shadow-2xl">
+                <div class="flex justify-between items-center p-4 border-b border-gray-700 shrink-0">
+                    <h3 class="text-lg font-bold" data-i18n-key="network_picker_title">Elegí la red</h3>
+                    <button type="button" id="closeTokenSelector"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                <div id="tokenSelectorList" class="p-2 space-y-1 overflow-y-auto"></div>
+            </div>
+        </div>
+
         <div id="settingsModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-40">
             <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
                 <div class="flex justify-between items-center">
@@ -3661,7 +3669,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.12</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.13</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -6187,7 +6195,10 @@
             }
 
             function renderTokenMenu() {
-                tokenSelectorMenu.innerHTML = '';
+                // La lista va en su propio contenedor: vaciar el modal entero borraría el título
+                // y el botón de cerrar.
+                const lista = document.getElementById('tokenSelectorList');
+                lista.innerHTML = '';
 
                 // Filtra para mostrar solo las redes favoritas.
                 let favoriteNetworks = optionsList
@@ -6208,13 +6219,13 @@
                     ${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
                 `;
                     item.onclick = () => switchNetwork(token.originalIndex);
-                    tokenSelectorMenu.appendChild(item);
+                    lista.appendChild(item);
                 });
             }
 
             async function switchNetwork(index) {
                 if (index === currentTokenIndex) {
-                    tokenSelectorMenu.classList.add('hidden');
+                    cerrarSelectorDeRed();
                     if (sendModalTokenMenu) sendModalTokenMenu.classList.add('hidden');
                     return;
                 }
@@ -6243,7 +6254,7 @@
                     sendModalTokenName.textContent = `${selectedNetwork.TOKEN_CHAIN_NAME}`;
                 }
 
-                tokenSelectorMenu.classList.add('hidden');
+                cerrarSelectorDeRed();
                 if (sendModalTokenMenu) sendModalTokenMenu.classList.add('hidden');
                 setBalanceText('main', 'Cargando...');
 
@@ -14966,10 +14977,23 @@
             }
             if (sendForm) sendForm.addEventListener('submit', handleSendTransaction);
 
+            function cerrarSelectorDeRed() {
+                tokenSelectorMenu.classList.add('hidden');
+                tokenSelectorMenu.classList.remove('flex');
+            }
             tokenSelectorToggle.addEventListener('click', (e) => {
                 e.stopPropagation();
+                if (!tokenSelectorMenu.classList.contains('hidden')) { cerrarSelectorDeRed(); return; }
                 renderTokenMenu();
-                tokenSelectorMenu.classList.toggle('hidden');
+                tokenSelectorMenu.classList.remove('hidden');
+                tokenSelectorMenu.classList.add('flex');
+            });
+            document.getElementById('closeTokenSelector')?.addEventListener('click', cerrarSelectorDeRed);
+            // Tocar fuera del panel cierra. Ojo: el overlay ocupa toda la pantalla, así que el
+            // "afuera" ES el propio elemento — por eso se compara contra e.target y no con
+            // .contains(), que daría true para el fondo y no cerraría nunca.
+            tokenSelectorMenu.addEventListener('click', (e) => {
+                if (e.target === tokenSelectorMenu) cerrarSelectorDeRed();
             });
 
             if (sendModalTokenSelector) {
@@ -15012,11 +15036,7 @@
                 }
             });
 
-            document.addEventListener('click', (e) => {
-                if (!tokenSelectorMenu.classList.contains('hidden') && !tokenSelectorMenu.contains(e.target)) {
-                    tokenSelectorMenu.classList.add('hidden');
-                }
-            });
+            // (el cierre por tocar afuera lo maneja el propio overlay, arriba)
 
             chatActionsToggle.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -15720,6 +15740,7 @@
                     "backup_nag_text_fondos": "Ya tenés fondos: respaldá tu frase secreta. Sin ella, perder este dispositivo es perder la billetera.",
                     "toast_wallet_lista": "Listo, ya podés chatear.",
                     "backup_nag_cta": "Respaldar",
+                    "network_picker_title": "Elegí la red",
                     "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
                     "apk_banner_cta": "Descargar",
                     "settings_install_title": "Instalar la app",
@@ -15905,6 +15926,7 @@
                     "backup_nag_text_fondos": "You have funds now: back up your secret phrase. Without it, losing this device means losing the wallet.",
                     "toast_wallet_lista": "All set — you can chat now.",
                     "backup_nag_cta": "Back up",
+                    "network_picker_title": "Choose the network",
                     "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
                     "apk_banner_cta": "Download",
                     "settings_install_title": "Install the app",
@@ -16090,6 +16112,7 @@
                     "backup_nag_text_fondos": "Vous avez des fonds : sauvegardez votre phrase secrète. Sans elle, perdre cet appareil c'est perdre le portefeuille.",
                     "toast_wallet_lista": "C'est prêt, vous pouvez discuter.",
                     "backup_nag_cta": "Sauvegarder",
+                    "network_picker_title": "Choisissez le réseau",
                     "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",
                     "apk_banner_cta": "Télécharger",
                     "settings_install_title": "Installer l'app",
