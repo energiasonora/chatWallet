@@ -1161,6 +1161,42 @@
         /* Wallet action buttons row */
         #walletView .grid {
             flex-shrink: 0;
+            /* Enviar/Escanear/Recibir es lo primero que se necesita y lo último de la columna:
+               cuando el alto no alcanza quedaba cortada bajo el nav fijo (medido: contenido
+               500px contra 408 disponibles en una ventana de 640). Encoger el QR no alcanza
+               —es sólo 192 de esos 500— y adivinar breakpoints es frágil. Se ancla al pie del
+               panel: lo que scrollea es el QR, y la fila entra en cualquier ventana.
+               El fondo es obligatorio: sin él el QR se ve pasar por debajo. */
+            position: sticky;
+            bottom: 0;
+            z-index: 1;
+            background: #111827;
+        }
+
+        body.theme-light #walletView .grid {
+            background: #f3f4f6;
+        }
+
+        /* En una ventana baja (escritorio, con la barra del navegador comiendo alto) el
+           contenido medía 442px contra 381 disponibles y la fila de acciones quedaba cortada
+           bajo el nav fijo. Se podía scrollear, pero abría cortada y parecía rota. El que
+           tiene que ceder es el QR, no los botones: es lo único con alto negociable. */
+        @media (max-height: 780px) {
+            #qr-code canvas,
+            #qr-code img,
+            #qr-code svg {
+                max-height: 30vh;
+                width: auto !important;
+                height: auto !important;
+            }
+        }
+
+        @media (max-height: 620px) {
+            #qr-code canvas,
+            #qr-code img,
+            #qr-code svg {
+                max-height: 24vh;
+            }
         }
 
         /* ── Header safe-area ────────────────────────────── */
@@ -1199,6 +1235,19 @@
         /* Texto: invertir los claros, pero NUNCA sobre botones/fondos de color
            (indigo/red/green/yellow siguen con texto blanco). */
         body.theme-light .text-white:not([class*="bg-indigo"]):not([class*="bg-red"]):not([class*="bg-green"]):not([class*="bg-blue"]):not([class*="bg-yellow"]) { color: #111827 !important; }
+
+        /* La excepción de arriba sólo salva a lo que lleva `text-white` ESCRITO. Los botones
+           de color no lo llevan: heredan del body, que en tema claro pasa a texto oscuro —
+           y quedaba gris-negro sobre índigo, medido en 2.82:1 (WCAG pide 4.5). El fondo de
+           color tiene que traer su propia letra en vez de depender de lo que herede. */
+        body.theme-light [class*="bg-indigo-6"],
+        body.theme-light [class*="bg-indigo-7"],
+        body.theme-light [class*="bg-green-6"],
+        body.theme-light [class*="bg-green-7"],
+        body.theme-light [class*="bg-red-6"],
+        body.theme-light [class*="bg-red-7"] {
+            color: #ffffff;
+        }
         body.theme-light .text-gray-200:not([class*="bg-indigo"]):not([class*="bg-red"]):not([class*="bg-green"]) { color: #1f2937 !important; }
         body.theme-light .text-gray-300 { color: #374151 !important; }
         body.theme-light .text-gray-400 { color: #4b5563 !important; }
@@ -1652,7 +1701,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.10 alpha</p>
+            <p class="text-sm text-gray-400">v 3.11 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3612,7 +3661,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.10</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.11</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
