@@ -1884,18 +1884,19 @@
                 <div class="w-16 h-16 rounded-full bg-[#07040f] border border-violet-300/40"></div>
             </div>
 
-            <h2 class="text-2xl font-bold text-white text-center">ChatWallet se muda</h2>
+            <h2 class="text-2xl font-bold text-white text-center" data-i18n-key="mig_title">ChatWallet se muda</h2>
+            <!-- Un renglón por elemento: translateUI escribe textContent y se comería
+                 cualquier <strong> o <br> que viviera dentro de una clave. -->
             <p class="text-violet-200/80 mt-3 text-sm leading-relaxed text-center">
-                Hoy la app pasa a su <strong class="text-white">red definitiva</strong> y a su
-                <strong class="text-white">firma propia</strong>, la de EnergíaSonora.<br>
-                Esta versión que tenés instalada deja de recibir mensajes.
+                <span class="block" data-i18n-key="mig_lead1">Hoy la app pasa a su red definitiva y a su firma propia, la de EnergíaSonora.</span>
+                <span class="block mt-1 text-white" data-i18n-key="mig_lead2">Esta versión que tenés instalada deja de recibir mensajes.</span>
             </p>
 
             <div class="mt-6 rounded-lg border border-violet-400/25 bg-violet-500/5 p-3">
-                <p class="text-xs text-violet-100/70 leading-relaxed">
-                    Android no deja cambiar la firma de una app instalada, así que la nueva
-                    <strong class="text-violet-100">no se instala encima</strong>: hay que desinstalar esta.
-                    Al desinstalar se borra todo lo que hay en el teléfono — por eso los dos primeros pasos.
+                <p class="text-xs text-violet-100/70 leading-relaxed" data-i18n-key="mig_warn">
+                    Android no deja cambiar la firma de una app instalada, así que la nueva no se instala
+                    encima: hay que desinstalar esta. Al desinstalar se borra todo lo que hay en el
+                    teléfono — por eso los dos primeros pasos.
                 </p>
             </div>
 
@@ -1903,9 +1904,9 @@
                 <div class="flex items-start gap-3">
                     <span id="migStep1Mark" class="w-6 h-6 shrink-0 rounded-full border border-violet-400/40 flex items-center justify-center text-xs text-violet-200">1</span>
                     <div class="flex-1">
-                        <p class="text-sm text-white font-semibold">Respaldá tus chats</p>
-                        <p class="text-xs text-gray-400 mt-0.5">Se guardan cifrados en el nodo soberano y vuelven solos en la app nueva.</p>
-                        <button id="migBackupChatsBtn"
+                        <p class="text-sm text-white font-semibold" data-i18n-key="mig_s1_t">Respaldá tus chats</p>
+                        <p class="text-xs text-gray-400 mt-0.5" data-i18n-key="mig_s1_d">Se guardan cifrados en el nodo soberano y vuelven solos en la app nueva.</p>
+                        <button id="migBackupChatsBtn" data-i18n-key="mig_s1_btn"
                             class="mt-2 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold">Respaldar ahora</button>
                         <p id="migBackupChatsMsg" class="text-xs mt-1 min-h-[1rem]"></p>
                     </div>
@@ -1914,9 +1915,9 @@
                 <div class="flex items-start gap-3">
                     <span id="migStep2Mark" class="w-6 h-6 shrink-0 rounded-full border border-violet-400/40 flex items-center justify-center text-xs text-violet-200">2</span>
                     <div class="flex-1">
-                        <p class="text-sm text-white font-semibold">Anotá tu frase de 12 palabras</p>
-                        <p class="text-xs text-gray-400 mt-0.5">Es lo único que recupera tu wallet. En papel, no en una foto.</p>
-                        <button id="migShowSeedBtn"
+                        <p class="text-sm text-white font-semibold" data-i18n-key="mig_s2_t">Anotá tu frase de 12 palabras</p>
+                        <p class="text-xs text-gray-400 mt-0.5" data-i18n-key="mig_s2_d">Es lo único que recupera tu wallet. En papel, no en una foto.</p>
+                        <button id="migShowSeedBtn" data-i18n-key="mig_s2_btn"
                             class="mt-2 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold">Ver mi frase</button>
                     </div>
                 </div>
@@ -1924,18 +1925,16 @@
                 <div class="flex items-start gap-3">
                     <span id="migStep3Mark" class="w-6 h-6 shrink-0 rounded-full border border-violet-400/40 flex items-center justify-center text-xs text-violet-200">3</span>
                     <div class="flex-1">
-                        <p class="text-sm text-white font-semibold">Descargá la app nueva</p>
-                        <p class="text-xs text-gray-400 mt-0.5">Se abre en Chrome. Después: desinstalá esta, instalá la nueva y restaurá con tu frase.</p>
-                        <button id="migDownloadBtn"
+                        <p class="text-sm text-white font-semibold" data-i18n-key="mig_s3_t">Descargá la app nueva</p>
+                        <p class="text-xs text-gray-400 mt-0.5" data-i18n-key="mig_s3_d">Se abre en Chrome. Después: desinstalá esta, instalá la nueva y restaurá con tu frase.</p>
+                        <button id="migDownloadBtn" data-i18n-key="mig_s3_btn"
                             class="mt-2 px-3 py-1.5 rounded-lg bg-white/90 hover:bg-white text-violet-900 text-xs font-bold">Descargar ChatWallet</button>
                     </div>
                 </div>
             </div>
 
-            <button id="migLaterBtn"
-                class="mt-7 w-full p-2.5 rounded-lg border border-white/15 text-gray-300 hover:text-white hover:border-white/30 text-sm">
-                Ahora no
-            </button>
+            <button id="migLaterBtn" data-i18n-key="mig_later"
+                class="mt-7 w-full p-2.5 rounded-lg border border-white/15 text-gray-300 hover:text-white hover:border-white/30 text-sm">Ahora no</button>
         </div>
     </div>
 
@@ -15879,6 +15878,20 @@
                     "cold_splash_f3_t": "Transferí por QR:",
                     "cold_splash_f3_d": "mové lo firmado a un dispositivo online escaneando.",
                     "cold_splash_ok": "Entendido",
+                    "mig_title": "ChatWallet se muda",
+                    "mig_lead1": "Hoy la app pasa a su red definitiva y a su firma propia, la de EnergíaSonora.",
+                    "mig_lead2": "Esta versión que tenés instalada deja de recibir mensajes.",
+                    "mig_warn": "Android no deja cambiar la firma de una app instalada, así que la nueva no se instala encima: hay que desinstalar esta. Al desinstalar se borra todo lo que hay en el teléfono — por eso los dos primeros pasos.",
+                    "mig_s1_t": "Respaldá tus chats",
+                    "mig_s1_d": "Se guardan cifrados en el nodo soberano y vuelven solos en la app nueva.",
+                    "mig_s1_btn": "Respaldar ahora",
+                    "mig_s2_t": "Anotá tu frase de 12 palabras",
+                    "mig_s2_d": "Es lo único que recupera tu wallet. En papel, no en una foto.",
+                    "mig_s2_btn": "Ver mi frase",
+                    "mig_s3_t": "Descargá la app nueva",
+                    "mig_s3_d": "Se abre en Chrome. Después: desinstalá esta, instalá la nueva y restaurá con tu frase.",
+                    "mig_s3_btn": "Descargar ChatWallet",
+                    "mig_later": "Ahora no",
                     "settings_cold_title": "Modo frío",
                     "settings_cold_desc": "Sin conexión: firmás y componés por QR, sin que la llave toque la red.",
                     "settings_keys_title": "Gestión de claves",
@@ -16084,6 +16097,20 @@
                     "cold_splash_f3_t": "Transfer over QR:",
                     "cold_splash_f3_d": "move what you signed to an online device by scanning.",
                     "cold_splash_ok": "Got it",
+                    "mig_title": "ChatWallet is moving",
+                    "mig_lead1": "Today the app moves to its final network and to its own signature, EnergíaSonora’s.",
+                    "mig_lead2": "The version you have installed stops receiving messages.",
+                    "mig_warn": "Android does not allow changing the signature of an installed app, so the new one will not install over this one: you have to uninstall this. Uninstalling wipes everything on the phone — that is what the first two steps are for.",
+                    "mig_s1_t": "Back up your chats",
+                    "mig_s1_d": "They are stored encrypted on the sovereign node and come back on their own in the new app.",
+                    "mig_s1_btn": "Back up now",
+                    "mig_s2_t": "Write down your 12-word phrase",
+                    "mig_s2_d": "It is the only thing that recovers your wallet. On paper, not in a photo.",
+                    "mig_s2_btn": "Show my phrase",
+                    "mig_s3_t": "Download the new app",
+                    "mig_s3_d": "It opens in Chrome. Then: uninstall this one, install the new one and restore with your phrase.",
+                    "mig_s3_btn": "Download ChatWallet",
+                    "mig_later": "Not now",
                     "settings_cold_title": "Cold mode",
                     "settings_cold_desc": "Offline: you sign and compose over QR, without the key ever touching the network.",
                     "settings_keys_title": "Key management",
@@ -16289,6 +16316,20 @@
                     "cold_splash_f3_t": "Transfert par QR :",
                     "cold_splash_f3_d": "déplacez ce qui est signé vers un appareil en ligne en scannant.",
                     "cold_splash_ok": "Compris",
+                    "mig_title": "ChatWallet déménage",
+                    "mig_lead1": "Aujourd’hui l’app passe à son réseau définitif et à sa propre signature, celle d’EnergíaSonora.",
+                    "mig_lead2": "La version que vous avez installée cesse de recevoir des messages.",
+                    "mig_warn": "Android ne permet pas de changer la signature d’une app installée : la nouvelle ne s’installe donc pas par-dessus, il faut désinstaller celle-ci. La désinstallation efface tout ce qui est sur le téléphone — c’est à cela que servent les deux premières étapes.",
+                    "mig_s1_t": "Sauvegardez vos conversations",
+                    "mig_s1_d": "Elles sont stockées chiffrées sur le nœud souverain et reviennent seules dans la nouvelle app.",
+                    "mig_s1_btn": "Sauvegarder maintenant",
+                    "mig_s2_t": "Notez votre phrase de 12 mots",
+                    "mig_s2_d": "C’est la seule chose qui récupère votre portefeuille. Sur papier, pas en photo.",
+                    "mig_s2_btn": "Voir ma phrase",
+                    "mig_s3_t": "Téléchargez la nouvelle app",
+                    "mig_s3_d": "Elle s’ouvre dans Chrome. Ensuite : désinstallez celle-ci, installez la nouvelle et restaurez avec votre phrase.",
+                    "mig_s3_btn": "Télécharger ChatWallet",
+                    "mig_later": "Pas maintenant",
                     "settings_cold_title": "Mode hors ligne",
                     "settings_cold_desc": "Hors ligne : vous signez et composez par QR, sans que la clé touche le réseau.",
                     "settings_keys_title": "Gestion des clés",

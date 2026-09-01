@@ -25,9 +25,9 @@ const ir = async url => { await rpc('Page.navigate', { url }); await sleep(1500)
 // Lo que cada idioma tiene que decir. Palabras que sólo existen en ese idioma:
 // si el panel se quedara en español, ninguna aparecería.
 const ESPERADO = {
-    es: { titulo: 'Modo frío activado', modal: /modo frío/i,        splash: /desconectada de internet/i, ok: 'Entendido' },
-    en: { titulo: 'Cold mode is on',    modal: /cold mode/i,        splash: /disconnected from the internet/i, ok: 'Got it' },
-    fr: { titulo: 'Mode hors ligne activé', modal: /hors ligne/i,   splash: /déconnecté d'internet/i, ok: 'Compris' },
+    es: { titulo: 'Modo frío activado', modal: /modo frío/i,        splash: /desconectada de internet/i, ok: 'Entendido', mudanza: 'ChatWallet se muda' },
+    en: { titulo: 'Cold mode is on',    modal: /cold mode/i,        splash: /disconnected from the internet/i, ok: 'Got it', mudanza: 'ChatWallet is moving' },
+    fr: { titulo: 'Mode hors ligne activé', modal: /hors ligne/i,   splash: /déconnecté d'internet/i, ok: 'Compris', mudanza: 'ChatWallet déménage' },
 };
 
 const LEER = sel => `(() => { const e = document.querySelector(${JSON.stringify(sel)});
@@ -82,6 +82,27 @@ for (const lang of ['es', 'en', 'fr']) {
         return out;
     })()`);
     ok(sinClave.length === 0, 'no quedan textos sin data-i18n-key', JSON.stringify(sinClave));
+
+    // El splash de mudanza sólo se dibuja en la build dev (IS_NATIVE && XMTP_ENV==='dev'),
+    // pero su markup está en el DOM igual: translateUI ya lo tocó, así que se puede leer
+    // sin dispararlo. Es el cartel que ven los que quedaron en la red vieja.
+    const mig = await ev(`(() => {
+        const raiz = document.getElementById('migrationSplash');
+        const sinClave = [], vacias = [];
+        for (const n of raiz.querySelectorAll('*')) {
+            if (n.children.length) continue;
+            const txt = (n.textContent || '').trim();
+            if (/^[0-9]$/.test(txt)) continue;                 // los números 1/2/3 de los pasos
+            if (!txt) { if (n.hasAttribute('data-i18n-key')) vacias.push(n.getAttribute('data-i18n-key')); continue; }
+            if (!/\\p{L}/u.test(txt)) continue;
+            if (!n.hasAttribute('data-i18n-key')) sinClave.push(txt.slice(0, 40));
+        }
+        return { sinClave, vacias, texto: (raiz.innerText || '').replace(/\\s+/g, ' ').trim() };
+    })()`);
+    console.log('   mudanza: ' + mig.texto.slice(0, 110));
+    ok(mig.sinClave.length === 0, 'el splash de mudanza no tiene textos sin clave', JSON.stringify(mig.sinClave));
+    ok(mig.vacias.length === 0, 'ninguna clave del splash de mudanza quedó vacía', JSON.stringify(mig.vacias));
+    ok(mig.texto.includes(ESPERADO[lang].mudanza), `y está en ${lang}`, ESPERADO[lang].mudanza);
 }
 
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);
