@@ -21,6 +21,7 @@ ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && waiters.has(m.id
 await rpc('Page.enable'); await rpc('Runtime.enable');
 const ev = async expr =>
     (await rpc('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true })).result?.value;
+const shortDe = a => `${a.slice(0, 6)}...${a.slice(-4)}`;
 const esperar = async (expr, seg = 30) => {
     for (let i = 0; i < seg * 2; i++) { if (await ev(expr)) return true; await sleep(500); }
     return false;
@@ -267,6 +268,40 @@ await ev(`(() => { document.getElementById('userDidWindow').classList.add('hidde
 await sleep(400);
 ok(await ev(`document.getElementById('userCardEditBtn').classList.contains('hidden')`),
     'en la tarjeta de un contacto no aparece el lápiz');
+
+// ─────────── 6. el apodo local no se lee como si fuera propio ───────────
+console.log('\n── "Tu alias" en la tarjeta de un contacto ──');
+const OTRO = '0x2233445566778899aabbccddeeff001122334455';
+const lineaAlias = async (nombre) => {
+    await ev(`(async () => {
+        contacts = [{ name: ${JSON.stringify(nombre)}, selfAlias: 'Xunorus', address: '${OTRO}',
+                      unreadCount: 0, status: 'offline' }];
+        showUserInfo('${OTRO}');
+        return true;
+    })()`);
+    await sleep(400);
+    return await ev(`document.getElementById('userCardLocalName').innerText.trim()`);
+};
+
+const conApodo = await lineaAlias('Clau');
+ok(!/tu alias/i.test(conApodo || ''),
+    `ya no dice "Tu alias" (“${conApodo}”)`);
+ok(/Clau/.test(conApodo || ''), 'pero sigue mostrando el apodo que pusiste');
+ok(/para vos|you call|appelez/i.test(conApodo || ''),
+    'y deja claro que el nombre es TUYO para esa persona, no de ella');
+
+// Sin apodo: la invitación a ponerle uno.
+const sinApodo = await lineaAlias(shortDe(OTRO));
+ok(!/tu alias/i.test(sinApodo || ''), `tampoco en el estado vacío (“${sinApodo}”)`);
+ok(/nombre|name|nom/i.test(sinApodo || ''), 'y ofrece ponerle uno');
+
+// El texto ahora es i18n: en inglés tiene que cambiar.
+await ev(`localStorage.setItem('chatwallet-lang','en')`);
+await rpc('Page.navigate', { url: BASE + '/dapp.html' }); await sleep(3000);
+await esperar(`!!currentWallet`);
+const enIngles = await lineaAlias('Clau');
+ok(/you call/i.test(enIngles || ''), `y se traduce (“${enIngles}”)`);
+await ev(`localStorage.setItem('chatwallet-lang','es')`);
 
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);
 ws.close();
