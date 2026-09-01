@@ -64,17 +64,30 @@ const CONTRASTE = `(() => {
     return JSON.stringify(out);
 })()`;
 
-// ¿La fila se ve entera al abrir, sin que el usuario tenga que descubrir el scroll?
+// La pantalla de billetera tiene que entrar ENTERA: QR, dirección, saldo y acciones, sin
+// scroll. Anclar la fila de acciones dejaba los botones a la vista pero escondía el saldo
+// detrás: por eso se mide también que el saldo esté dentro del área visible.
 const RECORTE = `(() => {
+    const w = document.getElementById('walletView');
     const fila = document.getElementById('scanQrBtn').parentElement;
     const nav = document.getElementById('appNav');
     const r = fila.getBoundingClientRect();
     const navArriba = nav && !nav.classList.contains('hidden') ? nav.getBoundingClientRect().top : innerHeight;
+    // Contra la VENTANA, no contra la caja del contenedor: el canvas del QR puede desbordar
+    // unos px su wrapper sin que nada se recorte (el wrapper no clipea). Lo que importa es que
+    // se vea en pantalla y que no haya scroll pendiente, no en qué caja cae.
+    const dentro = el => { if (!el) return null; const b = el.getBoundingClientRect();
+        return b.top >= -1 && b.bottom <= innerHeight + 1 && b.height > 0; };
+    const saldo = document.getElementById('balanceValue')
+        || document.querySelector('#walletView .text-4xl, #walletView .text-3xl');
+    const qr = document.querySelector('#qr-code canvas, #qr-code img');
     return JSON.stringify({
         filaBottom: Math.round(r.bottom), navTop: Math.round(navArriba), ventana: innerHeight,
         tapada: r.bottom > navArriba + 1,
-        scrollPendiente: (() => { const w = document.getElementById('walletView');
-            return w ? w.scrollHeight - w.clientHeight : 0; })()
+        scrollPendiente: w.scrollHeight - w.clientHeight,
+        saldoVisible: dentro(saldo),
+        qrVisible: dentro(qr),
+        altoQr: qr ? Math.round(qr.getBoundingClientRect().height) : null
     });
 })()`;
 
@@ -100,20 +113,22 @@ for (const [id, v] of Object.entries(d)) {
 console.log('\n── la fila de acciones entra sin scrollear ──');
 for (const alto of [900, 760, 700, 640]) {
     await conAlto(alto);
-    await sleep(700);
+    await sleep(900);
     const r = JSON.parse(await ev(RECORTE) || '{}');
-    ok(!r.tapada,
-        `ventana ${alto}px: la fila termina en ${r.filaBottom} y el nav empieza en ${r.navTop}` +
-        (r.tapada ? ' → TAPADA' : ' → entera'));
+    ok(!r.tapada, `ventana ${alto}px: la fila no la tapa el nav (${r.filaBottom} vs ${r.navTop})`);
+    ok(r.scrollPendiente === 0, `ventana ${alto}px: entra todo sin scroll (sobra ${r.scrollPendiente}px)`);
+    ok(r.saldoVisible, `ventana ${alto}px: el saldo se ve`);
+    ok(r.qrVisible, `ventana ${alto}px: el QR se ve entero (${r.altoQr}px)`);
 }
 
 // Y en tema claro también, que el QR cambia de tamaño con el tema.
 await cargar('light');
 for (const alto of [760, 700]) {
     await conAlto(alto);
-    await sleep(700);
+    await sleep(900);
     const r = JSON.parse(await ev(RECORTE) || '{}');
-    ok(!r.tapada, `tema claro, ventana ${alto}px: la fila entra (bottom ${r.filaBottom} < nav ${r.navTop})`);
+    ok(!r.tapada && r.scrollPendiente === 0 && r.saldoVisible,
+        `tema claro, ventana ${alto}px: entra todo y el saldo se ve (sobra ${r.scrollPendiente}px)`);
 }
 
 // ─────────── 3. cambiar de tema no tira un cartel ───────────
