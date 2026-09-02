@@ -50,24 +50,36 @@ ok(est.hijos === 1, 'el QR se insertó');
 ok(est.paths > 10, `y tiene dibujo real, no un marco vacío (${est.paths} formas)`);
 ok(/^0x[0-9a-fA-F]{40}$/.test(est.dir), 'muestra la dirección', est.dir.slice(0, 12) + '…');
 
-// ── pestaña stealth ──
-console.log('\n── meta-address stealth ──');
-await ev(`document.getElementById('receiveTabStealth').click();
-          window.__toasts = []; const _s = window.showToast;
+// ── la pestaña stealth está oculta ──
+// Generar la meta-address funciona, pero no hay escáner: la app nunca podría encontrar ni
+// gastar lo que le paguen ahí. Mientras falte, ofrecerla sería invitar a cobrar a ciegas.
+console.log('\n── stealth: oculta hasta que exista el escáner ──');
+const vis = await ev(`(() => {
+    const visible = el => !!(el && el.offsetParent !== null);
+    return { tabs: visible(document.getElementById('receiveTabs')),
+             tabStealth: visible(document.getElementById('receiveTabStealth')),
+             contenido: visible(document.getElementById('receiveStealthContent')),
+             estandar: visible(document.getElementById('receiveStandardContent')) }; })()`);
+ok(!vis.tabStealth, 'la pestaña stealth no se ve');
+ok(!vis.contenido, 'ni su contenido');
+ok(vis.estandar, 'y la dirección estándar sigue a la vista');
+
+// ── la derivación coincide con el spec publicado ──
+// El botón sigue existiendo aunque esté oculto; se lo llama directo para comprobar que la
+// llave que deriva es la de StealthPay v1 y no la del mensaje viejo. Si alguien vuelve a
+// poner STEALTH_ENABLED = true, esto exige que ya esté alineado.
+console.log('\n── derivación v1 (github.com/energiasonora/stealthpay §2) ──');
+const META_SEGUN_SPEC = '0x02de477c92f9069ea18ecba4ebd93f1c324124975cd3828946b0dd63967787637c'
+                      + '02278de5845e02753c0d5a753975a7b411318ea24195fa2e70a1a2a73ac1d22a7a';
+await ev(`window.__toasts = []; const _s = window.showToast;
           window.showToast = (m, t) => { window.__toasts.push(t + ': ' + m); return _s && _s(m, t); }; true`);
-await sleep(400);
 await ev(`document.getElementById('generateStealthMetaAddressBtn').click(); true`); await sleep(3000);
-const st = await ev(`(() => { const q = document.getElementById('stealthMetaAddressQr');
-    const svg = q.querySelector('svg');
-    return { toasts: window.__toasts,
-             oculto: document.getElementById('stealthMetaAddressContainer').classList.contains('hidden'),
-             meta: (document.getElementById('stealthMetaAddressData').value || '').trim(),
-             paths: svg ? svg.querySelectorAll('path, rect, circle').length : 0 }; })()`);
+const st = await ev(`(() => ({ toasts: window.__toasts,
+    meta: (document.getElementById('stealthMetaAddressData').value || '').trim() }))()`);
 ok(!st.toasts.some(x => /error/i.test(x)), 'no protesta por la wallet', JSON.stringify(st.toasts));
-ok(!st.oculto, 'el resultado se muestra');
-// Dos claves públicas comprimidas concatenadas: 0x + 66 + 66 hex.
-ok(/^0x[0-9a-fA-F]{132}$/.test(st.meta), `la meta-address tiene forma de par spend+view (${st.meta.length} chars)`);
-ok(st.paths > 10, `y su QR también está dibujado (${st.paths} formas)`);
+ok(st.meta === META_SEGUN_SPEC,
+    'la meta-address es la que el spec publica para esta llave',
+    META_SEGUN_SPEC.slice(0, 20) + '…', st.meta.slice(0, 20) + '…');
 
 // ── el 404 que causaba todo ──
 console.log('\n── recursos ──');

@@ -1765,7 +1765,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.19 alpha</p>
+            <p class="text-sm text-gray-400">v 3.20 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3090,8 +3090,11 @@
                         class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
                 </div>
 
-                <!-- Pestañas -->
-                <div class="grid grid-cols-2 gap-2 bg-gray-900/50 p-1 rounded-lg">
+                <!-- Pestañas. La de stealth se oculta con STEALTH_ENABLED: generar la
+                     meta-address anda, pero no hay escáner, así que la app nunca podría
+                     encontrar ni gastar lo que le paguen ahí. Ver el spec en
+                     github.com/energiasonora/stealthpay -->
+                <div id="receiveTabs" class="grid grid-cols-2 gap-2 bg-gray-900/50 p-1 rounded-lg">
                     <button id="receiveTabStandard"
                         class="receive-tab-btn bg-indigo-600 text-white rounded-md py-1 text-sm font-semibold">Dirección
                         Estándar</button>
@@ -3765,7 +3768,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.19</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.20</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -4462,6 +4465,10 @@
             // NO deja instalarla encima: hay que desinstalar la vieja. Por eso es un asset aparte
             // y no `chatwallet.apk`, que es el que baja el auto-updater.
             const APK_MIGRACION_URL = 'https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk';
+            // Mensaje de derivación de StealthPay v1. Guion largo U+2014, en inglés, sin
+            // traducir: los bytes son normativos y cambiarlos produce otras llaves, otra
+            // identidad y otro dinero. Spec §2.2: github.com/energiasonora/stealthpay
+            const STEALTHPAY_V1_MESSAGE = 'ChatWallet StealthPay v1 — Key Derivation';
             const erc20Abi = [
                 "function balanceOf(address owner) view returns (uint256)",
                 "function decimals() view returns (uint8)",
@@ -6141,7 +6148,11 @@
                         const R = ephemeral.signingKey.compressedPublicKey;
 
                         const viewPoint = ec.keyFromPublic(pubView.slice(2), 'hex').getPublic();
-                        const shared = viewPoint.mul(ephemeral.privateKey.slice(2)).encode('hex');
+                        // COMPRIMIDO (33 bytes). encode('hex') de elliptic serializa sin comprimir
+                        // (65 bytes, prefijo 04) y eso da otra `s`, otra dirección, y un pago que
+                        // el receptor no encuentra nunca — sin ningún error a la vista.
+                        // StealthPay v1 §4: github.com/energiasonora/stealthpay
+                        const shared = viewPoint.mul(ephemeral.privateKey.slice(2)).encodeCompressed('hex');
                         const s = ethers.keccak256("0x" + shared);
 
                         const spendPoint = ec.keyFromPublic(pubSpend.slice(2), 'hex').getPublic();
@@ -17535,7 +17546,9 @@
 
                     try {
                         showToast(t('stealth_generating'), "info");
-                        const signature = await firmante.signMessage("Generar Meta-Address Stealth para ChatWallet");
+                        // El mensaje está fijado por bytes en StealthPay v1 §2.2 y NO se traduce:
+                        // cambiarlo produce otras llaves, otra identidad y otro dinero.
+                        const signature = await firmante.signMessage(STEALTHPAY_V1_MESSAGE);
                         const rootEntropy = ethers.keccak256(signature);
                         const spendingPrivKey = ethers.keccak256(ethers.solidityPacked(["bytes32", "string"], [rootEntropy, "spend"]));
                         const viewingPrivKey = ethers.keccak256(ethers.solidityPacked(["bytes32", "string"], [rootEntropy, "view"]));
@@ -18029,8 +18042,19 @@
             // Reversible con un solo cambio: poner DOCS_ENABLED = true reactiva nav + sección del perfil DID.
             // El backend (nodo IPFS soberano, gateway/backup.chatwallet.org) queda intacto.
             const DOCS_ENABLED = false;
+            // Stealth: el emisor y la generación de meta-address existen, pero falta el
+            // escáner (leer los Announcement y derivar la llave). Sin él la pestaña de
+            // recibir promete algo que no se puede cumplir. Poner true cuando esté.
+            const STEALTH_ENABLED = false;
             const docsNavBtn = document.querySelector('[data-view="documentView"]');
             const didDocsSection = document.getElementById('didDocsSection');
+            if (!STEALTH_ENABLED) {
+                // Sin pestañas queda sólo la dirección estándar, que es lo único que funciona.
+                document.getElementById('receiveTabs')?.classList.add('hidden');
+                document.getElementById('receiveStealthContent')?.classList.add('hidden');
+                document.getElementById('receiveStandardContent')?.classList.remove('hidden');
+            }
+
             if (!DOCS_ENABLED) {
                 if (docsNavBtn) docsNavBtn.classList.add('hidden');
                 if (didDocsSection) didDocsSection.classList.add('hidden');
