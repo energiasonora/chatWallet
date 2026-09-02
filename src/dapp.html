@@ -1765,7 +1765,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.20 alpha</p>
+            <p class="text-sm text-gray-400">v 3.21 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2871,9 +2871,13 @@
                             </svg>
                             <span>Dirección Stealth Detectada</span>
                         </div>
-                        <label for="registry-addr" class="block text-sm text-gray-400 mb-1">Registry Contract</label>
-                        <input type="text" id="registry-addr" placeholder="0x... (requerido para envíos stealth)"
-                            class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                        <!-- Ya no se pide el Registry a mano: el Announcer de ERC-5564 tiene la
+                             misma dirección en toda red EVM. Lo que sí varía es si está desplegado,
+                             y eso se consulta a la cadena antes de anunciar. -->
+                        <p class="text-xs text-gray-500 leading-relaxed" data-i18n-key="stealth_send_note">
+                            El pago va a una dirección de un solo uso y después se publica el anuncio
+                            para que el destinatario pueda encontrarlo. Son dos transacciones.
+                        </p>
                     </div>
                     <div id="txStatus"
                         class="text-center text-sm min-h-[4rem] flex items-center justify-center p-2 bg-gray-900/50 rounded-lg">
@@ -3768,7 +3772,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.20</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.21</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -4469,6 +4473,17 @@
             // traducir: los bytes son normativos y cambiarlos produce otras llaves, otra
             // identidad y otro dinero. Spec §2.2: github.com/energiasonora/stealthpay
             const STEALTHPAY_V1_MESSAGE = 'ChatWallet StealthPay v1 — Key Derivation';
+            // Announcer canónico de ERC-5564, misma dirección en toda red EVM (deploy CREATE2).
+            // Verificado con bytecode idéntico en mainnet, Base, Arbitrum, Optimism y Sepolia.
+            // OJO: sólo tiene announce(...) y REVIERTE si le mandás ether — no transfiere nada.
+            // Por eso el pago son dos transacciones: primero el valor, después el anuncio.
+            const STEALTH_ANNOUNCER = '0x55649E01B5Df198D18D95b5cc5051630cfD45564';
+            const ANNOUNCER_ABI = [
+                "function announce(uint256 schemeId, address stealthAddress, bytes ephemeralPubKey, bytes metadata)"
+            ];
+            const STEALTH_SCHEME_ID = 1;                 // secp256k1 con view tag
+            const STEALTH_PENDING_KEY = 'cw-stealth-anuncios-pendientes';
+
             const erc20Abi = [
                 "function balanceOf(address owner) view returns (uint256)",
                 "function decimals() view returns (uint8)",
@@ -4501,22 +4516,6 @@
             const EC = elliptic.ec;
             const ec = new EC('secp256k1');
 
-            const REGISTRY_ABI = [
-                {
-                    "anonymous": false,
-                    "inputs": [
-                        { "indexed": true, "internalType": "address", "name": "receiver", "type": "address" },
-                        { "indexed": false, "internalType": "bytes", "name": "pubKey", "type": "bytes" }
-                    ],
-                    "name": "Announcement", "type": "event"
-                },
-                {
-                    "inputs": [
-                        { "internalType": "address", "name": "receiver", "type": "address" },
-                        { "internalType": "bytes", "name": "pubKey", "type": "bytes" }
-                    ],
-                    "name": "sendStealth", "outputs": [], "stateMutability": "payable", "type": "function" }
-            ];
 
 
             let isFullscreen = false;
@@ -5918,14 +5917,8 @@
             recipientAddressInput.addEventListener('input', () => {
                 const recipient = recipientAddressInput.value.trim();
                 const stealthFields = document.getElementById('stealth-fields');
-                const registryInput = document.getElementById('registry-addr');
                 if (isStealthAddress(recipient)) {
                     stealthFields.style.display = 'block';
-                    // Auto-complete registry contract based on current network
-                    const selectedNetwork = optionsList[currentTokenIndex];
-                    if (selectedNetwork && selectedNetwork.STEALTH_REGISTRY_ADDRESS) {
-                        registryInput.value = selectedNetwork.STEALTH_REGISTRY_ADDRESS;
-                    }
                 } else {
                     stealthFields.style.display = 'none';
                 }
@@ -6108,15 +6101,148 @@
                 return await token.transfer(recipient, unidades);
             }
 
+            // ── Anuncio stealth (ERC-5564) ─────────────────────────────────────────
+            // El pago ya salió; esto publica la llave efímera para que el receptor pueda
+            // encontrarlo. Si falla, el dinero está en una dirección legítimamente suya que
+            // no puede descubrir: por eso se guarda y se reintenta, y por eso además va por
+            // chat cuando el destinatario es un contacto (ver enviarAvisoStealth).
+            function anunciosPendientes() {
+                try { return JSON.parse(localStorage.getItem(STEALTH_PENDING_KEY) || '[]'); } catch { return []; }
+            }
+            function guardarPendiente(p) {
+                const l = anunciosPendientes();
+                if (!l.some(x => x.stealthAddr === p.stealthAddr && x.chainId === p.chainId)) l.push(p);
+                localStorage.setItem(STEALTH_PENDING_KEY, JSON.stringify(l));
+            }
+            function borrarPendiente(stealthAddr, chainId) {
+                localStorage.setItem(STEALTH_PENDING_KEY, JSON.stringify(
+                    anunciosPendientes().filter(x => !(x.stealthAddr === stealthAddr && x.chainId === chainId))));
+            }
+
+            // ¿Está el Announcer canónico en esta red? Se pregunta a la cadena en vez de
+            // asumirlo: ChatWallet deja agregar redes propias, y anunciar en una donde no
+            // está desplegado revierte y hace perder el gas.
+            async function hayAnnouncer(prov) {
+                try { return (await prov.getCode(STEALTH_ANNOUNCER)) !== '0x'; } catch { return false; }
+            }
+
+            async function anunciarStealth(signer, prov, d, chainId) {
+                if (!(await hayAnnouncer(prov))) {
+                    console.warn('[stealth] sin Announcer canónico en chainId', chainId);
+                    return { ok: false, motivo: 'sin-announcer' };
+                }
+                try {
+                    const c = new ethers.Contract(STEALTH_ANNOUNCER, ANNOUNCER_ABI, signer);
+                    const tx = await c.announce(STEALTH_SCHEME_ID, d.stealthAddr, d.R, d.viewTag);
+                    await tx.wait();
+                    borrarPendiente(d.stealthAddr, chainId);
+                    return { ok: true, hash: tx.hash };
+                } catch (e) {
+                    console.warn('[stealth] falló el anuncio:', e);
+                    guardarPendiente({ ...d, chainId, ts: Date.now() });
+                    return { ok: false, motivo: 'error', error: e };
+                }
+            }
+
+            // Reintenta lo que quedó colgado, al arrancar y al volver de la red.
+            async function reintentarAnunciosPendientes() {
+                const l = anunciosPendientes();
+                if (!l.length || isOffline || !currentWallet) return;
+                const red = optionsList[currentTokenIndex];
+                if (!red) return;
+                for (const p of l) {
+                    if (String(p.chainId) !== String(red.chainId)) continue;   // otra red: más tarde
+                    console.log('[stealth] reintentando anuncio de', p.stealthAddr);
+                    await anunciarStealth(currentWallet.connect(provider), provider, p, p.chainId);
+                }
+            }
+
+            // Aviso por chat (cw:3). Entre usuarios de ChatWallet es instantáneo, gratis y
+            // llega aunque el anuncio on-chain haya fallado. NO reemplaza al anuncio: si el
+            // único rastro fuera este mensaje, recuperar los fondos dependería del historial
+            // de chat en vez de la semilla, que es justo lo que el spec quiere evitar.
+            async function enviarAvisoStealth(d, chainId, txHash, amount) {
+                if (!currentConversation) return false;
+                try {
+                    await currentConversation.sendText(JSON.stringify({
+                        cw: 3, type: 'stealth_payment', schemeId: STEALTH_SCHEME_ID,
+                        stealthAddress: d.stealthAddr, ephemeralPubKey: d.R, viewTag: d.viewTag,
+                        chainId: String(chainId), txHash, amount: String(amount),
+                    }));
+                    return true;
+                } catch (e) { console.warn('[stealth] no se pudo avisar por chat:', e); return false; }
+            }
+
+            // ── Recibir un aviso de pago stealth (cw:3) ────────────────────────────
+            const STEALTH_RECIBIDOS_KEY = () => `cw-stealth-recibidos-${(currentWallet?.address || '').toLowerCase()}`;
+
+            // Las llaves de gasto y visión salen de la wallet, deterministas (StealthPay v1 §2).
+            // No se guardan: se vuelven a derivar cuando hacen falta.
+            let __llavesStealth = null;
+            async function derivarLlavesStealth() {
+                if (__llavesStealth && __llavesStealth.addr === currentWallet.address) return __llavesStealth;
+                const firma = await new ethers.Wallet(currentWallet.privateKey).signMessage(STEALTHPAY_V1_MESSAGE);
+                const root = ethers.keccak256(firma);
+                __llavesStealth = {
+                    addr: currentWallet.address,
+                    spendPriv: ethers.keccak256(ethers.solidityPacked(["bytes32", "string"], [root, "spend"])),
+                    viewPriv: ethers.keccak256(ethers.solidityPacked(["bytes32", "string"], [root, "view"])),
+                };
+                return __llavesStealth;
+            }
+
+            // Devuelve la llave privada de la dirección stealth si el aviso es para nosotros,
+            // o null si no. No se cree el mensaje: RECALCULA la dirección desde la llave
+            // efímera y exige que coincida. Cualquiera puede mandar un cw:3 mintiendo.
+            async function llaveDePagoStealth(ephemeralPubKey, stealthAddress) {
+                try {
+                    const { spendPriv, viewPriv } = await derivarLlavesStealth();
+                    const R = ec.keyFromPublic(ephemeralPubKey.slice(2), 'hex').getPublic();
+                    const s = ethers.keccak256("0x" + R.mul(viewPriv.slice(2)).encodeCompressed('hex'));
+                    const spendPub = new ethers.Wallet(spendPriv).signingKey.compressedPublicKey;
+                    const punto = ec.keyFromPublic(spendPub.slice(2), 'hex').getPublic().add(ec.g.mul(s.slice(2)));
+                    if (computeAddress("0x" + punto.encodeCompressed('hex')).toLowerCase() !== String(stealthAddress).toLowerCase())
+                        return null;   // no es para nosotros (o el mensaje miente)
+                    const n = ec.curve.n;
+                    const k = ec.keyFromPrivate(spendPriv.slice(2), 'hex').getPrivate()
+                        .add(ec.keyFromPrivate(s.slice(2), 'hex').getPrivate()).umod(n);
+                    return '0x' + k.toString('hex').padStart(64, '0');
+                } catch (e) { console.warn('[stealth] no se pudo verificar el aviso:', e); return null; }
+            }
+
+            function stealthRecibidos() {
+                try { return JSON.parse(localStorage.getItem(STEALTH_RECIBIDOS_KEY()) || '[]'); } catch { return []; }
+            }
+
+            async function handleStealthPayment(message, d) {
+                if (!currentWallet || !d.stealthAddress || !d.ephemeralPubKey) return;
+                const priv = await llaveDePagoStealth(d.ephemeralPubKey, d.stealthAddress);
+                if (!priv) { console.warn('[stealth] aviso que no verifica, descartado'); return; }
+
+                const l = stealthRecibidos();
+                if (l.some(x => x.stealthAddress.toLowerCase() === d.stealthAddress.toLowerCase())) return;  // dedup
+                // Se guarda el dato, NO la llave: se re-deriva de la semilla cuando haga falta.
+                l.push({ stealthAddress: d.stealthAddress, ephemeralPubKey: d.ephemeralPubKey,
+                         chainId: String(d.chainId || ''), txHash: d.txHash || '', amount: String(d.amount || ''),
+                         ts: Date.now() });
+                localStorage.setItem(STEALTH_RECIBIDOS_KEY(), JSON.stringify(l));
+
+                cwNotify({
+                    type: 'success',
+                    title: t('stealth_recv_title'),
+                    body: t('stealth_recv_body', { monto: d.amount || '?', dir: String(d.stealthAddress).slice(0, 10) + '…' }),
+                });
+            }
+
             let txWaitTicker = null;
 
             async function executeTransaction(recipient, amount) {
                 const isStealth = isStealthAddress(recipient);
                 const red = optionsList[currentTokenIndex];
 
-                // El Registry stealth anuncia y transfiere VALOR NATIVO (sendStealth es payable y
-                // no toca ningún ERC-20). Enviar un token a una meta-address por acá mandaría la
-                // moneda de la cadena en su lugar, que es exactamente el error que se arregla acá.
+                // El pago stealth es una transferencia de VALOR NATIVO a la dirección derivada.
+                // Enviar un token a una meta-address por acá mandaría la moneda de la cadena en
+                // su lugar. Los ERC-20 necesitan otro flujo (EIP-5564 los contempla, nosotros no).
                 if (isStealth && esRedDeToken(red)) {
                     setTxStatus('<span class="text-red-400">Una meta-address stealth solo recibe ' +
                         `${red.NATIVE_SYMBOL || 'la moneda nativa'} en esta red. Elegí la red nativa ` +
@@ -6129,19 +6255,12 @@
                 try {
                     const signer = currentWallet.connect(provider);
                     let txResponse;
+                    let datosStealth = null;   // {stealthAddr, R, viewTag, meta} si es un pago stealth
 
                     if (isStealth) {
                         // --- STEALTH TRANSACTION LOGIC ---
                         setTxStatus('Paso 1: Meta-Address detectada. Verificando Registry...', true);
-                        const registryAddr = document.getElementById('registry-addr').value;
-                        if (!ethers.isAddress(registryAddr)) {
-                            setTxStatus('<span class="text-red-400">Dirección de Registry inválida.</span>', false);
-                            return;
-                        }
-
-                        const registryContract = new ethers.Contract(registryAddr, REGISTRY_ABI, signer);
-
-                        // 1. Calculate Stealth Address
+                        // 1. Derivar la dirección de un solo uso (StealthPay v1 §4)
                         const pubSpend = "0x" + recipient.slice(2, 68);
                         const pubView = "0x" + recipient.slice(68);
                         const ephemeral = window.Wallet.createRandom();
@@ -6159,15 +6278,23 @@
                         const stealthPoint = spendPoint.add(ec.g.mul(s.slice(2)));
                         const stealthAddr = computeAddress("0x" + stealthPoint.encodeCompressed('hex'));
 
-                        setTxStatus(`Paso 2: Dirección Stealth calculada: ${stealthAddr.slice(0, 10)}...`, true);
+                        // El view tag: primer byte de s. Deja que el receptor descarte ~255 de
+                        // cada 256 anuncios con una comparación, en vez de una suma de puntos.
+                        const viewTag = '0x' + s.slice(2, 4);
 
-                        // 2. Call sendStealth on the Registry
-                        setTxStatus('Paso 3: Enviando transacción y anunciando en el Registry...', true);
-                        txResponse = await registryContract.sendStealth(
-                            stealthAddr,
-                            R,
-                            { value: ethers.parseEther(amount) }
-                        );
+                        // Se guardan para el paso de anuncio, que ocurre DESPUÉS de que el pago
+                        // confirme (el Announcer no mueve fondos: son dos transacciones).
+                        datosStealth = { stealthAddr, R, viewTag, meta: recipient };
+
+                        setTxStatus(`Paso 2: dirección de un solo uso ${stealthAddr.slice(0, 10)}…`, true);
+
+                        // 2. El pago: una transferencia común a la dirección derivada. Nadie que
+                        // mire la cadena puede relacionarla con la meta-address del receptor.
+                        setTxStatus('Paso 3: enviando el pago…', true);
+                        txResponse = await signer.sendTransaction({
+                            to: stealthAddr,
+                            value: ethers.parseEther(amount),
+                        });
 
                     } else {
                         // --- STANDARD TRANSACTION LOGIC ---
@@ -6208,6 +6335,28 @@
                     const etherscanUrl = `${optionsList[currentTokenIndex].EXPLORER}tx/${txHash}`;
                     setTxStatus(`<span class="text-green-400">✅ Confirmada en el bloque #${receipt.blockNumber.toLocaleString()}</span>`, false);
                     updateBalance();
+
+                    // Un pago stealth no termina cuando confirma: hasta que no se publica la
+                    // llave efímera, el receptor no tiene forma de saber que esa dirección
+                    // existe. Se avisa por los dos caminos.
+                    if (datosStealth) {
+                        const chainId = optionsList[currentTokenIndex].chainId;
+                        const porChat = await enviarAvisoStealth(datosStealth, chainId, txHash, amount);
+                        setTxStatus('✅ Pago enviado. Publicando el anuncio para que lo encuentre…', true);
+                        const an = await anunciarStealth(signer, provider, datosStealth, chainId);
+                        if (an.ok) {
+                            setTxStatus('<span class="text-green-400">✅ Pago anunciado. Ya puede encontrarlo.</span>', false);
+                        } else if (porChat) {
+                            // El chat ya lleva la llave efímera, así que el destinatario puede
+                            // cobrar igual; el anuncio queda pendiente para otros clientes.
+                            setTxStatus('<span class="text-yellow-400">✅ Pago enviado y avisado por chat. ' +
+                                'El anuncio on-chain quedó pendiente y se reintenta solo.</span>', false);
+                        } else {
+                            setTxStatus('<span class="text-red-400">⚠️ El pago salió, pero no se pudo anunciar ' +
+                                'ni avisar por chat. Hasta que se anuncie, el destinatario no puede ' +
+                                'encontrarlo. Se reintenta al volver la conexión.</span>', false);
+                        }
+                    }
 
                     if (isSendingFromChat && currentConversation && chatRecipientAddress.toLowerCase() === recipient.toLowerCase()) {
                         const txMessage = `[TRANSACTION]${JSON.stringify({ type: 'send', amount: parseFloat(amount), txHash: txHash, network: optionsList[currentTokenIndex] })}`;
@@ -6341,13 +6490,6 @@
                 // la próxima apertura respeta esto y no vuelve sola a la red donde te pagaron.
                 localStorage.setItem(NET_PICKED_AT_KEY, String(Date.now()));
                 const selectedNetwork = optionsList[currentTokenIndex];
-
-                // Update stealth registry address if applicable
-                const recipient = recipientAddressInput.value.trim();
-                const registryInput = document.getElementById('registry-addr');
-                if (isStealthAddress(recipient) && selectedNetwork && selectedNetwork.STEALTH_REGISTRY_ADDRESS) {
-                    registryInput.value = selectedNetwork.STEALTH_REGISTRY_ADDRESS;
-                }
 
                 provider = new window.ethers.JsonRpcProvider(selectedNetwork.API);
 
@@ -9708,6 +9850,12 @@
                                 if (typeof message.content === 'string' && message.senderInboxId !== chatwalletxmtp.inboxId) {
                                     let __cw; try { __cw = JSON.parse(message.content); } catch (_) { __cw = null; }
                                     if (__cw && __cw.cw === 1) { handleWalletConnectRpc(message, __cw).catch(e => console.warn('[cw-bridge]', e)); return; }
+                                    // cw:3 — aviso de pago stealth. Llega antes que la UI del
+                                    // chat: es un dato de protocolo, no un mensaje para leer.
+                                    if (__cw && __cw.cw === 3 && __cw.type === 'stealth_payment') {
+                                        handleStealthPayment(message, __cw).catch(e => console.warn('[stealth]', e));
+                                        return;
+                                    }
                                 }
                                 if (message.contentType.typeId === 'readReceipt' ||
                                     message.contentType.typeId === 'read-receipt' ||
@@ -15905,6 +16053,9 @@
                     "stealth_no_wallet": "Necesitás una billetera cargada.",
                     "stealth_generating": "Generando meta-address…",
                     "stealth_generated": "Meta-address generada",
+                    "stealth_send_note": "El pago va a una dirección de un solo uso y después se publica el anuncio para que el destinatario pueda encontrarlo. Son dos transacciones.",
+                    "stealth_recv_title": "Pago privado recibido",
+                    "stealth_recv_body": "Te pagaron {monto} a una dirección de un solo uso ({dir}). Sólo vos podés gastarla.",
                     "settings_cold_title": "Modo frío",
                     "settings_cold_desc": "Sin conexión: firmás y componés por QR, sin que la llave toque la red.",
                     "settings_keys_title": "Gestión de claves",
@@ -16127,6 +16278,9 @@
                     "stealth_no_wallet": "You need a wallet loaded.",
                     "stealth_generating": "Generating meta-address…",
                     "stealth_generated": "Meta-address generated",
+                    "stealth_send_note": "The payment goes to a one-time address, then the announcement is published so the recipient can find it. Two transactions.",
+                    "stealth_recv_title": "Private payment received",
+                    "stealth_recv_body": "You were paid {monto} to a one-time address ({dir}). Only you can spend it.",
                     "settings_cold_title": "Cold mode",
                     "settings_cold_desc": "Offline: you sign and compose over QR, without the key ever touching the network.",
                     "settings_keys_title": "Key management",
@@ -16349,6 +16503,9 @@
                     "stealth_no_wallet": "Vous devez avoir un portefeuille chargé.",
                     "stealth_generating": "Génération de la méta-adresse…",
                     "stealth_generated": "Méta-adresse générée",
+                    "stealth_send_note": "Le paiement va vers une adresse à usage unique, puis l’annonce est publiée pour que le destinataire puisse la trouver. Deux transactions.",
+                    "stealth_recv_title": "Paiement privé reçu",
+                    "stealth_recv_body": "On vous a payé {monto} sur une adresse à usage unique ({dir}). Vous seul pouvez la dépenser.",
                     "settings_cold_title": "Mode hors ligne",
                     "settings_cold_desc": "Hors ligne : vous signez et composez par QR, sans que la clé touche le réseau.",
                     "settings_keys_title": "Gestion des clés",
@@ -16717,6 +16874,10 @@
                 if (sw) sw.checked = isOffline;
                 if (!isOffline) currentOfflineContact = null;
                 if (typeof updateOfflineComposeUI === 'function') updateOfflineComposeUI();
+                // Al volver de modo frío puede haber anuncios stealth colgados: el pago salió
+                // y el anuncio no. Mientras no se publique, el receptor no puede encontrarlo.
+                if (!isOffline && typeof reintentarAnunciosPendientes === 'function')
+                    reintentarAnunciosPendientes().catch(e => console.warn('[stealth]', e));
                 if (currentWallet) renderAddressQr(currentWallet.address); // recolorear QR (gris en frío)
                 updateBalance(); // Esto mostrará '---' si está offline
             }
