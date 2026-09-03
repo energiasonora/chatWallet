@@ -91,6 +91,54 @@ ok(guardados[0] && guardados[0].stealthAddress === circuito.stealthAddr, 'y es e
 ok(guardados[0] && !('privateKey' in guardados[0]),
     'no se persiste ninguna llave privada: se re-deriva de la semilla', JSON.stringify(Object.keys(guardados[0] || {})));
 
+// ── el escáner y la fila de saldo ──
+console.log('\n── escáner y saldo ──');
+const esc = await ev(`(() => ({
+    escaner: typeof escanearPagosStealth === 'function',
+    registrar: typeof registrarStealthRecibido === 'function',
+    render: typeof renderStealthBalance === 'function',
+    mc: MULTICALL3, chunk: STEALTH_SCAN_CHUNK,
+}))()`);
+ok(esc.escaner && esc.registrar && esc.render, 'las tres piezas existen');
+ok(esc.mc === '0xcA11bde05977b3631167028862bE2a173976CA11', 'Multicall3 canónico', esc.mc);
+ok(esc.chunk > 0 && esc.chunk <= 10000, `el rango de bloques respeta el límite de los RPC públicos (${esc.chunk})`);
+
+// El registro es idempotente: el escáner y el cw:3 escriben en el mismo lugar y el mismo
+// pago puede llegar por los dos caminos.
+const dedup = await ev(`(() => {
+    localStorage.removeItem(STEALTH_RECIBIDOS_KEY());
+    const p = { stealthAddress: '0x1111111111111111111111111111111111111111',
+                ephemeralPubKey: '0x02' + '11'.repeat(32), chainId: '8453', ts: Date.now() };
+    const a = registrarStealthRecibido(p);
+    const b = registrarStealthRecibido(p);                       // mismo pago, otra vía
+    const c = registrarStealthRecibido({ ...p, chainId: '1' });  // otra red: es otro pago
+    return { a, b, c, total: stealthRecibidos().length };
+})()`);
+ok(dedup.a === true, 'el primero se guarda');
+ok(dedup.b === false, 'el mismo pago por la otra vía no se duplica');
+ok(dedup.c === true, 'la misma dirección en otra red sí es otro pago');
+ok(dedup.total === 2, `quedan 2 registros (${dedup.total})`);
+
+// El barrido hacia atrás: sin él, restaurar la wallet en un teléfono nuevo sólo encontraría
+// los pagos de los últimos días. Marcado como 'completo' no debe volver a trabajar.
+const atras = await ev(`(async () => {
+    localStorage.setItem(STEALTH_BACKFILL_CKPT('8453'), 'completo');
+    const n = await barrerHaciaAtras(null, null, '8453', '0x' + '11'.repeat(32), null);
+    return { conCompleto: n, marca: localStorage.getItem(STEALTH_BACKFILL_CKPT('8453')) };
+})()`);
+ok(typeof atras.conCompleto === 'number' && atras.conCompleto === 0,
+    'marcado completo, el barrido hacia atrás no vuelve a trabajar');
+ok(atras.marca === 'completo', 'y la marca se conserva');
+ok(await ev(`typeof barrerHaciaAtras === 'function'`), 'el barrido hacia atrás existe');
+
+// La fila se esconde cuando no hay nada: mostrar "0" invitaría a preguntarse dónde está.
+const fila = await ev(`(async () => {
+    localStorage.removeItem(STEALTH_RECIBIDOS_KEY());
+    await renderStealthBalance();
+    return document.getElementById('stealthWalletBalanceDisplay').classList.contains('hidden');
+})()`);
+ok(fila === true, 'sin pagos privados, la fila no aparece');
+
 // ── ya no queda nada del registry propio ──
 console.log('\n── el registry viejo se fue ──');
 const viejo = await ev(`(() => ({

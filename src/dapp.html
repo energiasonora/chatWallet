@@ -1765,7 +1765,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.21 alpha</p>
+            <p class="text-sm text-gray-400">v 3.22 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2279,6 +2279,22 @@
                                 </svg>
                                 <span>SmartWallet:</span>
                                 <span id="smartWalletBalanceValue">0 CWLT</span>
+                            </div>
+                            <!-- StealthWallet: la suma de los pagos recibidos en direcciones de
+                                 un solo uso, en la red y el token que estén seleccionados. El
+                                 estado importa tanto como el número: el nativo se puede gastar
+                                 (la dirección paga su propio gas), el ERC-20 todavía no. -->
+                            <div id="stealthWalletBalanceDisplay"
+                                class="hidden flex items-center justify-center space-x-1 mt-1 text-xs text-gray-400 cursor-pointer">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="text-violet-400">
+                                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                    <path d="m3 3 18 18" />
+                                </svg>
+                                <span>StealthWallet:</span>
+                                <span id="stealthWalletBalanceValue">0</span>
+                                <span id="stealthWalletBalanceState" class="text-[10px]"></span>
                             </div>
                             <!-- Token Selector Menu -->
                         </div>
@@ -3772,7 +3788,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.21</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.22</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -5757,6 +5773,11 @@
                     setModalBalance(nativeBalanceFormatted, nativeSymbol, true);
                 }
 
+                // La StealthWallet sigue la selección de red/token, a diferencia de la fila
+                // de SmartWallet que muestra siempre CWLT. Se refresca aparte para no demorar
+                // el saldo principal si el RPC tarda.
+                renderStealthBalance().catch(e => console.warn('[stealth] fila:', e));
+
                 // Actualizar el saldo del Smart Wallet (ChatWallet Token)
                 if (generalOptions.CHATWALLET_TOKEN_ADDRESS && ethers.isAddress(generalOptions.CHATWALLET_TOKEN_ADDRESS)) {
                     document.getElementById('smartWalletBalanceDisplay').classList.remove('hidden');
@@ -6173,6 +6194,146 @@
                 } catch (e) { console.warn('[stealth] no se pudo avisar por chat:', e); return false; }
             }
 
+            // ── Escáner de pagos stealth (StealthPay v1 §6) ────────────────────────
+            // El aviso por chat sólo cubre pagos hechos DESDE ChatWallet y desde este
+            // dispositivo. Lo que llega de una wallet de afuera, o lo que se recibió antes de
+            // instalar, sólo aparece leyendo los anuncios de la cadena. Este es además el
+            // camino de recuperación: con la semilla se vuelve a encontrar todo, sin depender
+            // de ningún respaldo nuestro.
+            const ANNOUNCER_EVENT_ABI = [
+                "event Announcement(uint256 indexed schemeId, address indexed stealthAddress, address indexed caller, bytes ephemeralPubKey, bytes metadata)"
+            ];
+            const STEALTH_SCAN_CKPT = (chainId) => `cw-stealth-scan-${(currentWallet?.address || '').toLowerCase()}-${chainId}`;
+            const STEALTH_BACKFILL_CKPT = (chainId) => `cw-stealth-atras-${(currentWallet?.address || '').toLowerCase()}-${chainId}`;
+            const STEALTH_SCAN_CHUNK = 9000;    // los RPC públicos suelen cortar cerca de 10k bloques
+            const STEALTH_SCAN_MAX_CHUNKS = 40; // techo por corrida hacia adelante
+            const STEALTH_BACKFILL_MS = 8000;   // presupuesto de tiempo del barrido hacia atrás
+
+            // Multicall3, misma dirección en toda red EVM. Verificado en mainnet, Base,
+            // Arbitrum y Optimism. Evita pedir N balances en N viajes.
+            const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11';
+            const MULTICALL3_ABI = [
+                "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) view returns (tuple(bool success, bytes returnData)[])"
+            ];
+
+            let escaneoEnCurso = false;
+
+            // Recorre los anuncios y se queda con los propios. El view tag descarta ~255 de
+            // cada 256 con una comparación de un byte, antes de la suma de puntos que es cara.
+            async function escanearPagosStealth({ silencioso = true } = {}) {
+                if (escaneoEnCurso || isOffline || !currentWallet) return { nuevos: 0 };
+                const red = optionsList[currentTokenIndex];
+                if (!red) return { nuevos: 0 };
+                escaneoEnCurso = true;
+                try {
+                    if ((await provider.getCode(STEALTH_ANNOUNCER)) === '0x') {
+                        if (!silencioso) showToast(t('stealth_scan_no_net'), 'info');
+                        return { nuevos: 0, motivo: 'sin-announcer' };
+                    }
+                    const chainId = String(red.chainId);
+                    const ultimo = await provider.getBlockNumber();
+                    const ckpt = parseInt(localStorage.getItem(STEALTH_SCAN_CKPT(chainId)) || '0', 10);
+                    // Primera corrida: una ventana hacia atrás, no la cadena entera.
+                    let desde = ckpt > 0 ? ckpt + 1 : Math.max(0, ultimo - STEALTH_SCAN_CHUNK * STEALTH_SCAN_MAX_CHUNKS);
+
+                    const c = new ethers.Contract(STEALTH_ANNOUNCER, ANNOUNCER_EVENT_ABI, provider);
+                    const filtro = c.filters.Announcement(STEALTH_SCHEME_ID);
+                    const { spendPriv, viewPriv } = await derivarLlavesStealth();
+                    const spendPub = new ethers.Wallet(spendPriv).signingKey.compressedPublicKey;
+                    const spendPoint = ec.keyFromPublic(spendPub.slice(2), 'hex').getPublic();
+
+                    let nuevos = 0, chunks = 0, alcanzado = desde;
+                    while (desde <= ultimo && chunks < STEALTH_SCAN_MAX_CHUNKS) {
+                        const hasta = Math.min(desde + STEALTH_SCAN_CHUNK - 1, ultimo);
+                        let logs = [];
+                        try {
+                            logs = await c.queryFilter(filtro, desde, hasta);
+                        } catch (e) {
+                            console.warn('[stealth] el RPC rechazó el rango, se corta acá:', e.message?.slice(0, 80));
+                            break;   // se guarda lo alcanzado y se sigue en la próxima corrida
+                        }
+                        for (const log of logs) {
+                            const R = log.args.ephemeralPubKey;
+                            const meta = log.args.metadata || '0x';
+                            if (!R || R.length < 68) continue;
+                            try {
+                                const punto = ec.keyFromPublic(R.slice(2), 'hex').getPublic();
+                                const sHash = ethers.keccak256('0x' + punto.mul(viewPriv.slice(2)).encodeCompressed('hex'));
+                                // View tag: primer byte de metadata. Si viene vacío no se puede
+                                // descartar barato y hay que hacer la cuenta igual.
+                                if (meta.length >= 4 && meta.slice(2, 4).toLowerCase() !== sHash.slice(2, 4).toLowerCase()) continue;
+                                const dir = computeAddress('0x' + spendPoint.add(ec.g.mul(sHash.slice(2))).encodeCompressed('hex'));
+                                if (dir.toLowerCase() !== String(log.args.stealthAddress).toLowerCase()) continue;
+                                if (registrarStealthRecibido({ stealthAddress: dir, ephemeralPubKey: R,
+                                        chainId, txHash: log.transactionHash, amount: '', ts: Date.now() })) nuevos++;
+                            } catch (_) { /* anuncio malformado: no es nuestro problema */ }
+                        }
+                        alcanzado = hasta;
+                        desde = hasta + 1;
+                        chunks++;
+                    }
+                    localStorage.setItem(STEALTH_SCAN_CKPT(chainId), String(alcanzado));
+
+                    // ── Hacia atrás ────────────────────────────────────────────────
+                    // Lo de arriba sólo mira hacia adelante desde donde quedó. Un teléfono
+                    // nuevo restaurado con la semilla no vería nada anterior, que es JUSTO el
+                    // caso de recuperación. Esto camina hacia atrás de a poco, entre sesiones.
+                    // El rango es adaptativo: los tramos viejos casi no tienen anuncios y
+                    // admiten ventanas grandes; si el RPC se queja, se parte al medio.
+                    nuevos += await barrerHaciaAtras(c, filtro, chainId, viewPriv, spendPoint);
+                    if (nuevos) renderStealthBalance().catch(() => { });
+                    return { nuevos, hasta: alcanzado };
+                } catch (e) {
+                    console.warn('[stealth] escaneo:', e);
+                    if (!silencioso) showToast(t('stealth_scan_err'), 'error');
+                    return { nuevos: 0, error: e };
+                } finally { escaneoEnCurso = false; }
+            }
+
+            // Camina hacia atrás con presupuesto de tiempo, guardando hasta dónde llegó.
+            // Devuelve cuántos pagos nuevos encontró.
+            async function barrerHaciaAtras(c, filtro, chainId, viewPriv, spendPoint) {
+                const marca = localStorage.getItem(STEALTH_BACKFILL_CKPT(chainId));
+                if (marca === 'completo') return 0;
+                let hasta = marca ? parseInt(marca, 10)
+                                  : parseInt(localStorage.getItem(STEALTH_SCAN_CKPT(chainId)) || '0', 10)
+                                    - STEALTH_SCAN_CHUNK * STEALTH_SCAN_MAX_CHUNKS;
+                if (!(hasta > 0)) { localStorage.setItem(STEALTH_BACKFILL_CKPT(chainId), 'completo'); return 0; }
+
+                let rango = 200000, nuevos = 0;
+                const t0 = Date.now();
+                while (hasta > 0 && Date.now() - t0 < STEALTH_BACKFILL_MS) {
+                    const desde = Math.max(0, hasta - rango + 1);
+                    let logs;
+                    try {
+                        logs = await c.queryFilter(filtro, desde, hasta);
+                    } catch (e) {
+                        // Rango rechazado: se parte al medio y se reintenta. Si ya es chico,
+                        // el RPC no da para más y se corta hasta la próxima sesión.
+                        rango = Math.floor(rango / 2);
+                        if (rango < 1000) break;
+                        continue;
+                    }
+                    for (const log of logs) {
+                        try {
+                            const R = log.args.ephemeralPubKey, meta = log.args.metadata || '0x';
+                            if (!R || R.length < 68) continue;
+                            const punto = ec.keyFromPublic(R.slice(2), 'hex').getPublic();
+                            const sHash = ethers.keccak256('0x' + punto.mul(viewPriv.slice(2)).encodeCompressed('hex'));
+                            if (meta.length >= 4 && meta.slice(2, 4).toLowerCase() !== sHash.slice(2, 4).toLowerCase()) continue;
+                            const dir = computeAddress('0x' + spendPoint.add(ec.g.mul(sHash.slice(2))).encodeCompressed('hex'));
+                            if (dir.toLowerCase() !== String(log.args.stealthAddress).toLowerCase()) continue;
+                            if (registrarStealthRecibido({ stealthAddress: dir, ephemeralPubKey: R, chainId,
+                                    txHash: log.transactionHash, amount: '', ts: Date.now() })) nuevos++;
+                        } catch (_) { }
+                    }
+                    hasta = desde - 1;
+                    localStorage.setItem(STEALTH_BACKFILL_CKPT(chainId), String(Math.max(0, hasta)));
+                }
+                if (hasta <= 0) localStorage.setItem(STEALTH_BACKFILL_CKPT(chainId), 'completo');
+                return nuevos;
+            }
+
             // ── Recibir un aviso de pago stealth (cw:3) ────────────────────────────
             const STEALTH_RECIBIDOS_KEY = () => `cw-stealth-recibidos-${(currentWallet?.address || '').toLowerCase()}`;
 
@@ -6214,18 +6375,88 @@
                 try { return JSON.parse(localStorage.getItem(STEALTH_RECIBIDOS_KEY()) || '[]'); } catch { return []; }
             }
 
+            // Único punto de escritura: lo usan el escáner y el aviso por chat. Devuelve true
+            // si era nuevo. Guarda el DATO, nunca la llave privada: esa se re-deriva.
+            function registrarStealthRecibido(p) {
+                const l = stealthRecibidos();
+                if (l.some(x => (x.stealthAddress || '').toLowerCase() === String(p.stealthAddress).toLowerCase()
+                             && String(x.chainId) === String(p.chainId))) return false;
+                l.push(p);
+                localStorage.setItem(STEALTH_RECIBIDOS_KEY(), JSON.stringify(l));
+                return true;
+            }
+
+            // ── El saldo de la StealthWallet ───────────────────────────────────────
+            // No es un saldo fungible: son monedas sueltas (modelo UTXO). El total va como
+            // referencia; lo real es cuántas direcciones y cuáles se pueden gastar hoy.
+            //  · nativo  → gastable: la dirección paga su propio gas
+            //  · ERC-20  → en espera: sin nativo no puede pagar gas, y mandárselo desde la
+            //    wallet principal la vincularía. Lo resuelve la SmartWallet (4337) o una
+            //    firma permit/3009 con relayer.
+            async function saldosStealth(red) {
+                const chainId = String(red.chainId);
+                const dirs = stealthRecibidos().filter(x => String(x.chainId) === chainId)
+                                               .map(x => x.stealthAddress);
+                if (!dirs.length) return { dirs: [], total: 0n, esToken: false, decimales: 18 };
+                const esToken = !!(red.TOKEN_ADDRESS && ethers.isAddress(red.TOKEN_ADDRESS));
+                const mc = new ethers.Contract(MULTICALL3, MULTICALL3_ABI, provider);
+                const iface = new ethers.Interface(erc20Abi);
+                let total = 0n; const detalle = [];
+                try {
+                    if (esToken) {
+                        const calls = dirs.map(d => ({ target: red.TOKEN_ADDRESS, allowFailure: true,
+                            callData: iface.encodeFunctionData('balanceOf', [d]) }));
+                        const res = await mc.aggregate3.staticCall(calls);
+                        res.forEach((r, i) => {
+                            if (!r.success) return;
+                            const v = BigInt(iface.decodeFunctionResult('balanceOf', r.returnData)[0]);
+                            total += v; if (v > 0n) detalle.push({ dir: dirs[i], v });
+                        });
+                    } else {
+                        // getEthBalance del propio Multicall3: los nativos también en un viaje.
+                        const bal = new ethers.Interface(["function getEthBalance(address addr) view returns (uint256)"]);
+                        const calls = dirs.map(d => ({ target: MULTICALL3, allowFailure: true,
+                            callData: bal.encodeFunctionData('getEthBalance', [d]) }));
+                        const res = await mc.aggregate3.staticCall(calls);
+                        res.forEach((r, i) => {
+                            if (!r.success) return;
+                            const v = BigInt(bal.decodeFunctionResult('getEthBalance', r.returnData)[0]);
+                            total += v; if (v > 0n) detalle.push({ dir: dirs[i], v });
+                        });
+                    }
+                } catch (e) { console.warn('[stealth] saldos:', e); }
+                return { dirs, detalle, total, esToken,
+                         decimales: esToken ? (red.TOKEN_DECIMALS || 6) : 18 };
+            }
+
+            async function renderStealthBalance() {
+                const fila = document.getElementById('stealthWalletBalanceDisplay');
+                const valor = document.getElementById('stealthWalletBalanceValue');
+                const estado = document.getElementById('stealthWalletBalanceState');
+                if (!fila || !currentWallet || isOffline) { fila?.classList.add('hidden'); return; }
+                const red = optionsList[currentTokenIndex];
+                if (!red) return;
+                const s = await saldosStealth(red);
+                if (!s.detalle || !s.detalle.length) { fila.classList.add('hidden'); return; }
+                const simbolo = s.esToken ? (red.TOKEN_SYMBOL || '') : (red.NATIVE_SYMBOL || 'ETH');
+                const monto = parseFloat(ethers.formatUnits(s.total, s.decimales));
+                valor.textContent = `${monto.toFixed(s.esToken ? 2 : 4)} ${simbolo}`;
+                // El estado NO es decorativo: dice si esa plata se puede gastar hoy.
+                estado.textContent = s.esToken ? t('stealth_bal_waiting') : t('stealth_bal_spendable');
+                estado.className = 'text-[10px] ' + (s.esToken ? 'text-yellow-500/80' : 'text-green-500/80');
+                fila.title = t('stealth_bal_tip', { n: s.detalle.length });
+                fila.classList.remove('hidden');
+            }
+
             async function handleStealthPayment(message, d) {
                 if (!currentWallet || !d.stealthAddress || !d.ephemeralPubKey) return;
                 const priv = await llaveDePagoStealth(d.ephemeralPubKey, d.stealthAddress);
                 if (!priv) { console.warn('[stealth] aviso que no verifica, descartado'); return; }
 
-                const l = stealthRecibidos();
-                if (l.some(x => x.stealthAddress.toLowerCase() === d.stealthAddress.toLowerCase())) return;  // dedup
-                // Se guarda el dato, NO la llave: se re-deriva de la semilla cuando haga falta.
-                l.push({ stealthAddress: d.stealthAddress, ephemeralPubKey: d.ephemeralPubKey,
-                         chainId: String(d.chainId || ''), txHash: d.txHash || '', amount: String(d.amount || ''),
-                         ts: Date.now() });
-                localStorage.setItem(STEALTH_RECIBIDOS_KEY(), JSON.stringify(l));
+                if (!registrarStealthRecibido({ stealthAddress: d.stealthAddress, ephemeralPubKey: d.ephemeralPubKey,
+                        chainId: String(d.chainId || ''), txHash: d.txHash || '', amount: String(d.amount || ''),
+                        ts: Date.now() })) return;   // ya estaba
+                renderStealthBalance().catch(() => { });
 
                 cwNotify({
                     type: 'success',
@@ -6233,6 +6464,15 @@
                     body: t('stealth_recv_body', { monto: d.amount || '?', dir: String(d.stealthAddress).slice(0, 10) + '…' }),
                 });
             }
+
+            document.getElementById('stealthWalletBalanceDisplay')?.addEventListener('click', () => {
+                // Decir por qué el ERC-20 está "en espera" es lo que evita el error caro:
+                // mandarle gas desde la wallet principal vincula las dos direcciones.
+                const red = optionsList[currentTokenIndex];
+                const esToken = !!(red && red.TOKEN_ADDRESS && ethers.isAddress(red.TOKEN_ADDRESS));
+                cwNotify({ type: 'info', title: t('stealth_bal_title'),
+                           body: t(esToken ? 'stealth_bal_help_token' : 'stealth_bal_help_native') });
+            });
 
             let txWaitTicker = null;
 
@@ -16056,6 +16296,16 @@
                     "stealth_send_note": "El pago va a una dirección de un solo uso y después se publica el anuncio para que el destinatario pueda encontrarlo. Son dos transacciones.",
                     "stealth_recv_title": "Pago privado recibido",
                     "stealth_recv_body": "Te pagaron {monto} a una dirección de un solo uso ({dir}). Sólo vos podés gastarla.",
+                    "stealth_bal_title": "Pagos privados",
+                    "stealth_bal_spendable": "· gastable",
+                    "stealth_bal_waiting": "· en espera",
+                    "stealth_bal_tip": "Repartido en {n} dirección(es) de un solo uso",
+                    "stealth_bal_help_native": "Te pagaron a direcciones de un solo uso. Podés gastarlas sin revelar tu identidad: cada una paga su propio gas. Pagar juntando varias las vincula entre sí.",
+                    "stealth_bal_help_token": "Estos pagos están en direcciones de un solo uso que no tienen con qué pagar el gas. Mandarles gas desde tu billetera principal las vincularía con vos. La SmartWallet va a poder moverlos sin eso.",
+                    "stealth_scan_found": "Encontrados {n} pago(s) privado(s)",
+                    "stealth_scan_none": "No hay pagos privados nuevos",
+                    "stealth_scan_no_net": "Esta red no tiene el registro de pagos privados",
+                    "stealth_scan_err": "No se pudo revisar los pagos privados",
                     "settings_cold_title": "Modo frío",
                     "settings_cold_desc": "Sin conexión: firmás y componés por QR, sin que la llave toque la red.",
                     "settings_keys_title": "Gestión de claves",
@@ -16281,6 +16531,16 @@
                     "stealth_send_note": "The payment goes to a one-time address, then the announcement is published so the recipient can find it. Two transactions.",
                     "stealth_recv_title": "Private payment received",
                     "stealth_recv_body": "You were paid {monto} to a one-time address ({dir}). Only you can spend it.",
+                    "stealth_bal_title": "Private payments",
+                    "stealth_bal_spendable": "· spendable",
+                    "stealth_bal_waiting": "· on hold",
+                    "stealth_bal_tip": "Spread across {n} one-time address(es)",
+                    "stealth_bal_help_native": "You were paid to one-time addresses. You can spend them without revealing your identity: each one pays its own gas. Paying by combining several links them together.",
+                    "stealth_bal_help_token": "These payments sit in one-time addresses with nothing to pay gas with. Sending them gas from your main wallet would link them to you. The SmartWallet will be able to move them without that.",
+                    "stealth_scan_found": "Found {n} private payment(s)",
+                    "stealth_scan_none": "No new private payments",
+                    "stealth_scan_no_net": "This network has no private-payment registry",
+                    "stealth_scan_err": "Could not check private payments",
                     "settings_cold_title": "Cold mode",
                     "settings_cold_desc": "Offline: you sign and compose over QR, without the key ever touching the network.",
                     "settings_keys_title": "Key management",
@@ -16506,6 +16766,16 @@
                     "stealth_send_note": "Le paiement va vers une adresse à usage unique, puis l’annonce est publiée pour que le destinataire puisse la trouver. Deux transactions.",
                     "stealth_recv_title": "Paiement privé reçu",
                     "stealth_recv_body": "On vous a payé {monto} sur une adresse à usage unique ({dir}). Vous seul pouvez la dépenser.",
+                    "stealth_bal_title": "Paiements privés",
+                    "stealth_bal_spendable": "· dépensable",
+                    "stealth_bal_waiting": "· en attente",
+                    "stealth_bal_tip": "Réparti sur {n} adresse(s) à usage unique",
+                    "stealth_bal_help_native": "On vous a payé sur des adresses à usage unique. Vous pouvez les dépenser sans révéler votre identité : chacune paie son propre gas. Payer en combinant plusieurs les relie entre elles.",
+                    "stealth_bal_help_token": "Ces paiements sont sur des adresses à usage unique qui n’ont pas de quoi payer le gas. Leur envoyer du gas depuis votre portefeuille principal les relierait à vous. La SmartWallet pourra les déplacer sans cela.",
+                    "stealth_scan_found": "{n} paiement(s) privé(s) trouvé(s)",
+                    "stealth_scan_none": "Aucun nouveau paiement privé",
+                    "stealth_scan_no_net": "Ce réseau n’a pas le registre de paiements privés",
+                    "stealth_scan_err": "Impossible de vérifier les paiements privés",
                     "settings_cold_title": "Mode hors ligne",
                     "settings_cold_desc": "Hors ligne : vous signez et composez par QR, sans que la clé touche le réseau.",
                     "settings_keys_title": "Gestion des clés",
@@ -16878,6 +17148,8 @@
                 // y el anuncio no. Mientras no se publique, el receptor no puede encontrarlo.
                 if (!isOffline && typeof reintentarAnunciosPendientes === 'function')
                     reintentarAnunciosPendientes().catch(e => console.warn('[stealth]', e));
+                if (!isOffline && typeof escanearPagosStealth === 'function')
+                    escanearPagosStealth({ silencioso: true }).catch(e => console.warn('[stealth]', e));
                 if (currentWallet) renderAddressQr(currentWallet.address); // recolorear QR (gris en frío)
                 updateBalance(); // Esto mostrará '---' si está offline
             }
