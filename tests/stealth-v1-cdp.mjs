@@ -139,6 +139,67 @@ const fila = await ev(`(async () => {
 })()`);
 ok(fila === true, 'sin pagos privados, la fila no aparece');
 
+// ── selección de monedas ──
+// Acá vive la propiedad de privacidad: preferir SIEMPRE una sola dirección. Juntar varias
+// las vincula entre sí, así que el algoritmo tiene que evitarlo cuando puede y decirlo
+// cuando no. Se le enchufan saldos fijos para no depender de la red.
+console.log('\n── selección de monedas ──');
+const sel = await ev(`(async () => {
+    const red = { chainId: 8453, NATIVE_SYMBOL: 'ETH', TOKEN_ADDRESS: null };
+    const E = n => ethers.parseEther(n);
+    // Se reemplaza la lectura de saldos: lo que se prueba es la ELECCIÓN, no el RPC.
+    window.saldosStealth = async () => ({
+        esToken: false, decimales: 18,
+        detalle: [{ dir: '0x' + '11'.repeat(20), v: E('0.10') },
+                  { dir: '0x' + '22'.repeat(20), v: E('0.50') },
+                  { dir: '0x' + '33'.repeat(20), v: E('0.30') },
+                  { dir: '0x' + '44'.repeat(20), v: E('0.0000001') }],  // polvo: no cubre ni el gas
+        dirs: [1,2,3,4], total: E('0.9'),
+    });
+    window.costoDeGasAprox = async () => E('0.00001');
+    const r = {};
+    for (const [k, monto] of [['chico','0.05'], ['casiJusto','0.29'], ['justo','0.30'], ['medio','0.35'],
+                              ['grande','0.85'], ['imposible','5']]) {
+        const x = await seleccionarMonedas(monto, red);
+        r[k] = { alcanza: x.alcanza, une: x.une || 0, polvo: x.polvo,
+                 dirs: (x.monedas||[]).map(m => m.dir.slice(0,4)),
+                 suma: (x.monedas||[]).reduce((a,m)=>a+m.enviar, 0n).toString() };
+    }
+    return r;
+})()`);
+
+// 0.05 entra en la de 0.10: tiene que elegir ESA, no la más grande. Gastar la de 0.50 para
+// pagar 0.05 deja una moneda grande partida y desperdicia la chica.
+ok(sel.chico.alcanza && sel.chico.une === 1, 'un pago chico sale de una sola dirección');
+ok(sel.chico.dirs[0] === '0x11', 'y elige la más chica que alcanza, no la más grande', JSON.stringify(sel.chico.dirs));
+
+ok(sel.casiJusto.alcanza && sel.casiJusto.une === 1, '0.29 entra en una sola');
+ok(sel.casiJusto.dirs[0] === '0x33', 'y es la de 0.30, la más chica que alcanza', JSON.stringify(sel.casiJusto.dirs));
+
+// Una moneda NO puede enviar su saldo completo: reserva su propio gas. Pedirle exactamente
+// 0.30 a la moneda de 0.30 es imposible, y la selección lo respeta subiendo a la siguiente
+// en vez de armar un pago que fallaría recién al ejecutarse.
+ok(sel.justo.alcanza && sel.justo.une === 1, '0.30 exacto se paga con una sola');
+ok(sel.justo.dirs[0] === '0x22',
+    'pero desde la de 0.50: la de 0.30 no puede enviar su saldo entero, guarda el gas',
+    JSON.stringify(sel.justo.dirs));
+
+// 0.35 no entra en ninguna sola (la mayor es 0.50 pero menos gas… sí entra). Verificamos
+// que igual prefiera una sola antes que juntar.
+ok(sel.medio.alcanza && sel.medio.une === 1, '0.35 entra en la de 0.50: una sola, no dos');
+
+// 0.85 obliga a juntar. Tiene que usar las MENOS posibles: 0.50 + 0.30 + 0.10.
+ok(sel.grande.alcanza, '0.85 se puede pagar juntando');
+ok(sel.grande.une === 3, `junta 3 direcciones, no más (${sel.grande.une})`);
+
+ok(!sel.imposible.alcanza, 'un monto que no alcanza se rechaza, no se paga a medias');
+ok(sel.chico.polvo === 1, `el polvo se cuenta aparte: no cubre ni su propio gas (${sel.chico.polvo})`);
+
+// La suma de lo elegido tiene que ser EXACTAMENTE el objetivo: ni de menos (pago incompleto)
+// ni de más (regalarle plata al destinatario).
+const objetivo = await ev(`ethers.parseEther('0.85').toString()`);
+ok(sel.grande.suma === objetivo, 'lo elegido suma exactamente el monto pedido', objetivo);
+
 // ── ya no queda nada del registry propio ──
 console.log('\n── el registry viejo se fue ──');
 const viejo = await ev(`(() => ({

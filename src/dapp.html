@@ -1765,7 +1765,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.22 alpha</p>
+            <p class="text-sm text-gray-400">v 3.23 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -2877,6 +2877,22 @@
                                 class="text-xs font-bold text-indigo-400 hover:text-indigo-300 px-2 py-0.5 rounded bg-indigo-500/15">MAX</button>
                         </div>
                     </div>
+                    <!-- De dónde sale la plata. Aparece sólo si hay saldo privado gastable en
+                         esta red. Pagar desde las privadas no revela tu identidad; juntar varias
+                         las vincula ENTRE SÍ, y eso se avisa con el número a la vista. -->
+                    <div id="origenFondos" class="hidden">
+                        <label class="block text-sm text-gray-400 mb-1" data-i18n-key="source_label">Pagar desde</label>
+                        <div class="grid grid-cols-2 gap-2 bg-gray-900/50 p-1 rounded-lg">
+                            <button type="button" id="origenPrincipal"
+                                class="rounded-md py-1.5 text-sm font-semibold bg-indigo-600 text-white"
+                                data-i18n-key="source_main">Principal</button>
+                            <button type="button" id="origenPrivado"
+                                class="rounded-md py-1.5 text-sm font-semibold text-gray-400"
+                                data-i18n-key="source_private">Privado</button>
+                        </div>
+                        <p id="origenPrivadoAviso" class="hidden text-xs mt-1.5 leading-relaxed"></p>
+                    </div>
+
                     <div id="stealth-fields" style="display: none;">
                         <div
                             class="mb-3 p-2 bg-indigo-500/20 border border-indigo-500/50 rounded-lg text-indigo-400 text-xs text-center flex items-center justify-center space-x-2">
@@ -3788,7 +3804,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.22</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.23</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -5935,6 +5951,12 @@
                 });
             }
 
+            // Al abrir el envío hay que recalcular de dónde se puede pagar.
+            document.getElementById('sendBtn')?.addEventListener('click', () => {
+                pagarDesdePrivado = false;
+                refrescarOrigenFondos().catch(e => console.warn('[stealth] origen:', e));
+            });
+
             recipientAddressInput.addEventListener('input', () => {
                 const recipient = recipientAddressInput.value.trim();
                 const stealthFields = document.getElementById('stealth-fields');
@@ -6334,6 +6356,77 @@
                 return nuevos;
             }
 
+            // ── Selección de monedas ───────────────────────────────────────────────
+            // El saldo privado NO es fungible: son monedas sueltas. Tres direcciones de 7 no
+            // son 21 — pagar 21 cuesta unir tres identidades que en la cadena no tenían
+            // relación. Por eso se prefiere SIEMPRE una sola que alcance, y sólo se juntan
+            // cuando no hay alternativa. Es la misma lógica de coin selection de Bitcoin, con
+            // la diferencia de que acá cada moneda paga su propio gas.
+            async function costoDeGasAprox() {
+                try {
+                    const f = await provider.getFeeData();
+                    const precio = f.maxFeePerGas || f.gasPrice || 0n;
+                    return precio * 21000n * 12n / 10n;    // 20% de colchón
+                } catch { return 0n; }
+            }
+
+            async function seleccionarMonedas(montoTexto, red) {
+                const objetivo = ethers.parseEther(String(montoTexto || '0'));
+                const s = await saldosStealth(red);
+                if (s.esToken) return { alcanza: false, motivo: 'token', monedas: [] };
+                const gas = await costoDeGasAprox();
+
+                // Lo que cada moneda puede ENVIAR es su saldo menos su propio gas. Una que no
+                // llega a cubrir el gas es polvo: existe y no se puede mover.
+                const monedas = (s.detalle || [])
+                    .map(d => ({ dir: d.dir, saldo: d.v, puede: d.v > gas ? d.v - gas : 0n }))
+                    .filter(m => m.puede > 0n)
+                    .sort((a, b) => (a.puede < b.puede ? -1 : a.puede > b.puede ? 1 : 0));
+                const polvo = (s.detalle || []).length - monedas.length;
+
+                // 1) La más chica que alcance sola: un pago, cero vinculación.
+                const sola = monedas.find(m => m.puede >= objetivo);
+                if (sola) return { alcanza: true, une: 1, polvo, gas,
+                                   monedas: [{ dir: sola.dir, enviar: objetivo }] };
+
+                // 2) No hay ninguna: juntar de mayor a menor, las MENOS posibles.
+                const elegidas = []; let resta = objetivo;
+                for (const m of [...monedas].reverse()) {
+                    if (resta <= 0n) break;
+                    const enviar = m.puede >= resta ? resta : m.puede;
+                    elegidas.push({ dir: m.dir, enviar });
+                    resta -= enviar;
+                }
+                if (resta > 0n) return { alcanza: false, motivo: 'insuficiente', polvo, gas,
+                                         disponible: monedas.reduce((a, m) => a + m.puede, 0n), monedas: [] };
+                return { alcanza: true, une: elegidas.length, polvo, gas, monedas: elegidas };
+            }
+
+            // Paga desde las direcciones elegidas. Son N transacciones: Ethereum no tiene
+            // transacción con varias entradas, y esa es exactamente la razón por la que juntar
+            // vincula — quedan N transferencias al mismo destino en el mismo minuto.
+            async function ejecutarPagoDesdeStealth(destino, sel) {
+                const hechas = [];
+                for (let i = 0; i < sel.monedas.length; i++) {
+                    const m = sel.monedas[i];
+                    const priv = await llavePrivadaDeStealth(m.dir);
+                    if (!priv) throw new Error('no se pudo derivar la llave de ' + m.dir);
+                    setTxStatus(t('coin_sending', { i: i + 1, n: sel.monedas.length }), true);
+                    const w = new ethers.Wallet(priv, provider);
+                    const tx = await w.sendTransaction({ to: destino, value: m.enviar });
+                    await tx.wait();
+                    hechas.push(tx.hash);
+                }
+                return hechas;
+            }
+
+            // La privada de una dirección stealth propia, a partir de su anuncio guardado.
+            async function llavePrivadaDeStealth(dir) {
+                const r = stealthRecibidos().find(x => (x.stealthAddress || '').toLowerCase() === dir.toLowerCase());
+                if (!r) return null;
+                return await llaveDePagoStealth(r.ephemeralPubKey, r.stealthAddress);
+            }
+
             // ── Recibir un aviso de pago stealth (cw:3) ────────────────────────────
             const STEALTH_RECIBIDOS_KEY = () => `cw-stealth-recibidos-${(currentWallet?.address || '').toLowerCase()}`;
 
@@ -6474,6 +6567,73 @@
                            body: t(esToken ? 'stealth_bal_help_token' : 'stealth_bal_help_native') });
             });
 
+            // ── Selector de origen en el modal de envío ────────────────────────────
+            let pagarDesdePrivado = false;
+
+            function pintarOrigen() {
+                const bp = document.getElementById('origenPrincipal');
+                const bv = document.getElementById('origenPrivado');
+                if (!bp || !bv) return;
+                const on = 'rounded-md py-1.5 text-sm font-semibold bg-indigo-600 text-white';
+                const off = 'rounded-md py-1.5 text-sm font-semibold text-gray-400';
+                bp.className = pagarDesdePrivado ? off : on;
+                bv.className = pagarDesdePrivado ? on : off;
+            }
+
+            // Muestra el selector sólo si hay saldo privado GASTABLE en esta red. Con ERC-20
+            // seleccionado no aparece: esas monedas no pueden pagar su gas todavía.
+            async function refrescarOrigenFondos() {
+                const caja = document.getElementById('origenFondos');
+                if (!caja || !currentWallet || isOffline) { caja?.classList.add('hidden'); return; }
+                const red = optionsList[currentTokenIndex];
+                if (!red || (red.TOKEN_ADDRESS && ethers.isAddress(red.TOKEN_ADDRESS))) {
+                    caja.classList.add('hidden'); pagarDesdePrivado = false; return;
+                }
+                try {
+                    const s = await saldosStealth(red);
+                    if (!s.detalle || !s.detalle.length) {
+                        caja.classList.add('hidden'); pagarDesdePrivado = false; return;
+                    }
+                    caja.classList.remove('hidden');
+                    pintarOrigen();
+                    await refrescarAvisoPrivado();
+                } catch (e) { console.warn('[stealth] origen:', e); caja.classList.add('hidden'); }
+            }
+
+            // El aviso INFORMA, no bloquea: a veces vas a querer pagar igual. Pero el número
+            // de direcciones que se van a unir tiene que estar a la vista antes de confirmar.
+            async function refrescarAvisoPrivado() {
+                const av = document.getElementById('origenPrivadoAviso');
+                if (!av) return;
+                if (!pagarDesdePrivado) { av.classList.add('hidden'); return; }
+                const monto = document.getElementById('amount')?.value;
+                if (!monto || !(parseFloat(monto) > 0)) { av.classList.add('hidden'); return; }
+                const red = optionsList[currentTokenIndex];
+                const sel = await seleccionarMonedas(monto, red);
+                av.classList.remove('hidden');
+                if (!sel.alcanza) {
+                    const disp = sel.disponible ? parseFloat(ethers.formatEther(sel.disponible)).toFixed(5) : '0';
+                    av.className = 'text-xs mt-1.5 leading-relaxed text-red-400';
+                    av.textContent = t('coin_short', { disp, sim: red.NATIVE_SYMBOL || 'ETH' });
+                } else if (sel.une === 1) {
+                    av.className = 'text-xs mt-1.5 leading-relaxed text-green-500/90';
+                    av.textContent = t('coin_one');
+                } else {
+                    av.className = 'text-xs mt-1.5 leading-relaxed text-yellow-500/90';
+                    av.textContent = t('coin_merge', { n: sel.une });
+                }
+            }
+
+            document.getElementById('origenPrincipal')?.addEventListener('click', () => {
+                pagarDesdePrivado = false; pintarOrigen(); refrescarAvisoPrivado();
+            });
+            document.getElementById('origenPrivado')?.addEventListener('click', () => {
+                pagarDesdePrivado = true; pintarOrigen(); refrescarAvisoPrivado();
+            });
+            document.getElementById('amount')?.addEventListener('input', () => {
+                if (pagarDesdePrivado) refrescarAvisoPrivado().catch(() => { });
+            });
+
             let txWaitTicker = null;
 
             async function executeTransaction(recipient, amount) {
@@ -6496,6 +6656,25 @@
                     const signer = currentWallet.connect(provider);
                     let txResponse;
                     let datosStealth = null;   // {stealthAddr, R, viewTag, meta} si es un pago stealth
+
+                    // Pagar DESDE las direcciones privadas: no sale de la billetera principal,
+                    // así que el destinatario no ve tu identidad. Son N transacciones.
+                    if (pagarDesdePrivado && !isStealth) {
+                        const sel = await seleccionarMonedas(amount, red);
+                        if (!sel.alcanza) {
+                            setTxStatus(`<span class="text-red-400">${t('coin_short_err')}</span>`, false);
+                            return;
+                        }
+                        const hashes = await ejecutarPagoDesdeStealth(recipient, sel);
+                        setTxStatus(`<span class="text-green-400">${t('coin_done', { n: hashes.length })}</span>`, false);
+                        updateBalance();
+                        renderStealthBalance().catch(() => { });
+                        cwNotify({ type: 'success', title: t('coin_done_title'),
+                                   body: t('coin_done', { n: hashes.length }) });
+                        const sm = document.getElementById('sendModal');
+                        if (sm) { sm.classList.add('hidden'); sm.classList.remove('flex'); }
+                        return;
+                    }
 
                     if (isStealth) {
                         // --- STEALTH TRANSACTION LOGIC ---
@@ -16306,6 +16485,16 @@
                     "stealth_scan_none": "No hay pagos privados nuevos",
                     "stealth_scan_no_net": "Esta red no tiene el registro de pagos privados",
                     "stealth_scan_err": "No se pudo revisar los pagos privados",
+                    "source_label": "Pagar desde",
+                    "source_main": "Principal",
+                    "source_private": "Privado",
+                    "coin_one": "Sale de una sola dirección privada. No queda vinculada con ninguna otra.",
+                    "coin_merge": "Este pago junta {n} de tus direcciones privadas. Para quien mire la cadena, quedan vinculadas entre sí (no con vos).",
+                    "coin_short": "Te alcanza para {disp} {sim} desde direcciones privadas, descontando el gas de cada una.",
+                    "coin_short_err": "El saldo privado no alcanza para este monto.",
+                    "coin_sending": "Pagando desde tu dirección privada {i} de {n}…",
+                    "coin_done_title": "Pago privado enviado",
+                    "coin_done": "Enviado desde {n} dirección(es) privada(s).",
                     "settings_cold_title": "Modo frío",
                     "settings_cold_desc": "Sin conexión: firmás y componés por QR, sin que la llave toque la red.",
                     "settings_keys_title": "Gestión de claves",
@@ -16541,6 +16730,16 @@
                     "stealth_scan_none": "No new private payments",
                     "stealth_scan_no_net": "This network has no private-payment registry",
                     "stealth_scan_err": "Could not check private payments",
+                    "source_label": "Pay from",
+                    "source_main": "Main",
+                    "source_private": "Private",
+                    "coin_one": "Comes from a single private address. It stays unlinked to any other.",
+                    "coin_merge": "This payment combines {n} of your private addresses. To anyone watching the chain they become linked to each other (not to you).",
+                    "coin_short": "You can cover {disp} {sim} from private addresses, after each one pays its own gas.",
+                    "coin_short_err": "Your private balance is not enough for this amount.",
+                    "coin_sending": "Paying from your private address {i} of {n}…",
+                    "coin_done_title": "Private payment sent",
+                    "coin_done": "Sent from {n} private address(es).",
                     "settings_cold_title": "Cold mode",
                     "settings_cold_desc": "Offline: you sign and compose over QR, without the key ever touching the network.",
                     "settings_keys_title": "Key management",
@@ -16776,6 +16975,16 @@
                     "stealth_scan_none": "Aucun nouveau paiement privé",
                     "stealth_scan_no_net": "Ce réseau n’a pas le registre de paiements privés",
                     "stealth_scan_err": "Impossible de vérifier les paiements privés",
+                    "source_label": "Payer depuis",
+                    "source_main": "Principal",
+                    "source_private": "Privé",
+                    "coin_one": "Provient d’une seule adresse privée. Elle reste non reliée aux autres.",
+                    "coin_merge": "Ce paiement combine {n} de vos adresses privées. Pour qui observe la chaîne, elles deviennent liées entre elles (pas à vous).",
+                    "coin_short": "Vous pouvez couvrir {disp} {sim} depuis des adresses privées, une fois le gas de chacune déduit.",
+                    "coin_short_err": "Votre solde privé ne suffit pas pour ce montant.",
+                    "coin_sending": "Paiement depuis votre adresse privée {i} sur {n}…",
+                    "coin_done_title": "Paiement privé envoyé",
+                    "coin_done": "Envoyé depuis {n} adresse(s) privée(s).",
                     "settings_cold_title": "Mode hors ligne",
                     "settings_cold_desc": "Hors ligne : vous signez et composez par QR, sans que la clé touche le réseau.",
                     "settings_keys_title": "Gestion des clés",
