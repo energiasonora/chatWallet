@@ -17,7 +17,25 @@ import express from 'express';
 import cors from 'cors';
 import { ethers } from 'ethers';
 
-const PORT = process.env.RELAY_PORT || 3100;
+const PORT = process.env.RELAY_PORT || 3200;
+
+// Límite de tasa. El dinero ya está protegido por la comisión, pero cada pedido dispara
+// simulaciones contra el RPC — que son gratis para quien las pide y no para nosotros. Sin
+// esto, quemar la cuota del proveedor cuesta un bucle de cinco líneas.
+const VENTANA_MS = 60_000, MAX_POR_VENTANA = 20;
+const visitas = new Map();
+function limitar(req, res, next) {
+    const quien = (req.headers['cf-connecting-ip'] || req.ip || 'anon').toString();
+    const ahora = Date.now();
+    const v = (visitas.get(quien) || []).filter(t => ahora - t < VENTANA_MS);
+    if (v.length >= MAX_POR_VENTANA)
+        return res.status(429).json({ error: 'demasiados pedidos, probá en un minuto' });
+    v.push(ahora); visitas.set(quien, v);
+    // Poda: sin esto el Map crece para siempre en un servicio que no se reinicia.
+    if (visitas.size > 5000) for (const [k, ts] of visitas)
+        if (!ts.some(t => ahora - t < VENTANA_MS)) visitas.delete(k);
+    next();
+}
 
 // Lista blanca. Sin esto el relayer sería un ejecutor de llamadas arbitrarias pagado por vos.
 // Sólo tokens con ERC-3009 verificado (transferWithAuthorization).
@@ -139,7 +157,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '32kb' }));
 
-app.get('/api/relay/info', async (req, res) => {
+app.set('trust proxy', true);
+
+app.get('/api/relay/info', limitar, async (req, res) => {
     try {
         const chainId = Number(req.query.chainId || 8453);
         const simbolo = String(req.query.simbolo || 'USDC');
@@ -147,7 +167,7 @@ app.get('/api/relay/info', async (req, res) => {
     } catch (e) { res.status(e.statusCode || 500).json({ error: e.message }); }
 });
 
-app.post('/api/relay/erc3009', async (req, res) => {
+app.post('/api/relay/erc3009', limitar, async (req, res) => {
     try {
         const { chainId, simbolo, pago, comision } = req.body || {};
         const cot = await cotizar(chainId, simbolo);

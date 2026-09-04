@@ -69,3 +69,23 @@ Una dirección stealth recién derivada nunca tiene código, así que el caso re
 Ve la dirección que paga y la que cobra, y puede vincularlas. Es inherente a relayear, no un
 defecto de esta implementación: lo mismo vale para el retiro de Privacy Pools. Por eso conviene
 que el relayer sea propio.
+
+## Desplegado
+
+Corre en la caja, en el puerto **3200** (el 3100 lo ocupa `backup.chatwallet.org`), expuesto
+por el túnel de Cloudflare como **https://relay.chatwallet.org**. Arranca solo por
+`@reboot ... /home/xunorus/start-relay.sh` en el crontab.
+
+La llave se generó **en la caja** con `ethers.Wallet.createRandom()` y vive en
+`~/chatwallet-node/relay/.env` con permisos `600`. Nunca viajó por la red.
+
+Tiene límite de tasa (20 pedidos por minuto y por IP) en `/info` y `/erc3009`. El dinero ya lo
+protege la comisión, pero cada pedido dispara simulaciones contra el RPC: sin límite, quemar
+la cuota del proveedor cuesta un bucle de cinco líneas.
+
+### Al operar en la caja: no matar por patrón
+
+Tres veces en este despliegue un `pgrep`/`pkill` por patrón matcheó **su propia línea de
+comando** (la del ssh que lo invoca, o la del supervisor que contiene el texto buscado).
+La tercera tiró el túnel abajo. Operar por PID, o mirar el puerto, nunca por nombre.
+El guard de `start-relay.sh` mira el puerto 3200 justamente por esto.
