@@ -1765,7 +1765,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.23 alpha</p>
+            <p class="text-sm text-gray-400">v 3.24 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3095,6 +3095,18 @@
             </div>
         </div>
 
+        <!-- Reenviar un mensaje a otro contacto -->
+        <div id="forwardModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-5 w-full max-w-sm space-y-3 max-h-[70vh] flex flex-col">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold" data-i18n-key="fwd_title">Reenviar a…</h3>
+                    <button type="button" id="closeForwardModal"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                <div id="forwardList" class="flex-1 overflow-y-auto min-h-0 -mx-1 px-1"></div>
+            </div>
+        </div>
+
         <!-- Modal Stealth Address -->
         <div id="stealthAddressModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
             <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4">
@@ -3804,7 +3816,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.23</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.24</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -11079,7 +11091,25 @@
             //  burbuja abre el picker de emojis; swipe horizontal activa el
             //  modo respuesta (cita renderizada dentro de la burbuja).
             // ═══════════════════════════════════════════════════════════════
-            const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+            // La barrita rápida la elige cada quien: seis emojis fijos no le sirven a todo el
+            // mundo. Se guardan por dispositivo; el botón ✎ del picker los edita.
+            const REACTION_EMOJIS_DEFECTO = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+            const REACTION_EMOJIS_KEY = 'cw-emojis-rapidos';
+            function emojisRapidos() {
+                try {
+                    const g = JSON.parse(localStorage.getItem(REACTION_EMOJIS_KEY) || 'null');
+                    if (Array.isArray(g) && g.length) return g.slice(0, 8);
+                } catch { }
+                return REACTION_EMOJIS_DEFECTO;
+            }
+            function guardarEmojisRapidos(lista) {
+                // Un array vacío dejaría el picker sin nada y sin forma de volver: se cae al defecto.
+                const limpia = (lista || []).filter(Boolean).slice(0, 8);
+                if (!limpia.length) localStorage.removeItem(REACTION_EMOJIS_KEY);
+                else localStorage.setItem(REACTION_EMOJIS_KEY, JSON.stringify(limpia));
+                const viejo = document.getElementById('reactionPicker');
+                if (viejo) viejo.remove();   // se reconstruye con los nuevos al próximo long-press
+            }
             const reactionsByMsg = new Map();   // msgId → Map<emoji, Set<senderInboxId>>
             const msgTextById = new Map();      // msgId → { text, type } (para las citas de las respuestas)
             let replyTarget = null;             // { id, text, type } cuando el input está en modo respuesta
@@ -11193,13 +11223,40 @@
                 picker = document.createElement('div');
                 picker.id = 'reactionPicker';
                 picker.className = 'hidden';
-                for (const emoji of REACTION_EMOJIS) {
+                for (const emoji of emojisRapidos()) {
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.textContent = emoji;
                     btn.onclick = (e) => { e.stopPropagation(); sendReaction(pickerForMsgId, emoji); };
                     picker.appendChild(btn);
                 }
+                // Editar la barrita: sin esto los seis emojis son de por vida.
+                const editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.className = 'rp-reply';
+                editBtn.title = t('quick_edit_title');
+                editBtn.textContent = '✎';
+                editBtn.onclick = (e) => { e.stopPropagation(); hideReactionPicker(); editarEmojisRapidos(); };
+                picker.appendChild(editBtn);
+
+                // Copiar el texto del mensaje.
+                const copyBtn = document.createElement('button');
+                copyBtn.type = 'button';
+                copyBtn.className = 'rp-reply';
+                copyBtn.title = t('msg_copy');
+                copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+                copyBtn.onclick = (e) => { e.stopPropagation(); const id = pickerForMsgId; hideReactionPicker(); copiarMensaje(id); };
+                picker.appendChild(copyBtn);
+
+                // Reenviar a otro contacto.
+                const fwdBtn = document.createElement('button');
+                fwdBtn.type = 'button';
+                fwdBtn.className = 'rp-reply';
+                fwdBtn.title = t('msg_forward');
+                fwdBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>';
+                fwdBtn.onclick = (e) => { e.stopPropagation(); const id = pickerForMsgId; hideReactionPicker(); abrirReenviar(id); };
+                picker.appendChild(fwdBtn);
+
                 const replyBtn = document.createElement('button');
                 replyBtn.type = 'button';
                 replyBtn.className = 'rp-reply';
@@ -11247,6 +11304,102 @@
                 pickerForMsgId = null;
             }
 
+            // ── Copiar ───────────────────────────────────────────────────────
+            async function copiarMensaje(msgId) {
+                const info = msgTextById.get(msgId);
+                if (!info || !info.text) { showToast(t('msg_copy_err'), 'info'); return; }
+                try {
+                    await navigator.clipboard.writeText(info.text);
+                } catch (e) {
+                    // El WebView del APK niega el portapapeles sin gesto directo, y a veces
+                    // igual. El textarea temporal es el camino que sí funciona ahí.
+                    const ta = document.createElement('textarea');
+                    ta.value = info.text;
+                    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    try { document.execCommand('copy'); } catch (_) { }
+                    ta.remove();
+                }
+                showToast(t('msg_copied'), 'success');
+            }
+
+            // ── Editar la barrita de emojis ──────────────────────────────────
+            function editarEmojisRapidos() {
+                const actual = emojisRapidos().join(' ');
+                const puesto = prompt(t('quick_edit_prompt'), actual);
+                if (puesto === null) return;                 // canceló
+                // Separar por espacios y también por caracteres si vinieron pegados.
+                const lista = puesto.trim()
+                    ? puesto.trim().split(/\s+/).flatMap(x => x.length > 2 ? [...x] : [x])
+                    : [];
+                guardarEmojisRapidos(lista);
+                showToast(lista.length ? t('quick_edit_ok') : t('quick_edit_reset'), 'success');
+            }
+
+            // Devuelve la conversación de un contacto SIN abrir el chat ni tocar
+            // currentConversation: reenviar no debe sacarte del hilo donde estás.
+            async function conversacionDeContacto(c) {
+                if (!chatwalletxmtp || !c) return null;
+                if (c.isGroup && c.groupId)
+                    return await chatwalletxmtp.conversations.getConversationById(c.groupId);
+                if (!ethers.isAddress(c.address)) return null;
+                return await withTimeout(chatwalletxmtp.conversations.createDmWithIdentifier({
+                    identifier: c.address.toLowerCase(), identifierKind: 'Ethereum',
+                }), 20000, 'createDmWithIdentifier (reenviar)');
+            }
+
+            // ── Reenviar ─────────────────────────────────────────────────────
+            let reenviarTexto = null;
+            function abrirReenviar(msgId) {
+                const info = msgTextById.get(msgId);
+                if (!info || !info.text) { showToast(t('msg_copy_err'), 'info'); return; }
+                if (isOffline) { showToast(t('fwd_offline'), 'info'); return; }
+                reenviarTexto = info.text;
+                const lista = document.getElementById('forwardList');
+                const modal = document.getElementById('forwardModal');
+                if (!lista || !modal) return;
+                lista.innerHTML = '';
+                // El chat actual no aparece: reenviar acá mismo es escribirlo de nuevo.
+                const actual = (currentChatContact?.address || '').toLowerCase();
+                const destinos = contacts.filter(c => (c.address || '').toLowerCase() !== actual);
+                if (!destinos.length) {
+                    lista.innerHTML = `<p class="text-center text-gray-500 text-sm py-6">${escHtml(t('fwd_no_contacts'))}</p>`;
+                } else {
+                    for (const c of destinos) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-700 flex items-center gap-3';
+                        b.innerHTML = `<span class="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs">${c.isGroup ? '👥' : '👤'}</span>
+                            <span class="flex-1 min-w-0"><span class="block truncate text-sm">${escHtml(c.name || c.address)}</span></span>`;
+                        b.onclick = () => reenviarA(c);
+                        lista.appendChild(b);
+                    }
+                }
+                modal.classList.remove('hidden'); modal.classList.add('flex');
+            }
+            function cerrarReenviar() {
+                const m = document.getElementById('forwardModal');
+                if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+                reenviarTexto = null;
+            }
+            async function reenviarA(contacto) {
+                const texto = reenviarTexto;
+                cerrarReenviar();
+                if (!texto) return;
+                try {
+                    showToast(t('fwd_sending'), 'info');
+                    const conv = await conversacionDeContacto(contacto);
+                    if (!conv) { showToast(t('fwd_err'), 'error'); return; }
+                    await conv.sendText(texto);
+                    if (convIsGroup(conv)) pingWakeGroup(conv); else pingWake(conv);
+                    showToast(t('fwd_ok', { quien: contacto.name || shortAddr(contacto.address) }), 'success');
+                } catch (e) {
+                    console.error('[reenviar]', e);
+                    showToast(t('fwd_err'), 'error');
+                }
+            }
+
             // ── Modo respuesta ───────────────────────────────────────────────
             function startReply(msgId) {
                 if (!msgId || String(msgId).startsWith('temp-')) return;
@@ -11276,6 +11429,10 @@
                 if (bar) { bar.classList.add('hidden'); bar.classList.remove('flex'); }
             }
             document.getElementById('cancelReplyBtn')?.addEventListener('click', cancelReply);
+            document.getElementById('closeForwardModal')?.addEventListener('click', cerrarReenviar);
+            document.getElementById('forwardModal')?.addEventListener('click', (e) => {
+                if (e.target === document.getElementById('forwardModal')) cerrarReenviar();
+            });
 
             // ── Gestos sobre las burbujas ────────────────────────────────────
             // Long-press (450ms, mouse o touch) y doble tap/click → picker de reacciones.
@@ -11341,6 +11498,11 @@
                 let replyInfo = null;
                 if (message.contentType?.typeId === 'reply') {
                     replyInfo = parseMsgObjContent(message);
+                    // El SDK decodifica el campo como `referenceId`; el codec lo codifica como
+                    // `reference`. Leer sólo `reference` daba undefined y la cita no se dibujaba
+                    // nunca: la respuesta llegaba bien y se veía como un mensaje suelto.
+                    if (replyInfo && !replyInfo.reference && replyInfo.referenceId)
+                        replyInfo.reference = replyInfo.referenceId;
                 }
 
                 let messageContent = replyInfo
@@ -15338,8 +15500,11 @@
                     try {
                         let sentMessage;
                         if (replyTarget) {
-                            // Respuesta: content type oficial 'reply' con el texto anidado (ContentTypeText).
-                            // El registry mínimo alcanza: el ReplyCodec solo pide el codec del contenido anidado.
+                            // Se manda YA CODIFICADO, igual que las reacciones. Pasar el objeto y
+                            // dejar que codifique el SDK cuelga el worker WASM para siempre —
+                            // medido: sendText anda, sync() anda, y send(obj, ContentTypeReply)
+                            // no vuelve nunca. El registry mínimo alcanza: el ReplyCodec sólo pide
+                            // el codec del contenido anidado.
                             const encoded = new window.ReplyCodec().encode(
                                 { reference: replyTarget.id, content: messageText, contentType: window.ContentTypeText },
                                 { codecFor: () => new window.TextCodec() }
@@ -16495,6 +16660,20 @@
                     "coin_sending": "Pagando desde tu dirección privada {i} de {n}…",
                     "coin_done_title": "Pago privado enviado",
                     "coin_done": "Enviado desde {n} dirección(es) privada(s).",
+                    "msg_copy": "Copiar",
+                    "msg_copied": "Mensaje copiado",
+                    "msg_copy_err": "No hay texto para copiar",
+                    "msg_forward": "Reenviar",
+                    "fwd_title": "Reenviar a…",
+                    "fwd_no_contacts": "No tenés otros contactos.",
+                    "fwd_sending": "Reenviando…",
+                    "fwd_ok": "Reenviado a {quien}",
+                    "fwd_err": "No se pudo reenviar",
+                    "fwd_offline": "Reenviar necesita conexión.",
+                    "quick_edit_title": "Editar los emojis rápidos",
+                    "quick_edit_prompt": "Emojis de la barrita rápida, separados por espacios (hasta 8). Dejalo vacío para volver a los de fábrica.",
+                    "quick_edit_ok": "Emojis actualizados",
+                    "quick_edit_reset": "Volvieron los emojis de fábrica",
                     "settings_cold_title": "Modo frío",
                     "settings_cold_desc": "Sin conexión: firmás y componés por QR, sin que la llave toque la red.",
                     "settings_keys_title": "Gestión de claves",
@@ -16740,6 +16919,20 @@
                     "coin_sending": "Paying from your private address {i} of {n}…",
                     "coin_done_title": "Private payment sent",
                     "coin_done": "Sent from {n} private address(es).",
+                    "msg_copy": "Copy",
+                    "msg_copied": "Message copied",
+                    "msg_copy_err": "Nothing to copy",
+                    "msg_forward": "Forward",
+                    "fwd_title": "Forward to…",
+                    "fwd_no_contacts": "You have no other contacts.",
+                    "fwd_sending": "Forwarding…",
+                    "fwd_ok": "Forwarded to {quien}",
+                    "fwd_err": "Could not forward",
+                    "fwd_offline": "Forwarding needs a connection.",
+                    "quick_edit_title": "Edit the quick emojis",
+                    "quick_edit_prompt": "Quick-bar emojis, separated by spaces (up to 8). Leave empty to restore the defaults.",
+                    "quick_edit_ok": "Emojis updated",
+                    "quick_edit_reset": "Default emojis restored",
                     "settings_cold_title": "Cold mode",
                     "settings_cold_desc": "Offline: you sign and compose over QR, without the key ever touching the network.",
                     "settings_keys_title": "Key management",
@@ -16985,6 +17178,20 @@
                     "coin_sending": "Paiement depuis votre adresse privée {i} sur {n}…",
                     "coin_done_title": "Paiement privé envoyé",
                     "coin_done": "Envoyé depuis {n} adresse(s) privée(s).",
+                    "msg_copy": "Copier",
+                    "msg_copied": "Message copié",
+                    "msg_copy_err": "Rien à copier",
+                    "msg_forward": "Transférer",
+                    "fwd_title": "Transférer à…",
+                    "fwd_no_contacts": "Vous n’avez pas d’autres contacts.",
+                    "fwd_sending": "Transfert…",
+                    "fwd_ok": "Transféré à {quien}",
+                    "fwd_err": "Transfert impossible",
+                    "fwd_offline": "Le transfert nécessite une connexion.",
+                    "quick_edit_title": "Modifier les emojis rapides",
+                    "quick_edit_prompt": "Emojis de la barre rapide, séparés par des espaces (8 maximum). Laissez vide pour revenir aux emojis par défaut.",
+                    "quick_edit_ok": "Emojis mis à jour",
+                    "quick_edit_reset": "Emojis par défaut restaurés",
                     "settings_cold_title": "Mode hors ligne",
                     "settings_cold_desc": "Hors ligne : vous signez et composez par QR, sans que la clé touche le réseau.",
                     "settings_keys_title": "Gestion des clés",
