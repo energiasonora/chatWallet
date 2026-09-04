@@ -1765,7 +1765,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.24 alpha</p>
+            <p class="text-sm text-gray-400">v 3.25 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3816,7 +3816,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.24</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.25</p>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -6368,6 +6368,69 @@
                 return nuevos;
             }
 
+            // ── Pagar USDC desde una dirección stealth, vía relayer ────────────────
+            // Una dirección stealth con USDC y sin nativo no puede gastar: no tiene con qué
+            // pagar gas, y mandárselo desde la billetera principal la vincularía. ERC-3009 deja
+            // FIRMAR la transferencia sin mandar transacción, y el relayer la transmite.
+            // Se firman DOS autorizaciones —el pago y la comisión del relayer— y viajan juntas
+            // en una sola transacción: o entran las dos o no entra ninguna.
+            const RELAY_BASE = 'https://relay.chatwallet.org';
+
+            async function relayerInfo(chainId, simbolo) {
+                const r = await fetch(`${RELAY_BASE}/api/relay/info?chainId=${chainId}&simbolo=${encodeURIComponent(simbolo)}`);
+                if (!r.ok) throw new Error('relayer no disponible');
+                return await r.json();
+            }
+
+            // Firma EIP-712 de transferWithAuthorization. El dominio sale del propio token:
+            // hardcodearlo es la forma más fácil de producir firmas que el contrato rechaza.
+            async function firmarAutorizacion3009(priv, token, chainId, { to, value }) {
+                const w = new ethers.Wallet(priv);
+                const c = new ethers.Contract(token, [
+                    'function name() view returns (string)', 'function version() view returns (string)'], provider);
+                const dominio = { name: await c.name(), version: await c.version(),
+                                  chainId: Number(chainId), verifyingContract: token };
+                const tipos = { TransferWithAuthorization: [
+                    { name: 'from', type: 'address' }, { name: 'to', type: 'address' },
+                    { name: 'value', type: 'uint256' }, { name: 'validAfter', type: 'uint256' },
+                    { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' }] };
+                const msg = { from: w.address, to, value: value.toString(), validAfter: 0,
+                              validBefore: Math.floor(Date.now() / 1000) + 3600,
+                              nonce: ethers.hexlify(ethers.randomBytes(32)) };
+                const sig = ethers.Signature.from(await w.signTypedData(dominio, tipos, msg));
+                return { ...msg, v: sig.v, r: sig.r, s: sig.s };
+            }
+
+            // Paga `monto` (unidades del token) a `destino` desde UNA dirección stealth.
+            // Devuelve el hash, o lanza con un motivo legible.
+            async function pagarTokenDesdeStealth(dirStealth, destino, monto, red) {
+                const info = await relayerInfo(red.chainId, red.TOKEN_SYMBOL || 'USDC');
+                if (!info.fondeado) throw new Error(t('relay_sin_gas'));
+                const priv = await llavePrivadaDeStealth(dirStealth);
+                if (!priv) throw new Error(t('relay_sin_llave'));
+
+                const comisionU = BigInt(info.comision);
+                // El saldo tiene que cubrir pago + comisión: si no, la transacción atómica
+                // revierte entera y el relayer gastó gas de arriba.
+                const saldo = await new ethers.Contract(info.token,
+                    ['function balanceOf(address) view returns (uint256)'], provider).balanceOf(dirStealth);
+                if (saldo < BigInt(monto) + comisionU)
+                    throw new Error(t('relay_saldo_corto', {
+                        falta: ethers.formatUnits(BigInt(monto) + comisionU - saldo, info.decimales) }));
+
+                const pago = await firmarAutorizacion3009(priv, info.token, red.chainId, { to: destino, value: monto });
+                const comision = await firmarAutorizacion3009(priv, info.token, red.chainId,
+                    { to: info.relayer, value: comisionU });
+
+                const r = await fetch(`${RELAY_BASE}/api/relay/erc3009`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chainId: Number(red.chainId), simbolo: red.TOKEN_SYMBOL || 'USDC', pago, comision }),
+                });
+                const j = await r.json().catch(() => ({}));
+                if (!r.ok || !j.ok) throw new Error(j.error || t('relay_err'));
+                return j.tx || j.txPago;
+            }
+
             // ── Selección de monedas ───────────────────────────────────────────────
             // El saldo privado NO es fungible: son monedas sueltas. Tres direcciones de 7 no
             // son 21 — pagar 21 cuesta unir tres identidades que en la cadena no tenían
@@ -6383,13 +6446,29 @@
             }
 
             async function seleccionarMonedas(montoTexto, red) {
-                const objetivo = ethers.parseEther(String(montoTexto || '0'));
                 const s = await saldosStealth(red);
-                if (s.esToken) return { alcanza: false, motivo: 'token', monedas: [] };
-                const gas = await costoDeGasAprox();
+                const esToken = !!s.esToken;
+                const objetivo = esToken
+                    ? ethers.parseUnits(String(montoTexto || '0'), s.decimales)
+                    : ethers.parseEther(String(montoTexto || '0'));
 
-                // Lo que cada moneda puede ENVIAR es su saldo menos su propio gas. Una que no
-                // llega a cubrir el gas es polvo: existe y no se puede mover.
+                // El costo por moneda cambia según de qué se trate:
+                //  · nativo → su propio gas, que paga la dirección;
+                //  · ERC-20 → la comisión del relayer, que se cobra EN EL MISMO TOKEN.
+                // En los dos casos es lo que hay que descontar antes de saber cuánto puede enviar.
+                let gas;
+                if (esToken) {
+                    try {
+                        const info = await relayerInfo(red.chainId, red.TOKEN_SYMBOL || 'USDC');
+                        if (!info.fondeado) return { alcanza: false, motivo: 'sin-relayer', monedas: [] };
+                        gas = BigInt(info.comision);
+                    } catch { return { alcanza: false, motivo: 'sin-relayer', monedas: [] }; }
+                } else {
+                    gas = await costoDeGasAprox();
+                }
+
+                // Lo que cada moneda puede ENVIAR es su saldo menos su propio costo. Una que no
+                // llega a cubrirlo es polvo: existe y no se puede mover.
                 const monedas = (s.detalle || [])
                     .map(d => ({ dir: d.dir, saldo: d.v, puede: d.v > gas ? d.v - gas : 0n }))
                     .filter(m => m.puede > 0n)
@@ -6398,7 +6477,7 @@
 
                 // 1) La más chica que alcance sola: un pago, cero vinculación.
                 const sola = monedas.find(m => m.puede >= objetivo);
-                if (sola) return { alcanza: true, une: 1, polvo, gas,
+                if (sola) return { alcanza: true, une: 1, polvo, gas, esToken, decimales: s.decimales,
                                    monedas: [{ dir: sola.dir, enviar: objetivo }] };
 
                 // 2) No hay ninguna: juntar de mayor a menor, las MENOS posibles.
@@ -6409,25 +6488,33 @@
                     elegidas.push({ dir: m.dir, enviar });
                     resta -= enviar;
                 }
-                if (resta > 0n) return { alcanza: false, motivo: 'insuficiente', polvo, gas,
+                if (resta > 0n) return { alcanza: false, motivo: 'insuficiente', polvo, gas, esToken,
+                                         decimales: s.decimales,
                                          disponible: monedas.reduce((a, m) => a + m.puede, 0n), monedas: [] };
-                return { alcanza: true, une: elegidas.length, polvo, gas, monedas: elegidas };
+                return { alcanza: true, une: elegidas.length, polvo, gas, esToken, decimales: s.decimales,
+                         monedas: elegidas };
             }
 
             // Paga desde las direcciones elegidas. Son N transacciones: Ethereum no tiene
             // transacción con varias entradas, y esa es exactamente la razón por la que juntar
             // vincula — quedan N transferencias al mismo destino en el mismo minuto.
-            async function ejecutarPagoDesdeStealth(destino, sel) {
+            async function ejecutarPagoDesdeStealth(destino, sel, red) {
                 const hechas = [];
                 for (let i = 0; i < sel.monedas.length; i++) {
                     const m = sel.monedas[i];
-                    const priv = await llavePrivadaDeStealth(m.dir);
-                    if (!priv) throw new Error('no se pudo derivar la llave de ' + m.dir);
                     setTxStatus(t('coin_sending', { i: i + 1, n: sel.monedas.length }), true);
-                    const w = new ethers.Wallet(priv, provider);
-                    const tx = await w.sendTransaction({ to: destino, value: m.enviar });
-                    await tx.wait();
-                    hechas.push(tx.hash);
+                    if (sel.esToken) {
+                        // ERC-20: la dirección no tiene nativo, así que firma y transmite el
+                        // relayer. Cada moneda es una llamada aparte y paga su propia comisión.
+                        hechas.push(await pagarTokenDesdeStealth(m.dir, destino, m.enviar, red));
+                    } else {
+                        const priv = await llavePrivadaDeStealth(m.dir);
+                        if (!priv) throw new Error('no se pudo derivar la llave de ' + m.dir);
+                        const w = new ethers.Wallet(priv, provider);
+                        const tx = await w.sendTransaction({ to: destino, value: m.enviar });
+                        await tx.wait();
+                        hechas.push(tx.hash);
+                    }
                 }
                 return hechas;
             }
@@ -6547,8 +6634,16 @@
                 const monto = parseFloat(ethers.formatUnits(s.total, s.decimales));
                 valor.textContent = `${monto.toFixed(s.esToken ? 2 : 4)} ${simbolo}`;
                 // El estado NO es decorativo: dice si esa plata se puede gastar hoy.
-                estado.textContent = s.esToken ? t('stealth_bal_waiting') : t('stealth_bal_spendable');
-                estado.className = 'text-[10px] ' + (s.esToken ? 'text-yellow-500/80' : 'text-green-500/80');
+                // El ERC-20 sólo está "en espera" si NO hay relayer que pueda pagarle el gas.
+                // Con relayer fondeado se puede gastar hoy, sin esperar a 4337.
+                let gastable = !s.esToken;
+                if (s.esToken) {
+                    try { gastable = !!(await relayerInfo(red.chainId, red.TOKEN_SYMBOL || 'USDC')).fondeado; }
+                    catch { gastable = false; }
+                }
+                estado.textContent = gastable ? t('stealth_bal_spendable') : t('stealth_bal_waiting');
+                estado.className = 'text-[10px] ' + (gastable ? 'text-green-500/80' : 'text-yellow-500/80');
+                fila.dataset.gastable = gastable ? '1' : '0';
                 fila.title = t('stealth_bal_tip', { n: s.detalle.length });
                 fila.classList.remove('hidden');
             }
@@ -6598,8 +6693,13 @@
                 const caja = document.getElementById('origenFondos');
                 if (!caja || !currentWallet || isOffline) { caja?.classList.add('hidden'); return; }
                 const red = optionsList[currentTokenIndex];
-                if (!red || (red.TOKEN_ADDRESS && ethers.isAddress(red.TOKEN_ADDRESS))) {
-                    caja.classList.add('hidden'); pagarDesdePrivado = false; return;
+                if (!red) { caja.classList.add('hidden'); pagarDesdePrivado = false; return; }
+                // Con ERC-20 el selector aparece SÓLO si hay relayer que pueda pagar el gas:
+                // ofrecerlo sin relayer sería hacer firmar algo que no se puede transmitir.
+                if (red.TOKEN_ADDRESS && ethers.isAddress(red.TOKEN_ADDRESS)) {
+                    let hay = false;
+                    try { hay = !!(await relayerInfo(red.chainId, red.TOKEN_SYMBOL || 'USDC')).fondeado; } catch { }
+                    if (!hay) { caja.classList.add('hidden'); pagarDesdePrivado = false; return; }
                 }
                 try {
                     const s = await saldosStealth(red);
@@ -6623,16 +6723,27 @@
                 const red = optionsList[currentTokenIndex];
                 const sel = await seleccionarMonedas(monto, red);
                 av.classList.remove('hidden');
+                const sim = sel.esToken ? (red.TOKEN_SYMBOL || '') : (red.NATIVE_SYMBOL || 'ETH');
+                const fmt = v => sel.esToken
+                    ? parseFloat(ethers.formatUnits(v, sel.decimales)).toFixed(2)
+                    : parseFloat(ethers.formatEther(v)).toFixed(5);
                 if (!sel.alcanza) {
-                    const disp = sel.disponible ? parseFloat(ethers.formatEther(sel.disponible)).toFixed(5) : '0';
                     av.className = 'text-xs mt-1.5 leading-relaxed text-red-400';
-                    av.textContent = t('coin_short', { disp, sim: red.NATIVE_SYMBOL || 'ETH' });
+                    av.textContent = sel.motivo === 'sin-relayer'
+                        ? t('coin_sin_relayer')
+                        : t('coin_short', { disp: sel.disponible ? fmt(sel.disponible) : '0', sim });
                 } else if (sel.une === 1) {
                     av.className = 'text-xs mt-1.5 leading-relaxed text-green-500/90';
-                    av.textContent = t('coin_one');
+                    // Con token la comisión sale del mismo saldo: mostrarla evita la sorpresa.
+                    av.textContent = sel.esToken
+                        ? t('coin_one_token', { costo: fmt(sel.gas), sim })
+                        : t('coin_one');
                 } else {
                     av.className = 'text-xs mt-1.5 leading-relaxed text-yellow-500/90';
-                    av.textContent = t('coin_merge', { n: sel.une });
+                    // Juntar con token cuesta DOS veces: vincula direcciones y paga N comisiones.
+                    av.textContent = sel.esToken
+                        ? t('coin_merge_token', { n: sel.une, costo: fmt(sel.gas * BigInt(sel.une)), sim })
+                        : t('coin_merge', { n: sel.une });
                 }
             }
 
@@ -6677,7 +6788,7 @@
                             setTxStatus(`<span class="text-red-400">${t('coin_short_err')}</span>`, false);
                             return;
                         }
-                        const hashes = await ejecutarPagoDesdeStealth(recipient, sel);
+                        const hashes = await ejecutarPagoDesdeStealth(recipient, sel, red);
                         setTxStatus(`<span class="text-green-400">${t('coin_done', { n: hashes.length })}</span>`, false);
                         updateBalance();
                         renderStealthBalance().catch(() => { });
@@ -16674,6 +16785,13 @@
                     "quick_edit_prompt": "Emojis de la barrita rápida, separados por espacios (hasta 8). Dejalo vacío para volver a los de fábrica.",
                     "quick_edit_ok": "Emojis actualizados",
                     "quick_edit_reset": "Volvieron los emojis de fábrica",
+                    "relay_sin_gas": "El transmisor no tiene gas en esta red ahora mismo.",
+                    "relay_sin_llave": "No se pudo derivar la llave de esa dirección privada.",
+                    "relay_saldo_corto": "Faltan {falta} para cubrir el pago más la comisión del transmisor.",
+                    "relay_err": "No se pudo transmitir el pago.",
+                    "coin_one_token": "Sale de una sola dirección privada. Comisión del transmisor: {costo} {sim}.",
+                    "coin_merge_token": "Este pago junta {n} de tus direcciones privadas: quedan vinculadas entre sí y se paga una comisión por cada una ({costo} {sim} en total).",
+                    "coin_sin_relayer": "No hay transmisor disponible ahora para esta red.",
                     "settings_cold_title": "Modo frío",
                     "settings_cold_desc": "Sin conexión: firmás y componés por QR, sin que la llave toque la red.",
                     "settings_keys_title": "Gestión de claves",
@@ -16933,6 +17051,13 @@
                     "quick_edit_prompt": "Quick-bar emojis, separated by spaces (up to 8). Leave empty to restore the defaults.",
                     "quick_edit_ok": "Emojis updated",
                     "quick_edit_reset": "Default emojis restored",
+                    "relay_sin_gas": "The relayer has no gas on this network right now.",
+                    "relay_sin_llave": "Could not derive the key for that private address.",
+                    "relay_saldo_corto": "Short by {falta} to cover the payment plus the relayer fee.",
+                    "relay_err": "Could not relay the payment.",
+                    "coin_one_token": "Comes from a single private address. Relayer fee: {costo} {sim}.",
+                    "coin_merge_token": "This payment combines {n} of your private addresses: they become linked to each other and each one pays a fee ({costo} {sim} in total).",
+                    "coin_sin_relayer": "No relayer available for this network right now.",
                     "settings_cold_title": "Cold mode",
                     "settings_cold_desc": "Offline: you sign and compose over QR, without the key ever touching the network.",
                     "settings_keys_title": "Key management",
@@ -17192,6 +17317,13 @@
                     "quick_edit_prompt": "Emojis de la barre rapide, séparés par des espaces (8 maximum). Laissez vide pour revenir aux emojis par défaut.",
                     "quick_edit_ok": "Emojis mis à jour",
                     "quick_edit_reset": "Emojis par défaut restaurés",
+                    "relay_sin_gas": "Le relais n’a pas de gas sur ce réseau en ce moment.",
+                    "relay_sin_llave": "Impossible de dériver la clé de cette adresse privée.",
+                    "relay_saldo_corto": "Il manque {falta} pour couvrir le paiement plus la commission du relais.",
+                    "relay_err": "Impossible de relayer le paiement.",
+                    "coin_one_token": "Provient d’une seule adresse privée. Commission du relais : {costo} {sim}.",
+                    "coin_merge_token": "Ce paiement combine {n} de vos adresses privées : elles deviennent liées entre elles et chacune paie une commission ({costo} {sim} au total).",
+                    "coin_sin_relayer": "Aucun relais disponible pour ce réseau en ce moment.",
                     "settings_cold_title": "Mode hors ligne",
                     "settings_cold_desc": "Hors ligne : vous signez et composez par QR, sans que la clé touche le réseau.",
                     "settings_keys_title": "Gestion des clés",
