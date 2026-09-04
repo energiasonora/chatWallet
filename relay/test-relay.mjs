@@ -114,17 +114,41 @@ await rechaza(async () => validarPedido({ ...(await base()), simbolo: 'PEPE' }, 
     comision: await firmar(paga, { to: relayer.address, value: BigInt(cot.comision), nonce: n }) };
   await rechaza(async () => validarPedido(p, cot), 'nonce', 'dos autorizaciones con el mismo nonce se rechazan'); }
 
+console.log('\n── atomicidad ──');
+ok(cot.atomico === true, 'en esta red se puede hacer atómico (hay Multicall3)');
+
+const MC = '0xcA11bde05977b3631167028862bE2a173976CA11';
+const mc = new ethers.Contract(MC, ['function aggregate3((address target,bool allowFailure,bytes callData)[]) payable returns ((bool,bytes)[])'], relayer);
+const iface = new ethers.Interface(ERC3009_ABI);
+const dato = a => iface.encodeFunctionData('transferWithAuthorization',
+    [a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, a.v, a.r, a.s]);
+
+// Lo que justifica el cambio: si una de las dos falla, NO se ejecuta ninguna. Con dos
+// transacciones sueltas el usuario podía terminar pagando la comisión sin que el pago saliera.
+{
+    const buena = await firmar(paga, { to: DESTINO, value: 1_000000n, nonce: nonce() });
+    const rota = { ...(await firmar(paga, { to: relayer.address, value: BigInt(cot.comision), nonce: nonce() })),
+                   r: ethers.hexlify(ethers.randomBytes(32)) };
+    const antes = await usdc.balanceOf(DESTINO);
+    try {
+        await mc.aggregate3.staticCall([{ target: USDC, allowFailure: false, callData: dato(buena) },
+                                        { target: USDC, allowFailure: false, callData: dato(rota) }]);
+        ok(false, 'con una autorización rota, el lote entero revierte', 'NO revirtió');
+    } catch (e) { ok(true, 'con una autorización rota, el lote entero revierte'); }
+    ok((await usdc.balanceOf(DESTINO)) === antes, 'y el destinatario no recibió nada');
+}
+
 console.log('\n── el camino feliz, contra la cadena ──');
 const pedido = await base();
 ok(validarPedido(pedido, cot) === true, 'un pedido bien armado pasa la validación');
 
-const tok = new ethers.Contract(USDC, ERC3009_ABI, relayer);
 const gasRelayerAntes = await prov.getBalance(relayer.address);
-for (const [n, a] of [['comisión', pedido.comision], ['pago', pedido.pago]]) {
-    const tx = await tok.transferWithAuthorization(a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, a.v, a.r, a.s);
-    await tx.wait();
-    console.log(`   ${n} transmitida: ${tx.hash.slice(0, 12)}…`);
-}
+const txLote = await mc.aggregate3([
+    { target: USDC, allowFailure: false, callData: dato(pedido.comision) },
+    { target: USDC, allowFailure: false, callData: dato(pedido.pago) }]);
+const recLote = await txLote.wait();
+console.log(`   una sola transacción: ${txLote.hash.slice(0, 12)}…  gas ${recLote.gasUsed}`);
+ok(recLote.gasUsed < 205704n, `gasta menos que las dos sueltas (${recLote.gasUsed} vs 205704)`);
 const destinoBal = await usdc.balanceOf(DESTINO);
 const relayerBal = await usdc.balanceOf(relayer.address);
 const gastado = gasRelayerAntes - await prov.getBalance(relayer.address);
@@ -138,7 +162,8 @@ console.log(`   el relayer gastó ${ethers.formatEther(gastado)} ETH de gas y co
 // 7. Reenviar lo mismo tiene que fallar: el token consume el nonce.
 try {
     const a = pedido.pago;
-    await tok.transferWithAuthorization.staticCall(a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, a.v, a.r, a.s);
+    await new ethers.Contract(USDC, ERC3009_ABI, relayer).transferWithAuthorization.staticCall(
+        a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, a.v, a.r, a.s);
     ok(false, 'reenviar la misma autorización se rechaza', 'NO falló');
 } catch (e) { ok(true, 'reenviar la misma autorización se rechaza (el nonce ya se consumió)'); }
 

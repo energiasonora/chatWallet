@@ -19,6 +19,29 @@ Un endpoint abierto que paga gas se vacía en horas. Se resuelve así:
 
 El reintento no es riesgo: el nonce de ERC-3009 lo consume el propio token.
 
+## Una transacción, no dos
+
+Las dos autorizaciones viajan en **una sola transacción** por Multicall3 (`allowFailure: false`),
+que está desplegado con la misma dirección en toda red EVM.
+
+Con dos transacciones sueltas **ningún orden es justo**: la comisión primero cobra aunque el
+pago falle, y el pago primero deja al relayer pagando gas de arriba. Atómico no hay estado
+intermedio. Medido en un fork de Base:
+
+```
+dos transacciones          205.704 gas
+una atómica                138.670 gas      33% menos
+```
+
+El ahorro supera una tarifa base porque la segunda llamada encuentra el storage del token ya
+caliente. La cotización refleja el camino barato, así que el usuario paga menos comisión.
+
+El riesgo se mueve del usuario al relayer: si el lote revierte, el relayer gasta gas y no cobra.
+Es donde corresponde — el relayer es el que simula antes y el que cobra por el servicio.
+
+En una red sin Multicall3 se cae a dos transacciones y **la respuesta lo dice** (`atomico:false`)
+en vez de fingir que es lo mismo.
+
 ## Correr
 
     RELAYER_PRIVATE_KEY=0x…  RELAY_PORT=3100  node relay-server.mjs
