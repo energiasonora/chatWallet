@@ -117,10 +117,18 @@ export async function cotizar(chainId, simbolo) {
     const usdPorNativo = Number(process.env.NATIVE_USD || 3000);
     const costoUsd = Number(ethers.formatEther(costoNativo)) * usdPorNativo;
     const unidades = BigInt(Math.ceil(costoUsd * 10 ** t.dec));
+    // ¿Puede el relayer pagar de verdad en ESTA red? Decir sólo "tengo llave" es inútil: el
+    // cliente armaría y firmaría un pedido condenado a fallar. Se informa antes de firmar.
+    let saldo = 0n;
+    try { const r = direccionRelayer(); if (r) saldo = await prov.getBalance(r); } catch { }
+    const porOperacion = precioGas * gas;
     return { chainId, simbolo, token: t.addr, decimales: t.dec, atomico,
              gasPrecio: precioGas.toString(), costoNativo: costoNativo.toString(),
              comision: unidades.toString(), comisionLegible: (Number(unidades) / 10 ** t.dec).toFixed(6),
-             relayer: direccionRelayer(), referenciaUsdNativo: usdPorNativo };
+             relayer: direccionRelayer(), referenciaUsdNativo: usdPorNativo,
+             fondeado: saldo >= porOperacion * 3n,   // margen: no aceptar con lo justo para una
+             saldoRelayer: ethers.formatEther(saldo),
+             operacionesRestantes: porOperacion > 0n ? Number(saldo / porOperacion) : 0 };
 }
 
 // Valida la forma del pedido SIN tocar la cadena. Separado a propósito: es lo que se puede
@@ -171,6 +179,11 @@ app.post('/api/relay/erc3009', limitar, async (req, res) => {
     try {
         const { chainId, simbolo, pago, comision } = req.body || {};
         const cot = await cotizar(chainId, simbolo);
+        // Cortar acá con un motivo claro, en vez de fallar con un error opaco del RPC
+        // después de que la persona ya firmó.
+        if (!cot.fondeado) return res.status(503).json({
+            error: 'el relayer no tiene gas suficiente en esta red',
+            red: chainId, saldo: cot.saldoRelayer, direccion: cot.relayer });
         validarPedido(req.body, cot);
 
         const w = firmante(chainId);
@@ -226,10 +239,17 @@ app.post('/api/relay/erc3009', limitar, async (req, res) => {
     }
 });
 
-app.get('/api/relay/salud', (req, res) => res.json({
-    ok: true, relayer: direccionRelayer(), redes: Object.keys(TOKENS).map(Number),
-    conLlave: !!process.env.RELAYER_PRIVATE_KEY,
-}));
+app.get('/api/relay/salud', async (req, res) => {
+    const redes = {};
+    for (const id of Object.keys(TOKENS).map(Number)) {
+        try {
+            const r = direccionRelayer();
+            redes[id] = r ? ethers.formatEther(await proveedor(id).getBalance(r)) : null;
+        } catch { redes[id] = 'sin RPC'; }
+    }
+    res.json({ ok: true, relayer: direccionRelayer(), conLlave: !!process.env.RELAYER_PRIVATE_KEY,
+               saldoPorRed: redes });
+});
 
 if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => console.log(`relayer en :${PORT}  ·  ${direccionRelayer() || 'SIN LLAVE'}`));
