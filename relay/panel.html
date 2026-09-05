@@ -41,7 +41,11 @@ function tablaRechazos(r) {
 }
 (async () => {
   try {
-    const d = await (await fetch('/api/relay/metricas')).json();
+    // El token viaja en la URL (?k=…) y el panel lo reenvía en la cabecera.
+    const k = new URLSearchParams(location.search).get('k') || '';
+    const r = await fetch('/api/relay/metricas', { headers: k ? { 'x-relay-token': k } : {} });
+    const d = await r.json();
+    if (r.status === 401) throw new Error(d.error || 'sin acceso');
     if (d.error) throw new Error(d.error);
     document.getElementById('addr').textContent = d.relayer || '(sin llave)';
     const t = d.total, h = d.ultimas24h;

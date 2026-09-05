@@ -17,6 +17,7 @@ import express from 'express';
 import cors from 'cors';
 import { ethers } from 'ethers';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 
 const PORT = process.env.RELAY_PORT || 3200;
 
@@ -272,13 +273,35 @@ app.post('/api/relay/erc3009', limitar, async (req, res) => {
 // ── Métricas ───────────────────────────────────────────────────────────────
 // Agregados del libro más el estado en cadena. Lo que NO hay acá —direcciones, hashes— es
 // deliberado: ver §Contabilidad.
+// ── Puerta del panel ───────────────────────────────────────────────────────
+// El saldo está en la cadena y es público igual, pero cuánto se ganó, cuánto volumen se movió
+// y por qué se rechazaron pedidos NO tienen por qué serlo. /info y /salud siguen abiertos
+// porque la app los necesita antes de firmar; las métricas piden token.
+// Sin RELAY_ADMIN_TOKEN configurado se BLOQUEA, en vez de quedar abierto por omisión: un
+// olvido de configuración no debería publicar la contabilidad.
+function esAdmin(req) {
+    const esperado = process.env.RELAY_ADMIN_TOKEN;
+    if (!esperado) return false;
+    const dado = req.get('x-relay-token') || req.query.k || '';
+    // Comparación de largo constante: con === se puede adivinar el token midiendo tiempos.
+    const a = Buffer.from(String(dado)), b = Buffer.from(esperado);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function soloAdmin(req, res, next) {
+    if (esAdmin(req)) return next();
+    res.status(401).json({ error: process.env.RELAY_ADMIN_TOKEN
+        ? 'falta el token de acceso'
+        : 'el panel está cerrado: falta configurar RELAY_ADMIN_TOKEN en el servidor' });
+}
+
 // El panel se sirve desde acá y no desde el sitio: así ver las métricas no depende de un
 // deploy de chatwallet.org, y el relayer se puede mover de máquina sin dejar una página huérfana.
-app.get('/', (req, res) => {
+app.get('/', soloAdmin, (req, res) => {
     res.sendFile(new URL('./panel.html', import.meta.url).pathname);
 });
 
-app.get('/api/relay/metricas', async (req, res) => {
+app.get('/api/relay/metricas', soloAdmin, async (req, res) => {
     try {
         const libro = leerLibro();
         const ahora = Date.now(), DIA = 86400000;
