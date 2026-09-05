@@ -16,6 +16,7 @@
 import express from 'express';
 import cors from 'cors';
 import { ethers } from 'ethers';
+import fs from 'node:fs';
 
 const PORT = process.env.RELAY_PORT || 3200;
 
@@ -67,6 +68,26 @@ const MULTICALL3_ABI = [
     "function aggregate3((address target, bool allowFailure, bytes callData)[] calls) payable returns ((bool success, bytes returnData)[])"
 ];
 const GAS_ATOMICO = 145000n;
+
+// ── Contabilidad ───────────────────────────────────────────────────────────
+// A propósito NO se guardan direcciones ni hashes de transacción. El relayer ve quién paga y
+// quién cobra; escribirlo en un archivo convertiría este servicio en la base de datos de
+// vinculación que todo el esquema stealth existe para evitar. Con monto, comisión, gas y
+// fecha alcanza para saber cuánto se movió y cuánto se ganó.
+const LIBRO = process.env.RELAY_LEDGER || new URL('./libro.jsonl', import.meta.url).pathname;
+
+function anotar(fila) {
+    try {
+        fs.appendFileSync(LIBRO, JSON.stringify({ ts: Date.now(), ...fila }) + '\n');
+    } catch (e) { console.warn('[libro]', e.message); }
+}
+
+function leerLibro() {
+    try {
+        return fs.readFileSync(LIBRO, 'utf8').split('\n').filter(Boolean)
+            .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+    } catch { return []; }
+}
 
 const proveedores = {};
 function proveedor(chainId) {
@@ -181,10 +202,14 @@ app.post('/api/relay/erc3009', limitar, async (req, res) => {
         const cot = await cotizar(chainId, simbolo);
         // Cortar acá con un motivo claro, en vez de fallar con un error opaco del RPC
         // después de que la persona ya firmó.
-        if (!cot.fondeado) return res.status(503).json({
-            error: 'el relayer no tiene gas suficiente en esta red',
-            red: chainId, saldo: cot.saldoRelayer, direccion: cot.relayer });
-        validarPedido(req.body, cot);
+        if (!cot.fondeado) {
+            anotar({ chainId, simbolo, ok: false, motivo: 'sin-gas' });
+            return res.status(503).json({
+                error: 'el relayer no tiene gas suficiente en esta red',
+                red: chainId, saldo: cot.saldoRelayer, direccion: cot.relayer });
+        }
+        try { validarPedido(req.body, cot); }
+        catch (e) { anotar({ chainId, simbolo, ok: false, motivo: 'rechazado' }); throw e; }
 
         const w = firmante(chainId);
         const token = new ethers.Contract(cot.token, ERC3009_ABI, w);
@@ -196,6 +221,7 @@ app.post('/api/relay/erc3009', limitar, async (req, res) => {
                 await token.transferWithAuthorization.staticCall(
                     a.from, a.to, a.value, a.validAfter, a.validBefore, a.nonce, a.v, a.r, a.s);
             } catch (e) {
+                anotar({ chainId, simbolo, ok: false, motivo: 'simulacion-' + n });
                 return res.status(400).json({ error: `la autorización de ${n} no pasa la simulación`,
                                               detalle: String(e.shortMessage || e.message).slice(0, 200) });
             }
@@ -216,6 +242,10 @@ app.post('/api/relay/erc3009', limitar, async (req, res) => {
                 { target: cot.token, allowFailure: false, callData: dato(pago) },
             ]);
             const rec = await tx.wait();
+            anotar({ chainId, simbolo, ok: true, atomico: true,
+                     monto: String(pago.value), comision: String(comision.value),
+                     gas: rec.gasUsed.toString(),
+                     gasWei: (rec.gasUsed * (rec.gasPrice || 0n)).toString() });
             return res.json({ ok: true, atomico: true, tx: tx.hash,
                               bloque: rec.blockNumber, gas: rec.gasUsed.toString() });
         }
@@ -237,6 +267,72 @@ app.post('/api/relay/erc3009', limitar, async (req, res) => {
         console.error('[relay]', e);
         res.status(e.statusCode || 500).json({ error: e.message });
     }
+});
+
+// ── Métricas ───────────────────────────────────────────────────────────────
+// Agregados del libro más el estado en cadena. Lo que NO hay acá —direcciones, hashes— es
+// deliberado: ver §Contabilidad.
+// El panel se sirve desde acá y no desde el sitio: así ver las métricas no depende de un
+// deploy de chatwallet.org, y el relayer se puede mover de máquina sin dejar una página huérfana.
+app.get('/', (req, res) => {
+    res.sendFile(new URL('./panel.html', import.meta.url).pathname);
+});
+
+app.get('/api/relay/metricas', async (req, res) => {
+    try {
+        const libro = leerLibro();
+        const ahora = Date.now(), DIA = 86400000;
+        const dec = (chainId, simbolo) => TOKENS[chainId]?.[simbolo]?.dec ?? 6;
+
+        const resumen = (filas) => {
+            const okey = filas.filter(f => f.ok);
+            let movido = 0n, ganado = 0n, gastado = 0n;
+            for (const f of okey) {
+                const d = 10n ** BigInt(dec(f.chainId, f.simbolo));
+                movido += BigInt(f.monto || 0);
+                ganado += BigInt(f.comision || 0);
+                gastado += BigInt(f.gasWei || 0);
+            }
+            const rechazos = {};
+            for (const f of filas) if (!f.ok) rechazos[f.motivo || '?'] = (rechazos[f.motivo || '?'] || 0) + 1;
+            return {
+                operaciones: okey.length, rechazadas: filas.length - okey.length, rechazos,
+                movidoUsdc: (Number(movido) / 1e6).toFixed(2),
+                ganadoUsdc: (Number(ganado) / 1e6).toFixed(6),
+                gastadoEth: ethers.formatEther(gastado),
+            };
+        };
+
+        // Margen: lo que se ganó en token contra lo que costó en nativo. Sin oráculo se usa
+        // la misma referencia con la que se cotiza, y se dice cuál es.
+        const usd = Number(process.env.NATIVE_USD || 3000);
+        const total = resumen(libro);
+        const margenUsd = Number(total.ganadoUsdc) - Number(total.gastadoEth) * usd;
+
+        const redes = {};
+        for (const id of Object.keys(TOKENS).map(Number)) {
+            try {
+                const prov = proveedor(id), r = direccionRelayer();
+                const [saldo, fee] = await Promise.all([prov.getBalance(r), prov.getFeeData()]);
+                const porOp = (fee.maxFeePerGas || fee.gasPrice || 0n) * GAS_ATOMICO;
+                redes[id] = { saldo: ethers.formatEther(saldo),
+                              gasGwei: Number((fee.maxFeePerGas || fee.gasPrice || 0n)) / 1e9,
+                              operacionesRestantes: porOp > 0n ? Number(saldo / porOp) : 0,
+                              multicall: await hayMulticall(prov) };
+            } catch (e) { redes[id] = { error: String(e.message).slice(0, 60) }; }
+        }
+
+        res.json({
+            relayer: direccionRelayer(),
+            desde: libro.length ? new Date(libro[0].ts).toISOString() : null,
+            total,
+            ultimas24h: resumen(libro.filter(f => ahora - f.ts < DIA)),
+            ultimos30d: resumen(libro.filter(f => ahora - f.ts < 30 * DIA)),
+            margenUsdAprox: margenUsd.toFixed(4), referenciaUsdNativo: usd,
+            redes,
+            nota: 'sin direcciones ni hashes: el libro no guarda con quién se operó',
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/relay/salud', async (req, res) => {

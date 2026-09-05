@@ -1,0 +1,84 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Relayer · ChatWallet</title>
+<style>
+:root{--bg:#0b1120;--card:#111827;--line:#1f2937;--txt:#e5e7eb;--dim:#9ca3af;--ok:#34d399;--warn:#fbbf24;--bad:#f87171;--ind:#a78bfa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,-apple-system,sans-serif;padding:20px}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+.addr{font:12px ui-monospace,monospace;color:var(--dim);word-break:break-all;margin-bottom:20px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+.v{font-size:22px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+.sub{font-size:12px;color:var(--dim);margin-top:2px}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.ind{color:var(--ind)}
+h2{font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;margin:22px 0 8px;font-weight:600}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{padding:9px 12px;text-align:left;font-size:13px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase}
+tr:last-child td{border-bottom:none}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.nota{font-size:12px;color:var(--dim);margin-top:22px;padding:12px;border:1px dashed var(--line);border-radius:10px;line-height:1.6}
+.err{color:var(--bad);padding:14px;background:var(--card);border-radius:12px}
+</style></head><body><div class="wrap">
+<h1>Relayer</h1>
+<div class="addr" id="addr">…</div>
+<div id="cuerpo">cargando…</div>
+<div class="nota" id="nota"></div>
+</div>
+<script>
+const fmt = n => Number(n).toLocaleString('es-AR', { maximumFractionDigits: 6 });
+function tarjeta(k, v, sub, cls) {
+  return `<div class="card"><div class="k">${k}</div><div class="v ${cls||''}">${v}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+}
+function tablaRechazos(r) {
+  const e = Object.entries(r || {});
+  if (!e.length) return '<p class="sub">Ningún rechazo.</p>';
+  return `<table><tr><th>Motivo</th><th style="text-align:right">Veces</th></tr>` +
+    e.sort((a,b)=>b[1]-a[1]).map(([m,n]) => `<tr><td>${m}</td><td class="num">${n}</td></tr>`).join('') + '</table>';
+}
+(async () => {
+  try {
+    const d = await (await fetch('/api/relay/metricas')).json();
+    if (d.error) throw new Error(d.error);
+    document.getElementById('addr').textContent = d.relayer || '(sin llave)';
+    const t = d.total, h = d.ultimas24h;
+    const margen = Number(d.margenUsdAprox);
+    let html = '<div class="grid">' +
+      tarjeta('Ganado', t.ganadoUsdc + ' USDC', `${t.operaciones} operación(es)`, 'ok') +
+      tarjeta('Gasto de gas', fmt(t.gastadoEth) + ' ETH', `≈ US$ ${fmt(Number(t.gastadoEth) * d.referenciaUsdNativo)}`, '') +
+      tarjeta('Margen', (margen >= 0 ? '+' : '') + 'US$ ' + fmt(margen),
+              'referencia ETH = US$ ' + d.referenciaUsdNativo, margen >= 0 ? 'ok' : 'bad') +
+      tarjeta('Movido', t.movidoUsdc + ' USDC', 'total transmitido', 'ind') +
+      '</div>';
+
+    html += '<h2>Últimas 24 horas</h2><div class="grid">' +
+      tarjeta('Operaciones', h.operaciones, `${h.rechazadas} rechazada(s)`) +
+      tarjeta('Ganado', h.ganadoUsdc + ' USDC', '', 'ok') +
+      tarjeta('Movido', h.movidoUsdc + ' USDC', '', 'ind') +
+      '</div>';
+
+    html += '<h2>Saldo por red</h2><table><tr><th>Red</th><th style="text-align:right">Saldo</th>' +
+            '<th style="text-align:right">Gas</th><th style="text-align:right">Alcanza para</th><th>Atómico</th></tr>';
+    for (const [id, r] of Object.entries(d.redes)) {
+      const nombre = { '1': 'Ethereum', '8453': 'Base' }[id] || id;
+      if (r.error) { html += `<tr><td>${nombre}</td><td colspan="4" class="bad">${r.error}</td></tr>`; continue; }
+      const pocas = r.operacionesRestantes < 50;
+      html += `<tr><td>${nombre}</td><td class="num">${fmt(r.saldo)} ETH</td>` +
+        `<td class="num">${r.gasGwei.toFixed(4)} gwei</td>` +
+        `<td class="num ${pocas ? 'warn' : 'ok'}">${r.operacionesRestantes} op.</td>` +
+        `<td>${r.multicall ? '✓' : '—'}</td></tr>`;
+    }
+    html += '</table>';
+
+    html += '<h2>Rechazos (por qué no se transmitió)</h2>' + tablaRechazos(t.rechazos);
+    document.getElementById('cuerpo').innerHTML = html;
+    document.getElementById('nota').textContent =
+      (d.desde ? `Libro desde ${new Date(d.desde).toLocaleString('es-AR')}. ` : 'Sin operaciones todavía. ') + d.nota + '.';
+  } catch (e) {
+    document.getElementById('cuerpo').innerHTML = `<div class="err">No se pudieron leer las métricas: ${e.message}</div>`;
+  }
+})();
+</script></body></html>
