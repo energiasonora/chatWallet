@@ -14,6 +14,16 @@ GRADLE="android/app/build.gradle"
 export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh"
 
+# ── 0. Novedades: no se publica sin contarle al usuario qué cambió ──
+# El texto vive en CHANGELOG.md, bajo "## Sin publicar". Este chequeo va ANTES del bump
+# para no dejar la versión a medio subir si falta escribirlo. Escape hatch para un redeploy
+# que de verdad no cambia nada para nadie:  ALLOW_EMPTY_CHANGELOG=1 ./deploy.sh
+if [ "${ALLOW_EMPTY_CHANGELOG:-0}" = "1" ]; then
+  echo "⚠ Deploy sin novedades (ALLOW_EMPTY_CHANGELOG=1): esta versión no aparecerá en Novedades."
+else
+  python3 scripts/changelog.py check
+fi
+
 # ── 1. Bump de la versión visible: "v 1.04 alpha" -> "v 1.05 alpha" ──
 CUR_NUM=$(grep -oE 'v [0-9]+\.[0-9]+ alpha' "$DAPP" | head -1 | grep -oE '[0-9]+\.[0-9]+')
 MAJOR=${CUR_NUM%.*}
@@ -43,6 +53,15 @@ if [ -f "$GRADLE" ]; then
   sed -i '' -E "s/versionCode [0-9]+/versionCode ${NEW_CODE}/" "$GRADLE"
   echo "✦ APK build.gradle: versionName ${NEW_NUM} / versionCode ${NEW_CODE} (rebuildeá el APK para que tome la versión)"
 fi
+
+# ── 2c. Estampar el CHANGELOG y incrustarlo en la app ──
+# "## Sin publicar" pasa a ser "## X.YY — fecha" (y se abre una nueva vacía), y las últimas
+# versiones quedan dentro de dapp.html: así la pantalla de Novedades abre sin conexión en el
+# APK. Va DESPUÉS del bump, que es quien decide el número, y ANTES del build, que empaqueta.
+if [ "${ALLOW_EMPTY_CHANGELOG:-0}" != "1" ]; then
+  python3 scripts/changelog.py release "${NEW_NUM}"
+fi
+python3 scripts/changelog.py inject
 
 # ── 3. Build (Node 22) ──
 nvm use 22.22.3 >/dev/null

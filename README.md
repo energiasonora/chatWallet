@@ -235,6 +235,19 @@ yarn parcel src/index.html src/dapp.html src/book.html src/stealthwallet.html sr
 firebase deploy
 ```
 
+### Release notes (CHANGELOG.md)
+
+`./deploy.sh` refuses to publish unless `CHANGELOG.md` has at least one bullet under
+`## Sin publicar`. On deploy it stamps that section with the new version and date, opens a
+fresh empty one, and embeds the last versions into `dapp.html` — that is what the in-app
+**Novedades** screen reads (embedded, so it works offline inside the APK).
+
+```bash
+python3 scripts/changelog.py check     # ¿hay novedades escritas?
+python3 scripts/changelog.py inject    # re-incrustar sin publicar
+ALLOW_EMPTY_CHANGELOG=1 ./deploy.sh    # redeploy que no cambia nada para el usuario
+```
+
 The function API will be live at:
 ```
 https://us-central1-chatwallet-demo.cloudfunctions.net/api

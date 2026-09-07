@@ -1757,6 +1757,28 @@
     <!-- CENTRO DE NOTIFICACIONES: toasts, avisos y mensajes entran todos acá -->
     <div id="cwNotifs" aria-live="polite" aria-relevant="additions"></div>
 
+    <!-- Novedades: el contenido lo inyecta deploy.sh desde CHANGELOG.md (scripts/changelog.py).
+         Va incrustado y no se baja de la red a propósito: en el APK tiene que abrirse sin
+         conexión, y los releases de GitHub sólo existen cuando sale un APK. NO editar a mano. -->
+    <!-- NOVEDADES:INICIO -->
+    <script id="cwChangelogData" type="application/json">[{"v":"3.26","d":"2026-09-04","items":["Se puede gastar USDC desde direcciones privadas que no tienen gas: la transacción la transmite el relayer."]},{"v":"3.25","d":"2026-09-04","items":["En el chat: copiar y reenviar mensajes, editar los emojis de las reacciones, y la cita de las respuestas se ve mejor."]},{"v":"3.24","d":"2026-09-03","items":["Se puede pagar desde las direcciones privadas eligiendo qué moneda usar.","El relayer transmite autorizaciones firmadas sin funcionar como surtidor: resuelve todo en una sola transacción atómica, tiene límite de tasa, y avisa si tiene gas **antes** de que alguien firme."]},{"v":"3.23","d":"2026-09-03","items":["Escáner de anuncios stealth y saldo de la StealthWallet."]},{"v":"3.22","d":"2026-09-02","items":["Los pagos stealth se envían siguiendo el spec, y el aviso viaja por el chat."]},{"v":"3.21","d":"2026-09-02","items":["Stealth quedó alineado con el spec público, y se ocultó lo que todavía no puede cumplir."]},{"v":"3.20","d":"2026-09-01","items":["El QR de \"Recibir\" salía en blanco, y stealth pedía \"conectá tu wallet\" con la wallet ya conectada.","Los App Links de Android habían quedado con la huella vieja después de la mudanza."]},{"v":"3.19","d":"2026-09-01","items":["El panel de modo frío hablaba sólo español; ahora sigue tu idioma.","El aviso de la mudanza en el puente también se traduce."]},{"v":"3.18","d":"2026-09-01","items":["El modo frío se mudó a Configuración, y las claves tienen su propia sección."]},{"v":"3.17","d":"2026-09-01","items":["La pantalla de la billetera entra entera, sin tapar el saldo."]},{"v":"3.16","d":"2026-09-01","items":["La etiqueta del apodo va sin posesivo: el alias lo elige el otro, no vos."]},{"v":"3.15","d":"2026-09-01","items":["\"Tu alias\" se leía como si el alias fuera propio."]},{"v":"3.14","d":"2026-09-01","items":["El selector de red entra sin scroll, y tu tarjeta se ve antes de editarla."]},{"v":"3.13","d":"2026-09-01","items":["Elegir red pasó a ser una pantalla propia, y respeta el tema claro/oscuro."]},{"v":"3.12","d":"2026-09-01","items":["Cambiar de tema ya no tira un cartel."]}]</script>
+    <!-- NOVEDADES:FIN -->
+
+    <!-- Modal Novedades -->
+    <div id="changelogModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-[60]">
+        <div class="bg-gray-800 rounded-xl p-5 w-full max-w-md space-y-3 max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold" data-i18n-key="changelog_title">Novedades</h3>
+                <button type="button" id="closeChangelogModal"
+                    class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="changelogList" class="flex-1 overflow-y-auto min-h-0 -ml-1 pl-1 pr-2 space-y-4"></div>
+            <a href="https://github.com/energiasonora/chatWallet/releases" target="_blank" rel="noopener noreferrer"
+                class="block text-center text-xs text-indigo-400 hover:underline pt-1"
+                data-i18n-key="changelog_all">Ver todas las versiones en GitHub</a>
+        </div>
+    </div>
+
     <!-- Modal de Marca -->
     <div id="brandModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
         <div class="bg-gray-800 rounded-xl p-8 w-full max-w-xs text-center space-y-4 relative">
@@ -1765,7 +1787,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.25 alpha</p>
+            <p class="text-sm text-gray-400">v 3.26 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -1775,6 +1797,15 @@
                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
                 </svg>
                 <span id="checkUpdatesLabel">Buscar actualizaciones</span>
+            </button>
+            <button id="openChangelogBtn"
+                class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                </svg>
+                <span data-i18n-key="changelog_btn">Novedades</span>
             </button>
             <p id="updateStatus" class="text-xs text-gray-400 min-h-[1rem]"></p>
             <div class="space-y-2 pt-2">
@@ -3816,7 +3847,10 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.25</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.26</p>
+                    <button type="button" id="openChangelogFromSettings"
+                        class="text-indigo-400 hover:underline block mt-1 mx-auto"
+                        data-i18n-key="changelog_link">Ver qué cambió en esta versión</button>
                     <a href="https://github.com/energiasonora/chatWallet" target="_blank" rel="noopener noreferrer"
                         class="text-indigo-400 hover:underline block mt-1" data-i18n-key="settings_github_link">
                         Ver en GitHub
@@ -12134,6 +12168,110 @@
                 return latest[1] > current[1];
             }
 
+            // ── Novedades ────────────────────────────────────────────────────────
+            // El texto lo incrusta deploy.sh desde CHANGELOG.md en #cwChangelogData: va dentro
+            // del HTML para que en el APK se abra sin conexión (los releases de GitHub sólo
+            // existen cuando sale un APK, y la web publica muchas más versiones que el APK).
+            const NOVEDADES_VISTAS_KEY = 'cw-novedades-vistas';
+
+            function leerNovedades() {
+                try {
+                    const el = document.getElementById('cwChangelogData');
+                    const datos = JSON.parse((el && el.textContent) || '[]');
+                    return Array.isArray(datos) ? datos : [];
+                } catch (e) {
+                    console.warn('novedades: no se pudo leer el changelog incrustado', e);
+                    return [];
+                }
+            }
+
+            // Markdown mínimo: el CHANGELOG lo escribe una persona, así que sólo se soporta
+            // lo que de verdad se usa (negrita y `código`). Se escapa ANTES de aplicarlo.
+            function novedadesHtml(texto) {
+                return String(texto)
+                    .replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+                    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+                    .replace(/`([^`]+)`/g, '<code class="px-1 rounded bg-gray-900/60 text-[0.7rem]">$1</code>');
+            }
+
+            function abrirNovedades() {
+                const modal = document.getElementById('changelogModal');
+                const lista = document.getElementById('changelogList');
+                if (!modal || !lista) return;
+                const actual = fmtVersion(getCurrentVersion());
+                const entradas = leerNovedades();
+                lista.innerHTML = '';
+                if (!entradas.length) {
+                    lista.innerHTML = `<p class="text-center text-gray-500 text-sm py-6">${novedadesHtml(t('changelog_empty'))}</p>`;
+                } else {
+                    for (const e of entradas) {
+                        const bloque = document.createElement('div');
+                        const esActual = e.v === actual;
+                        const chip = esActual
+                            ? `<span class="ml-2 px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 text-[0.65rem] font-semibold align-middle">${novedadesHtml(t('changelog_current'))}</span>`
+                            : '';
+                        bloque.innerHTML =
+                            `<h4 class="text-sm font-bold ${esActual ? 'text-indigo-400' : 'text-gray-200'}">
+                                 v${novedadesHtml(e.v)}${chip}
+                                 ${e.d ? `<span class="ml-1 font-normal text-gray-500 text-xs">${novedadesHtml(e.d)}</span>` : ''}
+                             </h4>
+                             <ul class="mt-1 space-y-1 text-sm text-gray-400 list-disc pl-5">
+                                 ${e.items.map(i => `<li>${novedadesHtml(i)}</li>`).join('')}
+                             </ul>`;
+                        lista.appendChild(bloque);
+                    }
+                }
+                modal.classList.remove('hidden'); modal.classList.add('flex');
+                lista.scrollTop = 0;
+                // Verla cuenta como enterarse: no vuelve a salir sola hasta la próxima versión.
+                try { localStorage.setItem(NOVEDADES_VISTAS_KEY, actual); } catch (e) { }
+            }
+
+            function cerrarNovedades() {
+                const m = document.getElementById('changelogModal');
+                if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+            }
+
+            // Se abre sola UNA vez, al estrenar una versión. A quien entra por primera vez no se
+            // le muestra nada (no se perdió ninguna novedad): sólo se anota en qué versión llegó.
+            // Y si la versión que corre no tiene entrada propia en el changelog (un redeploy),
+            // tampoco: abrir "Novedades" para mostrar lo de la versión anterior confunde.
+            function mostrarNovedadesSiHayVersionNueva() {
+                const actual = fmtVersion(getCurrentVersion());
+                let visto = null;
+                try { visto = localStorage.getItem(NOVEDADES_VISTAS_KEY); } catch (e) { return; }
+                if (visto === actual) return;
+                if (!visto || !leerNovedades().some(e => e.v === actual)) {
+                    try { localStorage.setItem(NOVEDADES_VISTAS_KEY, actual); } catch (e) { }
+                    return;
+                }
+                abrirNovedades();
+            }
+
+            // Notas del release remoto, plegadas: son largas y el modal es chico.
+            function agregarNotasDelRelease(status, body) {
+                const texto = (body || '').trim();
+                if (!texto) return;
+                const det = document.createElement('details');
+                det.className = 'mt-2 text-left';
+                const sum = document.createElement('summary');
+                sum.className = 'cursor-pointer text-indigo-400 text-xs text-center';
+                sum.textContent = t('changelog_whats_new');
+                const cuerpo = document.createElement('div');
+                cuerpo.className = 'mt-2 max-h-48 overflow-y-auto text-xs text-gray-400 space-y-1';
+                // Markdown mínimo, igual que las novedades locales, más los títulos "### ".
+                cuerpo.innerHTML = texto.split('\n').map(l => {
+                    const linea = l.trim();
+                    if (!linea) return '';
+                    if (linea.startsWith('#')) return `<p class="font-bold text-gray-200 pt-1">${novedadesHtml(linea.replace(/^#+\s*/, ''))}</p>`;
+                    if (linea.startsWith('- ')) return `<p class="pl-3">• ${novedadesHtml(linea.slice(2))}</p>`;
+                    return `<p>${novedadesHtml(linea)}</p>`;
+                }).join('');
+                det.appendChild(sum);
+                det.appendChild(cuerpo);
+                status.appendChild(det);
+            }
+
             async function checkForUpdates() {
                 const btn = document.getElementById('checkUpdatesBtn');
                 const icon = document.getElementById('checkUpdatesIcon');
@@ -12170,6 +12308,11 @@
                             // PWA: con recargar alcanza (el SW trae la versión nueva).
                             status.innerHTML = `Hay una versión nueva (<b>${vStr}</b>). Recargá la página para actualizar.`;
                         }
+                        // Qué trae esa versión: el body del release ya vino en esta misma
+                        // respuesta, así que mostrarlo no cuesta una llamada más. Es lo único
+                        // que NO puede salir del changelog incrustado: describe una versión
+                        // que todavía no está instalada.
+                        agregarNotasDelRelease(status, data.body);
                     } else {
                         status.className = 'mt-2 min-h-[1rem] text-gray-400';
                         status.textContent = `Estás al día (v${fmtVersion(current)}).`;
@@ -15907,6 +16050,12 @@
             if (closeSettingsModal) closeSettingsModal.addEventListener('click', hideSettingsModal);
             const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
             if (checkUpdatesBtn) checkUpdatesBtn.addEventListener('click', checkForUpdates);
+            document.getElementById('openChangelogBtn')?.addEventListener('click', abrirNovedades);
+            document.getElementById('openChangelogFromSettings')?.addEventListener('click', abrirNovedades);
+            document.getElementById('closeChangelogModal')?.addEventListener('click', cerrarNovedades);
+            document.getElementById('changelogModal')?.addEventListener('click', (e) => {
+                if (e.target === document.getElementById('changelogModal')) cerrarNovedades();
+            });
             // Cerrar al clickear fuera de la card (en el backdrop).
             settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) hideSettingsModal(); });
 
@@ -16541,6 +16690,10 @@
                     resetUI();
                     await handleUrlParameters();
                 }
+
+                // Al final: si estrenás versión, contarle al usuario qué cambió. Va después de
+                // handleUrlParameters() para no taparle la pantalla a quien entra por un link.
+                try { mostrarNovedadesSiHayVersionNueva(); } catch (e) { console.warn('novedades:', e); }
             }
 
             let toneJsReady = typeof Tone !== 'undefined';
@@ -16964,6 +17117,13 @@
                     "toast_paid_on_network": "💰 Cobraste {amount} en {net}.",
                     "toast_go_to_net": "Ver",
                     "settings_version_label": "Versión",
+                    "changelog_title": "Novedades",
+                    "changelog_btn": "Novedades",
+                    "changelog_link": "Ver qué cambió en esta versión",
+                    "changelog_all": "Ver todas las versiones en GitHub",
+                    "changelog_current": "estás acá",
+                    "changelog_empty": "Todavía no hay novedades para mostrar.",
+                    "changelog_whats_new": "Ver qué trae",
                     "settings_github_link": "Ver en GitHub"
                 },
                 en: {
@@ -17230,6 +17390,13 @@
                     "toast_paid_on_network": "💰 You received {amount} on {net}.",
                     "toast_go_to_net": "View",
                     "settings_version_label": "Version",
+                    "changelog_title": "What's new",
+                    "changelog_btn": "What's new",
+                    "changelog_link": "See what changed in this version",
+                    "changelog_all": "See every version on GitHub",
+                    "changelog_current": "you are here",
+                    "changelog_empty": "Nothing to show yet.",
+                    "changelog_whats_new": "See what it brings",
                     "settings_github_link": "View on GitHub"
                 },
                 fr: {
@@ -17496,6 +17663,13 @@
                     "toast_paid_on_network": "💰 Vous avez reçu {amount} sur {net}.",
                     "toast_go_to_net": "Voir",
                     "settings_version_label": "Version",
+                    "changelog_title": "Nouveautés",
+                    "changelog_btn": "Nouveautés",
+                    "changelog_link": "Voir ce qui a changé dans cette version",
+                    "changelog_all": "Voir toutes les versions sur GitHub",
+                    "changelog_current": "vous êtes ici",
+                    "changelog_empty": "Rien à afficher pour l'instant.",
+                    "changelog_whats_new": "Voir ce qu'elle apporte",
                     "settings_github_link": "Voir sur GitHub"
                 }
             };
