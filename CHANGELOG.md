@@ -17,6 +17,13 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- Se corrigió un texto que decía que el proyecto no tiene token: **sí lo tiene** (CWLT) y hubo
+  una preventa. Lo que es cierto, y se puede verificar en la cadena, es que no entró ningún
+  fondo de inversión.
+- El saldo de CWLT que mostraba la app era el de una red de prueba. Ahora muestra el real.
+
+## 3.27 — 2026-09-07
+
 - **Novedades**: la app ahora cuenta qué cambió en cada versión. Está en el modal de la
   marca y en Configuración, y se abre sola una vez cuando estrenás una versión nueva.
 - Al buscar actualizaciones, además del número se puede ver qué trae la versión nueva.
