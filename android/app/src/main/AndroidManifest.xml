@@ -79,4 +79,10 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Aviso post-reinicio (BootReceiver) -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Vibrar. Sin este permiso navigator.vibrate() no falla ni avisa: simplemente no
+         hace nada dentro del WebView, así que las vibraciones que la app ya tenía
+         (escanear un QR, deslizar para responder, el picker de reacciones) eran código
+         muerto en el APK y sólo se sentían en Chrome. Medido en el APK 3.28, que se
+         empaquetó sin VIBRATE. Es un permiso normal: no le pide nada al usuario. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

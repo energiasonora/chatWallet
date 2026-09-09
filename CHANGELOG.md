@@ -20,6 +20,12 @@ Las versiones anteriores a la 3.00 están en los
 - El sitio dejó de pasar por un intermediario: ahora lo entrega Cloudflare directamente. En
   agosto una persona en Costa Rica se comió un error del intermediario y nunca llegó a abrir
   la app; ese eslabón ya no existe.
+- El celular **vibra** cuando algo pide tu firma: una dApp, un pago del libro, una transacción
+  fría o un envío. Son dos pulsos, distintos del toque del escáner. Antes el APK no vibraba
+  nunca — le faltaba el permiso, así que tampoco vibraba al escanear un QR ni al deslizar
+  para responder.
+- Los mensajes que la app intercambia con las dApps ya no se ven como bloques de código en el
+  chat: ahora dicen en una línea qué pasó («Una dApp pidió tu firma»), en tu idioma.
 
 ## 3.29 — 2026-09-09
 
