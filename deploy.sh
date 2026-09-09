@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# Publica chatWallet a Firebase Hosting bumpeando la versión automáticamente.
+# Publica chatWallet a Cloudflare (Workers Static Assets) bumpeando la versión automáticamente.
 #   - Sube la versión visible en dapp.html (v X.YY alpha)
 #   - Sincroniza el cache del service worker con esa versión (fuerza refresh del PWA)
-#   - Buildea con Node 22 (lo exige @xmtp/browser-sdk) y despliega con Node 20 (donde vive el CLI de firebase)
+#   - Buildea y despliega con Node 22 (lo exige @xmtp/browser-sdk; wrangler corre igual)
+#
+# Antes esto iba a Firebase Hosting y hacía un baile de dos Node: 22 para buildear y 20
+# para el CLI de firebase. Se mudó el 9/9/2026 (ver wrangler.toml para el porqué de
+# Workers y no Pages). Firebase quedó intacto detrás como marcha atrás: la route del
+# Worker intercepta antes del origen, así que borrarla devuelve el tráfico al instante.
 # Uso:  ./deploy.sh
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -75,18 +80,25 @@ echo "✦ Build con Node $(node -v)…"
 yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html src/book-admin.html \
   --dist-dir public --public-url ./ --cache-dir .parcel-cache-build
 
-# ── 4. Deploy (Node 20, donde está firebase CLI) ──
-nvm use 20.19.0 >/dev/null
-echo "✦ Deploy con Node $(node -v)…"
-firebase deploy --only hosting
+# ── 4. Deploy a Cloudflare ──
+# _redirects es lo que hace existir /dapp, /book y /tools: sin él esas rutas dan 404 en
+# el acto. Lo copia Parcel desde src/static, pero si alguien mueve ese directorio el
+# build sigue saliendo verde y el sitio se rompe en silencio. Se chequea acá, ANTES de
+# publicar, que es el mismo tipo de caída boba que ya se comió book-admin.html.
+for F in _redirects _headers .well-known/assetlinks.json; do
+  [ -f "public/$F" ] || { echo "✗ Falta public/$F — ¿se movió src/static?"; exit 1; }
+done
+echo "✦ Deploy a Cloudflare con Node $(node -v)…"
+npx wrangler deploy
 
 # ── 4a. Espejo en el nodo IPFS soberano ──
 # Vía alternativa si Firebase/Fastly falla (ver publish-ipfs.sh). Nunca rompe el deploy.
 ./publish-ipfs.sh || echo "⚠️  El espejo IPFS no se actualizó (el deploy web sigue OK)"
 
 # ── 4b. Purgar la caché de Cloudflare ──
-# chatwallet.org va Cloudflare → Firebase Hosting → origen. Desde que existe la cache
-# rule (ver cf-cache-rule.sh), Cloudflare cachea el HTML en el borde con TTL de 1 día:
+# La cache rule de la zona (ver cf-cache-rule.sh) sigue vigente después de la mudanza:
+# cachea el HTML en el borde con TTL de 1 día, ahora por delante del Worker en vez de
+# por delante de Firebase. O sea que purgar sigue siendo obligatorio:
 # sin purgar, un deploy tarda hasta 24h en verse. Y OJO: la regla EXCLUYE el query
 # string de la cache key, así que el viejo truco de `?cb=$RANDOM` ya NO saltea la
 # caché — purgar es la única forma de ver lo nuevo (y por eso va ANTES de verificar).
@@ -122,7 +134,10 @@ fi
 echo ""
 echo "✦ Verificando páginas críticas en producción…"
 FALLOS=0
-for RUTA in / /book.html /dapp.html /manifiesto.html /book-admin.html /tools/index.html; do
+# Se verifican TAMBIÉN las rutas cortas (/dapp, /book, /tools): desde la mudanza no las
+# resuelve el hosting sino public/_redirects, así que pueden caerse solas mientras el
+# .html correspondiente sigue impecable.
+for RUTA in / /book.html /dapp.html /manifiesto.html /book-admin.html /tools/index.html /dapp /book /tools/; do
   CODIGO=$(curl -s -o /dev/null -w '%{http_code}' "https://chatwallet.org${RUTA}" || echo "000")
   if [ "$CODIGO" = "200" ]; then
     echo "   ✓ ${RUTA} (${CODIGO})"

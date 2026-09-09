@@ -1,0 +1,27 @@
+# Cabeceras de chatwallet.org (equivalente a los "headers" de firebase.json).
+#
+# no-transform en los medios: Cloudflare pedía brotli al origen, se lo descomprimía al
+# cliente que había pedido identity, y le pasaba el content-range del cuerpo COMPRIMIDO.
+# Chrome pide rangos para todo <video>, recibía bytes inconsistentes y abortaba con
+# DEMUXER_ERROR_COULD_NOT_OPEN (medido el 27/8/2026). Sin origen Firebase el problema no
+# debería existir, pero la cabecera no cuesta nada y deja el contrato explícito.
+/*.mp4
+  Cache-Control: public, max-age=3600, no-transform
+/*.webm
+  Cache-Control: public, max-age=3600, no-transform
+/*.mov
+  Cache-Control: public, max-age=3600, no-transform
+/*.m4v
+  Cache-Control: public, max-age=3600, no-transform
+/*.ogg
+  Cache-Control: public, max-age=3600, no-transform
+/*.ogv
+  Cache-Control: public, max-age=3600, no-transform
+/*.mp3
+  Cache-Control: public, max-age=3600, no-transform
+/*.m4a
+  Cache-Control: public, max-age=3600, no-transform
+
+# El service worker no se cachea: es quien decide qué versión ve el usuario.
+/service-worker.js
+  Cache-Control: no-cache

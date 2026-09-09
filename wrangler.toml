@@ -1,0 +1,28 @@
+# chatwallet.org — el sitio estático (landing, dapp, libro, tools).
+#
+# POR QUÉ WORKERS STATIC ASSETS Y NO PAGES: Pages fuerza URLs "limpias" y NO se puede
+# apagar — sirve /dapp.html con un 308 hacia /dapp. Medido el 9/9/2026 en un preview:
+# con las reescrituras de firebase.json traducidas a _redirects, /dapp entraba en un
+# BUCLE INFINITO de redirecciones (Pages manda .html→limpia, _redirects manda limpia→.html).
+# Y /dapp.html no es una URL cualquiera: es el start_url del PWA, lo que registra el
+# service worker, y a donde apuntan los App Links del APK y los links de invitación.
+# Con html_handling = "none" no hay magia: se sirve exactamente lo que se pide, y las
+# rutas cortas las declara _redirects. Mismo comportamiento que Firebase, sin sorpresas.
+name = "chatwallet-web"
+compatibility_date = "2026-09-01"
+
+[assets]
+directory = "./public"
+html_handling = "none"       # ver arriba: sin esto, /dapp es un bucle
+not_found_handling = "none"
+
+# CÓMO SE ENGANCHA AL DOMINIO: una "route", no un "custom domain".
+#
+# Los registros A de chatwallet.org siguen apuntando a Firebase y no se tocan. La route
+# hace que Cloudflare atienda el pedido con este Worker ANTES de ir al origen, así que
+# Firebase queda intacto detrás, sin recibir tráfico. Volver atrás es borrar esta route:
+# el tráfico vuelve a Firebase en el acto, sin esperar propagación de DNS ni recertificar
+# nada. Con un custom_domain habría que reescribir el DNS del ápice para ir y para volver.
+routes = [
+  { pattern = "chatwallet.org/*", zone_name = "chatwallet.org" }
+]

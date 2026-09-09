@@ -17,6 +17,12 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- El sitio dejó de pasar por un intermediario: ahora lo entrega Cloudflare directamente. En
+  agosto una persona en Costa Rica se comió un error del intermediario y nunca llegó a abrir
+  la app; ese eslabón ya no existe.
+
+## 3.29 — 2026-09-09
+
 - Vincular una dApp (como Ius Naturalis o StealthPay) ya no depende de la cámara: en **Escanear**
   hay un botón **Pegar código** que acepta lo mismo que un QR — el link de vinculación, un pago,
   una transacción fría o una agenda de contactos.

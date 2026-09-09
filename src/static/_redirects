@@ -1,0 +1,20 @@
+# Rutas de chatwallet.org (traducción de los "rewrites" de firebase.json).
+# Sintaxis: <desde> <hacia> <código>.  200 = reescritura interna: la URL en la barra NO
+# cambia, que es lo que hacía Firebase.
+#
+# Están TODAS las rutas, incluidos los índices, porque wrangler.toml usa
+# html_handling = "none": sin magia de por medio, hay que decir cada una. A cambio,
+# /dapp.html sigue siendo /dapp.html — es el start_url del PWA, lo que registra el
+# service worker, y el destino de los App Links del APK y los links de invitación.
+/               /index.html         200
+/dapp           /dapp.html          200
+/book           /book.html          200
+/manifiesto     /manifiesto.html    200
+# /tools va con 301 a /tools/, NO con reescritura: las páginas de /tools se enlazan
+# entre sí con rutas relativas ("sign.html"), y servidas en /tools —sin barra final—
+# el navegador las resolvería contra la raíz y darían 404. Firebase mandaba este mismo
+# 301 por la misma razón.
+/tools          /tools/             301
+/tools/         /tools/index.html   200
+/tools/sign     /tools/sign.html    200
+/tools/bip39    /tools/bip39.html   200
