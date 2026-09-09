@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- Vincular una dApp (como Ius Naturalis o StealthPay) ya no depende de la cámara: en **Escanear**
+  hay un botón **Pegar código** que acepta lo mismo que un QR — el link de vinculación, un pago,
+  una transacción fría o una agenda de contactos.
+- Si la dApp está abierta en **este mismo dispositivo**, su botón «Abrir en chatWallet» ahora
+  trae el pedido directo a la app, sin sacarle una foto a la pantalla de al lado.
+
+## 3.28 — 2026-09-08
+
 - Se corrigió un texto que decía que el proyecto no tiene token: **sí lo tiene** (CWLT) y hubo
   una preventa. Lo que es cierto, y se puede verificar en la cadena, es que no entró ningún
   fondo de inversión.

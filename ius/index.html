@@ -139,8 +139,7 @@
   .flor-viva.p1 .g-centro circle{opacity:1;stroke:var(--lavanda);filter:drop-shadow(0 0 5px rgba(199,181,241,.8))}
   .flor-viva.p2 .g-anillo1 circle{opacity:.95;filter:drop-shadow(0 0 4px rgba(139,92,246,.7))}
   .flor-viva.p3 .g-anillo2 circle{opacity:.9;filter:drop-shadow(0 0 4px rgba(139,92,246,.6))}
-  .flor-viva.p4 circle{opacity:1;stroke:var(--lavanda);filter:drop-shadow(0 0 6px rgba(139,92,246,.75))}
-  .flor-viva.p5 circle{stroke:var(--oro);opacity:1;filter:drop-shadow(0 0 6px rgba(201,161,94,.65))}
+  .flor-viva.p4 circle{stroke:var(--oro);opacity:1;filter:drop-shadow(0 0 6px rgba(201,161,94,.65))}
   .hero h1{
     font-family:'Cormorant Garamond',serif;font-weight:500;
     font-size:clamp(3rem,7.5vw,5.6rem);letter-spacing:.03em;line-height:1;
@@ -318,6 +317,21 @@
   .modal-x{background:none;border:none;color:var(--bruma);font-size:1rem;cursor:pointer;padding:.25rem .45rem;border-radius:.45rem}
   .modal-x:hover{color:var(--marfil);background:var(--noche-3)}
   .modal-sub{color:var(--bruma);font-size:.82rem;margin:.3rem 0 1rem}
+  /* las otras dos puertas de vinculación (sin cámara / mismo dispositivo) */
+  .pair-otras{margin-top:1rem}
+  .pair-o{display:flex;align-items:center;gap:.7rem;color:var(--bruma);font-size:.72rem;
+    letter-spacing:.12em;text-transform:uppercase;margin:.2rem 0 .8rem}
+  .pair-o::before,.pair-o::after{content:'';flex:1;height:1px;background:rgba(199,181,241,.18)}
+  .pair-btns{display:flex;gap:.55rem;justify-content:center;flex-wrap:wrap}
+  .pair-nota{color:var(--bruma);font-size:.72rem;line-height:1.45;margin:.7rem 0 0;text-align:center}
+  .pair-corto{margin-top:.7rem}
+  .pair-corto summary{color:var(--lavanda);font-size:.75rem;cursor:pointer;text-align:center;list-style:none}
+  .pair-corto summary::-webkit-details-marker{display:none}
+  .pair-corto summary::before{content:'▸ ';opacity:.7}
+  .pair-corto[open] summary::before{content:'▾ '}
+  .pair-corto-cod{font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all;
+    text-align:center;color:var(--marfil);background:rgba(139,92,246,.09);
+    border:1px solid rgba(139,92,246,.25);border-radius:.5rem;padding:.5rem;margin-top:.45rem}
   .wallet-lista{display:flex;flex-direction:column;gap:.55rem}
   .wallet-item{
     display:flex;align-items:center;gap:.85rem;width:100%;text-align:left;
@@ -429,31 +443,23 @@
   <div class="rito" id="rito">
 
     <article class="paso activo" id="paso1">
-      <div class="paso-cab"><span class="paso-num">I</span><h2 data-i18n="s1_title">Presencia</h2><span class="paso-resumen" id="resumen1"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
-      <p class="desc" data-i18n="s1_desc">Conectá tu wallet web3 (MetaMask, Rabby u otra compatible). Tu dirección es tu única identidad ante la red — nadie más la emite ni la revoca.</p>
+      <div class="paso-cab"><span class="paso-num">I</span><h2 data-i18n="s1_title">Identidad</h2><span class="paso-resumen" id="resumen1"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <p class="desc" data-i18n="s1_desc">Conectá tu wallet web3 (MetaMask, Rabby u otra compatible). Tu dirección es tu única identidad ante la red — nadie más la emite ni la revoca. Al conectar firmás tu propia dirección: esa firma —y nada más— te autentica ante los gateways IPFS de Crust (W3Auth). No es una transacción: no tiene costo.</p>
+      <div class="ident" id="ident1" hidden>
+        <span data-i18n="ident_signing_as">Firmás como</span>
+        <span class="ident-addr" id="ident1-addr"></span>
+        <span class="ident-modo" id="ident1-modo"></span>
+      </div>
       <div class="cuerpo">
         <button class="btn lleno" id="btn-conectar2" data-i18n="connect">Conectar wallet</button>
+        <button class="btn" id="btn-firmar" data-i18n="s1_retry" hidden>Reintentar firma</button>
         <span class="estado" id="estado1"></span>
       </div>
     </article>
 
     <article class="paso" id="paso2">
-      <div class="paso-cab"><span class="paso-num">II</span><h2 data-i18n="s2_title">Firma</h2><span class="paso-resumen" id="resumen2"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
-      <p class="desc" data-i18n="s2_desc">Firmá tu propia dirección. Esa firma —y nada más— te autentica ante los gateways IPFS de Crust (W3Auth). No es una transacción: no tiene costo.</p>
-      <div class="ident" id="ident2" hidden>
-        <span data-i18n="ident_signing_as">Firmás como</span>
-        <span class="ident-addr" id="ident2-addr"></span>
-        <span class="ident-modo" id="ident2-modo"></span>
-      </div>
-      <div class="cuerpo">
-        <button class="btn" id="btn-firmar" data-i18n="s2_btn" disabled>Firmar identidad</button>
-        <span class="estado" id="estado2"></span>
-      </div>
-    </article>
-
-    <article class="paso" id="paso3">
-      <div class="paso-cab"><span class="paso-num">III</span><h2 data-i18n="s3_title">Palabra</h2><span class="paso-resumen" id="resumen3"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
-      <p class="desc" data-i18n="s3_desc">Elegí tu documento PDF. Antes de que nada salga de tu equipo verás su huella criptográfica local (SHA-256). Decidí si querés que sea público o cifrado, y subilo al gateway IPFS para obtener su CID.</p>
+      <div class="paso-cab"><span class="paso-num">II</span><h2 data-i18n="s2_title">Palabra</h2><span class="paso-resumen" id="resumen2"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <p class="desc" data-i18n="s2_desc">Elegí tu documento PDF. Antes de que nada salga de tu equipo verás su huella criptográfica local (SHA-256). Decidí si querés que sea público o cifrado, y subilo al gateway IPFS para obtener su CID.</p>
       <div class="cuerpo">
         <label class="zona" id="zona" tabindex="0" role="button" data-i18n-aria="drop_aria" aria-label="Elegir o soltar un PDF">
           <span data-i18n="drop" data-i18n-html>Soltá tu PDF acá, o <strong>elegí un archivo</strong></span>
@@ -473,15 +479,15 @@
           <span class="nota" id="privacidad-nota"></span>
         </div>
 
-        <button class="btn" id="btn-subir" data-i18n="s3_btn" disabled>Subir a IPFS</button>
-        <span class="estado" id="estado3"></span>
+        <button class="btn" id="btn-subir" data-i18n="s2_btn" disabled>Subir a IPFS</button>
+        <span class="estado" id="estado2"></span>
         <div class="cid-caja" id="cid-caja" hidden><span class="etq" data-i18n="cid_label">CID del documento</span><span id="cid-txt"></span></div>
       </div>
     </article>
 
-    <article class="paso" id="paso4">
-      <div class="paso-cab"><span class="paso-num">IV</span><h2 data-i18n="s4_title">Atestación</h2><span class="paso-resumen" id="resumen4"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
-      <p class="desc" data-i18n="s4_desc">Este es el acto soberano: declarás y firmás. Tu firma ata tu identidad, la huella del documento y la fecha en una atestación portable que <em>cualquiera</em> puede verificar sin depender de esta web ni de Crust. No tiene costo.</p>
+    <article class="paso" id="paso3">
+      <div class="paso-cab"><span class="paso-num">III</span><h2 data-i18n="s3_title">Atestación</h2><span class="paso-resumen" id="resumen3"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <p class="desc" data-i18n="s3_desc">Este es el acto soberano: declarás y firmás. Tu firma ata tu identidad, la huella del documento y la fecha en una atestación portable que <em>cualquiera</em> puede verificar sin depender de esta web ni de Crust. No tiene costo.</p>
       <div class="cuerpo">
         <div class="plantillas" id="plantillas">
           <button type="button" data-tk="tpl1_txt" data-i18n="tpl1">Documento propio</button>
@@ -489,18 +495,18 @@
           <button type="button" data-tk="tpl3_txt" data-i18n="tpl3">Declaración de voluntad</button>
         </div>
         <textarea id="declaracion" data-i18n-ph="decl_ph" placeholder=""></textarea>
-        <button class="btn" id="btn-atestiguar" data-i18n="s4_btn" disabled>Firmar atestación</button>
-        <span class="estado" id="estado4"></span>
+        <button class="btn" id="btn-atestiguar" data-i18n="s3_btn" disabled>Firmar atestación</button>
+        <span class="estado" id="estado3"></span>
       </div>
     </article>
 
-    <article class="paso" id="paso5">
-      <div class="paso-cab"><span class="paso-num">V</span><h2 data-i18n="s5_title">Anclaje</h2><span class="paso-resumen" id="resumen5"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
-      <p class="desc" data-i18n="s5_desc">Pagá el anclaje desde tu propia wallet llamando al contrato <em>StorageOrder</em> de Crust. Los nodos de la red replican tu documento y prueban on-chain que lo conservan. Se paga una sola vez.</p>
+    <article class="paso" id="paso4">
+      <div class="paso-cab"><span class="paso-num">IV</span><h2 data-i18n="s4_title">Anclaje</h2><span class="paso-resumen" id="resumen4"></span><span class="sello" data-i18n="done">✦ cumplido</span></div>
+      <p class="desc" data-i18n="s4_desc">Pagá el anclaje desde tu propia wallet llamando al contrato <em>StorageOrder</em> de Crust. Los nodos de la red replican tu documento y prueban on-chain que lo conservan. Se paga una sola vez.</p>
       <div class="cuerpo">
         <span class="precio" id="precio" hidden></span>
-        <button class="btn oro" id="btn-anclar" data-i18n="s5_btn" disabled>Anclar en la red</button>
-        <span class="estado" id="estado5"></span>
+        <button class="btn oro" id="btn-anclar" data-i18n="s4_btn" disabled>Anclar en la red</button>
+        <span class="estado" id="estado4"></span>
       </div>
     </article>
 
@@ -566,6 +572,22 @@
     <p class="modal-sub" data-i18n="pair_sub">Escaneá este código con tu app chatWallet. Desde ahí vas a firmar y anclar; en esta pantalla solo preparás.</p>
     <div id="pair-qr" style="display:grid;place-items:center;margin:1rem 0"></div>
     <div id="pair-uri" style="font-family:'JetBrains Mono',monospace;font-size:.68rem;text-align:center;color:var(--bruma);word-break:break-all"></div>
+
+    <!-- Sin cámara, o chatWallet en este mismo aparato: las otras dos puertas a la misma sesión -->
+    <div class="pair-otras">
+      <div class="pair-o"><span data-i18n="pair_or">o</span></div>
+      <div class="pair-btns">
+        <button class="btn" id="pair-abrir" data-i18n="pair_open">Abrir en chatWallet</button>
+        <button class="btn" id="pair-copiar" data-i18n="pair_copy">Copiar link</button>
+      </div>
+      <p class="pair-nota" data-i18n="pair_open_hint">«Abrir» sirve si chatWallet está en este mismo dispositivo. «Copiar» te da un link para mandarte a vos mismo y abrirlo en el celular, sin cámara.</p>
+      <details class="pair-corto">
+        <summary data-i18n="pair_short_sum">Escribirlo a mano</summary>
+        <p class="pair-nota" data-i18n="pair_short_hint">En chatWallet: Escanear → Pegar código, y escribí esto.</p>
+        <div class="pair-corto-cod" id="pair-corto-cod"></div>
+      </details>
+    </div>
+
     <p class="estado" id="pair-status" style="text-align:center;margin-top:.9rem;justify-content:center"></p>
   </div>
 </div>
@@ -580,19 +602,18 @@ window.IusI18n = (function(){
     connect:'Conectar wallet', net_aria:'Red de anclaje', close:'Cerrar', done:'✦ cumplido',
     hero_kicker:'Atestación soberana · IPFS · Crust', hero_cycle_pre:'Tuya y',
     hero_lema:'Firmá, <strong>atestiguá</strong> y anclá tus documentos de autodeterminación en <strong>IPFS</strong> a través de la red descentralizada <strong>Crust</strong>. Sin cuentas, sin intermediarios: tu wallet firma, tu wallet paga, la red conserva. La atestación es tuya y verificable por cualquiera, para siempre.',
-    s1_title:'Presencia', s1_desc:'Conectá tu wallet web3 (MetaMask, Rabby u otra compatible). Tu dirección es tu única identidad ante la red — nadie más la emite ni la revoca.',
-    s2_title:'Firma', s2_desc:'Firmá tu propia dirección. Esa firma —y nada más— te autentica ante los gateways IPFS de Crust (W3Auth). No es una transacción: no tiene costo.', s2_btn:'Firmar identidad',
-    s3_title:'Palabra', s3_desc:'Elegí tu documento PDF. Antes de que nada salga de tu equipo verás su huella criptográfica local (SHA-256). Decidí si querés que sea público o cifrado, y subilo al gateway IPFS para obtener su CID.',
+    s1_title:'Identidad', s1_desc:'Conectá tu wallet web3 (MetaMask, Rabby u otra compatible). Tu dirección es tu única identidad ante la red — nadie más la emite ni la revoca. Al conectar firmás tu propia dirección: esa firma —y nada más— te autentica ante los gateways IPFS de Crust (W3Auth). No es una transacción: no tiene costo.', s1_retry:'Reintentar firma',
+    s2_title:'Palabra', s2_desc:'Elegí tu documento PDF. Antes de que nada salga de tu equipo verás su huella criptográfica local (SHA-256). Decidí si querés que sea público o cifrado, y subilo al gateway IPFS para obtener su CID.',
     drop:'Soltá tu PDF acá, o <strong>elegí un archivo</strong>', drop_aria:'Elegir o soltar un PDF',
     fp_label:'Huella local · SHA-256', vis_label:'Visibilidad del documento:', vis_priv:'🔒 Cifrado', vis_pub:'🌐 Público',
-    s3_btn:'Subir a IPFS', cid_label:'CID del documento',
-    s4_title:'Atestación', s4_desc:'Este es el acto soberano: declarás y firmás. Tu firma ata tu identidad, la huella del documento y la fecha en una atestación portable que <em>cualquiera</em> puede verificar sin depender de esta web ni de Crust. No tiene costo.',
+    s2_btn:'Subir a IPFS', cid_label:'CID del documento',
+    s3_title:'Atestación', s3_desc:'Este es el acto soberano: declarás y firmás. Tu firma ata tu identidad, la huella del documento y la fecha en una atestación portable que <em>cualquiera</em> puede verificar sin depender de esta web ni de Crust. No tiene costo.',
     tpl1:'Documento propio', tpl2:'Prueba de existencia', tpl3:'Declaración de voluntad',
     tpl1_txt:'Declaro este documento como propio y verdadero, en ejercicio de mi soberanía individual.',
     tpl2_txt:'Atestiguo la existencia y autenticidad de este documento en la fecha indicada.',
     tpl3_txt:'Declaro esta voluntad como libre, informada y sin coacción.',
-    decl_ph:'Escribí tu declaración… (por ejemplo: «Declaro esta acta como propia y verdadera»)', s4_btn:'Firmar atestación',
-    s5_title:'Anclaje', s5_desc:'Pagá el anclaje desde tu propia wallet llamando al contrato <em>StorageOrder</em> de Crust. Los nodos de la red replican tu documento y prueban on-chain que lo conservan. Se paga una sola vez.', s5_btn:'Anclar en la red',
+    decl_ph:'Escribí tu declaración… (por ejemplo: «Declaro esta acta como propia y verdadera»)', s3_btn:'Firmar atestación',
+    s4_title:'Anclaje', s4_desc:'Pagá el anclaje desde tu propia wallet llamando al contrato <em>StorageOrder</em> de Crust. Los nodos de la red replican tu documento y prueban on-chain que lo conservan. Se paga una sola vez.', s4_btn:'Anclar en la red',
     reg_title:'Registro', reg_sub:'documentos atestiguados por esta wallet', reg_export:'Exportar registro', reg_import:'Importar',
     reg_empty:'Aún no hay documentos atestiguados. El primero abre el registro.',
     nav_attest:'Atestiguar', nav_verify:'Verificar',
@@ -602,6 +623,10 @@ window.IusI18n = (function(){
     cw_detected:'billetera soberana detectada', cw_phone:'firmar en mi celular (APK)', cw_hint:'Para firmar desde tu celular (APK) vamos a habilitar el puente por QR. Por ahora, abrí ius.chatwallet.org desde el navegador interno de chatWallet.', w_browser:'Wallet del navegador', w_browser_sub:'MetaMask u otra inyectada', w_detected:'detectada', w_install:'instalar ↗',
     pair_title:'Firmá en tu celular', pair_sub:'Escaneá este código con tu app chatWallet. Desde el celular firmás y anclás; en esta pantalla solo preparás.', pair_gen:'Generando sesión…', pair_scan:'Esperando a que chatWallet escanee…', pair_linking:'Abriendo canal seguro con tu chatWallet…', pair_linked:'chatWallet vinculada ✓', pair_linked_addr:'✦ chatWallet vinculada — {addr}', pair_err:'No se pudo vincular: {e}', st_xmtp_load_err:'No se pudo cargar XMTP: {e}',
     ident_signing_as:'Firmás como', ident_remote:'📡 en tu celular · chatWallet', ident_local:'wallet de este navegador',
+    pair_or:'o', pair_open:'Abrir en chatWallet', pair_copy:'Copiar link',
+    pair_open_hint:'«Abrir» sirve si chatWallet está en este mismo dispositivo. «Copiar» te da un link para mandarte a vos mismo y abrirlo en el celular, sin cámara.',
+    pair_short_sum:'Escribirlo a mano', pair_short_hint:'En chatWallet: Escanear → Pegar código, y escribí esto.',
+    pair_opened:'Abrimos chatWallet. Volvé a esta pestaña cuando hayas aprobado.', pair_copied:'Link copiado. Abrilo donde tengas chatWallet.', pair_copy_manual:'No pude copiar solo: copiá el link de arriba a mano.',
     st_sign_wait_remote:'Aprobá la firma en tu chatWallet (en el celular). Si no aparece nada, abrí la app y revisá que el canal siga activo.', st_att_wait_remote:'Aprobá la atestación en tu chatWallet (en el celular)…', st_key_wait_remote:'Aprobá en tu chatWallet (en el celular) para derivar la clave de cifrado…',
     st_wallet_no:'No se detectó una wallet web3. Instalá MetaMask, Rabby u otra wallet compatible y recargá la página. En el celular, abrí esta página desde el navegador interno de tu wallet.',
     st_wallet_wait:'Esperando aprobación en {name}…', st_wallet_ok:'Wallet presente: {addr}', st_wallet_err:'No se pudo conectar: {e}',
@@ -629,19 +654,18 @@ window.IusI18n = (function(){
     connect:'Connect wallet', net_aria:'Anchoring network', close:'Close', done:'✦ done',
     hero_kicker:'Sovereign attestation · IPFS · Crust', hero_cycle_pre:'Yours and',
     hero_lema:'Sign, <strong>attest</strong> and anchor your self-determination documents on <strong>IPFS</strong> through the decentralized <strong>Crust</strong> network. No accounts, no middlemen: your wallet signs, your wallet pays, the network keeps. The attestation is yours and verifiable by anyone, forever.',
-    s1_title:'Presence', s1_desc:'Connect your web3 wallet (MetaMask, Rabby or any compatible one). Your address is your only identity before the network — no one else issues or revokes it.',
-    s2_title:'Signature', s2_desc:'Sign your own address. That signature —and nothing else— authenticates you to Crust\'s IPFS gateways (W3Auth). It is not a transaction: no cost.', s2_btn:'Sign identity',
-    s3_title:'Word', s3_desc:'Choose your PDF document. Before anything leaves your device you\'ll see its local cryptographic fingerprint (SHA-256). Decide whether it should be public or encrypted, and upload it to the IPFS gateway to get its CID.',
+    s1_title:'Identity', s1_desc:'Connect your web3 wallet (MetaMask, Rabby or any compatible one). Your address is your only identity before the network — no one else issues or revokes it. On connecting you sign your own address: that signature —and nothing else— authenticates you to Crust\'s IPFS gateways (W3Auth). It is not a transaction: no cost.', s1_retry:'Retry signature',
+    s2_title:'Word', s2_desc:'Choose your PDF document. Before anything leaves your device you\'ll see its local cryptographic fingerprint (SHA-256). Decide whether it should be public or encrypted, and upload it to the IPFS gateway to get its CID.',
     drop:'Drop your PDF here, or <strong>choose a file</strong>', drop_aria:'Choose or drop a PDF',
     fp_label:'Local fingerprint · SHA-256', vis_label:'Document visibility:', vis_priv:'🔒 Encrypted', vis_pub:'🌐 Public',
-    s3_btn:'Upload to IPFS', cid_label:'Document CID',
-    s4_title:'Attestation', s4_desc:'This is the sovereign act: you declare and sign. Your signature binds your identity, the document fingerprint and the date into a portable attestation that <em>anyone</em> can verify without relying on this site or on Crust. No cost.',
+    s2_btn:'Upload to IPFS', cid_label:'Document CID',
+    s3_title:'Attestation', s3_desc:'This is the sovereign act: you declare and sign. Your signature binds your identity, the document fingerprint and the date into a portable attestation that <em>anyone</em> can verify without relying on this site or on Crust. No cost.',
     tpl1:'My own document', tpl2:'Proof of existence', tpl3:'Declaration of will',
     tpl1_txt:'I declare this document as my own and true, in exercise of my individual sovereignty.',
     tpl2_txt:'I attest to the existence and authenticity of this document on the date indicated.',
     tpl3_txt:'I declare this will as free, informed and without coercion.',
-    decl_ph:'Write your declaration… (e.g.: "I declare this record as my own and true")', s4_btn:'Sign attestation',
-    s5_title:'Anchoring', s5_desc:'Pay for the anchoring from your own wallet by calling Crust\'s <em>StorageOrder</em> contract. The network nodes replicate your document and prove on-chain that they keep it. Paid once.', s5_btn:'Anchor on the network',
+    decl_ph:'Write your declaration… (e.g.: "I declare this record as my own and true")', s3_btn:'Sign attestation',
+    s4_title:'Anchoring', s4_desc:'Pay for the anchoring from your own wallet by calling Crust\'s <em>StorageOrder</em> contract. The network nodes replicate your document and prove on-chain that they keep it. Paid once.', s4_btn:'Anchor on the network',
     reg_title:'Registry', reg_sub:'documents attested by this wallet', reg_export:'Export registry', reg_import:'Import',
     reg_empty:'No documents attested yet. The first one opens the registry.',
     nav_attest:'Attest', nav_verify:'Verify',
@@ -651,6 +675,10 @@ window.IusI18n = (function(){
     cw_detected:'sovereign wallet detected', cw_phone:'sign on my phone (APK)', cw_hint:'To sign from your phone (APK) we\'ll enable the QR bridge. For now, open ius.chatwallet.org from chatWallet\'s in-app browser.', w_browser:'Browser wallet', w_browser_sub:'MetaMask or other injected', w_detected:'detected', w_install:'install ↗',
     pair_title:'Sign on your phone', pair_sub:'Scan this code with your chatWallet app. You sign and anchor from the phone; this screen only prepares.', pair_gen:'Generating session…', pair_scan:'Waiting for chatWallet to scan…', pair_linking:'Opening a secure channel with your chatWallet…', pair_linked:'chatWallet linked ✓', pair_linked_addr:'✦ chatWallet linked — {addr}', pair_err:'Could not pair: {e}', st_xmtp_load_err:'Could not load XMTP: {e}',
     ident_signing_as:'Signing as', ident_remote:'📡 on your phone · chatWallet', ident_local:'wallet in this browser',
+    pair_or:'or', pair_open:'Open in chatWallet', pair_copy:'Copy link',
+    pair_open_hint:'"Open" works if chatWallet is on this same device. "Copy" gives you a link to send to yourself and open on the phone, without a camera.',
+    pair_short_sum:'Type it by hand', pair_short_hint:'In chatWallet: Scan → Paste code, and type this.',
+    pair_opened:'chatWallet opened. Come back to this tab once you approve.', pair_copied:'Link copied. Open it wherever chatWallet is.', pair_copy_manual:'Could not copy automatically: copy the link above by hand.',
     st_sign_wait_remote:'Approve the signature in your chatWallet (on the phone). If nothing shows up, open the app and check the channel is still active.', st_att_wait_remote:'Approve the attestation in your chatWallet (on the phone)…', st_key_wait_remote:'Approve in your chatWallet (on the phone) to derive the encryption key…',
     st_wallet_no:'No web3 wallet detected. Install MetaMask, Rabby or another compatible wallet and reload the page. On mobile, open this page from your wallet\'s in-app browser.',
     st_wallet_wait:'Waiting for approval in {name}…', st_wallet_ok:'Wallet present: {addr}', st_wallet_err:'Could not connect: {e}',
@@ -678,19 +706,18 @@ window.IusI18n = (function(){
     connect:'Connecter le portefeuille', net_aria:'Réseau d\'ancrage', close:'Fermer', done:'✦ accompli',
     hero_kicker:'Attestation souveraine · IPFS · Crust', hero_cycle_pre:'À toi et',
     hero_lema:'Signez, <strong>attestez</strong> et ancrez vos documents d\'autodétermination sur <strong>IPFS</strong> via le réseau décentralisé <strong>Crust</strong>. Sans comptes, sans intermédiaires : votre portefeuille signe, votre portefeuille paie, le réseau conserve. L\'attestation est la vôtre et vérifiable par tous, pour toujours.',
-    s1_title:'Présence', s1_desc:'Connectez votre portefeuille web3 (MetaMask, Rabby ou autre compatible). Votre adresse est votre seule identité devant le réseau — personne d\'autre ne l\'émet ni ne la révoque.',
-    s2_title:'Signature', s2_desc:'Signez votre propre adresse. Cette signature —et rien d\'autre— vous authentifie auprès des passerelles IPFS de Crust (W3Auth). Ce n\'est pas une transaction : sans coût.', s2_btn:'Signer l\'identité',
-    s3_title:'Parole', s3_desc:'Choisissez votre document PDF. Avant que quoi que ce soit ne quitte votre appareil, vous verrez son empreinte cryptographique locale (SHA-256). Décidez s\'il doit être public ou chiffré, et téléversez-le vers la passerelle IPFS pour obtenir son CID.',
+    s1_title:'Identité', s1_desc:'Connectez votre portefeuille web3 (MetaMask, Rabby ou autre compatible). Votre adresse est votre seule identité devant le réseau — personne d\'autre ne l\'émet ni ne la révoque. En vous connectant vous signez votre propre adresse : cette signature —et rien d\'autre— vous authentifie auprès des passerelles IPFS de Crust (W3Auth). Ce n\'est pas une transaction : sans coût.', s1_retry:'Réessayer la signature',
+    s2_title:'Parole', s2_desc:'Choisissez votre document PDF. Avant que quoi que ce soit ne quitte votre appareil, vous verrez son empreinte cryptographique locale (SHA-256). Décidez s\'il doit être public ou chiffré, et téléversez-le vers la passerelle IPFS pour obtenir son CID.',
     drop:'Déposez votre PDF ici, ou <strong>choisissez un fichier</strong>', drop_aria:'Choisir ou déposer un PDF',
     fp_label:'Empreinte locale · SHA-256', vis_label:'Visibilité du document :', vis_priv:'🔒 Chiffré', vis_pub:'🌐 Public',
-    s3_btn:'Téléverser sur IPFS', cid_label:'CID du document',
-    s4_title:'Attestation', s4_desc:'C\'est l\'acte souverain : vous déclarez et signez. Votre signature lie votre identité, l\'empreinte du document et la date dans une attestation portable que <em>quiconque</em> peut vérifier sans dépendre de ce site ni de Crust. Sans coût.',
+    s2_btn:'Téléverser sur IPFS', cid_label:'CID du document',
+    s3_title:'Attestation', s3_desc:'C\'est l\'acte souverain : vous déclarez et signez. Votre signature lie votre identité, l\'empreinte du document et la date dans une attestation portable que <em>quiconque</em> peut vérifier sans dépendre de ce site ni de Crust. Sans coût.',
     tpl1:'Document personnel', tpl2:'Preuve d\'existence', tpl3:'Déclaration de volonté',
     tpl1_txt:'Je déclare ce document comme mien et véridique, dans l\'exercice de ma souveraineté individuelle.',
     tpl2_txt:'J\'atteste l\'existence et l\'authenticité de ce document à la date indiquée.',
     tpl3_txt:'Je déclare cette volonté libre, éclairée et sans contrainte.',
-    decl_ph:'Écrivez votre déclaration… (par ex. : « Je déclare cet acte comme mien et véridique »)', s4_btn:'Signer l\'attestation',
-    s5_title:'Ancrage', s5_desc:'Payez l\'ancrage depuis votre propre portefeuille en appelant le contrat <em>StorageOrder</em> de Crust. Les nœuds du réseau répliquent votre document et prouvent on-chain qu\'ils le conservent. Payé une seule fois.', s5_btn:'Ancrer sur le réseau',
+    decl_ph:'Écrivez votre déclaration… (par ex. : « Je déclare cet acte comme mien et véridique »)', s3_btn:'Signer l\'attestation',
+    s4_title:'Ancrage', s4_desc:'Payez l\'ancrage depuis votre propre portefeuille en appelant le contrat <em>StorageOrder</em> de Crust. Les nœuds du réseau répliquent votre document et prouvent on-chain qu\'ils le conservent. Payé une seule fois.', s4_btn:'Ancrer sur le réseau',
     reg_title:'Registre', reg_sub:'documents attestés par ce portefeuille', reg_export:'Exporter le registre', reg_import:'Importer',
     reg_empty:'Aucun document attesté pour l\'instant. Le premier ouvre le registre.',
     nav_attest:'Attester', nav_verify:'Vérifier',
@@ -700,6 +727,10 @@ window.IusI18n = (function(){
     cw_detected:'portefeuille souverain détecté', cw_phone:'signer sur mon téléphone (APK)', cw_hint:'Pour signer depuis votre téléphone (APK), nous activerons le pont par QR. Pour l\'instant, ouvrez ius.chatwallet.org depuis le navigateur intégré de chatWallet.', w_browser:'Portefeuille du navigateur', w_browser_sub:'MetaMask ou autre injecté', w_detected:'détecté', w_install:'installer ↗',
     pair_title:'Signez sur votre téléphone', pair_sub:'Scannez ce code avec votre app chatWallet. Vous signez et ancrez depuis le téléphone ; cet écran ne fait que préparer.', pair_gen:'Génération de la session…', pair_scan:'En attente du scan de chatWallet…', pair_linking:'Ouverture d\'un canal sécurisé avec votre chatWallet…', pair_linked:'chatWallet liée ✓', pair_linked_addr:'✦ chatWallet liée — {addr}', pair_err:'Appairage impossible : {e}', st_xmtp_load_err:'Chargement XMTP impossible : {e}',
     ident_signing_as:'Vous signez en tant que', ident_remote:'📡 sur votre téléphone · chatWallet', ident_local:'portefeuille de ce navigateur',
+    pair_or:'ou', pair_open:'Ouvrir dans chatWallet', pair_copy:'Copier le lien',
+    pair_open_hint:'« Ouvrir » fonctionne si chatWallet est sur ce même appareil. « Copier » vous donne un lien à vous envoyer et à ouvrir sur le téléphone, sans caméra.',
+    pair_short_sum:'L\'écrire à la main', pair_short_hint:'Dans chatWallet : Scanner → Coller le code, et écrivez ceci.',
+    pair_opened:'chatWallet est ouvert. Revenez à cet onglet une fois approuvé.', pair_copied:'Lien copié. Ouvrez-le là où se trouve chatWallet.', pair_copy_manual:'Copie automatique impossible : copiez le lien ci-dessus à la main.',
     st_sign_wait_remote:'Approuvez la signature dans votre chatWallet (sur le téléphone). Si rien n\'apparaît, ouvrez l\'app et vérifiez que le canal est toujours actif.', st_att_wait_remote:'Approuvez l\'attestation dans votre chatWallet (sur le téléphone)…', st_key_wait_remote:'Approuvez dans votre chatWallet (sur le téléphone) pour dériver la clé de chiffrement…',
     st_wallet_no:'Aucun portefeuille web3 détecté. Installez MetaMask, Rabby ou un autre portefeuille compatible et rechargez la page. Sur mobile, ouvrez cette page depuis le navigateur intégré de votre portefeuille.',
     st_wallet_wait:'En attente d\'approbation dans {name}…', st_wallet_ok:'Portefeuille présent : {addr}', st_wallet_err:'Connexion impossible : {e}',
@@ -801,7 +832,7 @@ window.IusI18n = (function(){
   ];
   const GATEWAYS = ['https://gw.crustfiles.app','https://crustipfs.xyz'];
   const NORMA = 'ius-naturalis/atestacion/1';
-  const VERSION = '0.9.1';
+  const VERSION = '0.9.3';
 
   /* ================= estado ================= */
   const S = {
@@ -818,7 +849,7 @@ window.IusI18n = (function(){
   };
 
   const $ = id => document.getElementById(id);
-  const pasos = [null, $('paso1'), $('paso2'), $('paso3'), $('paso4'), $('paso5')];
+  const pasos = [null, $('paso1'), $('paso2'), $('paso3'), $('paso4')];
 
   function estado(n, msj, tipo, spinner){
     const el = $('estado'+n);
@@ -927,15 +958,14 @@ window.IusI18n = (function(){
     $('btn-conectar').hidden = true;
     $('btn-conectar2').disabled = true;
     $('red').disabled = true;   // la red queda fijada al momento de conectar
-    // Identidad visible en el paso de Firma (qué dirección firma, y desde dónde)
-    $('ident2-addr').textContent = S.cuenta;
-    $('ident2-modo').textContent = S.remoto ? t('ident_remote') : t('ident_local');
-    $('ident2').classList.toggle('local', !S.remoto);
-    $('ident2').hidden = false;
+    // Identidad visible: qué dirección firma, y desde dónde
+    $('ident1-addr').textContent = S.cuenta;
+    $('ident1-modo').textContent = S.remoto ? t('ident_remote') : t('ident_local');
+    $('ident1').classList.toggle('local', !S.remoto);
+    $('ident1').hidden = false;
     estado(1, t('st_wallet_ok',{addr:abreviar(S.cuenta)}), 'ok');
-    cumplir(1, (S.remoto?'📡 ':'') + abreviar(S.cuenta));
-    $('btn-firmar').disabled = false;
     await cargarRegistro();
+    await firmar();   // conectar y autenticarse son un solo acto (ver firmar())
   }
 
   async function conectarCon(eip, nombre){
@@ -1015,13 +1045,43 @@ window.IusI18n = (function(){
   function pairStatus(txt, tipo, spinner){ const el=$('pair-status'); if(!el) return; el.className='estado'+(tipo?' '+tipo:''); el.innerHTML=(spinner?'<span class="girando"></span>':'')+txt; }
   function abrirPairModal(){ $('pair-modal').hidden=false; pairStatus(t('pair_gen')); }
   function cerrarPairModal(){ $('pair-modal').hidden=true; }
+  // Tres representaciones de la MISMA sesión:
+  //  · el QR sigue llevando chatwallet://wc — un APK viejo solo entiende esa forma, y cambiarlo
+  //    a https rompería el escaneo de quien no actualizó (le parecería una dirección de contacto);
+  //  · el link https es el que se copia y el que abre la app en este mismo dispositivo (App Link);
+  //  · CWW1|… es el código corto, para tipear a mano cuando no hay ni cámara ni forma de pasar el link.
+  function pairLinkHttps(addr){ return `https://chatwallet.org/dapp?wc=1&inbox=${addr.toLowerCase()}&chain=${Number($('red').value)}&v=${CW_PROTO}`; }
+  function pairCodigoCorto(addr){ return `CWW1|${addr.toLowerCase()}|${Number($('red').value)}`; }
+
   function renderPairQR(uri, addr){
     const c=$('pair-qr'); c.innerHTML=''; $('pair-uri').textContent=addr;
+    $('pair-corto-cod').textContent = pairCodigoCorto(addr);
     if(typeof QRCodeStyling!=='undefined'){
       new QRCodeStyling({ width:200, height:200, type:'svg', data:uri,
         dotsOptions:{color:'#0D0716',type:'square'}, backgroundOptions:{color:'#ffffff'} }).append(c);
     } else { c.textContent=uri; }
   }
+  // Abre chatWallet SIN navegar esta pestaña: si la reemplazáramos, moriría el listener XMTP
+  // que espera la firma y la respuesta no tendría a dónde llegar (la lección de cw:2 en book.html).
+  function abrirEnChatWallet(){
+    if(!pairWallet) return;
+    window.open(pairLinkHttps(pairWallet.address), '_blank', 'noopener');
+    pairStatus(t('pair_opened'), null, true);
+  }
+  async function copiarLinkPairing(){
+    if(!pairWallet) return;
+    const link = pairLinkHttps(pairWallet.address);
+    try{
+      await navigator.clipboard.writeText(link);
+      pairStatus(t('pair_copied'), 'ok');
+    }catch(_){
+      // Sin permiso de portapapeles: mostrarlo entero para copiar a mano, en vez de fallar mudo.
+      $('pair-uri').textContent = link;
+      pairStatus(t('pair_copy_manual'));
+    }
+    setTimeout(()=>{ if(!pairPeerDm) pairStatus(t('pair_scan')); }, 3500);
+  }
+
   function cancelPairing(){
     if(pairStreamStop){ try{pairStreamStop();}catch(_){} pairStreamStop=null; }
     for(const [,p] of pairPending){ clearTimeout(p.timer); p.reject(new Error('pairing cancelled')); }
@@ -1046,27 +1106,58 @@ window.IusI18n = (function(){
     }catch(e){ cerrarPairModal(); estado(1,t('st_wallet_err',{e:e.message}),'err'); }
   }
 
+  // Un mensaje del canal de vinculación puede llegar por el stream o por una relectura del DM
+  // (ver resyncPairing): se procesa en un solo lugar y se lleva registro de lo ya visto para que
+  // el mismo mensaje no se resuelva dos veces.
+  const pairVistos = new Set();
+  function procesarMensajePair(message){
+    if(!message || !pairClient || message.senderInboxId===pairClient.inboxId) return;
+    const mid = message.id || message.messageId;
+    if(mid){ if(pairVistos.has(mid)) return; pairVistos.add(mid); }
+    const typeId = (message.contentType && message.contentType.typeId) || 'text';
+    if(typeId!=='text' || typeof message.content!=='string') return;
+    let data; try{ data=JSON.parse(message.content); }catch(_){ return; }
+    if(!data || data.cw!==CW_PROTO) return;
+    if(data.type==='connect'){
+      onChatWalletPaired(data).catch(e=>console.error('pairing', e));
+    }else if(data.type==='result' || data.type==='error'){
+      const pend=pairPending.get(data.id); if(!pend) return;
+      clearTimeout(pend.timer); pairPending.delete(data.id);
+      data.type==='result' ? pend.resolve(data.result) : pend.reject(new Error(data.error||'rpc rejected'));
+    }
+  }
+
   async function startPairListener(){
     await pairClient.conversations.sync();
     const stream = await pairClient.conversations.streamAllMessages();
     pairStreamStop = ()=>{ try{ stream.return && stream.return(); }catch(_){} };
     (async ()=>{
-      for await (const message of stream){
-        if(!message || message.senderInboxId===pairClient.inboxId) continue;
-        const typeId = (message.contentType && message.contentType.typeId) || 'text';
-        if(typeId!=='text' || typeof message.content!=='string') continue;
-        let data; try{ data=JSON.parse(message.content); }catch(_){ continue; }
-        if(!data || data.cw!==CW_PROTO) continue;
-        if(data.type==='connect'){
-          onChatWalletPaired(data).catch(e=>console.error('pairing', e));
-        }else if(data.type==='result' || data.type==='error'){
-          const pend=pairPending.get(data.id); if(!pend) continue;
-          clearTimeout(pend.timer); pairPending.delete(data.id);
-          data.type==='result' ? pend.resolve(data.result) : pend.reject(new Error(data.error||'rpc rejected'));
-        }
-      }
+      for await (const message of stream) procesarMensajePair(message);
     })().catch(e=>console.error('pair stream', e));
   }
+
+  // Al volver del segundo plano el stream puede haber muerto sin avisar: es EL modo de falla del
+  // caso "mismo dispositivo", donde el navegador queda atrás mientras firmás en la app. Sin esto,
+  // la firma llega y esta pantalla nunca se entera (espera hasta el timeout de 180s).
+  async function resyncPairing(){
+    if(!pairClient) return;
+    try{
+      await pairClient.conversations.sync();
+      if(pairPeerDm){
+        await pairPeerDm.sync();
+        const msgs = await pairPeerDm.messages();
+        for(const m of msgs.slice(-25)) procesarMensajePair(m);
+      }else{
+        // Todavía sin DM: el 'connect' del celular puede haber entrado mientras no mirábamos.
+        const convs = await pairClient.conversations.list();
+        for(const c of convs){
+          try{ await c.sync(); const ms = await c.messages(); for(const m of ms.slice(-10)) procesarMensajePair(m); }
+          catch(_){}
+        }
+      }
+    }catch(e){ console.warn('resync vinculación', e); }
+  }
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) resyncPairing(); });
 
   async function onChatWalletPaired(data){
     if(pairPeerDm) return;
@@ -1111,24 +1202,30 @@ window.IusI18n = (function(){
     S.chainId = Number($('red').value);
   }
 
-  /* ================= paso II · firma W3Auth ================= */
+  /* ================= paso I (segunda mitad) · firma W3Auth ================= */
+  // No es un paso aparte: se pide apenas la wallet queda conectada. Conectar y
+  // autenticarse eran el mismo acto partido en dos, y el rito pedía dos gestos
+  // para una sola cosa. Si la firma se rechaza, el paso queda abierto con un
+  // botón para reintentar — el camino no se pierde.
   async function firmar(){
+    $('btn-firmar').hidden = true;
     try{
-      estado(2, S.remoto ? t('st_sign_wait_remote') : t('st_sign_wait'), null, true);
+      estado(1, S.remoto ? t('st_sign_wait_remote') : t('st_sign_wait'), null, true);
       const sig = await S.signer.signMessage(S.cuenta);
       S.auth = btoa('eth-' + S.cuenta + ':' + sig);
-      estado(2,t('st_sign_ok'),'ok');
-      cumplir(2, 'W3Auth ✓');
+      estado(1,t('st_sign_ok'),'ok');
+      cumplir(1, (S.remoto?'📡 ':'') + abreviar(S.cuenta) + ' · W3Auth ✓');
       actualizarBotonSubida();
     }catch(e){
-      estado(2,t('st_sign_err',{e:(e.shortMessage||e.message)}),'err');
+      estado(1,t('st_sign_err',{e:(e.shortMessage||e.message)}),'err');
+      $('btn-firmar').hidden = false;
     }
   }
 
   /* ================= clave de cifrado (determinística por wallet) ================= */
   async function claveCifrado(){
     if(S.claveAES) return S.claveAES;
-    estado(3, S.remoto ? t('st_key_wait_remote') : t('st_key_wait'), null, true);
+    estado(2, S.remoto ? t('st_key_wait_remote') : t('st_key_wait'), null, true);
     const sig = await S.signer.signMessage('Ius Naturalis · clave de cifrado personal · ' + S.cuenta);
     const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sig));
     S.claveAES = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt','decrypt']);
@@ -1139,22 +1236,22 @@ window.IusI18n = (function(){
   async function elegirArchivo(f){
     if(!f) return;
     if(f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')){
-      estado(3,t('st_only_pdf'),'err'); return;
+      estado(2,t('st_only_pdf'),'err'); return;
     }
     S.archivo = f; S.cid = null; S.sha256 = null; S.atestacion = null;
     $('cid-caja').hidden = true; $('precio').hidden = true; $('huella-caja').hidden = true;
     $('btn-anclar').disabled = true; $('btn-atestiguar').disabled = true;
     $('archivo-info').textContent = '⌘ ' + f.name + ' · ' + bytesLindos(f.size);
-    estado(3,t('st_fp_calc'),null,true);
+    estado(2,t('st_fp_calc'),null,true);
     try{
       const buf = await f.arrayBuffer();
       S.sha256 = hex(await crypto.subtle.digest('SHA-256', buf));
       $('huella-txt').textContent = S.sha256;
       $('huella-caja').hidden = false;
       $('privacidad').hidden = false;
-      estado(3,t('st_fp_ok'),'');
+      estado(2,t('st_fp_ok'),'');
     }catch(e){
-      estado(3,t('st_read_err',{e:e.message}),'err');
+      estado(2,t('st_read_err',{e:e.message}),'err');
     }
     actualizarBotonSubida();
   }
@@ -1183,7 +1280,7 @@ window.IusI18n = (function(){
     try{
       if(S.cifrado){
         const key = await claveCifrado();
-        estado(3,t('st_encrypting'),null,true);
+        estado(2,t('st_encrypting'),null,true);
         const iv = crypto.getRandomValues(new Uint8Array(12));
         const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, await S.archivo.arrayBuffer());
         const junto = new Uint8Array(12 + ct.byteLength);
@@ -1195,14 +1292,14 @@ window.IusI18n = (function(){
         nombreSubida = S.archivo.name;
       }
     }catch(e){
-      estado(3,t('st_prep_err',{e:(e.shortMessage||e.message)}),'err');
+      estado(2,t('st_prep_err',{e:(e.shortMessage||e.message)}),'err');
       $('btn-subir').disabled = false; return;
     }
 
     let ultimo = null;
     for(const gw of GATEWAYS){
       try{
-        estado(3,t('st_uploading',{gw:gw.replace('https://','')}),null,true);
+        estado(2,t('st_uploading',{gw:gw.replace('https://','')}),null,true);
         const fd = new FormData();
         fd.append('file', cuerpo, nombreSubida);
         const res = await fetch(gw + '/api/v0/add?pin=true', {
@@ -1214,13 +1311,13 @@ window.IusI18n = (function(){
         S.cid = j.Hash; S.tam = parseInt(j.Size, 10) || cuerpo.size;
         $('cid-txt').textContent = S.cid;
         $('cid-caja').hidden = false;
-        estado(3, t('st_uploaded',{what:(S.cifrado?t('what_enc'):t('what_plain')), size:bytesLindos(S.tam)}),'ok');
-        cumplir(3, (S.cifrado?'🔒 ':'🌐 ') + abreviar(S.cid));
+        estado(2, t('st_uploaded',{what:(S.cifrado?t('what_enc'):t('what_plain')), size:bytesLindos(S.tam)}),'ok');
+        cumplir(2, (S.cifrado?'🔒 ':'🌐 ') + abreviar(S.cid));
         $('btn-atestiguar').disabled = false;
         return;
       }catch(e){ ultimo = e; }
     }
-    estado(3,t('st_upload_err',{e:(ultimo&&ultimo.message)}),'err');
+    estado(2,t('st_upload_err',{e:(ultimo&&ultimo.message)}),'err');
     $('btn-subir').disabled = false;
   }
 
@@ -1244,19 +1341,19 @@ window.IusI18n = (function(){
 
   async function atestiguar(){
     const declaracion = $('declaracion').value.trim();
-    if(!declaracion){ estado(4,t('st_decl_empty'),'err'); return; }
+    if(!declaracion){ estado(3,t('st_decl_empty'),'err'); return; }
     $('btn-atestiguar').disabled = true;
     try{
       const fechaISO = new Date().toISOString();
       const mensaje = mensajeAtestacion(fechaISO, declaracion);
-      estado(4, S.remoto ? t('st_att_wait_remote') : t('st_att_wait'), null, true);
+      estado(3, S.remoto ? t('st_att_wait_remote') : t('st_att_wait'), null, true);
       const firma = await S.signer.signMessage(mensaje);
       S.atestacion = { mensaje, firma, fecha:fechaISO, declaracion };
-      estado(4,t('st_att_ok'),'ok');
-      cumplir(4, '✦ ' + abreviar(firma));
+      estado(3,t('st_att_ok'),'ok');
+      cumplir(3, '✦ ' + abreviar(firma));
       await cotizar();
     }catch(e){
-      estado(4,t('st_att_err',{e:(e.shortMessage||e.message)}),'err');
+      estado(3,t('st_att_err',{e:(e.shortMessage||e.message)}),'err');
       $('btn-atestiguar').disabled = false;
     }
   }
@@ -1269,7 +1366,7 @@ window.IusI18n = (function(){
 
   async function cotizar(){
     try{
-      estado(5,t('st_price_wait'),null,true);
+      estado(4,t('st_price_wait'),null,true);
       if(!S.remoto) await asegurarRed();
       let cad;
       try{
@@ -1282,9 +1379,9 @@ window.IusI18n = (function(){
       $('precio').innerHTML = ethers.formatEther(S.precio).slice(0,10) + ' <span class="u">' + cad.simbolo + '</span>';
       $('precio').hidden = false;
       $('btn-anclar').disabled = false;
-      estado(5,t('st_price_ok',{net:cad.nombre}),'');
+      estado(4,t('st_price_ok',{net:cad.nombre}),'');
     }catch(e){
-      estado(5,t('st_price_err',{e:(e.shortMessage||e.message)}),'err');
+      estado(4,t('st_price_err',{e:(e.shortMessage||e.message)}),'err');
     }
   }
 
@@ -1292,14 +1389,14 @@ window.IusI18n = (function(){
     $('btn-anclar').disabled = true;
     try{
       const { cad, c } = contrato(S.abiV2 ? ABI_V2 : ABI_V1);
-      estado(5,t('st_tx_wait'),null,true);
+      estado(4,t('st_tx_wait'),null,true);
       const tx = S.abiV2
         ? await c.placeOrder(S.cid, S.tam, false, { value: S.precio })
         : await c.placeOrder(S.cid, S.tam, { value: S.precio });
-      estado(5,t('st_tx_sent'),null,true);
+      estado(4,t('st_tx_sent'),null,true);
       const rec = await tx.wait(1);
-      estado(5,t('st_anchored'),'ok');
-      cumplir(5, '⚓ ' + abreviar(tx.hash));
+      estado(4,t('st_anchored'),'ok');
+      cumplir(4, '⚓ ' + abreviar(tx.hash));
       const doc = {
         norma: NORMA,
         documento: S.archivo.name, sha256: S.sha256, cifrado: S.cifrado,
@@ -1316,7 +1413,7 @@ window.IusI18n = (function(){
       pintarRegistro();
       setTimeout(reiniciarParaOtro, 4500);
     }catch(e){
-      estado(5,t('st_anchor_err',{e:(e.shortMessage||e.message)}),'err');
+      estado(4,t('st_anchor_err',{e:(e.shortMessage||e.message)}),'err');
       $('btn-anclar').disabled = false;
     }
   }
@@ -1325,10 +1422,10 @@ window.IusI18n = (function(){
     S.archivo = null; S.cid = null; S.sha256 = null; S.precio = null; S.atestacion = null;
     $('archivo-info').textContent=''; $('cid-caja').hidden = true; $('precio').hidden = true;
     $('huella-caja').hidden = true; $('privacidad').hidden = true; $('declaracion').value = '';
-    ['3','4','5'].forEach(n=>{ estado(n,'',''); $('resumen'+n).textContent=''; });
-    [3,4,5].forEach(n=>{ pasos[n].classList.remove('hecho'); });
-    pasos[3].classList.add('activo');
-    florSvg.classList.remove('p3','p4','p5');
+    ['2','3','4'].forEach(n=>{ estado(n,'',''); $('resumen'+n).textContent=''; });
+    [2,3,4].forEach(n=>{ pasos[n].classList.remove('hecho'); });
+    pasos[2].classList.add('activo');
+    florSvg.classList.remove('p2','p3','p4');
     $('btn-subir').disabled = true; $('btn-atestiguar').disabled = true; $('btn-anclar').disabled = true;
   }
 
@@ -1456,6 +1553,8 @@ window.IusI18n = (function(){
   $('modal-cerrar').addEventListener('click', cerrarModal);
   $('modal-wallet').addEventListener('click', e=>{ if(e.target.id==='modal-wallet') cerrarModal(); });
   $('pair-cerrar').addEventListener('click', cancelPairing);
+  $('pair-abrir').addEventListener('click', abrirEnChatWallet);
+  $('pair-copiar').addEventListener('click', copiarLinkPairing);
   $('pair-modal').addEventListener('click', e=>{ if(e.target.id==='pair-modal') cancelPairing(); });
   document.addEventListener('keydown', e=>{
     if(e.key!=='Escape') return;
@@ -1554,7 +1653,7 @@ window.IusI18n = (function(){
     fijarVisibilidad(S.cifrado);
     pintarRegistro();
     startWordCycle();
-    if(S.cuenta && !$('ident2').hidden) $('ident2-modo').textContent = S.remoto ? t('ident_remote') : t('ident_local');
+    if(S.cuenta && !$('ident1').hidden) $('ident1-modo').textContent = S.remoto ? t('ident_remote') : t('ident_local');
   };
 
 })();
