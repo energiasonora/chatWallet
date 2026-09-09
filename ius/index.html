@@ -613,7 +613,7 @@ window.IusI18n = (function(){
     tpl2_txt:'Atestiguo la existencia y autenticidad de este documento en la fecha indicada.',
     tpl3_txt:'Declaro esta voluntad como libre, informada y sin coacción.',
     decl_ph:'Escribí tu declaración… (por ejemplo: «Declaro esta acta como propia y verdadera»)', s3_btn:'Firmar atestación',
-    s4_title:'Anclaje', s4_desc:'Pagá el anclaje desde tu propia wallet llamando al contrato <em>StorageOrder</em> de Crust. Los nodos de la red replican tu documento y prueban on-chain que lo conservan. Se paga una sola vez.', s4_btn:'Anclar en la red',
+    s4_title:'Anclaje', s4_desc:'Pagá una orden de almacenamiento desde tu propia wallet, llamando al contrato <em>StorageOrder</em> de Crust. Queda constancia on-chain de la orden y de su fecha. Que además haya nodos replicando tu documento depende de la red, no de esta página: antes de cobrarte, acá se ensaya la orden y se te avisa si la red no la está aceptando.', s4_btn:'Anclar en la red',
     reg_title:'Registro', reg_sub:'documentos atestiguados por esta wallet', reg_export:'Exportar registro', reg_import:'Importar',
     reg_empty:'Aún no hay documentos atestiguados. El primero abre el registro.',
     nav_attest:'Atestiguar', nav_verify:'Verificar',
@@ -639,6 +639,7 @@ window.IusI18n = (function(){
     st_upload_err:'No se pudo subir el documento. Último error: {e}. Los gateways públicos a veces se saturan: probá de nuevo en unos minutos.',
     st_decl_empty:'Escribí tu declaración antes de firmar.', st_att_wait:'Firmá tu atestación en la wallet (sin costo)…', st_att_ok:'Atestación firmada y verificable. Ahora anclala para hacerla permanente.', st_att_err:'Atestación no firmada: {e}',
     st_price_wait:'Consultando precio en el contrato de Crust…', st_price_ok:'Precio del anclaje en {net}. Se paga una sola vez, desde tu wallet, directo al mercado de almacenamiento.', st_price_err:'No se pudo cotizar: {e}',
+    st_order_refused:'{net} cotiza pero NO está aceptando órdenes: el contrato las rechaza a todas. No tiene sentido que pagues acá. Probá otra red desde el selector de arriba — tu atestación ya está firmada y es válida sin este paso.',
     st_tx_wait:'Confirmá la transacción en tu wallet…', st_tx_sent:'Transacción enviada. Esperando confirmación…', st_anchored:'Anclaje consumado. Los nodos de Crust ya están replicando tu documento.', st_anchor_err:'El anclaje no se completó: {e}',
     msg_title:'Ius Naturalis — Atestación soberana', msg_intro:'Declaro y atestiguo el documento identificado a continuación.',
     msg_doc:'Documento', msg_sha:'SHA-256 (contenido)', msg_cid:'CID', msg_decl:'Declaración', msg_signer:'Firmante', msg_net:'Red de anclaje', msg_date:'Fecha', w_encrypted:'cifrado', w_public:'público',
@@ -665,7 +666,7 @@ window.IusI18n = (function(){
     tpl2_txt:'I attest to the existence and authenticity of this document on the date indicated.',
     tpl3_txt:'I declare this will as free, informed and without coercion.',
     decl_ph:'Write your declaration… (e.g.: "I declare this record as my own and true")', s3_btn:'Sign attestation',
-    s4_title:'Anchoring', s4_desc:'Pay for the anchoring from your own wallet by calling Crust\'s <em>StorageOrder</em> contract. The network nodes replicate your document and prove on-chain that they keep it. Paid once.', s4_btn:'Anchor on the network',
+    s4_title:'Anchoring', s4_desc:'Pay a storage order from your own wallet by calling Crust\'s <em>StorageOrder</em> contract. The order and its date are recorded on-chain. Whether nodes actually replicate your document depends on the network, not on this page: before charging you, the order is rehearsed here and you are told if the network is not accepting it.', s4_btn:'Anchor on the network',
     reg_title:'Registry', reg_sub:'documents attested by this wallet', reg_export:'Export registry', reg_import:'Import',
     reg_empty:'No documents attested yet. The first one opens the registry.',
     nav_attest:'Attest', nav_verify:'Verify',
@@ -691,6 +692,7 @@ window.IusI18n = (function(){
     st_upload_err:'Could not upload the document. Last error: {e}. Public gateways sometimes get saturated: try again in a few minutes.',
     st_decl_empty:'Write your declaration before signing.', st_att_wait:'Sign your attestation in the wallet (no cost)…', st_att_ok:'Attestation signed and verifiable. Now anchor it to make it permanent.', st_att_err:'Attestation not signed: {e}',
     st_price_wait:'Querying the price on Crust\'s contract…', st_price_ok:'Anchoring price on {net}. Paid once, from your wallet, straight to the storage market.', st_price_err:'Could not get a quote: {e}',
+    st_order_refused:'{net} quotes a price but is NOT accepting orders: the contract rejects them all. There is no point in paying here. Try another network from the selector above — your attestation is already signed and valid without this step.',
     st_tx_wait:'Confirm the transaction in your wallet…', st_tx_sent:'Transaction sent. Waiting for confirmation…', st_anchored:'Anchoring complete. Crust nodes are already replicating your document.', st_anchor_err:'The anchoring did not complete: {e}',
     msg_title:'Ius Naturalis — Sovereign attestation', msg_intro:'I declare and attest the document identified below.',
     msg_doc:'Document', msg_sha:'SHA-256 (content)', msg_cid:'CID', msg_decl:'Declaration', msg_signer:'Signer', msg_net:'Anchoring network', msg_date:'Date', w_encrypted:'encrypted', w_public:'public',
@@ -717,7 +719,7 @@ window.IusI18n = (function(){
     tpl2_txt:'J\'atteste l\'existence et l\'authenticité de ce document à la date indiquée.',
     tpl3_txt:'Je déclare cette volonté libre, éclairée et sans contrainte.',
     decl_ph:'Écrivez votre déclaration… (par ex. : « Je déclare cet acte comme mien et véridique »)', s3_btn:'Signer l\'attestation',
-    s4_title:'Ancrage', s4_desc:'Payez l\'ancrage depuis votre propre portefeuille en appelant le contrat <em>StorageOrder</em> de Crust. Les nœuds du réseau répliquent votre document et prouvent on-chain qu\'ils le conservent. Payé une seule fois.', s4_btn:'Ancrer sur le réseau',
+    s4_title:'Ancrage', s4_desc:'Payez une commande de stockage depuis votre propre portefeuille, en appelant le contrat <em>StorageOrder</em> de Crust. La commande et sa date sont inscrites on-chain. Que des nœuds répliquent réellement votre document dépend du réseau, pas de cette page : avant de vous facturer, la commande est répétée à blanc ici et vous êtes averti si le réseau ne l\'accepte pas.', s4_btn:'Ancrer sur le réseau',
     reg_title:'Registre', reg_sub:'documents attestés par ce portefeuille', reg_export:'Exporter le registre', reg_import:'Importer',
     reg_empty:'Aucun document attesté pour l\'instant. Le premier ouvre le registre.',
     nav_attest:'Attester', nav_verify:'Vérifier',
@@ -743,6 +745,7 @@ window.IusI18n = (function(){
     st_upload_err:'Téléversement du document impossible. Dernière erreur : {e}. Les passerelles publiques sont parfois saturées : réessayez dans quelques minutes.',
     st_decl_empty:'Écrivez votre déclaration avant de signer.', st_att_wait:'Signez votre attestation dans le portefeuille (sans coût)…', st_att_ok:'Attestation signée et vérifiable. Ancrez-la maintenant pour la rendre permanente.', st_att_err:'Attestation non signée : {e}',
     st_price_wait:'Consultation du prix sur le contrat de Crust…', st_price_ok:'Prix de l\'ancrage sur {net}. Payé une seule fois, depuis votre portefeuille, directement au marché du stockage.', st_price_err:'Devis impossible : {e}',
+    st_order_refused:'{net} affiche un prix mais n\'accepte PAS les commandes : le contrat les rejette toutes. Payer ici n\'a aucun sens. Essayez un autre réseau depuis le sélecteur ci-dessus — votre attestation est déjà signée et valable sans cette étape.',
     st_tx_wait:'Confirmez la transaction dans votre portefeuille…', st_tx_sent:'Transaction envoyée. En attente de confirmation…', st_anchored:'Ancrage accompli. Les nœuds de Crust répliquent déjà votre document.', st_anchor_err:'L\'ancrage ne s\'est pas terminé : {e}',
     msg_title:'Ius Naturalis — Attestation souveraine', msg_intro:'Je déclare et atteste le document identifié ci-dessous.',
     msg_doc:'Document', msg_sha:'SHA-256 (contenu)', msg_cid:'CID', msg_decl:'Déclaration', msg_signer:'Signataire', msg_net:'Réseau d\'ancrage', msg_date:'Date', w_encrypted:'chiffré', w_public:'public',
@@ -830,9 +833,12 @@ window.IusI18n = (function(){
     "function getPrice(uint size, bool isPermanent) public view returns (uint price)",
     "function placeOrder(string cid, uint size, bool isPermanent) external payable"
   ];
-  const GATEWAYS = ['https://gw.crustfiles.app','https://crustipfs.xyz'];
+  // Orden medido el 9/9/2026: gw.crustfiles.app no responde ni en la raíz, y estaba primera
+  // en la lista — o sea que TODA subida empezaba esperando a que fallara. Se la deja de última
+  // por si vuelve, pero la que contesta es crustipfs.xyz.
+  const GATEWAYS = ['https://crustipfs.xyz','https://gw.crustfiles.app'];
   const NORMA = 'ius-naturalis/atestacion/1';
-  const VERSION = '0.9.3';
+  const VERSION = '0.9.4';
 
   /* ================= estado ================= */
   const S = {
@@ -1378,10 +1384,38 @@ window.IusI18n = (function(){
       }
       $('precio').innerHTML = ethers.formatEther(S.precio).slice(0,10) + ' <span class="u">' + cad.simbolo + '</span>';
       $('precio').hidden = false;
+
+      // Ensayo en seco ANTES de habilitar el pago. Que el contrato sepa cotizar no significa
+      // que vaya a aceptar la orden: el 9/9/2026 los despliegues de Arbitrum y Polygon
+      // cotizaban de lo más bien y después revertían con un require sin mensaje, para
+      // cualquiera y con cualquier monto. Sin esto, el usuario se entera recién al firmar,
+      // con un texto que no dice nada («execution reverted, no data present»).
+      const ensayo = await ensayarOrden(cad);
+      if(!ensayo.ok){
+        $('btn-anclar').disabled = true;
+        estado(4, t('st_order_refused', {net: cad.nombre}), 'err');
+        return;
+      }
       $('btn-anclar').disabled = false;
       estado(4,t('st_price_ok',{net:cad.nombre}),'');
     }catch(e){
       estado(4,t('st_price_err',{e:(e.shortMessage||e.message)}),'err');
+    }
+  }
+
+  // Simula la misma orden que se firmaría, contra el estado real de la cadena, sin gastar nada.
+  async function ensayarOrden(cad){
+    try{
+      const { c } = contrato(S.abiV2 ? ABI_V2 : ABI_V1);
+      const opciones = { value: S.precio };
+      if(S.cuenta) opciones.from = S.cuenta;
+      S.abiV2
+        ? await c.placeOrder.staticCall(S.cid, S.tam, false, opciones)
+        : await c.placeOrder.staticCall(S.cid, S.tam, opciones);
+      return { ok:true };
+    }catch(e){
+      console.warn('la red rechaza la orden de almacenamiento:', e && (e.shortMessage||e.message));
+      return { ok:false, e };
     }
   }
 
