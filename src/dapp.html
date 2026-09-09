@@ -1761,7 +1761,7 @@
          Va incrustado y no se baja de la red a propósito: en el APK tiene que abrirse sin
          conexión, y los releases de GitHub sólo existen cuando sale un APK. NO editar a mano. -->
     <!-- NOVEDADES:INICIO -->
-    <script id="cwChangelogData" type="application/json">[{"v":"3.29","d":"2026-09-09","items":["Vincular una dApp (como Ius Naturalis o StealthPay) ya no depende de la cámara: en **Escanear** hay un botón **Pegar código** que acepta lo mismo que un QR — el link de vinculación, un pago, una transacción fría o una agenda de contactos.","Si la dApp está abierta en **este mismo dispositivo**, su botón «Abrir en chatWallet» ahora trae el pedido directo a la app, sin sacarle una foto a la pantalla de al lado."]},{"v":"3.28","d":"2026-09-08","items":["Se corrigió un texto que decía que el proyecto no tiene token: **sí lo tiene** (CWLT) y hubo una preventa. Lo que es cierto, y se puede verificar en la cadena, es que no entró ningún fondo de inversión.","El saldo de CWLT que mostraba la app era el de una red de prueba. Ahora muestra el real."]},{"v":"3.27","d":"2026-09-07","items":["**Novedades**: la app ahora cuenta qué cambió en cada versión. Está en el modal de la marca y en Configuración, y se abre sola una vez cuando estrenás una versión nueva.","Al buscar actualizaciones, además del número se puede ver qué trae la versión nueva."]},{"v":"3.26","d":"2026-09-04","items":["Se puede gastar USDC desde direcciones privadas que no tienen gas: la transacción la transmite el relayer."]},{"v":"3.25","d":"2026-09-04","items":["En el chat: copiar y reenviar mensajes, editar los emojis de las reacciones, y la cita de las respuestas se ve mejor."]},{"v":"3.24","d":"2026-09-03","items":["Se puede pagar desde las direcciones privadas eligiendo qué moneda usar.","El relayer transmite autorizaciones firmadas sin funcionar como surtidor: resuelve todo en una sola transacción atómica, tiene límite de tasa, y avisa si tiene gas **antes** de que alguien firme."]},{"v":"3.23","d":"2026-09-03","items":["Escáner de anuncios stealth y saldo de la StealthWallet."]},{"v":"3.22","d":"2026-09-02","items":["Los pagos stealth se envían siguiendo el spec, y el aviso viaja por el chat."]},{"v":"3.21","d":"2026-09-02","items":["Stealth quedó alineado con el spec público, y se ocultó lo que todavía no puede cumplir."]},{"v":"3.20","d":"2026-09-01","items":["El QR de \"Recibir\" salía en blanco, y stealth pedía \"conectá tu wallet\" con la wallet ya conectada.","Los App Links de Android habían quedado con la huella vieja después de la mudanza."]},{"v":"3.19","d":"2026-09-01","items":["El panel de modo frío hablaba sólo español; ahora sigue tu idioma.","El aviso de la mudanza en el puente también se traduce."]},{"v":"3.18","d":"2026-09-01","items":["El modo frío se mudó a Configuración, y las claves tienen su propia sección."]},{"v":"3.17","d":"2026-09-01","items":["La pantalla de la billetera entra entera, sin tapar el saldo."]},{"v":"3.16","d":"2026-09-01","items":["La etiqueta del apodo va sin posesivo: el alias lo elige el otro, no vos."]},{"v":"3.15","d":"2026-09-01","items":["\"Tu alias\" se leía como si el alias fuera propio."]}]</script>
+    <script id="cwChangelogData" type="application/json">[{"v":"3.30","d":"2026-09-09","items":["El sitio dejó de pasar por un intermediario: ahora lo entrega Cloudflare directamente. En agosto una persona en Costa Rica se comió un error del intermediario y nunca llegó a abrir la app; ese eslabón ya no existe.","El celular **vibra** cuando algo pide tu firma: una dApp, un pago del libro, una transacción fría o un envío. Son dos pulsos, distintos del toque del escáner. Antes el APK no vibraba nunca — le faltaba el permiso, así que tampoco vibraba al escanear un QR ni al deslizar para responder.","Los mensajes que la app intercambia con las dApps ya no se ven como bloques de código en el chat: ahora dicen en una línea qué pasó («Una dApp pidió tu firma»), en tu idioma."]},{"v":"3.29","d":"2026-09-09","items":["Vincular una dApp (como Ius Naturalis o StealthPay) ya no depende de la cámara: en **Escanear** hay un botón **Pegar código** que acepta lo mismo que un QR — el link de vinculación, un pago, una transacción fría o una agenda de contactos.","Si la dApp está abierta en **este mismo dispositivo**, su botón «Abrir en chatWallet» ahora trae el pedido directo a la app, sin sacarle una foto a la pantalla de al lado."]},{"v":"3.28","d":"2026-09-08","items":["Se corrigió un texto que decía que el proyecto no tiene token: **sí lo tiene** (CWLT) y hubo una preventa. Lo que es cierto, y se puede verificar en la cadena, es que no entró ningún fondo de inversión.","El saldo de CWLT que mostraba la app era el de una red de prueba. Ahora muestra el real."]},{"v":"3.27","d":"2026-09-07","items":["**Novedades**: la app ahora cuenta qué cambió en cada versión. Está en el modal de la marca y en Configuración, y se abre sola una vez cuando estrenás una versión nueva.","Al buscar actualizaciones, además del número se puede ver qué trae la versión nueva."]},{"v":"3.26","d":"2026-09-04","items":["Se puede gastar USDC desde direcciones privadas que no tienen gas: la transacción la transmite el relayer."]},{"v":"3.25","d":"2026-09-04","items":["En el chat: copiar y reenviar mensajes, editar los emojis de las reacciones, y la cita de las respuestas se ve mejor."]},{"v":"3.24","d":"2026-09-03","items":["Se puede pagar desde las direcciones privadas eligiendo qué moneda usar.","El relayer transmite autorizaciones firmadas sin funcionar como surtidor: resuelve todo en una sola transacción atómica, tiene límite de tasa, y avisa si tiene gas **antes** de que alguien firme."]},{"v":"3.23","d":"2026-09-03","items":["Escáner de anuncios stealth y saldo de la StealthWallet."]},{"v":"3.22","d":"2026-09-02","items":["Los pagos stealth se envían siguiendo el spec, y el aviso viaja por el chat."]},{"v":"3.21","d":"2026-09-02","items":["Stealth quedó alineado con el spec público, y se ocultó lo que todavía no puede cumplir."]},{"v":"3.20","d":"2026-09-01","items":["El QR de \"Recibir\" salía en blanco, y stealth pedía \"conectá tu wallet\" con la wallet ya conectada.","Los App Links de Android habían quedado con la huella vieja después de la mudanza."]},{"v":"3.19","d":"2026-09-01","items":["El panel de modo frío hablaba sólo español; ahora sigue tu idioma.","El aviso de la mudanza en el puente también se traduce."]},{"v":"3.18","d":"2026-09-01","items":["El modo frío se mudó a Configuración, y las claves tienen su propia sección."]},{"v":"3.17","d":"2026-09-01","items":["La pantalla de la billetera entra entera, sin tapar el saldo."]},{"v":"3.16","d":"2026-09-01","items":["La etiqueta del apodo va sin posesivo: el alias lo elige el otro, no vos."]}]</script>
     <!-- NOVEDADES:FIN -->
 
     <!-- Modal Novedades -->
@@ -1787,7 +1787,7 @@
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
             <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
-            <p class="text-sm text-gray-400">v 3.29 alpha</p>
+            <p class="text-sm text-gray-400">v 3.30 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
                 <svg id="checkUpdatesIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -3878,7 +3878,7 @@
 
                 <!-- Sección de Versión y Repositorio añadida aquí -->
                 <div class="text-center text-xs text-gray-500 pt-4 border-t border-gray-700 mt-4">
-                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.29</p>
+                    <p id="settingsVersionText"><span data-i18n-key="settings_version_label">Versión</span> 3.30</p>
                     <button type="button" id="openChangelogFromSettings"
                         class="text-indigo-400 hover:underline block mt-1 mx-auto"
                         data-i18n-key="changelog_link">Ver qué cambió en esta versión</button>
@@ -13315,7 +13315,7 @@
 
                 const ok = await wcApprove(t('wc_connect_title'),
                     t('wc_connect_body', { inbox: inbox.slice(0, 10) + '…' + inbox.slice(-6), chain: chainId || '?' }),
-                    t('wc_connect_cta'));
+                    t('wc_connect_cta'), 'vincular');
                 if (!ok) return;
 
                 try {
@@ -13418,7 +13418,7 @@
                         const msg = data.params?.[0] ?? '';
                         const resumen = String(msg).replace(/\s+/g, ' ').slice(0, 60);
                         const ok = await wcApprove(t('wc_sign_title'),
-                            t('wc_sign_body', { msg: String(msg).slice(0, 180) }), t('wc_sign_cta'));
+                            t('wc_sign_body', { msg: String(msg).slice(0, 180) }), t('wc_sign_cta'), 'firma');
                         if (!ok) { wcLogActivity({ kind: 'sign', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected' }); }
                         const sig = await currentWallet.signMessage(msg);
                         wcLogActivity({ kind: 'sign', peerInboxId: pid, summary: resumen, result: 'approved' });
@@ -13437,7 +13437,7 @@
                         }
                         const desc = await cwDescribirTx(tx, optionsList[currentTokenIndex], provider);
                         const resumen = desc.resumen;
-                        const ok = await wcApprove(t('wc_tx_title'), desc.cuerpo, t('wc_tx_cta'));
+                        const ok = await wcApprove(t('wc_tx_title'), desc.cuerpo, t('wc_tx_cta'), 'pago');
                         if (!ok) { wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected' }); }
                         const s = currentWallet.connect(provider);
                         const resp = await s.sendTransaction({ to: tx.to, data: tx.data || '0x', value: tx.value ? BigInt(tx.value) : 0n });
@@ -13451,22 +13451,44 @@
                 }
             }
 
+            // Los tres tipos de pedido que puede mandar una dApp. Se veían IGUALES —misma
+            // tarjeta, mismo degradado violeta, mismo '💬' de título— así que lo único que
+            // distinguía "firmá este texto" de "mandá plata" era leer el cuerpo.
+            //
+            // El color NO va solo: cada tipo lleva además su ícono y su etiqueta escrita.
+            // Quien no distingue violeta de ámbar tiene que poder darse cuenta igual, y
+            // encima el color se pierde en una captura en blanco y negro o con poca luz.
+            const PEDIDO_ESTILO = {
+                vincular: { c: '#38bdf8', deg: 'linear-gradient(135deg,#0284c7,#38bdf8)', borde: '#0ea5e9', tinta: '#fff',     icono: '🔗', clave: 'req_kind_link' },
+                firma:    { c: '#a78bfa', deg: 'linear-gradient(135deg,#7c3aed,#a78bfa)', borde: '#7c3aed', tinta: '#fff',     icono: '✍️', clave: 'req_kind_sign' },
+                // Ámbar y tinta oscura para el que mueve plata: es el que no se puede
+                // confundir con los otros dos ni aprobar de taquito.
+                pago:     { c: '#fbbf24', deg: 'linear-gradient(135deg,#d97706,#fbbf24)', borde: '#f59e0b', tinta: '#1f2937', icono: '💸', clave: 'req_kind_pay' },
+            };
+            // Cabecera común a los dos modales: barra de color, etiqueta del tipo y título.
+            function cabeceraDePedido(pe, idTitulo) {
+                return `<div style="height:4px;border-radius:999px;background:${pe.deg};margin:-8px 0 14px;"></div>
+                        <div style="font-size:0.68rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:${pe.c};margin-bottom:6px;">${pe.icono} ${t(pe.clave)}</div>
+                        <div id="${idTitulo}" style="font-weight:800;font-size:1.05rem;margin-bottom:10px;"></div>`;
+            }
+
             // Minimal promise-based approval modal — self-contained, no dependency on
             // the app's own modal system.
-            function wcApprove(title, body, confirmLabel) {
+            function wcApprove(title, body, confirmLabel, tipo = 'firma') {
+                const pe = PEDIDO_ESTILO[tipo] || PEDIDO_ESTILO.firma;
                 return new Promise((resolve) => {
                     const ov = document.createElement('div');
                     ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;';
                     // OJO: title/body llevan contenido que manda la dApp — nunca via innerHTML.
-                    ov.innerHTML = `<div style="background:#111827;color:#fff;border:1px solid #374151;border-radius:16px;max-width:360px;width:100%;padding:22px;font-family:system-ui,sans-serif;box-shadow:0 20px 50px rgba(0,0,0,0.6);">
-                        <div id="wc-title" style="font-weight:800;font-size:1.05rem;margin-bottom:10px;"></div>
+                    ov.innerHTML = `<div style="background:#111827;color:#fff;border:1px solid ${pe.borde};border-radius:16px;max-width:360px;width:100%;padding:22px;font-family:system-ui,sans-serif;box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+                        ${cabeceraDePedido(pe, 'wc-title')}
                         <div id="wc-body" style="font-size:0.82rem;color:#cbd5e1;white-space:pre-wrap;line-height:1.5;margin-bottom:18px;word-break:break-word;"></div>
                         <div style="display:flex;gap:10px;">
                             <button id="wc-no" style="flex:1;padding:10px;border-radius:10px;border:1px solid #374151;background:transparent;color:#9ca3af;font-weight:700;cursor:pointer;"></button>
-                            <button id="wc-yes" style="flex:1;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#7c5cff,#5b8cff);color:#fff;font-weight:800;cursor:pointer;"></button>
+                            <button id="wc-yes" style="flex:1;padding:10px;border-radius:10px;border:none;background:${pe.deg};color:${pe.tinta};font-weight:800;cursor:pointer;"></button>
                         </div></div>`;
                     vibrarPedidoDeFirma();
-                    ov.querySelector('#wc-title').textContent = '💬 ' + title;
+                    ov.querySelector('#wc-title').textContent = title;
                     ov.querySelector('#wc-body').textContent = body;
                     ov.querySelector('#wc-no').textContent = t('wc_reject');
                     ov.querySelector('#wc-yes').textContent = confirmLabel || t('wc_approve');
@@ -13578,18 +13600,19 @@
             // estado "enviando" (spinner) y termina en éxito (se cierra solo) o error
             // (queda abierto con el motivo, no se pierde silenciosamente como con un toast).
             function wcPaymentModal(title, body, confirmLabel) {
+                const pe = PEDIDO_ESTILO.pago;
                 vibrarPedidoDeFirma();
                 const ov = document.createElement('div');
                 ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;';
-                ov.innerHTML = `<div style="background:#111827;color:#fff;border:1px solid #374151;border-radius:16px;max-width:360px;width:100%;padding:22px;font-family:system-ui,sans-serif;box-shadow:0 20px 50px rgba(0,0,0,0.6);">
-                    <div id="pm-title" style="font-weight:800;font-size:1.05rem;margin-bottom:10px;"></div>
+                ov.innerHTML = `<div style="background:#111827;color:#fff;border:1px solid ${pe.borde};border-radius:16px;max-width:360px;width:100%;padding:22px;font-family:system-ui,sans-serif;box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+                    ${cabeceraDePedido(pe, 'pm-title')}
                     <div id="pm-body" style="font-size:0.82rem;color:#cbd5e1;white-space:pre-wrap;line-height:1.5;margin-bottom:14px;word-break:break-word;"></div>
                     <div id="pm-status" style="font-size:0.8rem;min-height:1.3em;margin-bottom:14px;display:none;align-items:center;"></div>
                     <div id="pm-actions" style="display:flex;gap:10px;">
                         <button id="pm-no" style="flex:1;padding:10px;border-radius:10px;border:1px solid #374151;background:transparent;color:#9ca3af;font-weight:700;cursor:pointer;"></button>
-                        <button id="pm-yes" style="flex:1;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#7c5cff,#5b8cff);color:#fff;font-weight:800;cursor:pointer;"></button>
+                        <button id="pm-yes" style="flex:1;padding:10px;border-radius:10px;border:none;background:${pe.deg};color:${pe.tinta};font-weight:800;cursor:pointer;"></button>
                     </div></div>`;
-                ov.querySelector('#pm-title').textContent = '💬 ' + title;
+                ov.querySelector('#pm-title').textContent = title;
                 ov.querySelector('#pm-body').textContent = body;
                 ov.querySelector('#pm-no').textContent = t('wc_reject');
                 ov.querySelector('#pm-yes').textContent = confirmLabel || t('wc_approve');
@@ -13702,7 +13725,7 @@
 
                 const valEth = ethers.formatEther(payReq.value);
                 const memoLine = payReq.memo ? `${payReq.memo}\n\n` : '';
-                const modal = wcPaymentModal('🛒 ' + t('wc_pay_title'),
+                const modal = wcPaymentModal(t('wc_pay_title'),
                     memoLine + t('wc_pay_body', { value: valEth, to: payReq.to.slice(0, 8) + '…' + payReq.to.slice(-6) }),
                     t('wc_pay_cta'));
                 const ok = await modal.decision;
@@ -17269,6 +17292,9 @@
                     "proto_pay_result": "Respondiste al pedido de pago",
                     "proto_stealth": "Aviso de un pago privado",
                     "proto_generic": "Mensaje del puente con una dApp",
+                    "req_kind_link": "Vinculación",
+                    "req_kind_sign": "Pedido de firma",
+                    "req_kind_pay": "Vas a mover dinero",
                     "wc_pay_title": "Confirmar compra",
                     "wc_pay_body": "Monto: {value} ETH\nDestino: {to}\n\nSe firmará y transmitirá con tu wallet.",
                     "wc_pay_cta": "Pagar",
@@ -17557,6 +17583,9 @@
                     "proto_pay_result": "You answered the payment request",
                     "proto_stealth": "Private payment notice",
                     "proto_generic": "dApp bridge message",
+                    "req_kind_link": "Link request",
+                    "req_kind_sign": "Signature request",
+                    "req_kind_pay": "You are moving funds",
                     "wc_pay_title": "Confirm purchase",
                     "wc_pay_body": "Amount: {value} ETH\nTo: {to}\n\nIt will be signed and broadcast with your wallet.",
                     "wc_pay_cta": "Pay",
@@ -17843,6 +17872,9 @@
                     "proto_pay_result": "Tu as répondu à la demande de paiement",
                     "proto_stealth": "Avis de paiement privé",
                     "proto_generic": "Message du pont avec une dApp",
+                    "req_kind_link": "Demande de liaison",
+                    "req_kind_sign": "Demande de signature",
+                    "req_kind_pay": "Tu vas déplacer des fonds",
                     "wc_pay_title": "Confirmer l'achat",
                     "wc_pay_body": "Montant : {value} ETH\nDestinataire : {to}\n\nElle sera signée et diffusée avec votre portefeuille.",
                     "wc_pay_cta": "Payer",

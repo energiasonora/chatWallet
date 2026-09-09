@@ -17,6 +17,12 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- Los pedidos que manda una dApp ahora se distinguen de un vistazo: **vincular** es azul,
+  **firmar** violeta y **mover dinero** ámbar, cada uno con su ícono y su etiqueta. Antes los
+  tres eran la misma tarjeta violeta y sólo se diferenciaban leyendo el texto.
+
+## 3.30 — 2026-09-09
+
 - El sitio dejó de pasar por un intermediario: ahora lo entrega Cloudflare directamente. En
   agosto una persona en Costa Rica se comió un error del intermediario y nunca llegó a abrir
   la app; ese eslabón ya no existe.

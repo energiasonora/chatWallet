@@ -33,8 +33,10 @@ check('usa dos pulsos, no el toque seco de las otras vibraciones',
 const sitios = [
     ['dApp por cw:1 (personal_sign / eth_sendTransaction)',
         /vibrarPedidoDeFirma\(\);\s*\n\s*ov\.querySelector\('#wc-title'\)/],
+    // Se admiten un par de líneas antes (p. ej. tomar la paleta del tipo de pedido): lo que
+    // importa es que vibre al ABRIR el modal, no que sea literalmente la primera sentencia.
     ['pago que llega de una dApp por cw:2',
-        /function wcPaymentModal\([^)]*\)\s*\{\s*\n\s*vibrarPedidoDeFirma\(\);/],
+        /function wcPaymentModal\([^)]*\)\s*\{(?:[^\n]*\n){0,3}?\s*vibrarPedidoDeFirma\(\);/],
     ['dar acceso al chat a otra wallet',
         /grantShowStep\('confirm'\);[\s\S]{0,120}?vibrarPedidoDeFirma\(\);/],
     ['transacción fría llegada por QR',
