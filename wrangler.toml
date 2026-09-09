@@ -11,11 +11,6 @@
 name = "chatwallet-web"
 compatibility_date = "2026-09-01"
 
-[assets]
-directory = "./public"
-html_handling = "none"       # ver arriba: sin esto, /dapp es un bucle
-not_found_handling = "none"
-
 # CÓMO SE ENGANCHA AL DOMINIO: una "route", no un "custom domain".
 #
 # Los registros A de chatwallet.org siguen apuntando a Firebase y no se tocan. La route
@@ -23,6 +18,16 @@ not_found_handling = "none"
 # Firebase queda intacto detrás, sin recibir tráfico. Volver atrás es borrar esta route:
 # el tráfico vuelve a Firebase en el acto, sin esperar propagación de DNS ni recertificar
 # nada. Con un custom_domain habría que reescribir el DNS del ápice para ir y para volver.
+#
+# OJO: esto va ANTES de [assets]. En TOML todo lo que sigue a una cabecera de tabla
+# pertenece a esa tabla: puesto abajo queda como `assets.routes`, wrangler avisa
+# "Unexpected fields found in assets field" y DESPLIEGA IGUAL, sin la route. O sea que
+# el deploy sale verde y el dominio nunca se entera. Pasó el 9/9/2026.
 routes = [
   { pattern = "chatwallet.org/*", zone_name = "chatwallet.org" }
 ]
+
+[assets]
+directory = "./public"
+html_handling = "none"       # ver arriba: sin esto, /dapp es un bucle
+not_found_handling = "none"
