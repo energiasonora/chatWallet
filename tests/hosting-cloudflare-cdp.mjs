@@ -19,13 +19,38 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const res = [];
 const check = (n, ok, extra = '') => { res.push(ok); console.log(`${ok ? '✅' : '❌'} ${n}${extra ? ' — ' + extra : ''}`); return ok; };
 
-// Las rutas que forman el contrato público. /dapp.html no es una más: es el start_url del
-// PWA, lo que registra el service worker y el destino de los App Links del APK.
-const RUTAS = ['/', '/index.html', '/dapp.html', '/dapp', '/book.html', '/book',
-    '/book-admin.html', '/manifiesto.html', '/manifiesto', '/tools', '/tools/',
-    '/tools/index.html', '/tools/sign', '/tools/sign.html', '/tools/bip39',
-    '/.well-known/assetlinks.json', '/service-worker.js', '/manifest.webmanifest',
-    '/site.webmanifest', '/chainsv1.json', '/whitepaper_es.pdf'];
+// El contrato público de URLs, escrito como dato y no como "lo que devuelva el hosting
+// viejo". Al principio esto comparaba contra Firebase en vivo, pero Firebase se está
+// retirando: chatwallet.web.app es OTRO sitio (devuelve HTML de relleno para todo), así
+// que como referencia mentía. Los valores de acá se tomaron del hosting viejo real,
+// medidos por chatwallet.org antes del corte del 9/9/2026.
+//
+// /dapp.html no es una ruta más: es el start_url del PWA, lo que registra el service
+// worker y el destino de los App Links del APK y de los links de invitación.
+const RUTAS = [
+    ['/', 200, 'text/html'],
+    ['/index.html', 200, 'text/html'],
+    ['/dapp.html', 200, 'text/html'],
+    ['/dapp', 200, 'text/html'],
+    ['/book.html', 200, 'text/html'],
+    ['/book', 200, 'text/html'],
+    ['/book-admin.html', 200, 'text/html'],
+    ['/manifiesto.html', 200, 'text/html'],
+    ['/manifiesto', 200, 'text/html'],
+    ['/tools', 301, null],                     // a /tools/, por los links relativos de esas páginas
+    ['/tools/', 200, 'text/html'],
+    ['/tools/index.html', 200, 'text/html'],
+    ['/tools/sign', 200, 'text/html'],
+    ['/tools/sign.html', 200, 'text/html'],
+    ['/tools/bip39', 200, 'text/html'],
+    ['/.well-known/assetlinks.json', 200, 'application/json'],   // App Links del APK
+    ['/service-worker.js', 200, 'text/javascript'],
+    ['/manifest.webmanifest', 200, 'application/manifest+json'],
+    ['/site.webmanifest', 200, 'application/manifest+json'],
+    ['/chainsv1.json', 200, 'application/json'],
+    ['/whitepaper_es.pdf', 200, 'application/pdf'],
+    ['/noexiste.html', 404, null],             // lo que no está tiene que dar 404, no la portada
+];
 
 const PAGINAS = ['/index.html', '/dapp.html', '/book.html', '/manifiesto.html',
     '/book-admin.html', '/tools/index.html', '/tools/sign.html', '/tools/bip39.html'];
@@ -79,16 +104,13 @@ const cab = async (url) => {
 };
 
 (async () => {
-    // ── 1. El contrato de URLs, nuevo contra viejo ──
-    console.log(`\n── Rutas: ${BASE}  vs  ${VIEJO}\n`);
-    for (const r of RUTAS) {
-        const [n, v] = await Promise.all([cab(BASE + r), cab(VIEJO + r)]);
-        const mismoCodigo = n.code === v.code;
-        // Sólo se compara el content-type cuando hay cuerpo real: en un 301 no significa
-        // nada (Firebase manda text/plain con "Moved Permanently", Cloudflare no manda nada).
-        const mismoTipo = n.code >= 300 && n.code < 400 ? true : n.tipo.split(';')[0] === v.tipo.split(';')[0];
-        check(`${r}`, mismoCodigo && mismoTipo,
-            `nuevo ${n.code} ${n.tipo.split(';')[0]}${n.loc ? ' → ' + n.loc : ''} | viejo ${v.code} ${v.tipo.split(';')[0]}`);
+    // ── 1. El contrato de URLs ──
+    console.log(`\n── Rutas: ${BASE}\n`);
+    for (const [r, codigo, tipo] of RUTAS) {
+        const n = await cab(BASE + r);
+        const ok = n.code === codigo && (tipo === null || n.tipo.split(';')[0] === tipo);
+        check(`${r}`, ok, `${n.code} ${n.tipo.split(';')[0]}${n.loc ? ' → ' + n.loc : ''}` +
+            (ok ? '' : `  ← esperaba ${codigo}${tipo ? ' ' + tipo : ''}`));
     }
 
     // ── 2. Cada página en un navegador de verdad, mirando qué peticiones fallan ──
