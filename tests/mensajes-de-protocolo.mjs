@@ -53,6 +53,12 @@ for (const [nombre, entrada] of noProtocolo) {
     check(`deja pasar: ${nombre}`, descripcionDeProtocolo(entrada) === null, String(descripcionDeProtocolo(entrada)));
 }
 
+// ── La vista previa de la lista de contactos usa el mismo clasificador ──
+// Arreglar sólo las burbujas no alcanzaba: la lista es otro camino de dibujo y seguía
+// mostrando el JSON crudo (visto en el teléfono con el arreglo del chat ya publicado).
+check('la vista previa de la lista también lo traduce',
+    /function xmtpMessagePreview\(message\)[\s\S]*?return descripcionDeProtocolo\(texto\) \|\| texto;/.test(dapp));
+
 // ── La rama del renderizador ──
 check('el renderizador tiene la rama de protocolo',
     /\} else if \(descripcionDeProtocolo\(messageContent\)\) \{/.test(dapp));

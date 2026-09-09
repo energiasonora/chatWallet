@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- La **lista de contactos** también dejó de mostrar los mensajes del puente en crudo: se le
+  había arreglado al chat pero no a la vista previa, que se dibuja por otro lado.
+
+## 3.31 — 2026-09-09
+
 - Los pedidos que manda una dApp ahora se distinguen de un vistazo: **vincular** es azul,
   **firmar** violeta y **mover dinero** ámbar, cada uno con su ícono y su etiqueta. Antes los
   tres eran la misma tarjeta violeta y sólo se diferenciaban leyendo el texto.
