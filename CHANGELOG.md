@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.34 — 2026-09-18
+
 - Los pedidos de firma de una dApp (como StealthPay) **ya no se pierden** cuando la conexión
   con la red de mensajes se corta un momento. El pedido llegaba y quedaba guardado, pero la
   app no lo mostraba nunca, y la dApp esperaba tres minutos hasta rendirse. Ahora ChatWallet
