@@ -13405,6 +13405,147 @@
             }
             window.cwDescribirTx = cwDescribirTx;
 
+            // ── Simular antes de firmar: qué les pasaría a TUS saldos ─────────────────────
+            // Decodificar el calldata dice qué función se llama, no qué hace. Para lo que
+            // cwDescribirTx no sabe leer, el modal pedía firmar a ciegas. eth_simulateV1 ejecuta
+            // la tx contra el último bloque en el MISMO nodo RPC de la red (sin terceros) y
+            // devuelve sus logs; con traceTransfers también los movimientos de moneda nativa,
+            // como Transfer falsos emitidos por la pseudo-dirección 0xEeee…. De ahí salen los
+            // cambios de saldo y, aparte, los permisos que la tx otorga: un approve no mueve
+            // saldo hoy, pero es la puerta del vaciado de mañana.
+            //
+            // No es garantía y no se presenta como tal: un contrato puede detectar que lo están
+            // simulando ("red pill") y portarse distinto al ejecutarse. Si la red no soporta el
+            // método (Infura, p. ej.) se dice eso y el modal queda como antes.
+            const CW_SIM_NATIVO = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+            const CW_SIM_TIMEOUT_MS = 6000;
+            async function cwSimularTx(tx, desde, prov) {
+                const EV_TRANSFER = ethers.id('Transfer(address,address,uint256)');
+                const EV_1155 = ethers.id('TransferSingle(address,address,address,uint256,uint256)');
+                const EV_1155_LOTE = ethers.id('TransferBatch(address,address,address,uint256[],uint256[])');
+                const EV_APPROVAL = ethers.id('Approval(address,address,uint256)');
+                const EV_APPROVAL_ALL = ethers.id('ApprovalForAll(address,address,bool)');
+                const yo = String(desde).toLowerCase();
+
+                const llamada = { from: desde, to: tx.to, data: tx.data || '0x' };
+                if (tx.value && BigInt(tx.value) > 0n) llamada.value = ethers.toQuantity(BigInt(tx.value));
+                let r;
+                try {
+                    r = await Promise.race([
+                        prov.send('eth_simulateV1', [{ blockStateCalls: [{ calls: [llamada] }], traceTransfers: true, validation: false }, 'latest']),
+                        new Promise((_, no) => setTimeout(() => no(new Error('timeout')), CW_SIM_TIMEOUT_MS))
+                    ]);
+                } catch (e) {
+                    // Algunos nodos validan el saldo antes de simular y contestan con error en vez
+                    // de con un resultado: eso no es "no se pudo", es "no te alcanza".
+                    const msg = [e?.code, e?.shortMessage, e?.message, e?.info?.error?.message].join(' ');
+                    if (/INSUFFICIENT_FUNDS|insufficient funds/i.test(msg)) return { estado: 'sin-fondos' };
+                    console.warn('cwSimularTx: no se pudo simular', e);
+                    return { estado: 'no-disponible' };
+                }
+                const c = r && r[0] && r[0].calls && r[0].calls[0];
+                if (!c) return { estado: 'no-disponible' };
+                if (c.status !== '0x1') {
+                    const motivo = String((c.error && c.error.message) || '').replace(/^execution reverted:?\s*/i, '').trim();
+                    return { estado: 'revierte', motivo };
+                }
+
+                const dir = (topico) => '0x' + String(topico || '').slice(-40).toLowerCase();
+                const netos = new Map();          // token → delta de fungibles (nativo incluido)
+                const nfts = [];                  // { token, id, cantidad, signo }
+                const permisos = [];              // { token, spender, monto | id | todos }
+                const sumar = (tok, d) => netos.set(tok, (netos.get(tok) || 0n) + d);
+                const abi = ethers.AbiCoder.defaultAbiCoder();
+
+                for (const l of c.logs || []) {
+                    const tp = l.topics || [];
+                    const tok = String(l.address).toLowerCase();
+                    try {
+                        if (tp[0] === EV_TRANSFER && tp.length === 3) {
+                            const v = BigInt(l.data);
+                            if (dir(tp[1]) === yo) sumar(tok, -v);
+                            if (dir(tp[2]) === yo) sumar(tok, v);
+                        } else if (tp[0] === EV_TRANSFER && tp.length === 4) {
+                            // ERC-721: mismo evento, pero el tokenId va indexado.
+                            const id = BigInt(tp[3]);
+                            if (dir(tp[1]) === yo) nfts.push({ token: tok, id, cantidad: 1n, signo: -1 });
+                            if (dir(tp[2]) === yo) nfts.push({ token: tok, id, cantidad: 1n, signo: 1 });
+                        } else if (tp[0] === EV_1155 || tp[0] === EV_1155_LOTE) {
+                            const [ids, cants] = tp[0] === EV_1155
+                                ? abi.decode(['uint256', 'uint256'], l.data).map(x => [x])
+                                : abi.decode(['uint256[]', 'uint256[]'], l.data);
+                            ids.forEach((id, i) => {
+                                if (dir(tp[2]) === yo) nfts.push({ token: tok, id, cantidad: cants[i], signo: -1 });
+                                if (dir(tp[3]) === yo) nfts.push({ token: tok, id, cantidad: cants[i], signo: 1 });
+                            });
+                        } else if (tp[0] === EV_APPROVAL && dir(tp[1]) === yo) {
+                            // Poner un permiso en cero es revocarlo: eso no hay que advertirlo.
+                            if (tp.length === 3) { const monto = BigInt(l.data); if (monto > 0n) permisos.push({ token: tok, spender: dir(tp[2]), monto }); }
+                            else if (tp.length === 4 && BigInt(tp[2]) !== 0n) permisos.push({ token: tok, spender: dir(tp[2]), id: BigInt(tp[3]) });
+                        } else if (tp[0] === EV_APPROVAL_ALL && dir(tp[1]) === yo && BigInt(l.data) !== 0n) {
+                            permisos.push({ token: tok, spender: dir(tp[2]), todos: true });
+                        }
+                    } catch (e) { console.warn('cwSimularTx: log que no se pudo leer', l, e); }
+                }
+
+                // Símbolo y decimales se le preguntan a cada contrato, como en cwDescribirTx.
+                const info = new Map();
+                const tokens = new Set([...netos.keys(), ...nfts.map(n => n.token), ...permisos.map(p => p.token)]);
+                tokens.delete(CW_SIM_NATIVO);
+                await Promise.all([...tokens].map(async (tok) => {
+                    let sym = wcShortId(tok), dec = 18;
+                    try {
+                        const k = new ethers.Contract(tok, erc20Abi, prov);
+                        const [sy, de] = await Promise.all([k.symbol().catch(() => null), decimalesDeToken(k, {})]);
+                        if (sy) sym = sy;
+                        dec = de;
+                    } catch (e) { }
+                    info.set(tok, { sym, dec });
+                }));
+
+                const cambios = [...netos].filter(([, d]) => d !== 0n).map(([tok, d]) => ({
+                    token: tok, delta: d,
+                    sym: tok === CW_SIM_NATIVO ? null : info.get(tok).sym,
+                    dec: tok === CW_SIM_NATIVO ? 18 : info.get(tok).dec
+                }));
+                return {
+                    estado: 'ok', cambios,
+                    nfts: nfts.map(n => Object.assign({ sym: info.get(n.token).sym }, n)),
+                    permisos: permisos.map(p => Object.assign({ sym: info.get(p.token).sym, dec: info.get(p.token).dec }, p))
+                };
+            }
+
+            // El resultado de cwSimularTx en texto plano para el cuerpo del modal (que se pinta
+            // con textContent: nada de HTML acá).
+            function cwTextoSimulacion(sim, nativo) {
+                if (!sim) return '';
+                if (sim.estado === 'no-disponible') return t('wc_sim_unavailable');
+                if (sim.estado === 'sin-fondos') return t('wc_sim_funds');
+                if (sim.estado === 'revierte') return t('wc_sim_revert', { reason: sim.motivo ? ': ' + sim.motivo : '' });
+
+                const lineas = [t('wc_sim_title')];
+                for (const c of sim.cambios) {
+                    const abs = c.delta < 0n ? -c.delta : c.delta;
+                    lineas.push((c.delta < 0n ? '− ' : '+ ') + ethers.formatUnits(abs, c.dec) + ' ' + (c.sym || nativo));
+                }
+                for (const n of sim.nfts) {
+                    lineas.push((n.signo < 0 ? '− ' : '+ ') + (n.cantidad > 1n ? n.cantidad + ' × ' : '') + n.sym + ' #' + n.id);
+                }
+                for (const p of sim.permisos) {
+                    const spender = wcShortId(p.spender);
+                    if (p.todos) lineas.push(t('wc_sim_approve_all', { spender, sym: p.sym }));
+                    else if (p.id !== undefined) lineas.push(t('wc_sim_approve_nft', { spender, sym: p.sym, id: String(p.id) }));
+                    else lineas.push(t('wc_sim_approve', {
+                        spender, sym: p.sym,
+                        amount: p.monto >= (2n ** 255n) ? t('wc_tx_unlimited') : ethers.formatUnits(p.monto, p.dec)
+                    }));
+                }
+                if (lineas.length === 1) lineas.push(t('wc_sim_nothing'));
+                lineas.push('', t('wc_sim_caveat'));
+                return lineas.join('\n');
+            }
+            window.cwSimularTx = cwSimularTx;
+
             async function handleWalletConnectRpc(message, data) {
                 // Only serve inboxes the user explicitly connected to.
                 if (!wcApprovedInboxes.has(message.senderInboxId)) return;
@@ -13440,9 +13581,17 @@
                             wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: t('wc_wrong_net_log', { chain: tx.chainId }), result: 'error' });
                             return reply({ type: 'error', error: `wrong network: wallet on chain ${walletChainId}, dApp requested ${tx.chainId}` });
                         }
-                        const desc = await cwDescribirTx(tx, optionsList[currentTokenIndex], provider);
+                        const red = optionsList[currentTokenIndex];
+                        // Un envío pelado de moneda nativa ya se describe entero; lo que lleva datos
+                        // se simula en paralelo con la lectura del calldata.
+                        const conDatos = tx.data && tx.data !== '0x';
+                        const [desc, sim] = await Promise.all([
+                            cwDescribirTx(tx, red, provider),
+                            conDatos ? cwSimularTx(tx, currentWallet.address, provider) : null
+                        ]);
                         const resumen = desc.resumen;
-                        const ok = await wcApprove(t('wc_tx_title'), desc.cuerpo, t('wc_tx_cta'), 'pago');
+                        const cuerpo = sim ? desc.cuerpo + '\n\n' + cwTextoSimulacion(sim, (red && red.NATIVE_SYMBOL) || 'ETH') : desc.cuerpo;
+                        const ok = await wcApprove(t('wc_tx_title'), cuerpo, t('wc_tx_cta'), 'pago');
                         if (!ok) { wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected' }); }
                         const s = currentWallet.connect(provider);
                         const resp = await s.sendTransaction({ to: tx.to, data: tx.data || '0x', value: tx.value ? BigInt(tx.value) : 0n });
@@ -17284,6 +17433,15 @@
                     "wc_tx_token": "La dApp pide ENVIAR {amount} {sym}:\n\nA: {to}\nContrato del token: {token}\nchainId: {chain}\n\nSe firmará y transmitirá con tu wallet.",
                     "wc_tx_approve": "La dApp pide PERMISO para que otro contrato gaste tus {sym}:\n\nQuién: {spender}\nHasta: {amount} {sym}\nContrato del token: {token}\nchainId: {chain}\n\nMientras el permiso siga en pie, ese contrato puede mover ese monto cuando quiera, sin volver a preguntarte.",
                     "wc_tx_unknown": "La dApp pide ejecutar algo que ChatWallet NO sabe leer:\n\nContrato: {to}\nFunción: {selector}\nDatos: {bytes} bytes\nValor: {value} {sym}\nchainId: {chain}\n\nNo puedo mostrarte qué hace. Aprobá sólo si sabés exactamente qué estás firmando.",
+                    "wc_sim_title": "Simulación (qué pasaría si se ejecuta ahora, sin contar la comisión):",
+                    "wc_sim_approve": "⚠ Autoriza a {spender} a mover {amount} {sym} tuyos",
+                    "wc_sim_approve_all": "⚠ Autoriza a {spender} a mover TODOS tus {sym}",
+                    "wc_sim_approve_nft": "⚠ Autoriza a {spender} a mover tu {sym} #{id}",
+                    "wc_sim_nothing": "No mueve ningún saldo tuyo ni otorga permisos.",
+                    "wc_sim_revert": "⚠ La simulación dice que esta transacción va a FALLAR{reason}.\nSi la firmás igual, pagás la comisión y no pasa nada más.",
+                    "wc_sim_funds": "⚠ La simulación dice que no te alcanza el saldo para esta transacción.",
+                    "wc_sim_unavailable": "Esta red no permite simular la transacción: no hay vista previa del resultado.",
+                    "wc_sim_caveat": "Es una simulación, no una garantía: un contrato malicioso puede portarse distinto al ejecutarse de verdad.",
                     "wc_tx_cta": "Enviar",
                     "wc_wrong_net": "⚠️ La dApp pide la red {req} pero ChatWallet está en la {cur}. Cambiá de red y reintentá.",
                     "wc_wrong_net_log": "red incorrecta (chainId {chain})",
@@ -17575,6 +17733,15 @@
                     "wc_tx_token": "The dApp asks to SEND {amount} {sym}:\n\nTo: {to}\nToken contract: {token}\nchainId: {chain}\n\nIt will be signed and broadcast with your wallet.",
                     "wc_tx_approve": "The dApp asks for PERMISSION for another contract to spend your {sym}:\n\nWho: {spender}\nUp to: {amount} {sym}\nToken contract: {token}\nchainId: {chain}\n\nWhile the permission stands, that contract can move that amount whenever it wants, without asking again.",
                     "wc_tx_unknown": "The dApp asks to execute something ChatWallet CANNOT read:\n\nContract: {to}\nFunction: {selector}\nData: {bytes} bytes\nValue: {value} {sym}\nchainId: {chain}\n\nI cannot show you what it does. Approve only if you know exactly what you are signing.",
+                    "wc_sim_title": "Simulation (what would happen if it ran now, excluding the fee):",
+                    "wc_sim_approve": "⚠ Allows {spender} to move {amount} of your {sym}",
+                    "wc_sim_approve_all": "⚠ Allows {spender} to move ALL your {sym}",
+                    "wc_sim_approve_nft": "⚠ Allows {spender} to move your {sym} #{id}",
+                    "wc_sim_nothing": "It moves none of your balances and grants no permissions.",
+                    "wc_sim_revert": "⚠ The simulation says this transaction will FAIL{reason}.\nIf you sign it anyway, you pay the fee and nothing else happens.",
+                    "wc_sim_funds": "⚠ The simulation says your balance is not enough for this transaction.",
+                    "wc_sim_unavailable": "This network cannot simulate the transaction: there is no preview of the result.",
+                    "wc_sim_caveat": "This is a simulation, not a guarantee: a malicious contract can behave differently when it really runs.",
                     "wc_tx_cta": "Send",
                     "wc_wrong_net": "⚠️ The dApp asks for network {req} but ChatWallet is on {cur}. Switch networks and try again.",
                     "wc_wrong_net_log": "wrong network (chainId {chain})",
@@ -17864,6 +18031,15 @@
                     "wc_tx_token": "La dApp demande d'ENVOYER {amount} {sym} :\n\nÀ : {to}\nContrat du jeton : {token}\nchainId : {chain}\n\nElle sera signée et diffusée avec votre portefeuille.",
                     "wc_tx_approve": "La dApp demande la PERMISSION qu'un autre contrat dépense vos {sym} :\n\nQui : {spender}\nJusqu'à : {amount} {sym}\nContrat du jeton : {token}\nchainId : {chain}\n\nTant que la permission tient, ce contrat peut déplacer ce montant quand il veut, sans vous redemander.",
                     "wc_tx_unknown": "La dApp demande d'exécuter quelque chose que ChatWallet NE SAIT PAS lire :\n\nContrat : {to}\nFonction : {selector}\nDonnées : {bytes} octets\nValeur : {value} {sym}\nchainId : {chain}\n\nJe ne peux pas vous montrer ce qu'elle fait. N'approuvez que si vous savez exactement ce que vous signez.",
+                    "wc_sim_title": "Simulation (ce qui se passerait si elle s'exécutait maintenant, hors frais) :",
+                    "wc_sim_approve": "⚠ Autorise {spender} à déplacer {amount} de vos {sym}",
+                    "wc_sim_approve_all": "⚠ Autorise {spender} à déplacer TOUS vos {sym}",
+                    "wc_sim_approve_nft": "⚠ Autorise {spender} à déplacer votre {sym} #{id}",
+                    "wc_sim_nothing": "Elle ne déplace aucun de vos soldes et n'accorde aucune permission.",
+                    "wc_sim_revert": "⚠ La simulation indique que cette transaction va ÉCHOUER{reason}.\nSi vous la signez quand même, vous payez les frais et rien d'autre ne se passe.",
+                    "wc_sim_funds": "⚠ La simulation indique que votre solde ne suffit pas pour cette transaction.",
+                    "wc_sim_unavailable": "Ce réseau ne permet pas de simuler la transaction : aucun aperçu du résultat.",
+                    "wc_sim_caveat": "C'est une simulation, pas une garantie : un contrat malveillant peut se comporter autrement lors de l'exécution réelle.",
                     "wc_tx_cta": "Envoyer",
                     "wc_wrong_net": "⚠️ La dApp demande le réseau {req} mais ChatWallet est sur {cur}. Changez de réseau et réessayez.",
                     "wc_wrong_net_log": "réseau incorrect (chainId {chain})",

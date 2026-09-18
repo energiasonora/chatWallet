@@ -4,7 +4,7 @@
 // modal decía "0 ETH" mientras el calldata movía 500 USDC. La operación era correcta; la
 // pantalla no informaba, y aprobar sin saber qué se aprueba es todo el riesgo del puente.
 //
-// Se extraen las funciones reales de src/dapp.html (las dos: los helpers de token y el
+// Se extraen las funciones reales de src/dapp.html (las dos: el lector de decimales y el
 // descriptor), así el test prueba lo que se envía.
 //
 //   node tests/wc-describe-tx.mjs
@@ -21,7 +21,7 @@ function trozo(desde, hasta) {
     return src.slice(i, f);
 }
 const bloque =
-    trozo('// ── ERC-20: el saldo de un token NO es la moneda de la cadena ──', 'let txWaitTicker = null;') +
+    trozo('async function decimalesDeToken(', '// Devuelve el txResponse') +
     trozo('// ── Qué dice DE VERDAD la transacción que pide una dApp ─', 'window.cwDescribirTx = cwDescribirTx;');
 
 const erc20Abi = [

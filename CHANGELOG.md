@@ -19,6 +19,12 @@ Las versiones anteriores a la 3.00 están en los
 
 - La **lista de contactos** también dejó de mostrar los mensajes del puente en crudo: se le
   había arreglado al chat pero no a la vista previa, que se dibuja por otro lado.
+- Cuando una dApp pide una transacción que llama a un contrato, ChatWallet **la simula antes
+  de que la firmes** y te dice qué pasaría: cuánto sale y cuánto entra de cada saldo tuyo, qué
+  **permisos** le estarías dando a otro contrato (incluidos los sin límite), o si la
+  transacción **va a fallar** y solo perderías la comisión. Antes, lo que ChatWallet no sabía
+  leer se firmaba a ciegas. Es una simulación y no una garantía, y la pantalla lo avisa. En
+  las redes cuyo nodo no permite simular, también lo avisa.
 
 ## 3.31 — 2026-09-09
 
