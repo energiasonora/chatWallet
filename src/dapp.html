@@ -10475,6 +10475,8 @@
                 // Rehidratar las sesiones cw:1 aprobadas ANTES de abrir el stream, para que
                 // los pedidos de firma que lleguen tras un reinicio del worker no se descarten.
                 if (typeof wcRestoreSessions === 'function') wcRestoreSessions();
+                // Y barrer periódicamente lo que el stream no entregue (ver wcBarrerPedidosPendientes).
+                if (!window.__wcBarrido) window.__wcBarrido = setInterval(() => wcBarrerPedidosPendientes(), WC_BARRIDO_MS);
 
                 // Stream para todos los mensajes (incluyendo los de nuevas conversaciones)
                 try {
@@ -11118,6 +11120,8 @@
                         // Refrescar lista de contactos. syncAll() es más fuerte que sync(): además de la
                         // lista, baja welcomes/mensajes nuevos de todas las conversaciones.
                         await chatwalletxmtp.conversations.syncAll().catch(() => chatwalletxmtp.conversations.sync().catch(() => {}));
+                        // Pedidos de dApps que llegaron con el stream muerto.
+                        wcBarrerPedidosPendientes();
                         // Device/history sync: recuperar historial servido por otras instalaciones (ver arranque).
                         await chatwalletxmtp.preferences.sync().catch(() => {});
                         // Grupos nuevos (te agregaron desde otro dispositivo / estando cerrado):
@@ -13572,6 +13576,9 @@
                 // Only serve inboxes the user explicitly connected to.
                 if (!wcApprovedInboxes.has(message.senderInboxId)) return;
                 if (data.type !== 'rpc') return;
+                // El stream y el barrido de pendientes pueden traer el MISMO mensaje: se atiende
+                // una sola vez, o el usuario vería dos modales para un solo pedido.
+                if (message.id) { if (wcRpcVistos.has(message.id)) return; wcRpcVistos.add(message.id); }
                 const id = data.id;
                 const conv = await chatwalletxmtp.conversations.getConversationById(message.conversationId);
                 // Las sesiones cw:1 se aprueban contra un DM. Un pedido de firma llegado por un
@@ -13708,6 +13715,45 @@
             }
             // Re-hidrata los sets en memoria desde storage. Llamado al (re)iniciar el stream
             // de XMTP, así una sesión aprobada sobrevive a recargas y reinicios del worker.
+            // ── Pedidos cw:1 que el stream no entregó ──────────────────────────────────
+            // Medido en el S9 (3.32, E2E real con StealthPay): con el stream de XMTP cortándose
+            // ("network error" en SubscribeWelcomeMessages/GroupMessages), el personal_sign
+            // quedaba GUARDADO en la base local, en el DM correcto, y nadie lo atendía: sólo el
+            // stream en vivo llamaba a handleWalletConnectRpc. StealthPay esperaba 3 minutos con
+            // "Aprobá la firma en tu ChatWallet" y se rendía; recargar la página funcionaba
+            // porque era reconectar con un stream sano.
+            // El barrido lee lo reciente de las sesiones activas y atiende lo que el stream se
+            // saltó. La deduplicación por id de mensaje está en handleWalletConnectRpc.
+            const WC_RPC_VENTANA_MS = 170000;          // StealthPay se rinde a los 180 s
+            const WC_BARRIDO_MS = 8000;
+            const WC_SESION_ACTIVA_MS = 12 * 3600 * 1000;
+            const wcRpcVistos = new Set();
+            let wcBarridoEnCurso = false;
+            async function wcBarrerPedidosPendientes() {
+                if (wcBarridoEnCurso || !chatwalletxmtp) return;
+                const activas = wcLoadSessions().filter(x => x.peerInboxId && Date.now() - (x.connectedAt || 0) < WC_SESION_ACTIVA_MS);
+                if (!activas.length) return;
+                wcBarridoEnCurso = true;
+                try {
+                    const desde = BigInt(Date.now() - WC_RPC_VENTANA_MS) * 1000000n;
+                    for (const ses of activas) {
+                        const dm = await chatwalletxmtp.conversations.getDmByInboxId(ses.peerInboxId).catch(() => null);
+                        if (!dm) continue;
+                        await dm.sync().catch(() => { });
+                        const recientes = await dm.messages({ sentAfterNs: desde }).catch(() => []);
+                        for (const m of recientes) {
+                            if (m.senderInboxId === chatwalletxmtp.inboxId || typeof m.content !== 'string' || wcRpcVistos.has(m.id)) continue;
+                            let d; try { d = JSON.parse(m.content); } catch (_) { continue; }
+                            if (!d || d.cw !== 1 || d.type !== 'rpc') continue;
+                            console.log('[cw-bridge] pedido que el stream no entregó, lo atiende el barrido:', d.method);
+                            handleWalletConnectRpc(m, d).catch(e => console.warn('[cw-bridge]', e));
+                        }
+                    }
+                } catch (e) { console.warn('[cw-bridge] barrido:', e); }
+                finally { wcBarridoEnCurso = false; }
+            }
+            window.wcBarrerPedidosPendientes = wcBarrerPedidosPendientes;
+
             function wcRestoreSessions() {
                 try {
                     for (const s of wcLoadSessions()) {

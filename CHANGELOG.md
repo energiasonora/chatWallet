@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- Los pedidos de firma de una dApp (como StealthPay) **ya no se pierden** cuando la conexión
+  con la red de mensajes se corta un momento. El pedido llegaba y quedaba guardado, pero la
+  app no lo mostraba nunca, y la dApp esperaba tres minutos hasta rendirse. Ahora ChatWallet
+  revisa cada pocos segundos si quedó algún pedido sin atender y lo muestra.
+
 ## 3.33 — 2026-09-18
 
 - En el APK, el celular **ahora sí vibra** cuando algo pide tu firma, y también al leer un QR,
