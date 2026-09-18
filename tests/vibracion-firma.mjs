@@ -25,8 +25,16 @@ check('el APK declara android.permission.VIBRATE',
 
 // ── 2. El helper y su patrón ──
 check('existe vibrarPedidoDeFirma()', /function vibrarPedidoDeFirma\(\)/.test(dapp));
-check('usa dos pulsos, no el toque seco de las otras vibraciones',
-    /navigator\.vibrate\?\.\(\[0,\s*45,\s*110,\s*45\]\)/.test(dapp));
+check('usa dos pulsos de verdad (45 · pausa 110 · 45), sin el 0 inicial que los hacía uno',
+    /vibrar\(\[45,\s*110,\s*45\]\)/.test(dapp));
+// En el APK navigator.vibrate() no llega al motor (bloqueo por gesto + ni con gesto): toda
+// vibración tiene que pasar por vibrar(), que usa el plugin nativo.
+check('nadie llama navigator.vibrate salvo vibrar()',
+    (dapp.match(/navigator\.vibrate(\?\.)?\(/g) || []).length === 1 && /function vibrar\(patron\)[\s\S]{0,700}navigator\.vibrate\?\.\(patron\)/.test(dapp));
+check('vibrar() prefiere KeepAlive.vibrate en el APK',
+    /function vibrar\(patron\)[\s\S]{0,500}Plugins\.KeepAlive[\s\S]{0,200}nativo\.vibrate\(\{ pattern/.test(dapp));
+const plugin = fs.readFileSync(path.join(RAIZ, 'android/app/src/main/java/org/energiasonora/chatwallet/KeepAlivePlugin.java'), 'utf8');
+check('el plugin nativo expone vibrate()', /@PluginMethod\s+public void vibrate\(PluginCall call\)/.test(plugin));
 
 // ── 3. Cada pedido de firma lo llama. Se ancla en la línea que ABRE cada modal, así que
 //       si alguien mueve la apertura y se olvida la vibración, esto se pone rojo.
@@ -64,8 +72,8 @@ if (candidatos.length === 0) {
         // Ojo: public/ puede ser un build viejo, anterior a este cambio. Sólo se exige el
         // patrón si el bundle ya conoce el helper.
         if (!/vibrarPedidoDeFirma/.test(build)) { console.log(`⚠️  ${rel} es anterior a este cambio, se saltea.`); continue; }
-        check(`${rel}: el patrón de dos pulsos sobrevivió al build`,
-            /navigator\.vibrate\?\.\(\[0,45,110,45\]\)/.test(build));
+        if (!/KeepAlive\.vibrate|nativo\.vibrate|\.vibrate\(\{pattern/.test(build)) { console.log(`⚠️  ${rel} es anterior a la vibración nativa, se saltea.`); continue; }
+        check(`${rel}: el patrón de dos pulsos sobrevivió al build`, /\[45,110,45\]/.test(build));
         check(`${rel}: las 5 llamadas siguen ahí`,
             (build.match(/vibrarPedidoDeFirma/g) || []).length >= 6);   // 1 definición + 5 usos
     }

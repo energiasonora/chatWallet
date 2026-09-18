@@ -4793,11 +4793,33 @@
             // (una dApp en la compu, el libro, un dispositivo frío) y el celular puede
             // estar boca abajo sobre la mesa.
             //
-            // OJO: esto SÓLO se siente si el APK declara android.permission.VIBRATE. Sin
-            // el permiso navigator.vibrate() no tira error ni devuelve false: no hace nada.
-            // El APK 3.28 se empaquetó sin él y por eso no vibraba nunca.
+            // Patrón con la semántica de la Vibration API: vibra 45, pausa 110, vibra 45. El
+            // [0, 45, 110, 45] de antes arrancaba con una vibración de CERO ms, así que en la
+            // práctica era un solo pulso de 110.
             function vibrarPedidoDeFirma() {
-                try { navigator.vibrate?.([0, 45, 110, 45]); } catch (e) { }
+                vibrar([45, 110, 45]);
+            }
+
+            // Toda vibración de la app pasa por acá. En el APK la Vibration API web NO SIRVE, y
+            // falla sin avisar de dos maneras (medido por CDP en el S9 y en el historial del
+            // vibrador del S10+, 3.32):
+            //  · Chromium la bloquea hasta que el usuario toca la pantalla ("Blocked call to
+            //    navigator.vibrate because user hasn't tapped on the frame"). Un pedido de firma
+            //    llega por chat, sin toque previo: justo el caso que más importa.
+            //  · Aun con toque devuelve true y el sistema no registra ninguna vibración.
+            // Por eso en el APK se vibra con el plugin nativo (KeepAlive.vibrate), que no pide
+            // gesto. Un APK viejo sin ese método cae a navigator.vibrate, como antes. Hace falta
+            // además android.permission.VIBRATE en el manifest (el APK 3.28 no lo tenía).
+            function vibrar(patron) {
+                try {
+                    const cap = window.Capacitor;
+                    const nativo = cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.KeepAlive;
+                    if (nativo && typeof nativo.vibrate === 'function') {
+                        nativo.vibrate({ pattern: [].concat(patron) }).catch(() => { });
+                        return;
+                    }
+                    navigator.vibrate?.(patron);
+                } catch (e) { }
             }
 
             function showToast(message, type = 'info', duration = 3000) {
@@ -11205,7 +11227,7 @@
                     p.classList.remove('ready');
                     p.classList.add('loading');
                     place(THRESHOLD, true);
-                    if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) { } }
+                    vibrar(10);
                     try { await reloadCurrentChat(); } finally { hidePill(); }
                 }
 
@@ -11485,7 +11507,7 @@
                 const left = Math.min(Math.max(8, rect.left + rect.width / 2 - pw / 2), window.innerWidth - pw - 8);
                 picker.style.top = `${top}px`;
                 picker.style.left = `${left}px`;
-                if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) { } }
+                vibrar(10);
             }
 
             function hideReactionPicker() {
@@ -11667,7 +11689,7 @@
                     row.style.transition = 'transform .18s ease-out';
                     row.style.transform = '';
                     if (trigger) {
-                        if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) { } }
+                        vibrar(10);
                         startReply(msgId);
                     }
                     swiping = false; dx = 0;
@@ -13237,7 +13259,7 @@
                 // apaga el stream, en vez del parpadeo a negro de antes.
                 freezeScannerFrame();
                 document.getElementById('scanner-guide')?.classList.add('hidden');
-                try { navigator.vibrate?.(60); } catch (e) { }
+                vibrar(60);
                 stopScanner(260);
                 playQRscanned();
                 document.getElementById('scanned-data').textContent = decodedText;

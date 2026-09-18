@@ -17,6 +17,13 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- En el APK, el celular **ahora sí vibra** cuando algo pide tu firma, y también al leer un QR,
+  deslizar para responder o abrir las reacciones. La vibración que se había agregado en la 3.30
+  no llegaba nunca al motor: Android la bloqueaba si no habías tocado la pantalla antes, y un
+  pedido de firma llega justamente sin que toques nada. Ahora vibra por la vía nativa del
+  teléfono. El pedido de firma son de verdad **dos pulsos**, como estaba pensado: antes salía
+  uno solo.
+
 ## 3.32 — 2026-09-18
 
 - La **lista de contactos** también dejó de mostrar los mensajes del puente en crudo: se le

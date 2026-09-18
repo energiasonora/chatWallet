@@ -72,6 +72,52 @@ public class KeepAlivePlugin extends Plugin {
         }
     }
 
+    /**
+     * Vibración nativa. navigator.vibrate() en el WebView no sirve: Chromium la bloquea hasta
+     * que el usuario toca la pantalla (un pedido de firma llega por chat, sin toque previo), y
+     * medido en el S9 (3.32) aun con toque devuelve true sin que el sistema registre nada.
+     *
+     * `pattern` sigue la semántica de la Vibration API web (vibra, pausa, vibra…), así el JS
+     * pasa lo mismo en los dos mundos; Android arranca con una pausa, por eso el 0 inicial.
+     * Sin VibrationAttributes: con uso "desconocido" el modo silencio no la anula, igual que
+     * la respuesta háptica de cualquier app.
+     */
+    @PluginMethod
+    public void vibrate(PluginCall call) {
+        long[] tiempos;
+        try {
+            java.util.List<Object> patron = call.getArray("pattern").toList();
+            tiempos = new long[patron.size() + 1];
+            for (int i = 0; i < patron.size(); i++) {
+                tiempos[i + 1] = Math.max(0L, ((Number) patron.get(i)).longValue());
+            }
+        } catch (Exception e) {
+            call.reject("pattern inválido");
+            return;
+        }
+        android.os.Vibrator vibrador;
+        if (Build.VERSION.SDK_INT >= 31) {
+            android.os.VibratorManager vm = (android.os.VibratorManager)
+                    getContext().getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+            vibrador = vm != null ? vm.getDefaultVibrator() : null;
+        } else {
+            vibrador = (android.os.Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
+        }
+        JSObject ret = new JSObject();
+        if (vibrador == null || !vibrador.hasVibrator()) {
+            ret.put("vibrated", false);
+            call.resolve(ret);
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 26) {
+            vibrador.vibrate(android.os.VibrationEffect.createWaveform(tiempos, -1));
+        } else {
+            vibrador.vibrate(tiempos, -1);
+        }
+        ret.put("vibrated", true);
+        call.resolve(ret);
+    }
+
     /** El JS confirma que manejó el wake (posteó notificación rica o no había nada nuevo).
      *  Cancela el respaldo genérico nativo (fix v1.91). */
     @PluginMethod
