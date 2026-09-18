@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.33 — 2026-09-18
+
 - En el APK, el celular **ahora sí vibra** cuando algo pide tu firma, y también al leer un QR,
   deslizar para responder o abrir las reacciones. La vibración que se había agregado en la 3.30
   no llegaba nunca al motor: Android la bloqueaba si no habías tocado la pantalla antes, y un
