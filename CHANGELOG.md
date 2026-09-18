@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.32 — 2026-09-18
+
 - La **lista de contactos** también dejó de mostrar los mensajes del puente en crudo: se le
   había arreglado al chat pero no a la vista previa, que se dibuja por otro lado.
 - Cuando una dApp pide una transacción que llama a un contrato, ChatWallet **la simula antes
