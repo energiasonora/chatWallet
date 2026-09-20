@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.38 — 2026-09-20
+
 - El renglón de conexión del chat —**En línea**, **Desconectado** y el *Últ. vez*— nunca
   había pasado por las traducciones: se veía en castellano aunque tuvieras la app en inglés o
   en francés. Ahora está en los tres idiomas, con el lapso donde corresponde en cada lengua
