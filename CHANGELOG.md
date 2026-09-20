@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- En el chat, el **"Últ. vez"** dejó de contarse siempre en minutos. Decía cosas como
+  *hace 15945 min*, que no las lee nadie: ahora sube de unidad a medida que pasa el tiempo
+  —minutos, horas, días, meses, años— y el número siempre queda chico.
+
 ## 3.36 — 2026-09-20
 
 - **Novedades ya no te interrumpe**: al estrenar una versión sale una notificación, y la pantalla

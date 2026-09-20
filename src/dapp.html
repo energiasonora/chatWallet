@@ -16229,6 +16229,23 @@
                 }
             }
 
+            // "hace 15945 min" no lo lee nadie: se sube de unidad a medida que pasa el tiempo
+            // (minutos → horas → días → meses → años) y siempre queda un número chico.
+            function haceCuanto(desdeMs) {
+                const seg = Math.floor((Date.now() - desdeMs) / 1000);
+                if (!isFinite(seg) || seg < 60) return 'un momento';
+                const min = Math.floor(seg / 60);
+                if (min < 60) return min + ' min';
+                const horas = Math.floor(min / 60);
+                if (horas < 24) return horas === 1 ? '1 hora' : horas + ' horas';
+                const dias = Math.floor(horas / 24);
+                if (dias < 30) return dias === 1 ? '1 día' : dias + ' días';
+                const meses = Math.floor(dias / 30);
+                if (meses < 12) return meses === 1 ? '1 mes' : meses + ' meses';
+                const anios = Math.floor(meses / 12);
+                return anios === 1 ? '1 año' : anios + ' años';
+            }
+
             function updateChatHeaderStatus(contact) {
                 if (!contact) {
                     chatStatusIndicator.innerHTML = '';
@@ -16241,8 +16258,7 @@
                 if (isOnline) {
                     detail = 'En línea';
                 } else if (contact.lastSeen) {
-                    const minutesAgo = Math.floor((Date.now() - contact.lastSeen) / 60000);
-                    detail = minutesAgo < 1 ? 'Últ. vez hace un momento' : `Últ. vez hace ${minutesAgo} min`;
+                    detail = 'Últ. vez hace ' + haceCuanto(contact.lastSeen);
                 } else {
                     detail = 'Desconectado';
                 }
