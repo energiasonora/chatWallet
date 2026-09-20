@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.35 — 2026-09-20
+
 - Los dos lados de un chat ahora **se ponen de acuerdo solos**. Al abrir una conversación, cada
   teléfono le manda al otro un resumen mínimo de lo que tiene —por día, cuántos mensajes y una
   huella, unos cientos de bytes— y el que tiene de más completa lo que falta. No pasa por ningún

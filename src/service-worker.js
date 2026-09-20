@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chatwallet-cache-3.34';
+const CACHE_NAME = 'chatwallet-cache-3.35';
 const urlsToCache = [
   '/',
   '/dapp.html',
