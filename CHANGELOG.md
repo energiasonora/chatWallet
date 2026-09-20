@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.39 — 2026-09-20
+
 - **Reenviar un mensaje** —mantenés apretado y tocás la flecha— no hacía absolutamente nada
   desde que se agregó, en la 3.25. Eran dos fallas encimadas: la pantalla para elegir a quién
   reenviar se rompía antes de abrirse, y por debajo el pedido de conversación se colgaba sin
