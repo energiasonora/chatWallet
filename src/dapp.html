@@ -5509,6 +5509,59 @@
                 }
             }
 
+            // ── Que el navegador no nos borre la base ─────────────────────────────
+            // El almacenamiento de un sitio es "mejor esfuerzo": si al disco le falta lugar,
+            // el navegador lo tira sin avisar. Acá eso no es perder caché: se va la base de
+            // XMTP, la app estrena instalación, y todo lo que te mandaron mientras estaba
+            // cerrada queda cifrado para una instalación que ya no existe — ilegible para
+            // siempre. Medido en una Mac con el disco al 98%: seis instalaciones en tres
+            // semanas y los mensajes de esos días perdidos. Pedir persistencia lo evita
+            // (en una PWA instalada el navegador la concede sin preguntar).
+            async function asegurarAlmacenamientoPersistente() {
+                try {
+                    if (!navigator.storage || !navigator.storage.persist) return null;
+                    if (await navigator.storage.persisted()) return true;
+                    const dado = await navigator.storage.persist();
+                    console.log(dado
+                        ? '💾 Almacenamiento persistente concedido.'
+                        : '⚠️ El navegador NO concedió almacenamiento persistente: puede borrar los chats si le falta espacio en disco.');
+                    return dado;
+                } catch (e) { console.warn('persist():', e); return null; }
+            }
+
+            // ¿Es la misma instalación de XMTP que la última vez? Si cambió sin que hayamos
+            // pedido cambiarla, la base se borró: hay que decirlo (el silencio es lo peor de
+            // este bug: parece que nadie te escribió) y recuperar lo que se pueda.
+            const XMTP_INST_KEY = (addr) => `cw-xmtp-instalacion-${String(addr).toLowerCase()}`;
+            function detectarBaseRehecha(address, installationId) {
+                try {
+                    if (!address || !installationId) return false;
+                    const clave = XMTP_INST_KEY(address);
+                    const previa = localStorage.getItem(clave);
+                    localStorage.setItem(clave, installationId);
+                    return !!previa && previa !== installationId;
+                } catch (e) { return false; }
+            }
+
+            function avisarBaseRehecha(persistente) {
+                console.error('⚠️ La base local de XMTP se rehizo: esta es una instalación nueva del mismo chat.');
+                showToast(t('store_wiped_warn'), 'error', 14000);
+                if (persistente === false) setTimeout(() => showToast(t('store_persist_denied'), 'info', 14000), 1500);
+            }
+
+            // XMTP admite 10 instalaciones por identidad. Cada borrado de base gasta una, y al
+            // llegar a 10 el chat deja de arrancar. Avisar antes, no cuando ya no se puede.
+            async function vigilarInstalaciones() {
+                try {
+                    const st = await chatwalletxmtp.preferences.inboxState(true);
+                    const n = (st.installations || []).length;
+                    if (n >= 8) {
+                        console.warn(`⚠️ ${n}/10 instalaciones de XMTP en esta identidad.`);
+                        showToast(t('inst_casi_lleno', { n }), 'error', 14000);
+                    }
+                } catch (e) { /* best-effort */ }
+            }
+
             let isXmtpInitializing = false;
 
             // --- FUNCIÓN PARA INICIALIZAR XMTP EN SEGUNDO PLANO ---
@@ -5525,6 +5578,9 @@
                         signMessage: async (message) => ethers.getBytes(await wallet.signMessage(message)),
                     };
 
+                    // Antes de crear la base: que el navegador se comprometa a no borrarla.
+                    const persistente = await asegurarAlmacenamientoPersistente();
+
                     console.log("Iniciando XMTP (Background)...");
                     chatwalletxmtp = await Client.create(walletSigner, {
                         env: XMTP_ENV,
@@ -5538,6 +5594,12 @@
                     });
 
                     console.log("✅ Cliente XMTP creado.");
+
+                    // Vincular el chat de otra wallet SÍ cambia la base a propósito: eso no es
+                    // un borrado y no se avisa como tal.
+                    const linkForzado = localStorage.getItem('cw-link-force-restore') === '1';
+                    const baseRehecha = !linkForzado &&
+                        detectarBaseRehecha(wallet.address, String(chatwalletxmtp.installationId || ''));
 
                     // Wake push (Fase 2): la primera vez que este APK tiene token, re-emitir el
                     // perfil a TODOS los contactos existentes para que lo aprendan sin esperar a
@@ -5572,7 +5634,8 @@
                     // hay que bajar es otro. Si devuelve true ya está programada la recarga.
                     if (await checkAdoptedAccessRevoked()) return;
                     const forceRestore = localStorage.getItem('cw-link-force-restore') === '1';
-                    await restoreChatBackupIfNeeded({ force: forceRestore });
+                    await restoreChatBackupIfNeeded({ force: forceRestore || baseRehecha });
+                    if (baseRehecha) avisarBaseRehecha(persistente);
                     if (forceRestore) localStorage.removeItem('cw-link-force-restore');
                     loadOfflineThreads();
                     // Grupos: los que existen en XMTP pero todavía no en la lista de chats
@@ -5593,6 +5656,7 @@
                             showToast(`📨 Tenés ${missed.totalNew} mensaje${missed.totalNew > 1 ? 's' : ''} nuevo${missed.totalNew > 1 ? 's' : ''} ${quien}.`, 'info', 5000);
                         }
                     } catch (e) { console.warn('reconcile al arrancar:', e); }
+                    setTimeout(() => vigilarInstalaciones(), 20000);
                     await handleUrlParameters();
                 } catch (e) {
                     console.error("Background XMTP Error:", e);
@@ -17501,6 +17565,9 @@
                     "wc_tx_token": "La dApp pide ENVIAR {amount} {sym}:\n\nA: {to}\nContrato del token: {token}\nchainId: {chain}\n\nSe firmará y transmitirá con tu wallet.",
                     "wc_tx_approve": "La dApp pide PERMISO para que otro contrato gaste tus {sym}:\n\nQuién: {spender}\nHasta: {amount} {sym}\nContrato del token: {token}\nchainId: {chain}\n\nMientras el permiso siga en pie, ese contrato puede mover ese monto cuando quiera, sin volver a preguntarte.",
                     "wc_tx_unknown": "La dApp pide ejecutar algo que ChatWallet NO sabe leer:\n\nContrato: {to}\nFunción: {selector}\nDatos: {bytes} bytes\nValor: {value} {sym}\nchainId: {chain}\n\nNo puedo mostrarte qué hace. Aprobá sólo si sabés exactamente qué estás firmando.",
+                    "store_wiped_warn": "Este navegador borró los chats guardados de ChatWallet (suele pasar cuando falta espacio en disco). Se recuperó lo que había en tu respaldo, pero lo que te escribieron mientras la app estaba cerrada puede no aparecer. Pediles que te lo reenvíen.",
+                    "store_persist_denied": "El navegador no garantiza el almacenamiento de la app. Liberá espacio en el disco para que no vuelva a borrarte los chats.",
+                    "inst_casi_lleno": "Tu chat ya usa {n} de 10 instalaciones. Al llegar a 10 deja de arrancar: revocá las viejas en Configuración.",
                     "wc_sim_title": "Simulación (qué pasaría si se ejecuta ahora, sin contar la comisión):",
                     "wc_sim_approve": "⚠ Autoriza a {spender} a mover {amount} {sym} tuyos",
                     "wc_sim_approve_all": "⚠ Autoriza a {spender} a mover TODOS tus {sym}",
@@ -17801,6 +17868,9 @@
                     "wc_tx_token": "The dApp asks to SEND {amount} {sym}:\n\nTo: {to}\nToken contract: {token}\nchainId: {chain}\n\nIt will be signed and broadcast with your wallet.",
                     "wc_tx_approve": "The dApp asks for PERMISSION for another contract to spend your {sym}:\n\nWho: {spender}\nUp to: {amount} {sym}\nToken contract: {token}\nchainId: {chain}\n\nWhile the permission stands, that contract can move that amount whenever it wants, without asking again.",
                     "wc_tx_unknown": "The dApp asks to execute something ChatWallet CANNOT read:\n\nContract: {to}\nFunction: {selector}\nData: {bytes} bytes\nValue: {value} {sym}\nchainId: {chain}\n\nI cannot show you what it does. Approve only if you know exactly what you are signing.",
+                    "store_wiped_warn": "This browser deleted ChatWallet's stored chats (this usually happens when disk space runs low). What was in your backup has been restored, but messages sent while the app was closed may be missing. Ask the sender to resend them.",
+                    "store_persist_denied": "The browser does not guarantee this app's storage. Free up disk space so your chats are not deleted again.",
+                    "inst_casi_lleno": "Your chat is using {n} of 10 installations. At 10 it stops working: revoke the old ones in Settings.",
                     "wc_sim_title": "Simulation (what would happen if it ran now, excluding the fee):",
                     "wc_sim_approve": "⚠ Allows {spender} to move {amount} of your {sym}",
                     "wc_sim_approve_all": "⚠ Allows {spender} to move ALL your {sym}",
@@ -18099,6 +18169,9 @@
                     "wc_tx_token": "La dApp demande d'ENVOYER {amount} {sym} :\n\nÀ : {to}\nContrat du jeton : {token}\nchainId : {chain}\n\nElle sera signée et diffusée avec votre portefeuille.",
                     "wc_tx_approve": "La dApp demande la PERMISSION qu'un autre contrat dépense vos {sym} :\n\nQui : {spender}\nJusqu'à : {amount} {sym}\nContrat du jeton : {token}\nchainId : {chain}\n\nTant que la permission tient, ce contrat peut déplacer ce montant quand il veut, sans vous redemander.",
                     "wc_tx_unknown": "La dApp demande d'exécuter quelque chose que ChatWallet NE SAIT PAS lire :\n\nContrat : {to}\nFonction : {selector}\nDonnées : {bytes} octets\nValeur : {value} {sym}\nchainId : {chain}\n\nJe ne peux pas vous montrer ce qu'elle fait. N'approuvez que si vous savez exactement ce que vous signez.",
+                    "store_wiped_warn": "Ce navigateur a supprimé les discussions enregistrées de ChatWallet (cela arrive quand l'espace disque manque). Ce qui était dans votre sauvegarde a été restauré, mais les messages reçus pendant que l'app était fermée peuvent manquer. Demandez qu'on vous les renvoie.",
+                    "store_persist_denied": "Le navigateur ne garantit pas le stockage de l'app. Libérez de l'espace disque pour ne pas perdre vos discussions à nouveau.",
+                    "inst_casi_lleno": "Votre discussion utilise déjà {n} installations sur 10. À 10, elle cesse de démarrer : révoquez les anciennes dans Configuration.",
                     "wc_sim_title": "Simulation (ce qui se passerait si elle s'exécutait maintenant, hors frais) :",
                     "wc_sim_approve": "⚠ Autorise {spender} à déplacer {amount} de vos {sym}",
                     "wc_sim_approve_all": "⚠ Autorise {spender} à déplacer TOUS vos {sym}",

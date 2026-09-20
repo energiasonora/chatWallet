@@ -17,6 +17,17 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- ChatWallet le pide al navegador que **no borre** sus datos. Sin ese pedido, cuando al disco le
+  falta espacio el navegador tira el almacenamiento del sitio sin avisar: se va la base del chat,
+  la app estrena identidad de mensajería y **todo lo que te escribieron mientras estaba cerrada
+  queda ilegible para siempre**. Pasó de verdad en una Mac con el disco lleno: seis identidades
+  nuevas en tres semanas y mensajes que nunca aparecieron, sin una sola advertencia.
+- Y si ese borrado igual ocurre, ahora la app **lo detecta y lo dice**: restaura lo que haya en tu
+  respaldo y te avisa que puede faltar lo que te mandaron con la app cerrada, para que pidas que
+  te lo reenvíen. Antes parecía, simplemente, que nadie te había escrito.
+- El chat avisa cuando vas por **8 de las 10 identidades** que permite la red de mensajes. Al
+  llegar a 10 deja de arrancar, y cada borrado de base gasta una.
+
 ## 3.34 — 2026-09-18
 
 - Los pedidos de firma de una dApp (como StealthPay) **ya no se pierden** cuando la conexión
