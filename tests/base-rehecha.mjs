@@ -32,7 +32,8 @@ ok(/detectarBaseRehecha\(wallet\.address, String\(chatwalletxmtp\.installationId
     'la instalación se compara contra la guardada');
 ok(/force: forceRestore \|\| baseRehecha/.test(src),
     'si la base se rehizo, el respaldo soberano se restaura aunque el store no esté vacío');
-ok(/if \(baseRehecha\) avisarBaseRehecha\(persistente\)/.test(src), 'y se le avisa a la persona');
+ok(/avisarBaseRehecha\(persistente\);/.test(src), 'y se le avisa a la persona');
+ok(/syncReconciliarTodo\(\)/.test(src), 'y se le pide a los contactos el historial que falta');
 ok(/const linkForzado = localStorage\.getItem\('cw-link-force-restore'\)/.test(src),
     'vincular el chat de otra wallet no se confunde con un borrado');
 for (const clave of ['store_wiped_warn', 'store_persist_denied', 'inst_casi_lleno']) {

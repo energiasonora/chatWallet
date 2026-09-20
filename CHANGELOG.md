@@ -17,6 +17,13 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- Los dos lados de un chat ahora **se ponen de acuerdo solos**. Al abrir una conversación, cada
+  teléfono le manda al otro un resumen mínimo de lo que tiene —por día, cuántos mensajes y una
+  huella, unos cientos de bytes— y el que tiene de más completa lo que falta. No pasa por ningún
+  servidor: el que reenvía es el que escribió esos mensajes, y sólo puede reenviar los suyos.
+  Vuelven con su fecha original, en su lugar del hilo, sin repetirse y sin figurar como nuevos.
+  Si te borraron la base, la app pide el historial faltante a todos tus contactos apenas arranca.
+
 - ChatWallet le pide al navegador que **no borre** sus datos. Sin ese pedido, cuando al disco le
   falta espacio el navegador tira el almacenamiento del sitio sin avisar: se va la base del chat,
   la app estrena identidad de mensajería y **todo lo que te escribieron mientras estaba cerrada

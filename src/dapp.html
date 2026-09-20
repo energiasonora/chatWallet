@@ -5635,7 +5635,12 @@
                     if (await checkAdoptedAccessRevoked()) return;
                     const forceRestore = localStorage.getItem('cw-link-force-restore') === '1';
                     await restoreChatBackupIfNeeded({ force: forceRestore || baseRehecha });
-                    if (baseRehecha) avisarBaseRehecha(persistente);
+                    if (baseRehecha) {
+                        avisarBaseRehecha(persistente);
+                        // El respaldo sólo trae lo que ESTE dispositivo alguna vez descifró.
+                        // Lo que llegó mientras no estaba lo tiene el que lo escribió: se lo pedimos.
+                        setTimeout(() => syncReconciliarTodo().catch(() => { }), 5000);
+                    }
                     if (forceRestore) localStorage.removeItem('cw-link-force-restore');
                     loadOfflineThreads();
                     // Grupos: los que existen en XMTP pero todavía no en la lista de chats
@@ -8326,6 +8331,7 @@
                             // Los mensajes de sistema (creación del DM / "Contacto iniciado por…") no cuentan
                             // como no-leídos ni sirven de preview en la lista.
                             if (isHandshakeMessage(content)) continue;
+                            if (esMensajeDeSincronia(content)) continue;
                             const ts = m.sentAt ? m.sentAt.getTime() : 0;
                             if (ts > newest) {
                                 newest = ts;
@@ -8599,6 +8605,7 @@
                 // Los handshakes (creación del grupo MLS) referencian inboxIds de ESTA conversación;
                 // en un dispositivo nuevo la conversación genera los suyos. No se respaldan.
                 if (isHandshakeMessage(content)) return null;
+                if (esMensajeDeSincronia(content)) return null;   // plomería, no historial
                 return {
                     id: message.id,
                     peer: peerAddr.toLowerCase(),
@@ -10496,6 +10503,245 @@
             var messageStream = null;
             var conversationStream = null;
 
+            // ── Reconciliación de hilos por huella (cw:4) ────────────────────────
+            // XMTP entrega una vez y con secreto hacia adelante: lo que no se descifró
+            // cuando llegó no se le puede volver a pedir a la red. Si a un dispositivo le
+            // borran la base (ver asegurarAlmacenamientoPersistente), el hilo queda con
+            // agujeros y la otra punta ni se entera: parece que nadie te escribió.
+            //
+            // Quien sí tiene esos mensajes es quien los escribió, en su propio store. Así
+            // que las dos puntas se comparan con una huella barata y quien tiene de más,
+            // manda. Dos mensajes y ningún servidor:
+            //   res  → "esto es lo que tengo TUYO": por día, cuántos y una huella
+            //   lote → "acá va lo MÍO que te falta"
+            // No hace falta un pedido intermedio: con el resumen alcanza para saber qué
+            // completar. Y el autor de lo que se reenvía es, por construcción, quien lo
+            // reenvía: nadie puede meter historia a nombre tuyo ni de un tercero.
+            //
+            // La huella va sobre las MARCAS DE TIEMPO, no sobre el texto: el mismo mensaje
+            // se serializa distinto en cada punta (una respuesta es un objeto), y eso daría
+            // diferencias falsas para siempre.
+            const SYNC_VENTANA_DIAS = 30;
+            const SYNC_MAX_LOTE = 200;
+            const SYNC_CADA_MS = 6 * 60 * 60 * 1000;   // un resumen por contacto cada 6 h
+            const SYNC_LOTE_MIN_MS = 60 * 1000;        // y no contestar lotes en ráfaga
+            const syncUltimoResumen = new Map();
+            const syncUltimoLote = new Map();
+
+            function esMensajeDeSincronia(contenido) {
+                if (typeof contenido !== 'string' || contenido[0] !== '{') return false;
+                try { const o = JSON.parse(contenido); return !!o && o.cw === 4; } catch (_) { return false; }
+            }
+
+            function syncDia(ts) { return new Date(ts).toISOString().slice(0, 10); }
+
+            // FNV-1a. No es criptográfica y no necesita serlo: lo único que decide es
+            // "¿tenemos lo mismo?". El peor caso de una colisión es que un mensaje siga
+            // faltando, no que entre algo falso — lo que llega se valida aparte.
+            function syncHuella(marcas) {
+                let h = 0x811c9dc5;
+                for (const m of marcas) {
+                    const s = String(m);
+                    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+                    h ^= 44; h = Math.imul(h, 0x01000193) >>> 0;   // separador entre marcas
+                }
+                return h.toString(16).padStart(8, '0');
+            }
+
+            // Resumen por día de lo que tengo de este contacto en una dirección
+            // ('received' = lo suyo, 'sent' = lo mío).
+            async function syncResumenDe(peerAddr, direccion) {
+                const desde = Date.now() - SYNC_VENTANA_DIAS * 86400000;
+                const regs = (await msgStoreGetByPeer(peerAddr))
+                    .filter(r => r.dir === direccion && r.ts >= desde && !esMensajeDeSincronia(r.content));
+                const porDia = {};
+                for (const r of regs) {
+                    const dia = syncDia(r.ts);
+                    (porDia[dia] = porDia[dia] || []).push(r.ts);
+                }
+                const d = {};
+                for (const dia of Object.keys(porDia)) {
+                    const marcas = porDia[dia].sort((a, b) => a - b);
+                    d[dia] = { n: marcas.length, h: syncHuella(marcas) };
+                }
+                return d;
+            }
+
+            // "Esto es lo que tengo tuyo." Se manda al abrir el chat, con freno de 6 h.
+            async function syncMandarResumen(conv, peerAddr, { forzar = false } = {}) {
+                try {
+                    if (!conv || !peerAddr || convIsGroup(conv)) return false;
+                    const clave = peerAddr.toLowerCase();
+                    if (!forzar && Date.now() - (syncUltimoResumen.get(clave) || 0) < SYNC_CADA_MS) return false;
+                    syncUltimoResumen.set(clave, Date.now());
+                    const dias = await syncResumenDe(clave, 'received');
+                    await conv.sendText(JSON.stringify({ cw: 4, t: 'res', dias }));
+                    syncEsperarRespuesta(conv, clave).catch(() => { });
+                    return true;
+                } catch (e) { console.warn('[sync] resumen:', e); return false; }
+            }
+
+            // Al detectar que la base se rehizo: preguntarle a TODOS los contactos, sin
+            // esperar a que abras cada chat. Es el caso que justifica todo esto.
+            async function syncReconciliarTodo(limite = 25) {
+                if (!chatwalletxmtp) return 0;
+                let hechos = 0;
+                for (const c of (contacts || []).slice(0, limite)) {
+                    if (!c.address || c.address.startsWith('group:') || isBlockedContact(c.address)) continue;
+                    try {
+                        const conv = await chatwalletxmtp.conversations.createDmWithIdentifier({
+                            identifier: c.address.toLowerCase(), identifierKind: 0
+                        });
+                        if (await syncMandarResumen(conv, c.address, { forzar: true })) hechos++;
+                    } catch (e) { /* un contacto que no resuelve no frena a los demás */ }
+                }
+                if (hechos) console.log('[sync] le pedí el historial faltante a ' + hechos + ' contacto(s).');
+                return hechos;
+            }
+
+            // El stream de XMTP no entrega los mensajes de una conversación creada DESPUÉS de
+            // abrirlo (la misma trampa que ya nos comimos con los pedidos de las dApps, v3.34).
+            // Como el resumen se manda justo al arrancar, la respuesta caería en ese agujero:
+            // se la espera a mano un rato.
+            async function syncEsperarRespuesta(conv, peerAddr, rondas = 3, rondaMs = 70000) {
+                const desde = BigInt(Date.now() - 60000) * 1000000n;
+                for (let ronda = 0; ronda < rondas; ronda++) {
+                    const hasta = Date.now() + rondaMs;
+                    while (Date.now() < hasta) {
+                        await new Promise(r => setTimeout(r, 8000));
+                        try {
+                            await conv.sync();
+                            const recientes = await conv.messages({ sentAfterNs: desde }).catch(() => []);
+                            for (const m of recientes) {
+                                if (m.senderInboxId === chatwalletxmtp.inboxId || typeof m.content !== 'string') continue;
+                                let o; try { o = JSON.parse(m.content); } catch (_) { continue; }
+                                if (!o || o.cw !== 4 || o.t !== 'lote') continue;
+                                console.log('[sync] lote que el stream no entregó, lo agarra la espera.');
+                                await syncAtenderLote(m, o);
+                                return;
+                            }
+                        } catch (e) { /* reintenta en la próxima vuelta */ }
+                    }
+                    // Sin respuesta: repetir el resumen. La otra punta pudo no poder contestar
+                    // todavía (acababa de enterarse del hilo nuevo), y su freno anti-ráfaga es
+                    // de un minuto: por eso las rondas son más largas que eso.
+                    if (ronda < rondas - 1) {
+                        try {
+                            const dias = await syncResumenDe(String(peerAddr).toLowerCase(), 'received');
+                            await conv.sync().catch(() => { });
+                            await conv.sendText(JSON.stringify({ cw: 4, t: 'res', dias }));
+                            console.log('[sync] sin respuesta: repito el resumen.');
+                        } catch (e) { /* si no se puede repetir, se sigue escuchando */ }
+                    }
+                }
+            }
+
+            // Un cw:4 que quedó en la base sin atender (llegó con la app cerrada, o el stream
+            // no lo entregó). Al abrir el chat se procesa: es idempotente y se ignora lo rancio.
+            const syncYaAtendidos = new Set();
+            function syncDesdeElHilo(message, crudo) {
+                try {
+                    if (!message || !message.id || syncYaAtendidos.has(message.id)) return;
+                    if (!chatwalletxmtp || message.senderInboxId === chatwalletxmtp.inboxId) return;
+                    const ts = message.sentAt ? message.sentAt.getTime() : 0;
+                    if (!ts || Date.now() - ts > 24 * 60 * 60 * 1000) return;
+                    syncYaAtendidos.add(message.id);
+                    const o = JSON.parse(crudo);
+                    if (!o || o.cw !== 4) return;
+                    (o.t === 'lote' ? syncAtenderLote(message, o) : syncAtenderResumen(message, o))
+                        .catch(e => console.warn('[sync] hilo:', e));
+                } catch (e) { /* un mensaje ilegible no rompe la carga del chat */ }
+            }
+
+            // Me llegó un resumen: comparo contra lo que YO le mandé y le completo los días
+            // que no cuadran.
+            async function syncAtenderResumen(message, obj) {
+                const peerAddr = await getAddressFromInboxId(message.senderInboxId);
+                if (!peerAddr) return;
+                const clave = peerAddr.toLowerCase();
+                // Sólo con contactos tuyos: un desconocido no dispara que le mandes historial.
+                if (!(contacts || []).some(c => (c.address || '').toLowerCase() === clave)) return;
+                if (isBlockedContact(peerAddr)) return;
+                if (Date.now() - (syncUltimoLote.get(clave) || 0) < SYNC_LOTE_MIN_MS) return;
+
+                const suyo = (obj && obj.dias) || {};
+                const mio = await syncResumenDe(clave, 'sent');
+                const faltan = Object.keys(mio).filter(d => !suyo[d] || suyo[d].n !== mio[d].n || suyo[d].h !== mio[d].h);
+                if (!faltan.length) return;
+
+                const desde = Date.now() - SYNC_VENTANA_DIAS * 86400000;
+                const regs = (await msgStoreGetByPeer(clave))
+                    .filter(r => r.dir === 'sent' && r.ts >= desde && faltan.indexOf(syncDia(r.ts)) > -1 && !esMensajeDeSincronia(r.content))
+                    .slice(-SYNC_MAX_LOTE);
+                if (!regs.length) return;
+
+                // Por createDmWithIdentifier y NO por getConversationById(conversationId):
+                // cuando a una punta le borran la base, su app arranca un grupo MLS nuevo y
+                // quedan dos hilos para el mismo par. getConversationById devuelve el objeto
+                // unificado, pero lo que se manda por ahí cae en el hilo viejo y el otro NO lo
+                // recibe (medido: el mensaje llegaba a la base propia y nunca a la de enfrente).
+                // La vía que sí entrega es la misma que usa el chat.
+                const conv = await chatwalletxmtp.conversations.createDmWithIdentifier({
+                    identifier: clave, identifierKind: 0
+                }).catch(() => null);
+                if (!conv) return;
+                // Si el hilo se acaba de crear del otro lado, mandar sin sincronizar deja el
+                // lote en un estado que la otra punta todavía no puede leer.
+                await conv.sync().catch(() => { });
+                syncUltimoLote.set(clave, Date.now());
+                await conv.sendText(JSON.stringify({
+                    cw: 4, t: 'lote',
+                    m: regs.map(r => ({ i: r.id, t: r.ts, y: r.typeId || 'text', c: r.content }))
+                }));
+                console.log('[sync] le reenvié ' + regs.length + ' mensaje(s) a ' + clave.slice(0, 10) + '… (días: ' + faltan.join(', ') + ')');
+            }
+
+            // Me llegó un lote: son mensajes que esta punta nunca pudo descifrar. Entran al
+            // store —que es lo que dibuja el hilo y alimenta el respaldo— con su fecha
+            // original y sin contar como no leídos: no son nuevos, son los que faltaban.
+            async function syncAtenderLote(message, obj) {
+                const peerAddr = await getAddressFromInboxId(message.senderInboxId);
+                if (!peerAddr) return;
+                const clave = peerAddr.toLowerCase();
+                if (!(contacts || []).some(c => (c.address || '').toLowerCase() === clave)) return;
+                if (isBlockedContact(peerAddr)) return;
+
+                const lote = Array.isArray(obj && obj.m) ? obj.m.slice(0, SYNC_MAX_LOTE) : [];
+                if (!lote.length) return;
+                // Dedupe por marca de tiempo, no por id: el id de XMTP puede no ser el mismo
+                // del lado que reenvía, y dos burbujas repetidas serían peor que el agujero.
+                const ya = new Set((await msgStoreGetByPeer(clave)).map(r => r.dir + '|' + r.ts));
+                const nuevos = [];
+                for (const x of lote) {
+                    const ts = Number(x && x.t);
+                    const c = x && x.c;
+                    if (!ts || typeof c !== 'string' || !c) continue;
+                    if (ts > Date.now() + 60000) continue;        // nada fechado en el futuro
+                    if (esMensajeDeSincronia(c)) continue;
+                    if (ya.has('received|' + ts)) continue;
+                    ya.add('received|' + ts);
+                    nuevos.push({
+                        id: String(x.i || ('sync-' + ts + '-' + clave.slice(2, 10))),
+                        peer: clave, dir: 'received', typeId: String(x.y || 'text'),
+                        content: c, ts,
+                        sender: message.senderInboxId,   // el autor es quien reenvía, siempre
+                    });
+                }
+                if (!nuevos.length) return;
+
+                const added = await msgStorePut(nuevos);
+                if (!added) return;
+                markChatBackupDirty();
+                console.log('[sync] recuperé ' + added + ' mensaje(s) que faltaban de ' + clave.slice(0, 10) + '…');
+                showToast(t('sync_recuperados', { n: added }), 'success', 8000);
+                // Con el chat abierto se redibuja para que entren en su lugar cronológico
+                // (loadAndStreamMessages mezcla XMTP con el store), no pegados al final.
+                if (chatView.classList.contains('active') && currentConversation &&
+                    (currentConversation.peerAddress || '').toLowerCase() === clave) {
+                    await loadAndStreamMessages(currentConversation, { keepVisible: true });
+                }
+            }
+
             async function listenForIncomingMessages() {
                 if (!chatwalletxmtp) return;
 
@@ -10556,6 +10802,13 @@
                                     if (__cw && __cw.cw === 1) { handleWalletConnectRpc(message, __cw).catch(e => console.warn('[cw-bridge]', e)); return; }
                                     // cw:3 — aviso de pago stealth. Llega antes que la UI del
                                     // chat: es un dato de protocolo, no un mensaje para leer.
+                                    // cw:4 — reconciliación de historial. Plomería pura entre
+                                    // dispositivos: no se dibuja, no suena, no cuenta.
+                                    if (__cw && __cw.cw === 4) {
+                                        (__cw.t === 'lote' ? syncAtenderLote(message, __cw) : syncAtenderResumen(message, __cw))
+                                            .catch(e => console.warn('[sync]', e));
+                                        return;
+                                    }
                                     if (__cw && __cw.cw === 3 && __cw.type === 'stealth_payment') {
                                         handleStealthPayment(message, __cw).catch(e => console.warn('[stealth]', e));
                                         return;
@@ -11080,6 +11333,8 @@
                         // Perfiles que llegaron mientras estábamos offline: aplicarlos (alias/avatar
                         // del contacto) en vez de renderizarlos como un mensaje en el chat.
                         if (typeId === 'profile') { handleProfileMessage(message); continue; }
+                        const crudoSync = typeof message.content === 'string' ? message.content : '';
+                        if (esMensajeDeSincronia(crudoSync)) { syncDesdeElHilo(message, crudoSync); continue; }
                         const type = message.senderInboxId === chatwalletxmtp.inboxId ? 'sent' : 'received';
                         const ts = message.sentAt ? message.sentAt.getTime() : 0;
                         entries.push({ message, type, ts });
@@ -11110,6 +11365,9 @@
                     }
                     for (const entry of entries) addMessageToUI(entry.message, entry.type);
                     if (window.__updateRefreshBtn) window.__updateRefreshBtn();
+                    // Y de paso, comparar el hilo con la otra punta: si a alguno le faltan
+                    // mensajes (base borrada, push perdida), el otro se los completa.
+                    if (peerAddr && !convIsGroup(conv)) syncMandarResumen(conv, peerAddr);
                 } catch (error) {
                     console.error("Error al cargar mensajes:", error);
                     if (token !== chatOpenToken) return;
@@ -11813,6 +12071,10 @@
                 let messageContent = replyInfo
                     ? (typeof replyInfo.content === 'string' ? replyInfo.content : JSON.stringify(replyInfo.content))
                     : (typeof message.content === 'object' ? JSON.stringify(message.content) : message.content);
+
+                // Reconciliación de historial (cw:4): no es un mensaje. Se filtra también
+                // acá porque al recargar el hilo sale de la base local, no del stream.
+                if (esMensajeDeSincronia(messageContent)) return;
 
                 // Ignorar mensajes vacíos o que solo contienen un objeto vacío
                 if (!messageContent || messageContent === '{}' || messageContent === 'null') {
@@ -17566,6 +17828,7 @@
                     "wc_tx_approve": "La dApp pide PERMISO para que otro contrato gaste tus {sym}:\n\nQuién: {spender}\nHasta: {amount} {sym}\nContrato del token: {token}\nchainId: {chain}\n\nMientras el permiso siga en pie, ese contrato puede mover ese monto cuando quiera, sin volver a preguntarte.",
                     "wc_tx_unknown": "La dApp pide ejecutar algo que ChatWallet NO sabe leer:\n\nContrato: {to}\nFunción: {selector}\nDatos: {bytes} bytes\nValor: {value} {sym}\nchainId: {chain}\n\nNo puedo mostrarte qué hace. Aprobá sólo si sabés exactamente qué estás firmando.",
                     "store_wiped_warn": "Este navegador borró los chats guardados de ChatWallet (suele pasar cuando falta espacio en disco). Se recuperó lo que había en tu respaldo, pero lo que te escribieron mientras la app estaba cerrada puede no aparecer. Pediles que te lo reenvíen.",
+                    "sync_recuperados": "Se recuperaron {n} mensaje(s) que faltaban en este chat.",
                     "store_persist_denied": "El navegador no garantiza el almacenamiento de la app. Liberá espacio en el disco para que no vuelva a borrarte los chats.",
                     "inst_casi_lleno": "Tu chat ya usa {n} de 10 instalaciones. Al llegar a 10 deja de arrancar: revocá las viejas en Configuración.",
                     "wc_sim_title": "Simulación (qué pasaría si se ejecuta ahora, sin contar la comisión):",
@@ -17869,6 +18132,7 @@
                     "wc_tx_approve": "The dApp asks for PERMISSION for another contract to spend your {sym}:\n\nWho: {spender}\nUp to: {amount} {sym}\nToken contract: {token}\nchainId: {chain}\n\nWhile the permission stands, that contract can move that amount whenever it wants, without asking again.",
                     "wc_tx_unknown": "The dApp asks to execute something ChatWallet CANNOT read:\n\nContract: {to}\nFunction: {selector}\nData: {bytes} bytes\nValue: {value} {sym}\nchainId: {chain}\n\nI cannot show you what it does. Approve only if you know exactly what you are signing.",
                     "store_wiped_warn": "This browser deleted ChatWallet's stored chats (this usually happens when disk space runs low). What was in your backup has been restored, but messages sent while the app was closed may be missing. Ask the sender to resend them.",
+                    "sync_recuperados": "Recovered {n} message(s) that were missing from this chat.",
                     "store_persist_denied": "The browser does not guarantee this app's storage. Free up disk space so your chats are not deleted again.",
                     "inst_casi_lleno": "Your chat is using {n} of 10 installations. At 10 it stops working: revoke the old ones in Settings.",
                     "wc_sim_title": "Simulation (what would happen if it ran now, excluding the fee):",
@@ -18170,6 +18434,7 @@
                     "wc_tx_approve": "La dApp demande la PERMISSION qu'un autre contrat dépense vos {sym} :\n\nQui : {spender}\nJusqu'à : {amount} {sym}\nContrat du jeton : {token}\nchainId : {chain}\n\nTant que la permission tient, ce contrat peut déplacer ce montant quand il veut, sans vous redemander.",
                     "wc_tx_unknown": "La dApp demande d'exécuter quelque chose que ChatWallet NE SAIT PAS lire :\n\nContrat : {to}\nFonction : {selector}\nDonnées : {bytes} octets\nValeur : {value} {sym}\nchainId : {chain}\n\nJe ne peux pas vous montrer ce qu'elle fait. N'approuvez que si vous savez exactement ce que vous signez.",
                     "store_wiped_warn": "Ce navigateur a supprimé les discussions enregistrées de ChatWallet (cela arrive quand l'espace disque manque). Ce qui était dans votre sauvegarde a été restauré, mais les messages reçus pendant que l'app était fermée peuvent manquer. Demandez qu'on vous les renvoie.",
+                    "sync_recuperados": "{n} message(s) manquant(s) ont été récupérés dans cette discussion.",
                     "store_persist_denied": "Le navigateur ne garantit pas le stockage de l'app. Libérez de l'espace disque pour ne pas perdre vos discussions à nouveau.",
                     "inst_casi_lleno": "Votre discussion utilise déjà {n} installations sur 10. À 10, elle cesse de démarrer : révoquez les anciennes dans Configuration.",
                     "wc_sim_title": "Simulation (ce qui se passerait si elle s'exécutait maintenant, hors frais) :",
