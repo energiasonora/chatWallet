@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.36 — 2026-09-20
+
 - **Novedades ya no te interrumpe**: al estrenar una versión sale una notificación, y la pantalla
   se abre sólo si la tocás. Antes se abría sola apenas entrabas, tapando la app para algo que no
   pediste. Sigue estando en el modal de la marca y en Configuración.
