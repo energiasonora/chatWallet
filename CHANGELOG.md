@@ -17,6 +17,16 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Reenviar un mensaje** —mantenés apretado y tocás la flecha— no hacía absolutamente nada
+  desde que se agregó, en la 3.25. Eran dos fallas encimadas: la pantalla para elegir a quién
+  reenviar se rompía antes de abrirse, y por debajo el pedido de conversación se colgaba sin
+  devolver ni un error. Ahora abre la lista de contactos, manda el mensaje y te avisa a quién
+  se lo mandaste, sin sacarte del chat donde estabas.
+- Las **respuestas que te llegaban no se guardaban** en el historial local: un detalle del formato
+  las hacía fallar al archivarlas, y de paso se llevaba puesto al resto de los mensajes del mismo
+  lote. Como no quedaban guardadas, tampoco entraban en el respaldo ni en la sincronía entre las
+  dos puntas: al cambiar de dispositivo, esas respuestas no aparecían.
+
 ## 3.38 — 2026-09-20
 
 - El renglón de conexión del chat —**En línea**, **Desconectado** y el *Últ. vez*— nunca

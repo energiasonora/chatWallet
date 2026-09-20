@@ -4533,6 +4533,13 @@
             const isGroupKey = (addr) => typeof addr === 'string' && addr.startsWith(GROUP_KEY_PREFIX);
             const groupKeyOf = (convId) => GROUP_KEY_PREFIX + convId;
             const groupIdFromKey = (key) => isGroupKey(key) ? key.slice(GROUP_KEY_PREFIX.length) : null;
+            // Escapar texto que se mete en un innerHTML. Vivía en el <script type="module"> de
+            // abajo, así que el script clásico —donde está casi toda la app— NO la veía: llamarla
+            // desde acá tiraba ReferenceError y el botón de turno se quedaba mudo (reenviar).
+            // Declarada acá, en el scope global, la ven los dos lados.
+            function escHtml(s) {
+                return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
             // Group tiene addMembers(); Dm no. Es la distinción más barata y estable del SDK.
             const convIsGroup = (conv) => !!conv && typeof conv.addMembers === 'function';
             // Avatar por defecto de grupo (SVG inline: sin red, sirve igual en el APK).
@@ -8634,10 +8641,18 @@
 
             // ── Captura: mensaje XMTP → registro del store ──────────────────
             const MSGSTORE_SKIP_TYPES = new Set(['readReceipt', 'read-receipt', 'presence', 'profile', 'group_updated']);
+            // JSON.stringify revienta con un BigInt —"Do not know how to serialize a BigInt"— y
+            // los contenidos que no son texto plano (una respuesta, una reacción) traen alguno del
+            // SDK. La excepción subía hasta el stream: ese mensaje, y los que venían en el mismo
+            // lote, no se guardaban nunca. Sin guardar no hay respaldo ni reconciliación cw:4.
+            function jsonConBigInt(v) {
+                try { return JSON.stringify(v, (_, x) => typeof x === 'bigint' ? x.toString() : x); }
+                catch (e) { console.warn('msgstore: contenido que no se puede serializar', e); return null; }
+            }
             function msgRecordFromXmtp(message, peerAddr, isSentByMe) {
                 const typeId = message.contentType?.typeId || 'text';
                 if (MSGSTORE_SKIP_TYPES.has(typeId)) return null;
-                const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+                const content = typeof message.content === 'string' ? message.content : jsonConBigInt(message.content);
                 if (!content || content === '{}' || content === 'null') return null;
                 // Los handshakes (creación del grupo MLS) referencian inboxIds de ESTA conversación;
                 // en un dispositivo nuevo la conversación genera los suyos. No se respaldan.
@@ -8660,8 +8675,11 @@
                 if (!peerAddr || !messages?.length) return;
                 const records = [];
                 for (const m of messages) {
-                    const rec = msgRecordFromXmtp(m, peerAddr, m.senderInboxId === myInboxId);
-                    if (rec) records.push(rec);
+                    // Un mensaje raro no puede llevarse puesto el lote entero ni volver al stream.
+                    try {
+                        const rec = msgRecordFromXmtp(m, peerAddr, m.senderInboxId === myInboxId);
+                        if (rec) records.push(rec);
+                    } catch (e) { console.warn('msgstore: mensaje que no se pudo registrar', e); }
                 }
                 try {
                     const added = await msgStorePut(records);
@@ -11919,8 +11937,14 @@
                 if (c.isGroup && c.groupId)
                     return await chatwalletxmtp.conversations.getConversationById(c.groupId);
                 if (!ethers.isAddress(c.address)) return null;
+                // identifierKind es el enum numérico del SDK (0 = Ethereum), no el nombre: con
+                // la cadena 'Ethereum' el worker WASM NO devuelve error, se queda esperando para
+                // siempre. Se comía los 20 s del timeout y reenviar terminaba en "no se pudo".
+                // Y el sync previo es el mismo que hace abrir un chat: sin él, crear el DM puede
+                // salir a la red con la lista de conversaciones vieja.
+                await withTimeout(chatwalletxmtp.conversations.sync(), 20000, 'conversations.sync (reenviar)');
                 return await withTimeout(chatwalletxmtp.conversations.createDmWithIdentifier({
-                    identifier: c.address.toLowerCase(), identifierKind: 'Ethereum',
+                    identifier: c.address.toLowerCase(), identifierKind: 0,
                 }), 20000, 'createDmWithIdentifier (reenviar)');
             }
 
@@ -20128,9 +20152,6 @@
             }
             function ipfsFormatDate(iso) {
                 return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-            }
-            function escHtml(s) {
-                return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             }
 
             // ── INIT ─────────────────────────────────────────────────────────────
