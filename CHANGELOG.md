@@ -17,6 +17,15 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Novedades ya no te interrumpe**: al estrenar una versión sale una notificación, y la pantalla
+  se abre sólo si la tocás. Antes se abría sola apenas entrabas, tapando la app para algo que no
+  pediste. Sigue estando en el modal de la marca y en Configuración.
+- Cada dispositivo mantiene **una sola identidad de mensajería**: cuando el navegador borra la base,
+  la identidad que murió con ella se da de baja sola en vez de quedar ocupando lugar. XMTP permite
+  10 por wallet y al llegar a 10 el chat deja de arrancar; así el contador no sube nunca.
+- El botón **Revocar instalaciones antiguas** de Configuración estaba mirando la red de desarrollo
+  desde la mudanza de agosto: no revocaba nada. Ahora trabaja sobre la red real.
+
 ## 3.35 — 2026-09-20
 
 - Los dos lados de un chat ahora **se ponen de acuerdo solos**. Al abrir una conversación, cada

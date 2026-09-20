@@ -5533,15 +5533,47 @@
             // pedido cambiarla, la base se borró: hay que decirlo (el silencio es lo peor de
             // este bug: parece que nadie te escribió) y recuperar lo que se pueda.
             const XMTP_INST_KEY = (addr) => `cw-xmtp-instalacion-${String(addr).toLowerCase()}`;
+            // Devuelve la instalación ANTERIOR de este dispositivo si la base se rehizo
+            // (null si es la misma de siempre o si es la primera vez). Saber cuál era es lo
+            // que después permite revocarla: es la única que sabemos muerta con certeza.
             function detectarBaseRehecha(address, installationId) {
                 try {
-                    if (!address || !installationId) return false;
+                    if (!address || !installationId) return null;
                     const clave = XMTP_INST_KEY(address);
                     const previa = localStorage.getItem(clave);
                     localStorage.setItem(clave, installationId);
-                    return !!previa && previa !== installationId;
-                } catch (e) { return false; }
+                    return (previa && previa !== installationId) ? previa : null;
+                } catch (e) { return null; }
             }
+
+            // Un installation id por dispositivo. Cuando la base se rehace, la instalación
+            // anterior de ESTE dispositivo quedó muerta —su base ya no existe, nadie puede
+            // volver a usarla— y lo único que hace es gastar cupo: XMTP admite 10 por
+            // identidad y al llegar a 10 el chat no arranca más. Se revoca sola.
+            // Sólo se toca la que este mismo dispositivo anotó como suya: la de otro aparato
+            // no se adivina ni se toca nunca.
+            async function revocarInstalacionMuerta(instalacionVieja) {
+                try {
+                    if (!instalacionVieja || !chatwalletxmtp || !currentWallet) return false;
+                    const actual = String(chatwalletxmtp.installationId || '');
+                    if (!actual || instalacionVieja === actual) return false;   // jamás la viva
+                    // fetchInboxStates y NO preferences.inboxState: la copia local del cliente
+                    // sigue listando instalaciones ya revocadas (medido). La verdad está en la red.
+                    const estados = await Client.fetchInboxStates([chatwalletxmtp.inboxId], XMTP_ENV);
+                    const vivas = (estados && estados[0] && estados[0].installations) || [];
+                    const muerta = vivas.find(i => String(i.id || '') === instalacionVieja);
+                    if (!muerta || !muerta.bytes) return false;                 // ya no estaba
+                    const walletSigner = {
+                        type: 'EOA',
+                        getIdentifier: () => ({ identifier: currentWallet.address, identifierKind: 0 }),
+                        signMessage: async (m) => ethers.getBytes(await currentWallet.signMessage(m)),
+                    };
+                    await Client.revokeInstallations(walletSigner, chatwalletxmtp.inboxId, [muerta.bytes], XMTP_ENV);
+                    console.log('🧹 Instalación muerta revocada: ' + instalacionVieja.slice(0, 8) + '…');
+                    return true;
+                } catch (e) { console.warn('revocar instalación muerta:', e); return false; }
+            }
+
 
             function avisarBaseRehecha(persistente) {
                 console.error('⚠️ La base local de XMTP se rehizo: esta es una instalación nueva del mismo chat.');
@@ -5553,8 +5585,8 @@
             // llegar a 10 el chat deja de arrancar. Avisar antes, no cuando ya no se puede.
             async function vigilarInstalaciones() {
                 try {
-                    const st = await chatwalletxmtp.preferences.inboxState(true);
-                    const n = (st.installations || []).length;
+                    const estados = await Client.fetchInboxStates([chatwalletxmtp.inboxId], XMTP_ENV);
+                    const n = ((estados && estados[0] && estados[0].installations) || []).length;
                     if (n >= 8) {
                         console.warn(`⚠️ ${n}/10 instalaciones de XMTP en esta identidad.`);
                         showToast(t('inst_casi_lleno', { n }), 'error', 14000);
@@ -5598,8 +5630,9 @@
                     // Vincular el chat de otra wallet SÍ cambia la base a propósito: eso no es
                     // un borrado y no se avisa como tal.
                     const linkForzado = localStorage.getItem('cw-link-force-restore') === '1';
-                    const baseRehecha = !linkForzado &&
-                        detectarBaseRehecha(wallet.address, String(chatwalletxmtp.installationId || ''));
+                    const instalacionMuerta = linkForzado ? null
+                        : detectarBaseRehecha(wallet.address, String(chatwalletxmtp.installationId || ''));
+                    const baseRehecha = !!instalacionMuerta;
 
                     // Wake push (Fase 2): la primera vez que este APK tiene token, re-emitir el
                     // perfil a TODOS los contactos existentes para que lo aprendan sin esperar a
@@ -5640,6 +5673,8 @@
                         // El respaldo sólo trae lo que ESTE dispositivo alguna vez descifró.
                         // Lo que llegó mientras no estaba lo tiene el que lo escribió: se lo pedimos.
                         setTimeout(() => syncReconciliarTodo().catch(() => { }), 5000);
+                        // Y la instalación que murió con esa base deja de ocupar lugar.
+                        setTimeout(() => revocarInstalacionMuerta(instalacionMuerta), 9000);
                     }
                     if (forceRestore) localStorage.removeItem('cw-link-force-restore');
                     loadOfflineThreads();
@@ -5710,7 +5745,9 @@
                     };
 
                     let targetInboxId = inboxIdRaw;
-                    const env = "dev";
+                    // Iba clavado a 'dev': desde la mudanza a producción (v3.00) este botón
+                    // consultaba y revocaba en la red equivocada, o sea nunca hacía nada.
+                    const env = XMTP_ENV;
 
                     if (!targetInboxId || targetInboxId === "current_wallet") {
                         log("Obteniendo Inbox ID...", "info");
@@ -12672,10 +12709,12 @@
                 if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
             }
 
-            // Se abre sola UNA vez, al estrenar una versión. A quien entra por primera vez no se
-            // le muestra nada (no se perdió ninguna novedad): sólo se anota en qué versión llegó.
+            // Al estrenar una versión se AVISA, no se interrumpe: sale una notificación y el
+            // modal se abre sólo si la tocás (o desde Configuración). Abrirlo solo tapaba la app
+            // apenas entrabas, para algo que no pediste. A quien entra por primera vez no se le
+            // muestra nada (no se perdió ninguna novedad): sólo se anota en qué versión llegó.
             // Y si la versión que corre no tiene entrada propia en el changelog (un redeploy),
-            // tampoco: abrir "Novedades" para mostrar lo de la versión anterior confunde.
+            // tampoco: avisar de novedades que son las de la versión anterior confunde.
             function mostrarNovedadesSiHayVersionNueva() {
                 const actual = fmtVersion(getCurrentVersion());
                 let visto = null;
@@ -12685,7 +12724,14 @@
                     try { localStorage.setItem(NOVEDADES_VISTAS_KEY, actual); } catch (e) { }
                     return;
                 }
-                abrirNovedades();
+                // Enterarse cuenta como enterarse: no vuelve a avisar hasta la próxima versión.
+                try { localStorage.setItem(NOVEDADES_VISTAS_KEY, actual); } catch (e) { }
+                cwNotify({
+                    title: t('changelog_title'),
+                    body: t('changelog_toast', { v: actual }),
+                    type: 'info', duration: 9000, tag: 'novedades',
+                    onClick: () => abrirNovedades(),
+                });
             }
 
             // Notas del release remoto, plegadas: son largas y el modal es chico.
@@ -17829,6 +17875,7 @@
                     "wc_tx_unknown": "La dApp pide ejecutar algo que ChatWallet NO sabe leer:\n\nContrato: {to}\nFunción: {selector}\nDatos: {bytes} bytes\nValor: {value} {sym}\nchainId: {chain}\n\nNo puedo mostrarte qué hace. Aprobá sólo si sabés exactamente qué estás firmando.",
                     "store_wiped_warn": "Este navegador borró los chats guardados de ChatWallet (suele pasar cuando falta espacio en disco). Se recuperó lo que había en tu respaldo, pero lo que te escribieron mientras la app estaba cerrada puede no aparecer. Pediles que te lo reenvíen.",
                     "sync_recuperados": "Se recuperaron {n} mensaje(s) que faltaban en este chat.",
+                    "changelog_toast": "Versión {v}: tocá para ver qué cambió.",
                     "store_persist_denied": "El navegador no garantiza el almacenamiento de la app. Liberá espacio en el disco para que no vuelva a borrarte los chats.",
                     "inst_casi_lleno": "Tu chat ya usa {n} de 10 instalaciones. Al llegar a 10 deja de arrancar: revocá las viejas en Configuración.",
                     "wc_sim_title": "Simulación (qué pasaría si se ejecuta ahora, sin contar la comisión):",
@@ -18133,6 +18180,7 @@
                     "wc_tx_unknown": "The dApp asks to execute something ChatWallet CANNOT read:\n\nContract: {to}\nFunction: {selector}\nData: {bytes} bytes\nValue: {value} {sym}\nchainId: {chain}\n\nI cannot show you what it does. Approve only if you know exactly what you are signing.",
                     "store_wiped_warn": "This browser deleted ChatWallet's stored chats (this usually happens when disk space runs low). What was in your backup has been restored, but messages sent while the app was closed may be missing. Ask the sender to resend them.",
                     "sync_recuperados": "Recovered {n} message(s) that were missing from this chat.",
+                    "changelog_toast": "Version {v}: tap to see what changed.",
                     "store_persist_denied": "The browser does not guarantee this app's storage. Free up disk space so your chats are not deleted again.",
                     "inst_casi_lleno": "Your chat is using {n} of 10 installations. At 10 it stops working: revoke the old ones in Settings.",
                     "wc_sim_title": "Simulation (what would happen if it ran now, excluding the fee):",
@@ -18435,6 +18483,7 @@
                     "wc_tx_unknown": "La dApp demande d'exécuter quelque chose que ChatWallet NE SAIT PAS lire :\n\nContrat : {to}\nFonction : {selector}\nDonnées : {bytes} octets\nValeur : {value} {sym}\nchainId : {chain}\n\nJe ne peux pas vous montrer ce qu'elle fait. N'approuvez que si vous savez exactement ce que vous signez.",
                     "store_wiped_warn": "Ce navigateur a supprimé les discussions enregistrées de ChatWallet (cela arrive quand l'espace disque manque). Ce qui était dans votre sauvegarde a été restauré, mais les messages reçus pendant que l'app était fermée peuvent manquer. Demandez qu'on vous les renvoie.",
                     "sync_recuperados": "{n} message(s) manquant(s) ont été récupérés dans cette discussion.",
+                    "changelog_toast": "Version {v} : touchez pour voir ce qui a changé.",
                     "store_persist_denied": "Le navigateur ne garantit pas le stockage de l'app. Libérez de l'espace disque pour ne pas perdre vos discussions à nouveau.",
                     "inst_casi_lleno": "Votre discussion utilise déjà {n} installations sur 10. À 10, elle cesse de démarrer : révoquez les anciennes dans Configuration.",
                     "wc_sim_title": "Simulation (ce qui se passerait si elle s'exécutait maintenant, hors frais) :",

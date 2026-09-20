@@ -34,6 +34,12 @@ ok(/force: forceRestore \|\| baseRehecha/.test(src),
     'si la base se rehizo, el respaldo soberano se restaura aunque el store no esté vacío');
 ok(/avisarBaseRehecha\(persistente\);/.test(src), 'y se le avisa a la persona');
 ok(/syncReconciliarTodo\(\)/.test(src), 'y se le pide a los contactos el historial que falta');
+ok(/revocarInstalacionMuerta\(instalacionMuerta\)/.test(src), 'y se revoca la instalación que murió con esa base');
+ok(/if \(!actual \|\| instalacionVieja === actual\) return false;/.test(src), 'nunca se revoca la instalación viva');
+ok(/vivas\.find\(i => String\(i\.id \|\| ''\) === instalacionVieja\)/.test(src),
+    'y sólo la que este dispositivo anotó como suya (la de otro aparato no se toca)');
+ok(!/const env = "dev";/.test(src), 'el revocador manual ya no apunta a la red de desarrollo');
+ok(/fetchInboxStates\(\[chatwalletxmtp\.inboxId\], XMTP_ENV\)/.test(src), 'el cupo se cuenta contra la red, no contra la copia local');
 ok(/const linkForzado = localStorage\.getItem\('cw-link-force-restore'\)/.test(src),
     'vincular el chat de otra wallet no se confunde con un borrado');
 for (const clave of ['store_wiped_warn', 'store_persist_denied', 'inst_casi_lleno']) {
@@ -129,6 +135,26 @@ try {
     ok(/borró los chats guardados/.test(texto || ''), 'y se lo dice a la persona en pantalla');
     const reanotada = await D.eval(`localStorage.getItem('cw-xmtp-instalacion-' + currentWallet.address.toLowerCase())`);
     ok(reanotada === inst, 'y vuelve a anotar la instalación buena (no avisa dos veces)');
+
+    // Y ahora el borrado de verdad, como lo hace el navegador: la instalación muerta
+    // tiene que quedar revocada, no acumulándose hacia el tope de 10.
+    const origen = new URL(BASE).origin;
+    await D.rpc('Storage.clearDataForOrigin', { origin: origen, storageTypes: 'indexeddb,file_systems,cache_storage,websql' });
+    D.logs.length = 0;
+    await D.navigate(BASE);
+    ok(!!await D.waitXmtp(), 'arranca tras el borrado real del navegador');
+    const instNueva = await D.eval(`String(chatwalletxmtp.installationId||'')`);
+    ok(instNueva && instNueva !== inst, 'estrena instalación (la base se perdió de verdad)');
+    let vivas = [];
+    for (let i = 0; i < 20; i++) {
+        await sleep(4000);
+        // Por la red (fetchInboxStates): la copia local del cliente sigue listando las revocadas.
+        vivas = await D.eval(`(async () => { const st = await Client.fetchInboxStates([chatwalletxmtp.inboxId], XMTP_ENV); return ((st[0]||{}).installations||[]).map(x => String(x.id||'').slice(0,8)); })()`);
+        if (Array.isArray(vivas) && vivas.length === 1) break;
+    }
+    ok(Array.isArray(vivas) && vivas.length === 1, 'queda UNA instalación por dispositivo', JSON.stringify(vivas));
+    ok(Array.isArray(vivas) && vivas[0] === instNueva.slice(0, 8), 'y la que queda es la viva', JSON.stringify(vivas));
+    ok(D.logs.some(l => /Instalación muerta revocada/.test(l)), 'lo deja anotado');
 } finally { D.kill(); }
 
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);

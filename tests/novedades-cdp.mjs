@@ -47,6 +47,33 @@ const nueva = await ev(`(async () => {
 ok(nueva.visible === false, 'a quien recién instala NO se le abre el modal');
 ok(nueva.guardado === datos.primera, 'pero se anota la versión, así el próximo salto sí avisa', String(nueva.guardado));
 
+// ── actualizás: AVISA, no interrumpe ──
+// Abrir el modal solo tapaba la app apenas entrabas, para algo que no pediste.
+// Parte de la 0.01: también cubre a quien salteó varias versiones.
+console.log('\n── venís de una versión anterior ──');
+const avisa = await ev(`(async () => {
+    cerrarNovedades();
+    document.querySelectorAll('.cw-notif').forEach(n => n.remove());
+    localStorage.setItem('cw-novedades-vistas', '0.01');
+    mostrarNovedadesSiHayVersionNueva();
+    await new Promise(r => setTimeout(r, 800));
+    const notif = [...document.querySelectorAll('.cw-notif')];
+    return { modal: !document.getElementById('changelogModal').classList.contains('hidden'),
+             aviso: notif.length, texto: (notif[0]?.innerText || '').replace(/\\s+/g, ' ').slice(0, 70),
+             guardado: localStorage.getItem('cw-novedades-vistas') };
+})()`);
+ok(avisa.modal === false, 'el modal NO se abre solo');
+ok(avisa.aviso === 1, 'sale una notificación en su lugar', avisa.texto);
+ok(avisa.guardado === datos.primera, 'y queda anotada la versión (no insiste)', String(avisa.guardado));
+
+const alTocar = await ev(`(async () => {
+    const n = document.querySelector('.cw-notif');
+    if (n) n.click();
+    await new Promise(r => setTimeout(r, 600));
+    return !document.getElementById('changelogModal').classList.contains('hidden');
+})()`);
+ok(alTocar === true, 'y si la tocás, ahí sí se abre Novedades');
+
 // ── misma versión: no molesta ──
 console.log('\n── ya viste esta versión ──');
 const segunda = await ev(`(async () => {
@@ -86,17 +113,6 @@ for (const [boton, donde] of [['openChangelogBtn', 'la marca'], ['openChangelogF
     ok(r === true, `el botón de ${donde} lo abre`, String(r));
 }
 
-// ── una versión vista más vieja también dispara ──
-// Si no, alguien que salteó versiones nunca vería lo que cambió.
-const vieja = await ev(`(async () => {
-    cerrarNovedades();
-    localStorage.setItem('cw-novedades-vistas', '0.01');
-    await new Promise(r => setTimeout(r, 200));
-    mostrarNovedadesSiHayVersionNueva();
-    await new Promise(r => setTimeout(r, 600));
-    return !document.getElementById('changelogModal').classList.contains('hidden');
-})()`);
-ok(vieja === true, 'viniendo de una versión vieja, también se abre');
 
 console.log(`\n${fails === 0 ? '✅ todo en orden' : `❌ ${fails} fallo(s)`}`);
 process.exit(fails === 0 ? 0 : 1);
