@@ -16231,19 +16231,22 @@
 
             // "hace 15945 min" no lo lee nadie: se sube de unidad a medida que pasa el tiempo
             // (minutos → horas → días → meses → años) y siempre queda un número chico.
+            // Devuelve sólo el lapso ("11 días", "11 days", "11 jours"); quién lo enmarca es
+            // presence_last_seen, porque cada idioma lo rodea distinto: "hace X" va adelante,
+            // "X ago" atrás. Singular y plural son claves separadas por lo mismo.
             function haceCuanto(desdeMs) {
                 const seg = Math.floor((Date.now() - desdeMs) / 1000);
-                if (!isFinite(seg) || seg < 60) return 'un momento';
+                if (!isFinite(seg) || seg < 60) return t('ago_moment');
                 const min = Math.floor(seg / 60);
-                if (min < 60) return min + ' min';
+                if (min < 60) return t('ago_min', { n: min });
                 const horas = Math.floor(min / 60);
-                if (horas < 24) return horas === 1 ? '1 hora' : horas + ' horas';
+                if (horas < 24) return horas === 1 ? t('ago_hour') : t('ago_hours', { n: horas });
                 const dias = Math.floor(horas / 24);
-                if (dias < 30) return dias === 1 ? '1 día' : dias + ' días';
+                if (dias < 30) return dias === 1 ? t('ago_day') : t('ago_days', { n: dias });
                 const meses = Math.floor(dias / 30);
-                if (meses < 12) return meses === 1 ? '1 mes' : meses + ' meses';
+                if (meses < 12) return meses === 1 ? t('ago_month') : t('ago_months', { n: meses });
                 const anios = Math.floor(meses / 12);
-                return anios === 1 ? '1 año' : anios + ' años';
+                return anios === 1 ? t('ago_year') : t('ago_years', { n: anios });
             }
 
             function updateChatHeaderStatus(contact) {
@@ -16256,11 +16259,11 @@
                 const statusColor = isOnline ? 'text-green-400' : 'text-gray-500';
                 let detail;
                 if (isOnline) {
-                    detail = 'En línea';
+                    detail = t('presence_online');
                 } else if (contact.lastSeen) {
-                    detail = 'Últ. vez hace ' + haceCuanto(contact.lastSeen);
+                    detail = t('presence_last_seen', { t: haceCuanto(contact.lastSeen) });
                 } else {
-                    detail = 'Desconectado';
+                    detail = t('presence_offline');
                 }
                 // Arriba (chattingWith) va cómo se llama él; acá abajo, el apodo que le pusiste vos,
                 // coloreado por estado, seguido del detalle de conexión. Sin apodo, un punto de color.
@@ -17892,6 +17895,19 @@
                     "store_wiped_warn": "Este navegador borró los chats guardados de ChatWallet (suele pasar cuando falta espacio en disco). Se recuperó lo que había en tu respaldo, pero lo que te escribieron mientras la app estaba cerrada puede no aparecer. Pediles que te lo reenvíen.",
                     "sync_recuperados": "Se recuperaron {n} mensaje(s) que faltaban en este chat.",
                     "changelog_toast": "Versión {v}: tocá para ver qué cambió.",
+                    "presence_online": "En línea",
+                    "presence_offline": "Desconectado",
+                    "presence_last_seen": "Últ. vez hace {t}",
+                    "ago_moment": "un momento",
+                    "ago_min": "{n} min",
+                    "ago_hour": "1 hora",
+                    "ago_hours": "{n} horas",
+                    "ago_day": "1 día",
+                    "ago_days": "{n} días",
+                    "ago_month": "1 mes",
+                    "ago_months": "{n} meses",
+                    "ago_year": "1 año",
+                    "ago_years": "{n} años",
                     "store_persist_denied": "El navegador no garantiza el almacenamiento de la app. Liberá espacio en el disco para que no vuelva a borrarte los chats.",
                     "inst_casi_lleno": "Tu chat ya usa {n} de 10 instalaciones. Al llegar a 10 deja de arrancar: revocá las viejas en Configuración.",
                     "wc_sim_title": "Simulación (qué pasaría si se ejecuta ahora, sin contar la comisión):",
@@ -18197,6 +18213,19 @@
                     "store_wiped_warn": "This browser deleted ChatWallet's stored chats (this usually happens when disk space runs low). What was in your backup has been restored, but messages sent while the app was closed may be missing. Ask the sender to resend them.",
                     "sync_recuperados": "Recovered {n} message(s) that were missing from this chat.",
                     "changelog_toast": "Version {v}: tap to see what changed.",
+                    "presence_online": "Online",
+                    "presence_offline": "Offline",
+                    "presence_last_seen": "Last seen {t} ago",
+                    "ago_moment": "a moment",
+                    "ago_min": "{n} min",
+                    "ago_hour": "1 hour",
+                    "ago_hours": "{n} hours",
+                    "ago_day": "1 day",
+                    "ago_days": "{n} days",
+                    "ago_month": "1 month",
+                    "ago_months": "{n} months",
+                    "ago_year": "1 year",
+                    "ago_years": "{n} years",
                     "store_persist_denied": "The browser does not guarantee this app's storage. Free up disk space so your chats are not deleted again.",
                     "inst_casi_lleno": "Your chat is using {n} of 10 installations. At 10 it stops working: revoke the old ones in Settings.",
                     "wc_sim_title": "Simulation (what would happen if it ran now, excluding the fee):",
@@ -18500,6 +18529,19 @@
                     "store_wiped_warn": "Ce navigateur a supprimé les discussions enregistrées de ChatWallet (cela arrive quand l'espace disque manque). Ce qui était dans votre sauvegarde a été restauré, mais les messages reçus pendant que l'app était fermée peuvent manquer. Demandez qu'on vous les renvoie.",
                     "sync_recuperados": "{n} message(s) manquant(s) ont été récupérés dans cette discussion.",
                     "changelog_toast": "Version {v} : touchez pour voir ce qui a changé.",
+                    "presence_online": "En ligne",
+                    "presence_offline": "Hors ligne",
+                    "presence_last_seen": "Vu il y a {t}",
+                    "ago_moment": "un instant",
+                    "ago_min": "{n} min",
+                    "ago_hour": "1 heure",
+                    "ago_hours": "{n} heures",
+                    "ago_day": "1 jour",
+                    "ago_days": "{n} jours",
+                    "ago_month": "1 mois",
+                    "ago_months": "{n} mois",
+                    "ago_year": "1 an",
+                    "ago_years": "{n} ans",
                     "store_persist_denied": "Le navigateur ne garantit pas le stockage de l'app. Libérez de l'espace disque pour ne pas perdre vos discussions à nouveau.",
                     "inst_casi_lleno": "Votre discussion utilise déjà {n} installations sur 10. À 10, elle cesse de démarrer : révoquez les anciennes dans Configuration.",
                     "wc_sim_title": "Simulation (ce qui se passerait si elle s'exécutait maintenant, hors frais) :",
@@ -18607,6 +18649,9 @@
                 if (typeof renderChatBackupStatus === 'function') renderChatBackupStatus();
                 // El title del ojo es dinámico (cambia con el estado), translateUI no lo toca.
                 if (typeof syncHideBalanceUI === 'function') syncHideBalanceUI();
+                // El renglón de presencia del chat abierto también es dinámico ("Últ. vez hace…"):
+                // sin esto se quedaba en el idioma anterior hasta el próximo latido del otro.
+                if (currentChatContact) updateChatHeaderStatus(currentChatContact);
             }
 
             function initializeLanguage() {

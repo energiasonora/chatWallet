@@ -17,6 +17,12 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- El renglón de conexión del chat —**En línea**, **Desconectado** y el *Últ. vez*— nunca
+  había pasado por las traducciones: se veía en castellano aunque tuvieras la app en inglés o
+  en francés. Ahora está en los tres idiomas, con el lapso donde corresponde en cada lengua
+  (*hace 11 días*, *Last seen 11 days ago*, *Vu il y a 11 jours*), y cambia al instante si
+  cambiás de idioma con un chat abierto.
+
 ## 3.37 — 2026-09-20
 
 - En el chat, el **"Últ. vez"** dejó de contarse siempre en minutos. Decía cosas como
