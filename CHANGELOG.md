@@ -17,6 +17,12 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- Cambiar a una red cuyo **nodo no contesta** dejaba el saldo en *Cargando…* para siempre (pasó
+  al pasar a Ethereum mainnet). Ahora la app espera 12 segundos y no más, **prueba sola los otros
+  nodos** de esa red —y si la red no tenía de repuesto, se los busca en el diccionario de cadenas—,
+  y se queda con el que anda. Si no anda ninguno, lo dice: el saldo muestra *Sin respuesta* y sale
+  un aviso que, tocado, te lleva a cambiar el nodo en **Administrar redes**.
+
 ## 3.45 — 2026-09-21
 
 - En el APK, el **botón atrás del celular** ahora cierra la ventana que está adelante, de a una

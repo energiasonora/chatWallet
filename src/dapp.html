@@ -5856,11 +5856,13 @@
             }
 
 
+            // Devuelve true si rotó a otro RPC y volvió a pedir el saldo (el que llama no tiene
+            // que pintar nada), false si no había a dónde rotar (el que llama avisa).
             async function rotateRpcAndRetry() {
                 const selectedNetwork = optionsList[currentTokenIndex];
                 if (!Array.isArray(selectedNetwork.rpc) || selectedNetwork.rpc.length <= 1) {
                     console.log("No hay otros RPCs para rotar en la red actual.");
-                    return;
+                    return false;
                 }
 
                 const currentApiIndex = selectedNetwork.rpc.indexOf(selectedNetwork.API);
@@ -5869,14 +5871,55 @@
 
                 if (nextApi === selectedNetwork.rpc[0]) { // Si hemos completado un ciclo
                     console.error("Se han probado todos los RPCs para esta red. No se puede conectar.");
-                    setBalanceText('main', `Error de conexión`);
-                    return;
+                    setBalanceText('gas', '—');
+                    setBalanceText('main', t('red_sin_respuesta_corto'));
+                    avisarRedSinRespuesta(selectedNetwork);
+                    return true;                 // ya se avisó acá: el que llamó no repite
                 }
 
                 console.warn(`⚠️ Fallo de conexión RPC. Rotando a: ${nextApi}`);
                 selectedNetwork.API = nextApi; // Actualizar la API activa para la red
+                saveNetworks();                // que el RPC que sí anda sobreviva a la recarga
                 provider = new window.ethers.JsonRpcProvider(selectedNetwork.API);
                 await updateBalance(); // Reintentar con el nuevo provider
+                return true;
+            }
+
+            // Le pide al diccionario de cadenas los otros nodos de ESTA red y se los guarda.
+            // Las redes agregadas a mano guardaban un solo RPC: cuando ese se moría no había
+            // a dónde rotar y el saldo se quedaba en blanco sin alternativa.
+            async function conseguirRpcsDelDiccionario(red) {
+                try {
+                    if (!red || !red.TOKEN_CHAINID) return false;
+                    if (Array.isArray(red.rpc) && red.rpc.length > 1) return false;   // ya tiene
+                    if (!allChainsData.length) await loadAllChainsData();
+                    const cadena = allChainsData.find(c => String(c.chainId) === String(red.TOKEN_CHAINID));
+                    const utiles = (cadena?.rpc || []).filter(u => u && !u.includes('${') && !u.startsWith('ws'));
+                    const lista = [red.API, ...utiles.filter(u => u !== red.API)].slice(0, 7);
+                    if (lista.length < 2) return false;
+                    red.rpc = lista;
+                    saveNetworks();
+                    console.log('[red] ' + (red.TOKEN_CHAIN_NAME || '') + ': ' + (lista.length - 1) + ' nodo(s) de repuesto del diccionario.');
+                    return true;
+                } catch (e) { console.warn('[red] no pude buscar nodos de repuesto:', e); return false; }
+            }
+
+            // Un aviso por red y por sesión: el saldo no se puede leer y qué hacer al respecto.
+            // Tocarlo abre Administrar redes, que es donde se cambia el RPC.
+            const redesYaAvisadas = new Set();
+            function avisarRedSinRespuesta(red) {
+                try {
+                    const nombre = (red && (red.TOKEN_CHAIN_NAME || red.NETWORK_BASE_NAME)) || '';
+                    const clave = nombre + '|' + (red && red.API || '');
+                    if (redesYaAvisadas.has(clave)) return;
+                    redesYaAvisadas.add(clave);
+                    cwNotify({
+                        title: t('red_sin_respuesta_titulo', { red: nombre }),
+                        body: t('red_sin_respuesta_cuerpo'),
+                        type: 'error', duration: 12000, tag: 'rpc-' + clave,
+                        onClick: () => { try { openManageNetworksModal(); } catch (e) { } },
+                    });
+                } catch (e) { /* avisar no puede romper el refresco del saldo */ }
             }
             // --- Saldos: el fetch guarda el valor real acá y el pintado pasa SIEMPRE por
             // renderBalances(). Si el ojito enmascarara el DOM directo, el próximo updateBalance()
@@ -5961,8 +6004,11 @@
 
                 // Primero, siempre obtener el saldo nativo (gas) y manejar errores de conexión
                 try {
-
-                    const nativeBalanceWei = await provider.getBalance(currentWallet.address);
+                    // CON RELOJ: ethers espera 5 minutos antes de rendirse. Un RPC que no
+                    // contesta (pasó al cambiar a Ethereum mainnet: el RPC que trae el
+                    // diccionario está muerto) dejaba el saldo en "Cargando..." para siempre.
+                    const nativeBalanceWei = await withTimeout(
+                        provider.getBalance(currentWallet.address), 12000, 'saldo nativo');
                     nativeBalanceFormatted = parseFloat(ethers.formatEther(nativeBalanceWei)).toFixed(4);
                     console.log("native balance:", nativeBalanceFormatted);
 
@@ -5977,11 +6023,17 @@
 
                 } catch (gasError) {
                     console.error("Error fetching gas balance:", gasError.message);
-                    if (gasError.message.includes('failed to fetch')) {
-                        await rotateRpcAndRetry();
-                    }
-                    // gasBalanceValue.textContent = `Error ${nativeSymbol}`;
-                    return; // Detener la ejecución si no se puede obtener el balance de gas
+                    // Antes se miraba si el mensaje decía 'failed to fetch': un timeout, un 429 o
+                    // un CORS no lo dicen, y entonces no se rotaba ni se avisaba nada.
+                    if (await rotateRpcAndRetry()) return;   // el reintento ya pinta lo que corresponda
+                    // Red vieja, guardada sin lista de repuestos: se la buscamos al diccionario
+                    // y reintentamos. Así se cura sola una red agregada antes de la 3.46.
+                    if (await conseguirRpcsDelDiccionario(selectedNetwork) && await rotateRpcAndRetry()) return;
+                    // Sin dónde rotar: decirlo. Quedarse en "Cargando..." es mentirle al usuario.
+                    setBalanceText('gas', `— ${nativeSymbol}`);
+                    setBalanceText('main', t('red_sin_respuesta_corto'));
+                    avisarRedSinRespuesta(selectedNetwork);
+                    return;
                 }
 
                 // Ahora, verificar si estamos mostrando un token ERC20 o el token nativo
@@ -15371,8 +15423,13 @@
                     // Autocompletar los datos técnicos de la cadena…
                     if (input.id !== 'networkChainId') networkChainIdInput.value = foundChain.chainId || '';
 
-                    const rpc = foundChain.rpc?.find(url => url && !url.includes('${') && !url.startsWith('ws')) || foundChain.rpc?.[0] || '';
+                    const utiles = (foundChain.rpc || []).filter(url => url && !url.includes('${') && !url.startsWith('ws'));
+                    const rpc = utiles[0] || foundChain.rpc?.[0] || '';
                     networkRpcUrlInput.value = rpc;
+                    // Los otros RPC de esa cadena viajan con la red: sin ellos, cuando el primero
+                    // se muere (le pasó a Ethereum mainnet) no hay a dónde rotar y el saldo no carga.
+                    networkRpcUrlInput.dataset.alternativas = JSON.stringify(utiles.slice(0, 6));
+                    networkRpcUrlInput.dataset.paraChain = String(foundChain.chainId || '');
 
                     const explorer = foundChain.explorers?.[0]?.url || '';
                     networkExplorerUrlInput.value = explorer;
@@ -15550,6 +15607,17 @@
                     displayName = `${tokenLabel} (${name.toUpperCase()})`;
                 }
 
+                // Alternativas del diccionario, sólo si siguen siendo de esta cadena y el usuario
+                // no cambió el RPC a mano por uno de afuera de la lista.
+                let rpcAlternativos = [];
+                try {
+                    const dsRpc = document.getElementById('networkRpcUrl');
+                    if (dsRpc && dsRpc.dataset.paraChain === chainId) {
+                        const lista = JSON.parse(dsRpc.dataset.alternativas || '[]');
+                        rpcAlternativos = [rpcUrl, ...lista.filter(u => u !== rpcUrl)];
+                    }
+                } catch (_) { rpcAlternativos = []; }
+
                 const newNetwork = {
                     "TOKEN_CHAIN_NAME": displayName,
                     "NETWORK_BASE_NAME": name,
@@ -15559,6 +15627,7 @@
                     "NATIVE_SYMBOL": nativeSymbol,
                     "TOKEN_ADDRESS": isToken ? tokenAddress : null,
                     "TOKEN_SYMBOL": isToken ? (tokenSym || null) : null,
+                    ...(rpcAlternativos.length > 1 ? { rpc: rpcAlternativos } : {}),
                     "isFavorite": false
                 };
 
@@ -18092,6 +18161,9 @@
                     "store_wiped_warn": "Este navegador borró los chats guardados de ChatWallet (suele pasar cuando falta espacio en disco). Se recuperó lo que había en tu respaldo, pero lo que te escribieron mientras la app estaba cerrada puede no aparecer. Pediles que te lo reenvíen.",
                     "sync_recuperados": "Se recuperaron {n} mensaje(s) que faltaban en este chat.",
                     "changelog_toast": "Versión {v}: tocá para ver qué cambió.",
+                    "red_sin_respuesta_corto": "Sin respuesta",
+                    "red_sin_respuesta_titulo": "{red} no responde",
+                    "red_sin_respuesta_cuerpo": "El nodo (RPC) de esa red no contesta, así que no se puede leer tu saldo. Tocá para cambiarlo en Administrar redes.",
                     "presence_online": "En línea",
                     "presence_offline": "Desconectado",
                     "presence_last_seen": "Últ. vez hace {t}",
@@ -18411,6 +18483,9 @@
                     "store_wiped_warn": "This browser deleted ChatWallet's stored chats (this usually happens when disk space runs low). What was in your backup has been restored, but messages sent while the app was closed may be missing. Ask the sender to resend them.",
                     "sync_recuperados": "Recovered {n} message(s) that were missing from this chat.",
                     "changelog_toast": "Version {v}: tap to see what changed.",
+                    "red_sin_respuesta_corto": "No answer",
+                    "red_sin_respuesta_titulo": "{red} is not responding",
+                    "red_sin_respuesta_cuerpo": "That network's node (RPC) is not answering, so your balance cannot be read. Tap to change it in Manage networks.",
                     "presence_online": "Online",
                     "presence_offline": "Offline",
                     "presence_last_seen": "Last seen {t} ago",
@@ -18728,6 +18803,9 @@
                     "store_wiped_warn": "Ce navigateur a supprimé les discussions enregistrées de ChatWallet (cela arrive quand l'espace disque manque). Ce qui était dans votre sauvegarde a été restauré, mais les messages reçus pendant que l'app était fermée peuvent manquer. Demandez qu'on vous les renvoie.",
                     "sync_recuperados": "{n} message(s) manquant(s) ont été récupérés dans cette discussion.",
                     "changelog_toast": "Version {v} : touchez pour voir ce qui a changé.",
+                    "red_sin_respuesta_corto": "Sans réponse",
+                    "red_sin_respuesta_titulo": "{red} ne répond pas",
+                    "red_sin_respuesta_cuerpo": "Le nœud (RPC) de ce réseau ne répond pas : impossible de lire votre solde. Touchez pour le changer dans Gérer les réseaux.",
                     "presence_online": "En ligne",
                     "presence_offline": "Hors ligne",
                     "presence_last_seen": "Vu il y a {t}",
