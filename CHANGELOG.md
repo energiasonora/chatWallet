@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.41 — 2026-09-20
+
 - El **"En línea"** del chat dejó de mentir. Nadie puede avisar de forma confiable que cerró la
   app —cerrar la ventana no deja tiempo de mandar nada por la red—, así que el estado se
   quedaba pegado: una wallet cerrada hacía horas seguía figurando en línea del otro lado. Ahora
