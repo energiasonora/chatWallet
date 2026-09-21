@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- El renglón que ya había quedado con `{"cw":4,"t":"res"…}` guardado **se limpia solo** al
+  abrir la app: la 3.42 evitó que volviera a pasar, pero el que estaba escrito seguía ahí
+  hasta que llegara otro mensaje. Se reemplaza por el último mensaje de verdad que haya en tu
+  historial local; si no hay ninguno, el renglón queda sin vista previa.
+
 ## 3.42 — 2026-09-20
 
 - Si le pusiste un **apodo** a alguien y esa persona no declaró ningún nombre en su perfil, ahora

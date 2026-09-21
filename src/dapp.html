@@ -5668,6 +5668,7 @@
                     // Lo guardado puede traer un "en línea" de la sesión anterior: que no se
                     // pinte verde ni un segundo si ya venció.
                     presenciaVencerEstados();
+                    limpiarVistasPreviasDePlomeria().catch(e => console.warn('[lista]', e));
                     // Respaldo soberano: si el store local está vacío (dispositivo/instalación nueva),
                     // bajar el respaldo cifrado del nodo IPFS y restaurar historial + contactos.
                     // Tras vincularse al inbox de otra wallet el store local puede NO estar vacío
@@ -8672,6 +8673,30 @@
                     // respaldo todas las burbujas ajenas quedarían sin nombre.
                     sender: message.senderInboxId || null,
                 };
+            }
+
+            // Limpieza de lo que ya quedó guardado. Hasta la 3.42 el stream se quedaba con los
+            // cw:4 PROPIOS y el resumen terminaba de "último mensaje" de algún contacto. El
+            // arreglo evita que vuelva a pasar, pero el renglón viejo sigue mostrando JSON en
+            // crudo hasta que llegue otro mensaje. Se reemplaza por el último mensaje de verdad
+            // que haya en el almacén local; si no hay ninguno, se deja sin vista previa.
+            async function limpiarVistasPreviasDePlomeria() {
+                let cambios = 0;
+                for (const c of (contacts || [])) {
+                    if (typeof c.lastMessage !== 'string' || !esMensajeDeSincronia(c.lastMessage)) continue;
+                    let texto = null, ts = 0;
+                    try {
+                        for (const r of await msgStoreGetByPeer(String(c.address || '').toLowerCase())) {
+                            if (esMensajeDeSincronia(r.content)) continue;
+                            if ((r.ts || 0) > ts) { ts = r.ts || 0; texto = xmtpMessagePreview(msgRecordToUiMessage(r)); }
+                        }
+                    } catch (e) { /* sin almacén, el renglón queda sin vista previa */ }
+                    c.lastMessage = texto || null;
+                    if (ts) c.lastMessageTimestamp = ts;
+                    cambios++;
+                }
+                if (cambios) { await saveContacts(); renderContacts(); console.log('[lista] limpié ' + cambios + ' vista(s) previa(s) de plomería.'); }
+                return cambios;
             }
 
             async function captureXmtpMessages(messages, peerAddr, myInboxId) {
