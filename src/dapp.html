@@ -11992,7 +11992,17 @@
                     if (!conv) { showToast(t('fwd_err'), 'error'); return; }
                     await conv.sendText(texto);
                     if (convIsGroup(conv)) pingWakeGroup(conv); else pingWake(conv);
-                    showToast(t('fwd_ok', { quien: contacto.name || shortAddr(contacto.address) }), 'success');
+                    // El aviso es tocable: reenviar sin salir del chat está bien, pero después
+                    // casi siempre querés ver cómo quedó allá. Dura más que un toast común para
+                    // que se pueda tocar, y abre el chat del destinatario.
+                    cwNotify({
+                        title: t('fwd_ok', { quien: contacto.name || shortAddr(contacto.address) }),
+                        body: t('fwd_ok_open'),
+                        type: 'success',
+                        duration: 7000,
+                        avatar: contacto.avatar || (contacto.isGroup ? GROUP_AVATAR : ANON_AVATAR),
+                        onClick: () => { startChatWithContact(contacto).catch(e => console.warn('[reenviar] abrir chat:', e)); },
+                    });
                 } catch (e) {
                     console.error('[reenviar]', e);
                     showToast(t('fwd_err'), 'error');
@@ -17758,6 +17768,7 @@
                     "fwd_no_contacts": "No tenés otros contactos.",
                     "fwd_sending": "Reenviando…",
                     "fwd_ok": "Reenviado a {quien}",
+                    "fwd_ok_open": "Tocá para abrir el chat.",
                     "fwd_err": "No se pudo reenviar",
                     "fwd_offline": "Reenviar necesita conexión.",
                     "quick_edit_title": "Editar los emojis rápidos",
@@ -18076,6 +18087,7 @@
                     "fwd_no_contacts": "You have no other contacts.",
                     "fwd_sending": "Forwarding…",
                     "fwd_ok": "Forwarded to {quien}",
+                    "fwd_ok_open": "Tap to open the chat.",
                     "fwd_err": "Could not forward",
                     "fwd_offline": "Forwarding needs a connection.",
                     "quick_edit_title": "Edit the quick emojis",
@@ -18394,6 +18406,7 @@
                     "fwd_no_contacts": "Vous n’avez pas d’autres contacts.",
                     "fwd_sending": "Transfert…",
                     "fwd_ok": "Transféré à {quien}",
+                    "fwd_ok_open": "Touchez pour ouvrir la discussion.",
                     "fwd_err": "Transfert impossible",
                     "fwd_offline": "Le transfert nécessite une connexion.",
                     "quick_edit_title": "Modifier les emojis rapides",

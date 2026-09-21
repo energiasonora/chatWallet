@@ -299,6 +299,31 @@ try {
     ok(await A.eval(`(currentConversation?.id || null) === ${JSON.stringify(convAntes)}`),
         'y ana sigue parada en el chat con beto, no la mudó el reenvío');
 
+    // El aviso tiene que llevar al chat de quien lo recibió: reenviás sin moverte, y después
+    // querés ver cómo quedó allá. Un toast que no se puede tocar te obliga a buscarlo a mano.
+    const tocable = await A.eval(`(() => {
+        const card = [...document.querySelectorAll('.cw-notif')].find(n => /Reenviado a|Forwarded to/i.test(n.innerText || ''));
+        if (!card) return { error: 'el aviso ya no está' };
+        const r = { clickable: card.classList.contains('cwn-click'),
+                    pista: /Tocá para abrir|Tap to open/i.test(card.innerText || '') };
+        card.click();
+        return r;
+    })()`);
+    ok(tocable.clickable === true, 'el aviso de "reenviado" se puede tocar', JSON.stringify(tocable));
+    ok(tocable.pista === true, 'y dice que tocándolo se abre el chat', JSON.stringify(tocable));
+    const abrioCarlos = await A.eval(`(async () => {
+        for (let i = 0; i < 30; i++) {
+            const dir = (currentChatContact?.address || '').toLowerCase();
+            if (dir === ${JSON.stringify(addrC)}.toLowerCase())
+                return { contacto: dir, enPantalla: !document.getElementById('chatView').classList.contains('hidden'),
+                         titulo: (document.getElementById('chattingWith')?.textContent || '').trim() };
+            await new Promise(r => setTimeout(r, 1500));
+        }
+        return { contacto: (currentChatContact?.address || '').toLowerCase() };
+    })()`);
+    ok(abrioCarlos.contacto === addrC.toLowerCase(), 'tocarlo abre el chat con carlos', JSON.stringify(abrioCarlos));
+    ok(abrioCarlos.enPantalla === true, 'y la pantalla del chat queda a la vista', JSON.stringify(abrioCarlos));
+
     const llego = await C.eval(`(async () => {
         for (let i = 0; i < 40; i++) {
             try {

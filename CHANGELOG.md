@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- El aviso de **"Reenviado a …"** ahora se puede tocar y abre el chat de quien lo recibió.
+  Reenviar no te mueve del chat donde estás —eso sigue igual—, pero después casi siempre
+  querés ver cómo quedó allá, y había que ir a buscarlo a mano en la lista.
+
 ## 3.39 — 2026-09-20
 
 - **Reenviar un mensaje** —mantenés apretado y tocás la flecha— no hacía absolutamente nada
