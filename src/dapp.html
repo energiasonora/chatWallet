@@ -13266,36 +13266,51 @@
             // la app (NO cerrarla: el stream XMTP sigue vivo con el foreground service).
             const NativeApp = IS_NATIVE && _Cap.Plugins ? _Cap.Plugins.App : null;
             if (NativeApp && NativeApp.addListener) {
-                NativeApp.addListener('backButton', () => {
-                    // 1. Scanner abierto → cerrarlo por su botón (apaga la cámara)
-                    const scanner = document.getElementById('scannerView');
-                    if (scanner && !scanner.classList.contains('hidden') && (scanner.offsetWidth || scanner.offsetHeight)) {
-                        const btn = document.getElementById('closeScannerBtn');
-                        if (btn) { btn.click(); return; }
-                    }
-                    // 2. Splash de modo frío
-                    const splash = document.getElementById('coldModeSplash');
-                    if (splash && !splash.classList.contains('hidden') && (splash.offsetWidth || splash.offsetHeight)) {
-                        const ok = document.getElementById('coldModeSplashOk');
-                        if (ok) { ok.click(); return; }
-                    }
-                    // 3. Modal visible → cerrarlo por su botón (respeta su cleanup); último recurso, ocultarlo
-                    for (const m of document.querySelectorAll('[id$="Modal"]')) {
-                        if (/^close/i.test(m.id)) continue; // los botones close*Modal no son contenedores
-                        if (m.classList.contains('hidden') || !(m.offsetWidth || m.offsetHeight)) continue;
-                        const closer = m.querySelector('[id^="close"], [id^="cancel"]');
-                        if (closer) closer.click();
-                        else { m.classList.add('hidden'); m.classList.remove('flex'); }
-                        return;
-                    }
-                    // 4. Sidebar de contactos abierta
-                    if (contactsSidebar && contactsSidebar.classList.contains('active')) { closeSidebar(); return; }
-                    // 5. Cualquier vista que no sea la principal (chat, historial, docs)
-                    const activeView = document.querySelector('.view.active');
-                    if (!activeView || activeView.id !== 'walletView') { showView('walletView'); return; }
-                    // 6. Ya en la principal sin nada abierto → al fondo
-                    try { NativeApp.minimizeApp(); } catch (e) { }
-                });
+                NativeApp.addListener('backButton', manejarBotonAtras);
+            }
+
+            // El botón atrás de Android: cierra lo de más arriba, una capa por vez.
+            // Se declara acá afuera (no dentro del listener) para poder probarlo en el navegador,
+            // donde no existe Capacitor y el listener nunca se registra.
+            function modalesALaVista() {
+                return [...document.querySelectorAll('[id$="Modal"]')]
+                    .filter(m => !/^close/i.test(m.id))                 // los botones close*Modal no son contenedores
+                    .filter(m => !m.classList.contains('hidden') && (m.offsetWidth || m.offsetHeight))
+                    .map((m, orden) => ({ m, orden, z: parseInt(getComputedStyle(m).zIndex, 10) || 0 }));
+            }
+            function manejarBotonAtras() {
+                // 1. Scanner abierto → cerrarlo por su botón (apaga la cámara)
+                const scanner = document.getElementById('scannerView');
+                if (scanner && !scanner.classList.contains('hidden') && (scanner.offsetWidth || scanner.offsetHeight)) {
+                    const btn = document.getElementById('closeScannerBtn');
+                    if (btn) { btn.click(); return; }
+                }
+                // 2. Splash de modo frío
+                const splash = document.getElementById('coldModeSplash');
+                if (splash && !splash.classList.contains('hidden') && (splash.offsetWidth || splash.offsetHeight)) {
+                    const ok = document.getElementById('coldModeSplashOk');
+                    if (ok) { ok.click(); return; }
+                }
+                // 3. Modal visible → cerrar EL DE ARRIBA. Los modales se apilan (Configuración →
+                //    Administrar redes → Añadir red) y antes se cerraba el primero del HTML: en
+                //    pantalla seguía el de arriba y el botón atrás parecía no hacer nada.
+                //    Arriba = mayor z-index; a igual z, el que va después en el documento.
+                const apilados = modalesALaVista();
+                if (apilados.length) {
+                    apilados.sort((a, b) => (b.z - a.z) || (b.orden - a.orden));
+                    const arriba = apilados[0].m;
+                    const closer = arriba.querySelector('[id^="close"], [id^="cancel"]');
+                    if (closer) closer.click();           // respeta el cleanup propio del modal
+                    else { arriba.classList.add('hidden'); arriba.classList.remove('flex'); }
+                    return;
+                }
+                // 4. Sidebar de contactos abierta
+                if (contactsSidebar && contactsSidebar.classList.contains('active')) { closeSidebar(); return; }
+                // 5. Cualquier vista que no sea la principal (chat, historial, docs)
+                const activeView = document.querySelector('.view.active');
+                if (!activeView || activeView.id !== 'walletView') { showView('walletView'); return; }
+                // 6. Ya en la principal sin nada abierto → al fondo
+                try { NativeApp.minimizeApp(); } catch (e) { }
             }
 
             // Mensaje XMTP entrante con el chat cerrado: una tarjeta más de la pila

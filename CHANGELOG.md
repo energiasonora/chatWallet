@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- En el APK, el **botón atrás del celular** ahora cierra la ventana que está adelante, de a una
+  por vez. Con varias encimadas —Configuración → Administrar redes → Añadir nueva red— cerraba
+  una de atrás: en pantalla no cambiaba nada y parecía que el botón no funcionaba.
+
 ## 3.44 — 2026-09-21
 
 - En la barra de contactos angosta, la etiqueta gris con la dirección **se le subía encima a la
