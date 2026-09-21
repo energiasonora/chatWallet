@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.49 — 2026-09-21
+
 - **Tus contactos se ven aunque el chat no conecte.** La agenda está guardada en tu dispositivo,
   pero la app la leía recién cuando la red de mensajes terminaba de arrancar: si eso fallaba
   —el puntito rojo junto al botón de chats— la lista aparecía vacía y parecía que se habían
