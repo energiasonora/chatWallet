@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Tus contactos se ven aunque el chat no conecte.** La agenda está guardada en tu dispositivo,
+  pero la app la leía recién cuando la red de mensajes terminaba de arrancar: si eso fallaba
+  —el puntito rojo junto al botón de chats— la lista aparecía vacía y parecía que se habían
+  borrado. No se habían borrado. Ahora se leen apenas abre la wallet.
+- Si alguna vez la agenda no se puede descifrar, **ya no se borra**. Antes, en ese caso, la app la
+  eliminaba y decía que “se resetearon”. Ahora guarda una copia intacta y te avisa que no se
+  borró nada.
+
 ## 3.48 — 2026-09-21
 
 - **Arreglo de seguridad importante.** La tarjeta de un pago o de un pedido de pago en el chat

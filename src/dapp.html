@@ -5463,6 +5463,13 @@
                 // --- Stage 1: Core Wallet UI (Always runs) ---
                 currentWallet = wallet;
 
+                // La agenda es LOCAL: se lee del dispositivo ya, sin esperar a XMTP. Antes se
+                // cargaba recién cuando XMTP terminaba de arrancar, y si XMTP fallaba (el puntito
+                // rojo junto al botón de chats) la lista quedaba vacía aunque los contactos
+                // estuvieran guardados. Visto en el S10+ el 21/9/2026: daba la impresión de que
+                // se habían borrado. Cuando XMTP arranca se vuelve a leer, y eso no cambia nada.
+                try { await loadContacts(); } catch (e) { console.warn('agenda local al arrancar:', e); }
+
                 // La wallet abre donde cobraste último. Va acá y no en init() porque la clave es
                 // por-wallet: recién ahora se conoce la dirección. Y va ANTES del provider para que
                 // updateBalance() salga con la red correcta, sin parpadeo ni doble fetch.
@@ -8369,7 +8376,7 @@
                 const storedContacts = localStorage.getItem(CONTACTS_STORAGE_KEY);
                 if (storedContacts) {
                     try {
-                        contacts = await decryptContacts(storedContacts);
+                        contacts = (await decryptContacts(storedContacts)) || [];
                         // Avatares: rehidratar el dataURL desde IndexedDB por hash. Migrar los que
                         // quedaron inline en el blob de versiones viejas (calcular hash → mover a IDB).
                         for (const c of (contacts || [])) {
@@ -8381,11 +8388,15 @@
                             }
                         }
                     } catch (e) {
-                        console.error("Could not decrypt contacts, starting fresh.", e);
+                        // NUNCA borrar. Antes esto hacía localStorage.removeItem(...) y la agenda
+                        // desaparecía para siempre por un fallo al descifrar (otra wallet cargada,
+                        // un blob a medio escribir). Se guarda una copia de rescate con fecha
+                        // ANTES de que cualquier saveContacts() pise la clave con una lista vacía,
+                        // y se avisa sin decir que "se resetearon", porque no se resetearon.
+                        console.error("No se pudo descifrar la agenda; se guarda una copia de rescate.", e);
+                        try { localStorage.setItem(CONTACTS_STORAGE_KEY + '-rescate-' + Date.now(), storedContacts); } catch (_) { }
                         contacts = [];
-                        // Optionally, notify user that contacts could not be loaded and were reset.
-                        showToast("No se pudieron cargar los contactos encriptados, se han reseteado.", "error");
-                        localStorage.removeItem(CONTACTS_STORAGE_KEY);
+                        showToast("No se pudo leer tu agenda con esta wallet. Quedó guardada una copia intacta: no se borró nada.", "error", 12000);
                     }
                 } else {
                     contacts = [];
