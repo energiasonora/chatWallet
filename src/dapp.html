@@ -4841,6 +4841,16 @@
                 } catch (e) { }
             }
 
+            // Enviar y recibir plata se sienten en la mano: un pulso corto al tocar cualquiera de
+            // los botones de pagar/cobrar, en la pantalla principal y en el chat. Delegado en el
+            // documento (fase de captura) para no depender del scope ni del orden en que cada
+            // botón recibe su propio listener, y para que vibre aunque ese listener falle.
+            const BOTONES_QUE_VIBRAN = ['sendBtn', 'receiveBtn', 'headerSendBtn', 'headerRequestBtn', 'chatSendCryptoBtn', 'chatRequestCryptoBtn'];
+            document.addEventListener('click', (ev) => {
+                const b = ev.target && ev.target.closest && ev.target.closest('button');
+                if (b && BOTONES_QUE_VIBRAN.includes(b.id) && !b.disabled) vibrar(20);
+            }, true);
+
             function showToast(message, type = 'info', duration = 3000) {
                 return cwNotify({ html: message, type, duration });
             }

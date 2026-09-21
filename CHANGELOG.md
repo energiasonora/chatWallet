@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- En el APK, los botones de **enviar** y **recibir** —los de la pantalla principal y los del chat—
+  ahora **vibran** con un toque corto al apretarlos, para que se sienta que la app tomó el toque
+  cuando se trata de plata.
+
 ## 3.50 — 2026-09-21
 
 - El aviso de **“Tenés 1 mensaje nuevo de …”** que aparece al abrir la app ahora se puede tocar:
