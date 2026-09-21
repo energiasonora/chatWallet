@@ -2,6 +2,7 @@
 //   · responder tiene que llegar COMO respuesta (con la cita), no como mensaje suelto
 //   · copiar y reenviar tienen que existir en el picker — y reenviar, ADEMÁS, funcionar
 //   · los emojis de la barrita tienen que ser editables
+//   · "En línea" tiene que vencer: nadie alcanza a avisar que cerró la app
 // El bug de la respuesta era que se mandaba el contenido ya codificado en vez del objeto
 // más su content type: el receptor no veía typeId 'reply' y dibujaba una burbuja pelada.
 import { spawn } from 'node:child_process';
@@ -238,6 +239,65 @@ try {
     ok(!!guardada, 'la respuesta queda en el almacén local (antes la mataba un BigInt)', JSON.stringify(guardada));
     ok(!A.errores.some(x => /serialize a BigInt/i.test(x)), 'y no hubo ninguna excepción de BigInt en el camino',
         A.errores.filter(x => /BigInt/i.test(x)).join(' | ').slice(0, 200));
+
+    // ── "En línea" tiene que vencer ───────────────────────────────────────────
+    // La PWA de la Mac cerrada hacía horas seguía figurando "En línea" en el celular: nadie
+    // alcanza a avisar que se fue, así que el estado no vencía nunca.
+    console.log('\n── presencia: en línea es un permiso que vence ──');
+    const enLinea = await A.eval(`(async () => {
+        for (let i = 0; i < 25; i++) {
+            const c = contacts.find(x => (x.address||'').toLowerCase() === ${JSON.stringify(addrB)}.toLowerCase());
+            if (c && c.status === 'online')
+                return { estado: c.status, detalle: (document.getElementById('chatStatusIndicator')?.innerText || '').trim(),
+                         latido: presenciaLatido !== null };
+            await new Promise(r => setTimeout(r, 1500));
+        }
+        return { estado: (contacts.find(x => (x.address||'').toLowerCase() === ${JSON.stringify(addrB)}.toLowerCase()) || {}).status };
+    })()`);
+    ok(enLinea.estado === 'online', 'ana ve a beto en línea cuando beto abre el chat', JSON.stringify(enLinea));
+    ok(/En línea|Online/i.test(enLinea.detalle || ''), 'y el encabezado lo dice', JSON.stringify(enLinea.detalle));
+    ok(enLinea.latido === true, 'y ana está renovando su propio permiso mientras mira el chat');
+
+    // Envejecer el aviso a mano: 11 minutos sin renovar es más que la ventana de 10.
+    const vencido = await A.eval(`(() => {
+        const c = contacts.find(x => (x.address||'').toLowerCase() === ${JSON.stringify(addrB)}.toLowerCase());
+        c.lastSeen = Date.now() - 11 * 60 * 1000;      // el estado sigue diciendo 'online'
+        presenciaVencerEstados();
+        return { estado: c.status, detalle: (document.getElementById('chatStatusIndicator')?.innerText || '').trim() };
+    })()`);
+    ok(vencido.estado === 'offline', 'un "en línea" que no se renueva vence solo', JSON.stringify(vencido));
+    ok(/11 min/.test(vencido.detalle || ''), 'y pasa a decir cuándo fue la última vez', JSON.stringify(vencido.detalle));
+
+    // Y se renueva: beto vuelve a avisar y ana lo vuelve a ver en línea.
+    await B.eval(`sendPresence(currentConversation, 'online')`);
+    const renovado = await A.eval(`(async () => {
+        for (let i = 0; i < 25; i++) {
+            const c = contacts.find(x => (x.address||'').toLowerCase() === ${JSON.stringify(addrB)}.toLowerCase());
+            if (c && c.status === 'online') return { estado: c.status, cuando: Date.now() - c.lastSeen };
+            await new Promise(r => setTimeout(r, 1500));
+        }
+        return { estado: 'no volvió' };
+    })()`);
+    ok(renovado.estado === 'online', 'cuando el otro renueva, vuelve a verse en línea', JSON.stringify(renovado));
+    ok(renovado.cuando < 10 * 60 * 1000, 'con el visto fresco, no el de hace 11 minutos', JSON.stringify(renovado));
+
+    // Esconder la app: es la última señal que se alcanza a mandar de verdad.
+    const escondido = await B.eval(`(() => {
+        Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+        return { latido: presenciaLatido === null };
+    })()`);
+    ok(escondido.latido === true, 'al esconder la app, beto deja de renovar');
+    const seFue = await A.eval(`(async () => {
+        for (let i = 0; i < 25; i++) {
+            const c = contacts.find(x => (x.address||'').toLowerCase() === ${JSON.stringify(addrB)}.toLowerCase());
+            if (c && c.status !== 'online')
+                return { estado: c.status, detalle: (document.getElementById('chatStatusIndicator')?.innerText || '').trim() };
+            await new Promise(r => setTimeout(r, 1500));
+        }
+        return { estado: 'siguió en línea' };
+    })()`);
+    ok(seFue.estado === 'offline', 'y ana lo ve desconectado sin esperar la ventana', JSON.stringify(seFue));
 
     // ── Reenviar de verdad ────────────────────────────────────────────────────
     // Hasta acá el test sólo miraba que el BOTÓN existiera. Existía, y no hacía nada:

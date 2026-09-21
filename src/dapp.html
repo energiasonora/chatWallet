@@ -5665,6 +5665,9 @@
 
                     listenForIncomingMessages();
                     await loadContacts();
+                    // Lo guardado puede traer un "en línea" de la sesión anterior: que no se
+                    // pinte verde ni un segundo si ya venció.
+                    presenciaVencerEstados();
                     // Respaldo soberano: si el store local está vacío (dispositivo/instalación nueva),
                     // bajar el respaldo cifrado del nodo IPFS y restaurar historial + contactos.
                     // Tras vincularse al inbox de otra wallet el store local puede NO estar vacío
@@ -9928,7 +9931,7 @@
                             lastMessageText = '💸 Transacción';
                         }
 
-                        const isOnline = contact.status === 'online';
+                        const isOnline = estaEnLinea(contact);
                         // Color = estado de conexión (verde en línea / gris offline).
                         const statusColor = isOnline ? 'text-green-400' : 'text-gray-500';
                         // Abajo, el apodo que le pusiste VOS (si le pusiste alguno), coloreado por
@@ -10340,6 +10343,7 @@
 
                 if (currentConversation) {
                     await sendPresence(currentConversation, 'online');
+                    presenciaArrancarLatido();   // renovar mientras el chat esté abierto y a la vista
                     maybeSendProfile(currentConversation, contact.address); // perfil + wake topic
                 }
                 await saveContacts();
@@ -10811,8 +10815,14 @@
 
                     const contactIndex = contacts.findIndex(c => c.address.toLowerCase() === senderAddress.toLowerCase());
                     if (contactIndex > -1) {
+                        // El timestamp lo pone el emisor, con SU reloj: si va adelantado, un
+                        // 'online' viejo parecería fresco para siempre. Manda el de la red
+                        // (message.sentAt) y nunca se acepta un visto en el futuro.
+                        const visto = Math.min(
+                            message.sentAt ? message.sentAt.getTime() : (presenceData.timestamp || Date.now()),
+                            Date.now());
                         contacts[contactIndex].status = presenceData.status;
-                        contacts[contactIndex].lastSeen = presenceData.timestamp;
+                        contacts[contactIndex].lastSeen = visto;
                         saveContacts();
 
                         const isChatOpen = chatView.classList.contains('active') &&
@@ -16251,6 +16261,53 @@
             }
             // --- FIN: PERFIL SOBERANO v1 ---
 
+            // ── "En línea" es un permiso que vence ───────────────────────────
+            // Nadie puede avisar de manera confiable que se fue: cerrar la ventana no deja
+            // tiempo de mandar nada por la red (el aviso de 'offline' es un intento, no una
+            // garantía). Así que un 'online' que no se renueva se toma por lo que es: alguien
+            // que ESTUVO. Medido: la PWA de la Mac cerrada hacía horas segía figurando "En
+            // línea" en el celular, porque el estado no vencía nunca.
+            const PRESENCIA_VENTANA_MS = 10 * 60 * 1000;   // vale mientras se renueve
+            const PRESENCIA_LATIDO_MS = 4 * 60 * 1000;     // dos latidos por ventana: uno puede perderse
+            const PRESENCIA_REVISAR_MS = 30 * 1000;        // cada cuánto se revisa que no haya vencido
+
+            function estaEnLinea(contact) {
+                if (!contact || contact.status !== 'online' || !contact.lastSeen) return false;
+                return Date.now() - contact.lastSeen < PRESENCIA_VENTANA_MS;
+            }
+
+            // Baja a "desconectado" lo que venció, y repinta sólo si algo cambió de verdad.
+            function presenciaVencerEstados() {
+                let cambios = 0;
+                for (const c of (contacts || [])) {
+                    if (c.status === 'online' && !estaEnLinea(c)) { c.status = 'offline'; cambios++; }
+                }
+                if (cambios) { saveContacts(); renderContacts(); }
+                if (currentChatContact && !currentChatContact.isGroup) updateChatHeaderStatus(currentChatContact);
+            }
+
+            // Mientras el chat está abierto Y la app a la vista, se renueva el permiso. Fuera de
+            // ahí no se manda nada: un latido cada cuatro minutos con la app cerrada no diría la
+            // verdad y encima gastaría batería y espacio en la conversación.
+            let presenciaLatido = null;
+            function presenciaPararLatido() {
+                if (presenciaLatido) { clearInterval(presenciaLatido); presenciaLatido = null; }
+            }
+            // "En línea" es en ESTE chat: si te fuiste a la wallet o a otra pantalla, se deja
+            // de renovar aunque la app siga abierta.
+            function presenciaMirandoElChat() {
+                return !document.hidden && !!currentConversation &&
+                    !!chatView && chatView.classList.contains('active');
+            }
+            function presenciaArrancarLatido() {
+                presenciaPararLatido();
+                if (!presenciaMirandoElChat()) return;
+                presenciaLatido = setInterval(() => {
+                    if (!presenciaMirandoElChat()) { presenciaPararLatido(); return; }
+                    sendPresence(currentConversation, 'online').catch(() => { });
+                }, PRESENCIA_LATIDO_MS);
+            }
+
             async function sendPresence(conversation, status) {
                 if (!conversation) return;
                 const presenceData = { status, timestamp: Date.now() };
@@ -16288,7 +16345,7 @@
                     chatStatusIndicator.innerHTML = '';
                     return;
                 }
-                const isOnline = contact.status === 'online';
+                const isOnline = estaEnLinea(contact);
                 // Color = estado de conexión (verde en línea / gris offline), igual que en la lista.
                 const statusColor = isOnline ? 'text-green-400' : 'text-gray-500';
                 let detail;
@@ -16453,6 +16510,10 @@
             copyAddressButton.addEventListener('click', shareInviteLink);
             backToContactsBtn.addEventListener('click', () => {
                 // Close chat view and show wallet view, also open sidebar
+                // "En línea" es en ESTE chat: al salir se deja de renovar y se avisa (mejor
+                // esfuerzo; si el aviso no llega, la ventana lo vence igual).
+                presenciaPararLatido();
+                if (currentConversation) sendPresence(currentConversation, 'offline').catch(() => { });
                 showView('walletView');
                 openSidebar();
             });
@@ -17242,6 +17303,23 @@
                     sendPresence(currentConversation, 'offline');
                 }
             });
+
+            // Esconder la app (o el APK yéndose al fondo) es la última señal que se alcanza a
+            // mandar: en beforeunload el envío por la red casi nunca llega a salir. Igual es
+            // mejor esfuerzo, y por eso existe la ventana que vence del otro lado.
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    presenciaPararLatido();
+                    if (currentConversation) sendPresence(currentConversation, 'offline').catch(() => { });
+                } else if (currentConversation && currentChatContact && !currentChatContact.isGroup) {
+                    sendPresence(currentConversation, 'online').catch(() => { });
+                    presenciaArrancarLatido();
+                }
+                presenciaVencerEstados();   // volver a mirar la pantalla después de un rato afuera
+            });
+
+            // Que el estado envejezca solo, sin depender de que llegue ningún mensaje.
+            setInterval(presenciaVencerEstados, PRESENCIA_REVISAR_MS);
 
             // --- INICIO: LÓGICA DE COPIA DE SEGURIDAD (Global Scope) ---
             const backupWalletModal = document.getElementById('backupWalletModal');

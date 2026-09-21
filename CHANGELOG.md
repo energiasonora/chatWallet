@@ -17,6 +17,13 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- El **"En línea"** del chat dejó de mentir. Nadie puede avisar de forma confiable que cerró la
+  app —cerrar la ventana no deja tiempo de mandar nada por la red—, así que el estado se
+  quedaba pegado: una wallet cerrada hacía horas seguía figurando en línea del otro lado. Ahora
+  "en línea" es un permiso que **vence a los 10 minutos** si no se renueva, y mientras estás
+  mirando el chat tu app lo renueva sola. Al salir del chat, esconder la app o cerrarla, se avisa
+  —y si el aviso no llega, el estado vence igual y pasa a decir cuándo fue la última vez.
+
 ## 3.40 — 2026-09-20
 
 - El aviso de **"Reenviado a …"** ahora se puede tocar y abre el chat de quien lo recibió.
