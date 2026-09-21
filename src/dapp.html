@@ -15157,21 +15157,80 @@
                 }
             }
 
+            // La red que viaja dentro de un pedido de pago: lo justo para que del otro lado se sepa
+            // QUÉ token es y se pueda agregar la red si no la tiene. El RPC va sólo si no parece
+            // llevar una clave de API adentro (un Infura/Alchemy personal no se reparte por chat):
+            // se prueba el principal y, si tiene clave, los de repuesto.
+            function rpcSinClave(url) {
+                return typeof url === 'string' && /^https:\/\//i.test(url) &&
+                    !/\/v[23]\/[A-Za-z0-9_-]{20,}|[?&](api[-_]?key|key|token)=/i.test(url);
+            }
+            function redParaCompartir(net) {
+                if (!net) return null;
+                const api = [net.API, ...(Array.isArray(net.rpc) ? net.rpc : [])].find(rpcSinClave) || '';
+                const out = {
+                    TOKEN_CHAIN_NAME: net.TOKEN_CHAIN_NAME || '',
+                    NETWORK_BASE_NAME: net.NETWORK_BASE_NAME || '',
+                    TOKEN_CHAINID: String(net.TOKEN_CHAINID || ''),
+                    TOKEN_ADDRESS: net.TOKEN_ADDRESS || null,
+                    TOKEN_SYMBOL: net.TOKEN_SYMBOL || null,
+                    NATIVE_SYMBOL: net.NATIVE_SYMBOL || 'ETH',
+                    EXPLORER: net.EXPLORER || '',
+                };
+                if (api) out.API = api;
+                return out;
+            }
+            // Dónde está, en MI lista, la red/token que me piden: misma cadena y mismo contrato
+            // (o ninguno, si es la moneda nativa). -1 si no la tengo.
+            function indiceDeRedLocal(net, chainId) {
+                const cid = String(net?.TOKEN_CHAINID ?? chainId ?? '');
+                const tok = String(net?.TOKEN_ADDRESS || '').toLowerCase();
+                return optionsList.findIndex(o => String(o.TOKEN_CHAINID) === cid &&
+                    String(o.TOKEN_ADDRESS || '').toLowerCase() === tok);
+            }
+
             function createTransactionCard(txData, type) {
-                const network = txData.network || optionsList.find(opt => opt.TOKEN_CHAINID == txData.chainId) || optionsList[0];
+                // Un pedido viejo sólo trae chainId: la lectura honesta es la moneda nativa de esa
+                // cadena, no "la primera red de mi lista con ese chainId" (que puede ser un token).
+                const network = txData.network
+                    || optionsList.find(opt => String(opt.TOKEN_CHAINID) === String(txData.chainId) && !opt.TOKEN_ADDRESS)
+                    || optionsList.find(opt => String(opt.TOKEN_CHAINID) === String(txData.chainId))
+                    || optionsList[0];
                 const isRequest = txData.type === 'request';
                 const isSentByMe = type === 'sent';
 
+                // TODO lo que sale de txData lo escribió el OTRO: monto, símbolo, nombre de red,
+                // explorador, hash. Todo se escapa (también la comilla simple, porque algunos van
+                // dentro de onclick='…'), el explorador sólo vale si es http(s) y el hash sólo si
+                // tiene forma de hash. Antes iba crudo al innerHTML: un "pedido de pago" podía
+                // meter HTML o código en la wallet de quien lo recibía.
+                const esc = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                const montoMostrado = esc(txData.amount);
+                const simboloMostrado = esc(network.TOKEN_SYMBOL || network.NATIVE_SYMBOL);
+
                 let title, amountColor, icon, actionButtonHTML = '', verificationBadge = '';
-                const explorerUrl = txData.txHash ? `${network.EXPLORER}tx/${txData.txHash}` : '#';
-                const explorerLink = txData.txHash ? `<a href="${explorerUrl}" target="_blank" class="text-xs text-indigo-400 hover:underline mt-2 inline-block">Ver en explorador ↗</a>` : '';
+                const hashValido = typeof txData.txHash === 'string' && /^0x[0-9a-fA-F]{64}$/.test(txData.txHash);
+                const explorerBase = /^https?:\/\//i.test(String(network.EXPLORER || '')) ? String(network.EXPLORER) : '';
+                const explorerUrl = (hashValido && explorerBase) ? `${explorerBase}tx/${txData.txHash}` : '';
+                const explorerLink = explorerUrl ? `<a href="${esc(explorerUrl)}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-400 hover:underline mt-2 inline-block">Ver en explorador ↗</a>` : '';
 
                 if (isRequest) {
                     title = isSentByMe ? `Solicitaste un pago` : `Te solicitaron un pago`;
                     amountColor = "text-white";
                     icon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-yellow-400"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
                     if (!isSentByMe) {
-                        actionButtonHTML = `<button onclick="handlePayRequest('${txData.amount}')" class="mt-4 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg transition">💸 Pagar ${txData.amount} ${network.TOKEN_SYMBOL || network.NATIVE_SYMBOL}</button>`;
+                        const idxLocal = indiceDeRedLocal(txData.network, txData.chainId);
+                        const sim = network.TOKEN_SYMBOL || network.NATIVE_SYMBOL;
+                        const monto = Number(txData.amount);
+                        if (idxLocal > -1 && monto > 0) {
+                            // Pagar abre el envío YA en el token pedido: antes quedaba en la red
+                            // activa, y el monto de un pedido en USDC se pagaba en lo que hubiera.
+                            actionButtonHTML = `<button onclick="handlePayRequest('${monto}', ${idxLocal})" class="mt-4 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg transition">💸 ${t('payreq_pay', { amount: monto, symbol: esc(sim) })}</button>`;
+                        } else if (txData.network) {
+                            // No tengo ese token: el botón de "Añadir" de abajo va primero; acá lo digo.
+                            actionButtonHTML = `<p class="mt-3 text-xs text-yellow-300/90">${t('payreq_need_network', { red: esc(txData.network.TOKEN_CHAIN_NAME || '') })}</p>`;
+                        }
                     }
                 } else {
                     title = isSentByMe ? `Enviaste` : `Recibiste`;
@@ -15192,7 +15251,7 @@
                         <div class="flex-shrink-0">${icon}</div>
                         <div class="flex-grow">
                             <p class="font-semibold text-gray-200">${title}</p>
-                            <p class="text-2xl font-bold ${amountColor}">${txData.amount} <span class="text-lg text-gray-400">${network.TOKEN_SYMBOL || network.NATIVE_SYMBOL}</span></p>
+                            <p class="text-2xl font-bold ${amountColor}">${montoMostrado} <span class="text-lg text-gray-400">${simboloMostrado}</span></p>
                         </div>
                     </div>
                     ${verificationBadge}
@@ -15207,11 +15266,11 @@
                             return net.TOKEN_CHAINID === txData.network.TOKEN_CHAINID && !net.TOKEN_ADDRESS;
                         });
 
-                        const netLabel = txData.network.TOKEN_CHAIN_NAME || 'esta red';
+                        const netLabel = esc(txData.network.TOKEN_CHAIN_NAME || 'esta red');
 
                         // No la tiene configurada → ofrecer agregarla (pasa por el modal de confirmación).
                         if (existingNetIndex === -1) {
-                            return `<button onclick='addSharedNetwork(${JSON.stringify(txData.network).replace(/"/g, '&quot;')})' class="mt-3 w-full text-sm bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center justify-center space-x-2"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg> <span>Añadir ${netLabel} a la lista</span> </button>`;
+                            return `<button onclick='addSharedNetwork(${esc(JSON.stringify(txData.network))})' class="mt-3 w-full text-sm bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center justify-center space-x-2"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg> <span>Añadir ${netLabel} a la lista</span> </button>`;
                         }
 
                         // Ya la tiene y es la red activa → no hace falta botón.
@@ -15273,14 +15332,17 @@
             }
             // ────────────────────────────────────────────────────────────────────────
 
-            async function handlePayRequest(amountToPay) {
+            async function handlePayRequest(amountToPay, idxRed) {
                 if (!currentConversation || !currentConversation.peerAddress) {
                     showToast("Error: No se puede determinar a quién pagar.", 'error');
                     return;
                 }
+                // Primero, la red y el token que se pidieron.
+                if (Number.isInteger(idxRed) && idxRed > -1 && idxRed !== currentTokenIndex) await switchNetwork(idxRed);
+                const net = optionsList[currentTokenIndex] || {};
 
                 await updateBalance();
-                setTxStatus(`Pagar solicitud de ${amountToPay} ETH.`, false);
+                setTxStatus(`Pagar solicitud de ${amountToPay} ${net.TOKEN_SYMBOL || net.NATIVE_SYMBOL || ''}.`, false);
                 sendForm.reset();
                 document.getElementById('recipientAddress').value = currentConversation.peerAddress;
                 document.getElementById('amount').value = amountToPay;
@@ -15333,29 +15395,41 @@
 
             if (headerRequestBtn) {
                 headerRequestBtn.addEventListener('click', async () => {
-                    // Show a styled mini-modal for payment request
-                    const network = optionsList[currentTokenIndex];
-                    const symbol = network?.TOKEN_SYMBOL || network?.NATIVE_SYMBOL || 'ETH';
+                    // Se elige QUÉ se pide. Antes se pedía siempre en la red activa y el mensaje
+                    // viajaba sólo con el chainId: pedir 10 USDC en Arbitrum llegaba como
+                    // "Te solicitaron 10 ETH", porque del otro lado ese chainId es primero ETH.
+                    const esc = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const opciones = optionsList.map((net, i) =>
+                        `<option value="${i}" ${i === currentTokenIndex ? 'selected' : ''}>${esc(net.TOKEN_CHAIN_NAME || ('Red ' + net.TOKEN_CHAINID))}</option>`).join('');
+                    const simboloDe = (net) => net?.TOKEN_SYMBOL || net?.NATIVE_SYMBOL || 'ETH';
                     const modalHtml = `
                 <div id="payReqModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
                     <div class="bg-gray-800 rounded-2xl p-6 w-full max-w-xs shadow-2xl border border-gray-700 space-y-4">
-                        <h3 class="font-bold text-lg text-white">💸 Solicitar Pago</h3>
-                        <p class="text-gray-400 text-sm">Red: <span class="text-white font-semibold">${network?.TOKEN_CHAIN_NAME || 'Actual'}</span></p>
+                        <h3 class="font-bold text-lg text-white">💸 ${esc(t('payreq_title'))}</h3>
+                        <label class="block">
+                            <span class="text-gray-400 text-sm">${esc(t('payreq_token'))}</span>
+                            <select id="payReqToken"
+                                class="mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">${opciones}</select>
+                        </label>
                         <div class="relative">
                             <input id="payReqAmount" type="number" step="0.001" min="0.000001" value="0.01"
-                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white text-xl font-bold focus:outline-none focus:border-indigo-500"
+                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white text-xl font-bold focus:outline-none focus:border-indigo-500 pr-20"
                                 placeholder="0.01">
-                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">${symbol}</span>
+                            <span id="payReqSymbol" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">${esc(simboloDe(optionsList[currentTokenIndex]))}</span>
                         </div>
                         <div class="flex space-x-3">
-                            <button id="payReqCancel" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-semibold transition">Cancelar</button>
-                            <button id="payReqSend" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-bold transition">Enviar solicitud</button>
+                            <button id="payReqCancel" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-semibold transition">${esc(t('payreq_cancel'))}</button>
+                            <button id="payReqSend" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-bold transition">${esc(t('payreq_send'))}</button>
                         </div>
                     </div>
                 </div>`;
                     document.body.insertAdjacentHTML('beforeend', modalHtml);
                     const modal = document.getElementById('payReqModal');
                     const amountInput = document.getElementById('payReqAmount');
+                    const tokenSelect = document.getElementById('payReqToken');
+                    const symbolEl = document.getElementById('payReqSymbol');
+                    const elegida = () => optionsList[parseInt(tokenSelect.value, 10)] || optionsList[currentTokenIndex];
+                    tokenSelect.addEventListener('change', () => { symbolEl.textContent = simboloDe(elegida()); });
                     amountInput.focus();
                     amountInput.select();
 
@@ -15366,19 +15440,22 @@
                     document.getElementById('payReqSend').addEventListener('click', async () => {
                         const amount = parseFloat(amountInput.value);
                         if (!amount || isNaN(amount) || amount <= 0) {
-                            showToast('Ingresa un monto válido.', 'error');
+                            showToast(t('payreq_bad_amount'), 'error');
                             return;
                         }
-                        const messageText = `[TRANSACTION]${JSON.stringify({ type: 'request', amount, chainId: network.TOKEN_CHAINID })}`;
+                        const network = elegida();
+                        const symbol = simboloDe(network);
+                        // chainId se sigue mandando suelto para las versiones viejas, que sólo leen eso.
+                        const messageText = `[TRANSACTION]${JSON.stringify({ type: 'request', amount, chainId: network.TOKEN_CHAINID, network: redParaCompartir(network) })}`;
                         if (currentConversation) {
                             try {
                                 closeModal();
                                 await currentConversation.sendText(messageText);
                                 pingWake(currentConversation); // wake push: despertar el APK del contacto
-                                showToast(`Solicitud de ${amount} ${symbol} enviada ✓`, 'success');
+                                showToast(t('payreq_sent', { amount, symbol }), 'success');
                             } catch (error) {
                                 console.error('Error al enviar solicitud:', error);
-                                showToast('No se pudo enviar la solicitud.', 'error');
+                                showToast(t('payreq_error'), 'error');
                             }
                         }
                     });
@@ -17199,9 +17276,10 @@
                 chatActionsContainer.classList.add('hidden');
                 chatActionsToggle.querySelector('svg').style.transform = 'rotate(0deg)';
 
-                const amount = prompt("¿Qué monto en ETH deseas solicitar?", "0.01");
+                const netActual = optionsList[currentTokenIndex] || {};
+                const amount = prompt(`¿Qué monto en ${netActual.TOKEN_SYMBOL || netActual.NATIVE_SYMBOL || 'ETH'} deseas solicitar?`, "0.01");
                 if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
-                    const messageText = `[TRANSACTION]${JSON.stringify({ type: 'request', amount: parseFloat(amount), chainId: optionsList[currentTokenIndex].TOKEN_CHAINID })}`;
+                    const messageText = `[TRANSACTION]${JSON.stringify({ type: 'request', amount: parseFloat(amount), chainId: netActual.TOKEN_CHAINID, network: redParaCompartir(netActual) })}`;
                     if (currentConversation) {
                         try {
                             const sentMessage = await currentConversation.sendText(messageText);
@@ -18168,6 +18246,15 @@
                     "store_wiped_warn": "Este navegador borró los chats guardados de ChatWallet (suele pasar cuando falta espacio en disco). Se recuperó lo que había en tu respaldo, pero lo que te escribieron mientras la app estaba cerrada puede no aparecer. Pediles que te lo reenvíen.",
                     "sync_recuperados": "Se recuperaron {n} mensaje(s) que faltaban en este chat.",
                     "changelog_toast": "Versión {v}: tocá para ver qué cambió.",
+                    "payreq_title": "Solicitar pago",
+                    "payreq_token": "Qué pedís",
+                    "payreq_cancel": "Cancelar",
+                    "payreq_send": "Enviar solicitud",
+                    "payreq_bad_amount": "Ingresá un monto válido.",
+                    "payreq_sent": "Solicitud de {amount} {symbol} enviada ✓",
+                    "payreq_error": "No se pudo enviar la solicitud.",
+                    "payreq_pay": "Pagar {amount} {symbol}",
+                    "payreq_need_network": "Para pagar, primero agregá {red} a tu lista (botón de abajo).",
                     "red_sin_respuesta_corto": "Sin respuesta",
                     "red_sin_respuesta_titulo": "{red} no responde",
                     "red_sin_respuesta_cuerpo": "El nodo (RPC) de esa red no contesta, así que no se puede leer tu saldo. Tocá para cambiarlo en Administrar redes.",
@@ -18490,6 +18577,15 @@
                     "store_wiped_warn": "This browser deleted ChatWallet's stored chats (this usually happens when disk space runs low). What was in your backup has been restored, but messages sent while the app was closed may be missing. Ask the sender to resend them.",
                     "sync_recuperados": "Recovered {n} message(s) that were missing from this chat.",
                     "changelog_toast": "Version {v}: tap to see what changed.",
+                    "payreq_title": "Request payment",
+                    "payreq_token": "What you ask for",
+                    "payreq_cancel": "Cancel",
+                    "payreq_send": "Send request",
+                    "payreq_bad_amount": "Enter a valid amount.",
+                    "payreq_sent": "Request for {amount} {symbol} sent ✓",
+                    "payreq_error": "Could not send the request.",
+                    "payreq_pay": "Pay {amount} {symbol}",
+                    "payreq_need_network": "To pay, first add {red} to your list (button below).",
                     "red_sin_respuesta_corto": "No answer",
                     "red_sin_respuesta_titulo": "{red} is not responding",
                     "red_sin_respuesta_cuerpo": "That network's node (RPC) is not answering, so your balance cannot be read. Tap to change it in Manage networks.",
@@ -18810,6 +18906,15 @@
                     "store_wiped_warn": "Ce navigateur a supprimé les discussions enregistrées de ChatWallet (cela arrive quand l'espace disque manque). Ce qui était dans votre sauvegarde a été restauré, mais les messages reçus pendant que l'app était fermée peuvent manquer. Demandez qu'on vous les renvoie.",
                     "sync_recuperados": "{n} message(s) manquant(s) ont été récupérés dans cette discussion.",
                     "changelog_toast": "Version {v} : touchez pour voir ce qui a changé.",
+                    "payreq_title": "Demander un paiement",
+                    "payreq_token": "Ce que vous demandez",
+                    "payreq_cancel": "Annuler",
+                    "payreq_send": "Envoyer la demande",
+                    "payreq_bad_amount": "Saisissez un montant valide.",
+                    "payreq_sent": "Demande de {amount} {symbol} envoyée ✓",
+                    "payreq_error": "Impossible d'envoyer la demande.",
+                    "payreq_pay": "Payer {amount} {symbol}",
+                    "payreq_need_network": "Pour payer, ajoutez d'abord {red} à votre liste (bouton ci-dessous).",
                     "red_sin_respuesta_corto": "Sans réponse",
                     "red_sin_respuesta_titulo": "{red} ne répond pas",
                     "red_sin_respuesta_cuerpo": "Le nœud (RPC) de ce réseau ne répond pas : impossible de lire votre solde. Touchez pour le changer dans Gérer les réseaux.",

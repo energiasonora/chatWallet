@@ -17,6 +17,18 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Arreglo de seguridad importante.** La tarjeta de un pago o de un pedido de pago en el chat
+  mostraba sin filtrar datos que escribe la otra persona —el monto, el nombre de la red, el
+  explorador—. Alguien que te escribiera podía armar un mensaje que ejecutara código dentro de
+  tu wallet. Ahora todo lo que viene del otro lado se muestra como texto, y un link de
+  explorador sólo aparece si es una dirección web común. **Actualizá todos tus dispositivos.**
+- **Solicitar pago** ahora te deja elegir **qué token** pedís, en vez de pedir siempre en la red
+  que tengas activa. Y del otro lado se lee bien: antes, pedir 10 USDC podía llegar como
+  *“Te solicitaron 10 ETH”*, y el botón Pagar abría el envío en la red que estuviera activa.
+  Ahora el pedido dice qué token es, Pagar abre el envío ya en ese token, y si no lo tenés en tu
+  lista te ofrece agregarlo primero. La dirección del nodo que viaja con el pedido nunca lleva tu
+  clave de API.
+
 ## 3.47 — 2026-09-21
 
 - Los dos botones de plata del chat **dicen qué hacen**: la flecha de siempre, ahora con una
