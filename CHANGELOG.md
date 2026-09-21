@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.42 — 2026-09-20
+
 - Si le pusiste un **apodo** a alguien y esa persona no declaró ningún nombre en su perfil, ahora
   se ve tu apodo —arriba del chat y en la barra lateral— en vez de su dirección `0x8990…1d80`.
   El nombre que declara el otro sigue mandando cuando existe (cualquiera puede llamarse como
