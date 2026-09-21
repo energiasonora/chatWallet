@@ -149,6 +149,33 @@ try {
     })()`);
     ok(sinNada.guardado === null, 'sin nada en el almacén, queda sin vista previa (no el JSON)', JSON.stringify(sinNada.guardado));
     ok(/Aún no hay mensajes/.test(sinNada.enPantalla), 'y el renglón lo dice en castellano', JSON.stringify(sinNada.enPantalla));
+
+    console.log('\n── "Tenés N mensajes nuevos" al abrir se puede tocar ──');
+    // Antes era un toast mudo: avisaba y te dejaba buscando el chat a mano.
+    const tocarAviso = async (missed) => ev(`(async () => {
+        document.querySelectorAll('.cw-notif').forEach(n => n.remove());
+        window.__abierto = null; window.__lista = false;
+        startChatWithContact = async (c) => { window.__abierto = c.address; };
+        openSidebar = () => { window.__lista = true; };
+        contacts = [{ name: 'Xunorus', selfAlias: 'Xunorus', address: '0xe14f241b7a6a1b1f6bd0e0dd6bd0e0dd6bd01b7a', unreadCount: 1 },
+                    { name: 'Juan', address: '0x2222222222222222222222222222222222222222', unreadCount: 2 }];
+        avisarNoLeidosAlAbrir(${JSON.stringify(missed)});
+        const card = document.querySelector('.cw-notif');
+        const texto = card ? (card.innerText || '').replace(/\\s+/g, ' ').trim() : '';
+        const tocable = !!card && card.classList.contains('cwn-click');
+        if (card) card.click();
+        await new Promise(r => setTimeout(r, 50));
+        return { texto, tocable, abierto: window.__abierto, lista: window.__lista };
+    })()`);
+    const uno = await tocarAviso({ totalNew: 1, senders: [{ name: 'Xunorus', address: '0xE14F241b7a6a1b1f6bd0e0dd6bd0e0dd6bd01b7a', count: 1 }] });
+    ok(/1 mensaje nuevo de Xunorus/.test(uno.texto), 'dice de quién es', JSON.stringify(uno.texto));
+    ok(uno.tocable && /Tocá para abrir el chat/.test(uno.texto), 'se puede tocar, y lo dice', JSON.stringify(uno));
+    ok(uno.abierto === '0xe14f241b7a6a1b1f6bd0e0dd6bd0e0dd6bd01b7a', 'tocarlo abre el chat de Xunorus (aunque la address venga con otras mayúsculas)', JSON.stringify(uno.abierto));
+    const varios = await tocarAviso({ totalNew: 3, senders: [
+        { name: 'Xunorus', address: '0xe14f241b7a6a1b1f6bd0e0dd6bd0e0dd6bd01b7a', count: 1 },
+        { name: 'Juan', address: '0x2222222222222222222222222222222222222222', count: 2 }] });
+    ok(/3 mensajes nuevos en 2 chats/.test(varios.texto), 'con varios remitentes lo resume', JSON.stringify(varios.texto));
+    ok(varios.lista === true && varios.abierto === null, 'y tocarlo abre la lista de chats', JSON.stringify(varios));
 } finally {
     try { ws && ws.close(); } catch { }
     try { proc.kill('SIGKILL'); } catch { }

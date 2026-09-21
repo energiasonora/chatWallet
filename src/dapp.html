@@ -5720,10 +5720,7 @@
                         const missed = await reconcileUnreadFromStore();
                         if (missed.totalNew > 0) {
                             await saveContacts(); // persiste unread + lastMessage y re-renderiza los badges
-                            const quien = missed.senders.length === 1
-                                ? `de ${missed.senders[0].name}`
-                                : `de ${missed.senders.length} chats`;
-                            showToast(`📨 Tenés ${missed.totalNew} mensaje${missed.totalNew > 1 ? 's' : ''} nuevo${missed.totalNew > 1 ? 's' : ''} ${quien}.`, 'info', 5000);
+                            avisarNoLeidosAlAbrir(missed);
                         }
                     } catch (e) { console.warn('reconcile al arrancar:', e); }
                     setTimeout(() => vigilarInstalaciones(), 20000);
@@ -8402,6 +8399,31 @@
                     contacts = [];
                 }
                 renderContacts();
+            }
+
+            // "Tenés N mensajes nuevos de X" al abrir la app. Era un toast que no se podía tocar:
+            // avisaba y te dejaba buscando el chat a mano. Ahora lleva al lugar: con un solo
+            // remitente abre ESE chat; con varios, abre la lista de chats.
+            function avisarNoLeidosAlAbrir(missed) {
+                if (!missed || !(missed.totalNew > 0)) return;
+                const uno = (missed.senders || []).length === 1 ? missed.senders[0] : null;
+                const contactoDe = (s) => s && contacts.find(c => (c.address || '').toLowerCase() === String(s.address || '').toLowerCase());
+                const c1 = contactoDe(uno);
+                const quien = c1 ? contactOwnName(c1) : (uno ? uno.name : '');
+                const n = missed.totalNew;
+                const titulo = uno
+                    ? t(n === 1 ? 'unread_boot_one' : 'unread_boot_many', { n, quien })
+                    : t('unread_boot_chats', { n, chats: missed.senders.length });
+                cwNotify({
+                    title: titulo,
+                    body: t(c1 ? 'unread_boot_open_one' : 'unread_boot_open_many'),
+                    type: 'info', duration: 9000, tag: 'no-leidos-al-abrir',
+                    avatar: c1 ? (c1.avatar || (c1.isGroup ? GROUP_AVATAR : ANON_AVATAR)) : '',
+                    onClick: () => {
+                        if (c1) { startChatWithContact(c1).catch(e => console.warn('abrir chat desde el aviso:', e)); return; }
+                        try { openSidebar(); } catch (e) { }
+                    },
+                });
             }
 
             // Reconciliación de "no leídos" desde el store local de XMTP.
@@ -18257,6 +18279,11 @@
                     "store_wiped_warn": "Este navegador borró los chats guardados de ChatWallet (suele pasar cuando falta espacio en disco). Se recuperó lo que había en tu respaldo, pero lo que te escribieron mientras la app estaba cerrada puede no aparecer. Pediles que te lo reenvíen.",
                     "sync_recuperados": "Se recuperaron {n} mensaje(s) que faltaban en este chat.",
                     "changelog_toast": "Versión {v}: tocá para ver qué cambió.",
+                    "unread_boot_one": "📨 1 mensaje nuevo de {quien}",
+                    "unread_boot_many": "📨 {n} mensajes nuevos de {quien}",
+                    "unread_boot_chats": "📨 {n} mensajes nuevos en {chats} chats",
+                    "unread_boot_open_one": "Tocá para abrir el chat.",
+                    "unread_boot_open_many": "Tocá para ver tus chats.",
                     "payreq_title": "Solicitar pago",
                     "payreq_token": "Qué pedís",
                     "payreq_cancel": "Cancelar",
@@ -18588,6 +18615,11 @@
                     "store_wiped_warn": "This browser deleted ChatWallet's stored chats (this usually happens when disk space runs low). What was in your backup has been restored, but messages sent while the app was closed may be missing. Ask the sender to resend them.",
                     "sync_recuperados": "Recovered {n} message(s) that were missing from this chat.",
                     "changelog_toast": "Version {v}: tap to see what changed.",
+                    "unread_boot_one": "📨 1 new message from {quien}",
+                    "unread_boot_many": "📨 {n} new messages from {quien}",
+                    "unread_boot_chats": "📨 {n} new messages in {chats} chats",
+                    "unread_boot_open_one": "Tap to open the chat.",
+                    "unread_boot_open_many": "Tap to see your chats.",
                     "payreq_title": "Request payment",
                     "payreq_token": "What you ask for",
                     "payreq_cancel": "Cancel",
@@ -18917,6 +18949,11 @@
                     "store_wiped_warn": "Ce navigateur a supprimé les discussions enregistrées de ChatWallet (cela arrive quand l'espace disque manque). Ce qui était dans votre sauvegarde a été restauré, mais les messages reçus pendant que l'app était fermée peuvent manquer. Demandez qu'on vous les renvoie.",
                     "sync_recuperados": "{n} message(s) manquant(s) ont été récupérés dans cette discussion.",
                     "changelog_toast": "Version {v} : touchez pour voir ce qui a changé.",
+                    "unread_boot_one": "📨 1 nouveau message de {quien}",
+                    "unread_boot_many": "📨 {n} nouveaux messages de {quien}",
+                    "unread_boot_chats": "📨 {n} nouveaux messages dans {chats} discussions",
+                    "unread_boot_open_one": "Touchez pour ouvrir la discussion.",
+                    "unread_boot_open_many": "Touchez pour voir vos discussions.",
                     "payreq_title": "Demander un paiement",
                     "payreq_token": "Ce que vous demandez",
                     "payreq_cancel": "Annuler",
