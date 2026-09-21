@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.48 — 2026-09-21
+
 - **Arreglo de seguridad importante.** La tarjeta de un pago o de un pedido de pago en el chat
   mostraba sin filtrar datos que escribe la otra persona —el monto, el nombre de la red, el
   explorador—. Alguien que te escribiera podía armar un mensaje que ejecutara código dentro de
