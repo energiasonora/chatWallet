@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.51 — 2026-09-21
+
 - En el APK, los botones de **enviar** y **recibir** —los de la pantalla principal y los del chat—
   ahora **vibran** con un toque corto al apretarlos, para que se sienta que la app tomó el toque
   cuando se trata de plata.
