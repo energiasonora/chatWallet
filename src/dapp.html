@@ -763,7 +763,12 @@
         }
 
         .contact-addr-chip {
-            flex-shrink: 0;
+            /* Antes era flex-shrink: 0 y en una barra angosta se le subía encima a la hora
+               (visto en la Mac con la barra en ~300 px). Que ceda y se corte, nunca que pise. */
+            flex-shrink: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
             font-size: 10px;
             color: #6b7280;
@@ -9936,6 +9941,13 @@
                 }
             }
 
+            // Debajo de esto, el nombre + el chip de address + la hora no entran en el renglón.
+            const BARRA_ANGOSTA_PX = 360;
+            function barraAngosta() {
+                const ancho = contactsListSidebar ? contactsListSidebar.clientWidth : 0;
+                return ancho > 0 && ancho < BARRA_ANGOSTA_PX;
+            }
+
             function renderContacts() {
                 contacts.sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
 
@@ -9981,7 +9993,10 @@
                         const corta = isG ? '' : shortAddr(contact.address);
                         const sinConfirmar = !isG && !localAlias;
                         // Si lo que se ve arriba YA es la address, repetirla al lado es ruido.
-                        const chipAddr = (sinConfirmar && nombreMostrado !== corta)
+                        // Y en una barra angosta el chip no entra: entre mostrar la address
+                        // recortada a "0xe1…" o dejar el nombre y la hora legibles, gana lo
+                        // segundo (la address completa está a un toque, en el avatar → DID).
+                        const chipAddr = (sinConfirmar && nombreMostrado !== corta && !barraAngosta())
                             ? `<span class="contact-addr-chip">${corta}</span>` : '';
 
                         const contactEl = document.createElement('div');
@@ -17361,6 +17376,19 @@
 
             // Que el estado envejezca solo, sin depender de que llegue ningún mensaje.
             setInterval(presenciaVencerEstados, PRESENCIA_REVISAR_MS);
+
+            // Al cambiar el ancho de la ventana la barra puede pasar de angosta a ancha (o al
+            // revés) y el chip de address tiene que aparecer o irse. Sólo se repinta si el
+            // veredicto cambió de verdad: redibujar la lista en cada píxel del arrastre no.
+            let barraEraAngosta = null;
+            let barraTimer = null;
+            window.addEventListener('resize', () => {
+                clearTimeout(barraTimer);
+                barraTimer = setTimeout(() => {
+                    const ahora = barraAngosta();
+                    if (ahora !== barraEraAngosta) { barraEraAngosta = ahora; renderContacts(); }
+                }, 200);
+            });
 
             // --- INICIO: LÓGICA DE COPIA DE SEGURIDAD (Global Scope) ---
             const backupWalletModal = document.getElementById('backupWalletModal');

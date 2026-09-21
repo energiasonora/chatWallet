@@ -93,6 +93,36 @@ try {
     })()`);
     ok(cajas.nombreDer <= cajas.horaIzq + 1, 'un nombre larguísimo se corta antes de llegar a la hora', JSON.stringify(cajas));
 
+    console.log('\n── el chip de address no le sube encima a la hora ──');
+    // El defecto: `.contact-addr-chip` era flex-shrink:0 + nowrap, así que en una barra
+    // angosta el nombre se achicaba hasta desaparecer y el chip terminaba pisando la hora
+    // (visto en la Mac con la barra en ~300 px, tres capturas seguidas).
+    const barrido = [];
+    for (const w of [280, 300, 340, 359, 361, 390, 420, 520]) {
+        await rpc('Emulation.setDeviceMetricsOverride', { width: w, height: 900, deviceScaleFactor: 1, mobile: false });
+        await sleep(250);
+        barrido.push(await ev(`(() => {
+            contacts = [{ selfAlias: 'Xunorus', name: '0xe14f...1b7a', address: '${ADDR_SIN}',
+                          lastMessage: 'https://calendar.google.com/algo/muy/largo',
+                          lastMessageTimestamp: Date.now() - 86400000, status: 'offline', unreadCount: 0 }];
+            renderContacts();
+            const f = document.querySelector('#contactsListSidebar .contact-item');
+            const p = f.querySelector('p.font-semibold').getBoundingClientRect();
+            const c = f.querySelector('.contact-addr-chip');
+            const cb = c ? c.getBoundingClientRect() : null;
+            const h = f.querySelectorAll('p.text-xs')[0].getBoundingClientRect();
+            return { barra: Math.round(contactsListSidebar.clientWidth), chip: !!c,
+                     pisa: Math.max(p.right, cb ? cb.right : 0) > h.x + 0.5 };
+        })()`));
+    }
+    ok(barrido.every(r => r.pisa === false), 'de 280 a 520 px, nada se encima nunca',
+        JSON.stringify(barrido.filter(r => r.pisa)));
+    ok(barrido.filter(r => r.barra < 360).every(r => r.chip === false),
+        'en una barra angosta el chip no se dibuja', JSON.stringify(barrido.filter(r => r.barra < 360)));
+    ok(barrido.filter(r => r.barra >= 360).every(r => r.chip === true),
+        'y cuando hay lugar, vuelve', JSON.stringify(barrido.filter(r => r.barra >= 360)));
+    await rpc('Emulation.setDeviceMetricsOverride', { width: 380, height: 900, deviceScaleFactor: 1, mobile: false });
+
     console.log('\n── la plomería guardada se limpia sola ──');
     const limpiado = await ev(`(async () => {
         contacts = [{ name: '0xe14f...1b7a', address: '${ADDR_SIN}',
