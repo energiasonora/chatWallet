@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- Los dos botones de plata del chat **dicen qué hacen**: la flecha de siempre, ahora con una
+  moneda. Violeta con la flecha hacia arriba, **pagarle** a quien estás chateando; gris con la
+  flecha hacia abajo, **pedirle** plata. La moneda lleva un rombo y no un signo de ningún país.
+
 ## 3.46 — 2026-09-21
 
 - Cambiar a una red cuyo **nodo no contesta** dejaba el saldo en *Cargando…* para siempre (pasó
