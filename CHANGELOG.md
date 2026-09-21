@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.44 — 2026-09-21
+
 - En la barra de contactos angosta, la etiqueta gris con la dirección **se le subía encima a la
   hora** y el renglón quedaba ilegible. Esa etiqueta nunca cedía espacio: ahora, cuando la barra
   es angosta, directamente no se dibuja —quedan el nombre y la hora, que es lo que se lee— y
