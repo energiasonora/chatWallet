@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.46 — 2026-09-21
+
 - Cambiar a una red cuyo **nodo no contesta** dejaba el saldo en *Cargando…* para siempre (pasó
   al pasar a Ethereum mainnet). Ahora la app espera 12 segundos y no más, **prueba sola los otros
   nodos** de esa red —y si la red no tenía de repuesto, se los busca en el diccionario de cadenas—,
