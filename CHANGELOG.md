@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- Si le pusiste un **apodo** a alguien y esa persona no declaró ningún nombre en su perfil, ahora
+  se ve tu apodo —arriba del chat y en la barra lateral— en vez de su dirección `0x8990…1d80`.
+  El nombre que declara el otro sigue mandando cuando existe (cualquiera puede llamarse como
+  quiera, y por eso se marca); el tuyo, en cambio, no lo puede falsificar nadie.
+- La lista de contactos mostraba de vez en cuando un renglón con `{"cw":4,"t":"res"…}` en crudo y
+  encima le robaba el lugar a la última conversación de verdad. Era la app leyendo **su propio**
+  mensaje de sincronía: se filtraba el de los demás, pero no el propio.
+
 ## 3.41 — 2026-09-20
 
 - El **"En línea"** del chat dejó de mentir. Nadie puede avisar de forma confiable que cerró la

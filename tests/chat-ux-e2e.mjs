@@ -384,6 +384,39 @@ try {
     ok(abrioCarlos.contacto === addrC.toLowerCase(), 'tocarlo abre el chat con carlos', JSON.stringify(abrioCarlos));
     ok(abrioCarlos.enPantalla === true, 'y la pantalla del chat queda a la vista', JSON.stringify(abrioCarlos));
 
+    // ── El nombre que se ve arriba ────────────────────────────────────────────
+    // Carlos no declaró ningún nombre en su perfil. Antes el encabezado mostraba la address
+    // igual, teniendo vos un apodo puesto: ahora manda tu apodo, que es el único que nadie
+    // puede falsificar. Si él declara uno, ese gana (eso es lo de la 3.07 y sigue igual).
+    console.log('\n── el nombre del encabezado ──');
+    ok(abrioCarlos.titulo === 'carlos',
+        'el encabezado dice tu apodo, no 0x8990…1d80', JSON.stringify(abrioCarlos.titulo));
+    const enLista = await A.eval(`(() => {
+        renderContacts();
+        const filas = [...document.querySelectorAll('#contactsListSidebar .contact-item')].map(f => (f.innerText || '').trim());
+        return filas.find(f => /carlos/i.test(f)) || filas;
+    })()`);
+    ok(typeof enLista === 'string' && /^carlos/.test(enLista), 'y la fila de la barra lateral también', JSON.stringify(enLista));
+    ok(typeof enLista === 'string' && !/carlos[\s\S]*carlos/.test(enLista), 'sin repetirlo dos veces en la misma fila', JSON.stringify(enLista));
+    const declarado = await A.eval(`(() => {
+        const c = contacts.find(x => (x.address||'').toLowerCase() === ${JSON.stringify(addrC)}.toLowerCase());
+        c.selfAlias = 'Carlos Tercero';
+        const arriba = contactOwnName(c);
+        delete c.selfAlias;
+        return arriba;
+    })()`);
+    ok(declarado === 'Carlos Tercero', 'y si él declara un nombre, ese gana sobre tu apodo', JSON.stringify(declarado));
+
+    // La plomería propia no es "el último mensaje": el stream también devuelve lo que manda
+    // esta misma app, y el resumen de reconciliación (cw:4) se colaba en la lista de contactos.
+    // Se fuerza uno recién mandado: si el último mensaje de verdad es posterior, el defecto
+    // queda tapado y el chequeo no prueba nada.
+    await A.eval(`syncMandarResumen(currentConversation, ${JSON.stringify(addrC)}, { forzar: true })`);
+    await sleep(12000);
+    const plomeria = await A.eval(`(() => contacts.map(c => ({ n: c.name, m: String(c.lastMessage || '') })))()`);
+    ok(!plomeria.some(c => /\{"cw"/.test(c.m)),
+        'ningún renglón de la lista muestra plomería en crudo', JSON.stringify(plomeria));
+
     const llego = await C.eval(`(async () => {
         for (let i = 0; i < 40; i++) {
             try {

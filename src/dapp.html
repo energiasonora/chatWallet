@@ -9939,10 +9939,13 @@
                         // función. Un grupo no tiene "en línea": ahí va la cantidad de miembros.
                         const isG = !!contact.isGroup;
                         const localAlias = contactLocalAlias(contact);
+                        // Si tu apodo ya subió al renglón grande (porque él no declaró nombre),
+                        // repetirlo acá abajo es ruido: queda el punto de color.
+                        const aliasAbajo = localAlias && localAlias !== contactOwnName(contact) ? localAlias : '';
                         const statusBit = isG
                             ? `<span class="text-indigo-400">👥${contact.memberCount ? ' ' + contact.memberCount : ''}</span> · `
-                            : (localAlias
-                                ? `<span class="${statusColor} font-medium">${localAlias}</span> · `
+                            : (aliasAbajo
+                                ? `<span class="${statusColor} font-medium">${aliasAbajo}</span> · `
                                 : `<span class="${statusColor}">●</span> `);
 
                         // El nombre grande de la fila lo eligió EL OTRO (el alias de su perfil,
@@ -10150,7 +10153,11 @@
             function contactOwnName(contact) {
                 if (!contact) return '';
                 if (contact.isGroup) return contact.name || 'Grupo';   // un grupo no tiene perfil: manda su nombre
-                return contact.selfAlias || shortAddr(contact.address) || contact.name || '';
+                // Orden: cómo se llama ÉL (el alias de su perfil), y si no declaró ninguno, cómo
+                // lo llamaste VOS. Mostrar la address teniendo un apodo tuyo no le servía a nadie;
+                // y el apodo propio no lo puede falsificar nadie, así que ocupar el renglón
+                // grande con él es seguro — es justo el nombre en el que sí se puede confiar.
+                return contact.selfAlias || contactLocalAlias(contact) || shortAddr(contact.address) || contact.name || '';
             }
             // El apodo local, y SÓLO si de verdad pusiste uno: `name` nace sembrado con el alias
             // del dueño o con la address, y repetir eso abajo no agrega información.
@@ -10858,6 +10865,21 @@
                     messageStream = await chatwalletxmtp.conversations.streamAllMessages({
                         onValue: async (message) => {
                             try {
+                                // cw:4 — reconciliación de historial. Plomería pura: no se dibuja,
+                                // no suena, no cuenta. Se mira ANTES de preguntar quién lo mandó
+                                // porque el stream también devuelve LO PROPIO: el resumen que
+                                // manda esta misma app al abrir un chat se colaba en la lista de
+                                // contactos como `{"cw":4,"t":"res"…` y le robaba el renglón a la
+                                // última conversación de verdad (visto en la Mac, 20/9/2026).
+                                if (typeof message.content === 'string') {
+                                    let __cw4; try { __cw4 = JSON.parse(message.content); } catch (_) { __cw4 = null; }
+                                    if (__cw4 && __cw4.cw === 4) {
+                                        if (message.senderInboxId !== chatwalletxmtp.inboxId)
+                                            (__cw4.t === 'lote' ? syncAtenderLote(message, __cw4) : syncAtenderResumen(message, __cw4))
+                                                .catch(e => console.warn('[sync]', e));
+                                        return;
+                                    }
+                                }
                                 // --- StealthPay/dApp connect protocol (cw:1) over XMTP ---
                                 // Intercept RPC-style messages BEFORE they reach the chat UI.
                                 // Fire-and-forget so a pending user approval never blocks the
@@ -10867,13 +10889,6 @@
                                     if (__cw && __cw.cw === 1) { handleWalletConnectRpc(message, __cw).catch(e => console.warn('[cw-bridge]', e)); return; }
                                     // cw:3 — aviso de pago stealth. Llega antes que la UI del
                                     // chat: es un dato de protocolo, no un mensaje para leer.
-                                    // cw:4 — reconciliación de historial. Plomería pura entre
-                                    // dispositivos: no se dibuja, no suena, no cuenta.
-                                    if (__cw && __cw.cw === 4) {
-                                        (__cw.t === 'lote' ? syncAtenderLote(message, __cw) : syncAtenderResumen(message, __cw))
-                                            .catch(e => console.warn('[sync]', e));
-                                        return;
-                                    }
                                     if (__cw && __cw.cw === 3 && __cw.type === 'stealth_payment') {
                                         handleStealthPayment(message, __cw).catch(e => console.warn('[stealth]', e));
                                         return;
@@ -16359,8 +16374,9 @@
                 // Arriba (chattingWith) va cómo se llama él; acá abajo, el apodo que le pusiste vos,
                 // coloreado por estado, seguido del detalle de conexión. Sin apodo, un punto de color.
                 const localAlias = contactLocalAlias(contact);
-                const aliasBit = localAlias
-                    ? `<span class="${statusColor} font-medium">${localAlias}</span> · `
+                const aliasAbajo = localAlias && localAlias !== contactOwnName(contact) ? localAlias : '';
+                const aliasBit = aliasAbajo
+                    ? `<span class="${statusColor} font-medium">${aliasAbajo}</span> · `
                     : `<span class="${statusColor}">●</span> `;
                 chatStatusIndicator.innerHTML = `${aliasBit}<span class="text-gray-400">${detail}</span>`;
             }
