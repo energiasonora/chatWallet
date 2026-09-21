@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.45 — 2026-09-21
+
 - En el APK, el **botón atrás del celular** ahora cierra la ventana que está adelante, de a una
   por vez. Con varias encimadas —Configuración → Administrar redes → Añadir nueva red— cerraba
   una de atrás: en pantalla no cambiaba nada y parecía que el botón no funcionaba.
