@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.52 — 2026-09-24
+
 - **La página de inicio (chatwallet.org) se renovó.** Arriba dice qué es ChatWallet: *la wallet
   soberana — sin KYC, sin SIM, sin teléfono, sin cuenta, sin intermediario*. Enseguida, un celular
   animado muestra el uso de todos los días: escaneás el QR de alguien, chatean y le mandás cripto
