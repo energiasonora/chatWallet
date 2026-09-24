@@ -17,6 +17,15 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **La página de inicio (chatwallet.org) se renovó.** Arriba dice qué es ChatWallet: *la wallet
+  soberana — sin KYC, sin SIM, sin teléfono, sin cuenta, sin intermediario*. Enseguida, un celular
+  animado muestra el uso de todos los días: escaneás el QR de alguien, chatean y le mandás cripto
+  desde el mismo chat. Después, lo que hace la app en tarjetas, y al final el libro *Cripto para
+  Soberanos* con su tapa nueva, que es el que financia el proyecto.
+- Arreglos de la página de inicio: los dos botones de instalar ahora miden lo mismo, el selector
+  de idioma ya no se encima con el nombre en el celular, y la lista del pie de página no muestra
+  más viñetas sueltas contra el borde.
+
 ## 3.51 — 2026-09-21
 
 - En el APK, los botones de **enviar** y **recibir** —los de la pantalla principal y los del chat—
