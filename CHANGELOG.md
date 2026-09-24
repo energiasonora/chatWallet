@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- Al compartir **chatwallet.org** en X, WhatsApp, Telegram o cualquier red, el link ahora se ve
+  con una tarjeta grande: el gato, *La wallet soberana* y los cinco "sin". Antes salía el link
+  pelado, sin imagen.
+
 ## 3.52 — 2026-09-24
 
 - **La página de inicio (chatwallet.org) se renovó.** Arriba dice qué es ChatWallet: *la wallet
