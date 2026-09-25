@@ -127,7 +127,8 @@
   .reveal-d3{transition-delay:.36s}
   /* antes de loguear: solo la landing; el rito y el registro aparecen al conectar */
   body:not(.sesion) #rito,
-  body:not(.sesion) #registro-sec{display:none}
+  body:not(.sesion) #registro-sec,
+  body:not(.sesion) #g1-sec{display:none}
   .flor-viva circle{
     fill:none;stroke:var(--violeta);stroke-width:1.1;
     opacity:.28;transition:opacity 1.2s ease,stroke 1.2s ease,filter 1.2s ease;
@@ -258,6 +259,34 @@
   .doc .enlaces a:hover,.doc .enlaces button:hover{color:var(--marfil);border-color:var(--violeta)}
   .vacio{color:var(--bruma);font-size:.88rem;text-align:center;padding:2rem 1rem;
     border:1px dashed var(--linea);border-radius:.9rem}
+
+  /* ---------- ser vivo · Ğ1 ---------- */
+  .g1-sec{margin-top:3.5rem}
+  .g1-sec .desc-g1{color:var(--bruma);font-size:.85rem;margin-bottom:1rem;max-width:44rem}
+  .g1-fila{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+  .g1-fila input{flex:1 1 20rem;min-width:0;background:var(--noche-3);color:var(--lavanda);border:1px solid var(--linea);
+    border-radius:.6rem;padding:.6rem .8rem;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+  .g1-previa{font-size:.8rem;color:var(--bruma);width:100%;margin-top:.4rem;min-height:1.2em}
+  .g1-previa.ok{color:var(--ok)}
+  .g1-previa.err{color:var(--error)}
+  .g1-comentario{margin-top:1rem;border:1px solid var(--linea);border-radius:.9rem;padding:1rem 1.2rem;background:var(--noche-2);display:grid;gap:.6rem}
+  .g1-comentario[hidden]{display:none}   /* display:grid le gana al atributo hidden (misma trampa que .hero) */
+  .g1-comentario h3{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:1.25rem}
+  .g1-comentario p{color:var(--bruma);font-size:.82rem}
+  .g1-comentario code{display:block;font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--marfil);
+    background:var(--noche-3);border:1px solid var(--linea);border-radius:.5rem;padding:.6rem .7rem;word-break:break-all;user-select:all}
+  .badge-vivo{border:1px solid var(--linea);border-radius:.9rem;padding:1rem 1.2rem;margin-top:.9rem;
+    background:linear-gradient(180deg,var(--noche-2),var(--noche));display:grid;gap:.35rem}
+  .badge-vivo.miembro{border-color:rgba(201,161,94,.6);box-shadow:0 0 28px rgba(201,161,94,.12)}
+  .badge-vivo .sello-vivo{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:1.35rem;color:var(--lavanda)}
+  .badge-vivo.miembro .sello-vivo{color:var(--oro)}
+  .badge-vivo .nombre{font-size:.95rem;color:var(--marfil)}
+  .badge-vivo .det{font-size:.74rem;color:var(--bruma);word-break:break-all}
+  .badge-vivo .det b{font-family:'JetBrains Mono',monospace;font-weight:400;color:var(--lavanda)}
+  .cuenta .vivo{color:var(--oro);margin-left:.35rem}
+  .verificador + .verificador{margin-top:1.5rem}
+  .verificador input.g1-entrada{width:100%;background:var(--noche-3);color:var(--lavanda);border:1px solid var(--linea);
+    border-radius:.6rem;padding:.6rem .8rem;font-family:'JetBrains Mono',monospace;font-size:.8rem}
 
   /* ---------- verificador ---------- */
   .verificador{margin-top:3rem;border:1px solid var(--linea);border-radius:1rem;background:var(--noche-2);padding:1.4rem 1.5rem}
@@ -512,6 +541,36 @@
 
   </div>
 
+  <section class="registro g1-sec" id="g1-sec">
+    <div class="registro-cab">
+      <h2 data-i18n="g1_title">Ser vivo · Ğ1</h2>
+      <span class="sub" data-i18n="g1_sub">tu humanidad, certificada por la red de confianza de la Ğ1</span>
+    </div>
+    <p class="desc-g1" data-i18n="g1_desc">Ius no certifica a nadie: la Ğ1 ya lo hace, con personas que se conocen en persona. Vinculá tu cuenta Ğ1 a esta wallet y quien verifique tus atestaciones verá que las firmó un ser vivo.</p>
+    <div id="g1-form" hidden>
+      <div class="g1-fila">
+        <input id="g1-dir" data-i18n-ph="g1_ph" placeholder="" autocomplete="off" spellcheck="false">
+        <button class="btn" id="btn-g1-firmar" data-i18n="g1_sign_btn" disabled>Firmar vínculo</button>
+      </div>
+      <span class="g1-previa" id="g1-previa"></span>
+    </div>
+    <div class="g1-comentario" id="g1-pendiente" hidden>
+      <h3 data-i18n="g1_step_title">Último paso: mandalo desde tu billetera Ğ1</h3>
+      <p data-i18n="g1_step_desc">En Ğecko o Cesium², hacé una transferencia de 0,01 Ğ1 a quien quieras y pegá este texto como comentario. Ese comentario, firmado por tu cuenta Ğ1, cierra el vínculo en la cadena.</p>
+      <code id="g1-comentario-txt"></code>
+      <div class="g1-fila">
+        <button class="btn lleno" id="btn-g1-copiar" data-i18n="g1_copy">Copiar comentario</button>
+        <button class="btn tenue" id="btn-g1-cancelar" data-i18n="g1_cancel">Cancelar</button>
+      </div>
+    </div>
+    <div id="g1-vinculado"></div>
+    <div class="g1-comentario" id="g1-revocar" hidden>
+      <p data-i18n="g1_revoke_desc">Para deshacer el vínculo, mandá desde tu cuenta Ğ1 una transferencia con este comentario:</p>
+      <code>ius1:rev</code>
+    </div>
+    <span class="estado" id="estado-g1"></span>
+  </section>
+
   <section class="registro" id="registro-sec">
     <div class="registro-cab">
       <h2 data-i18n="reg_title">Registro</h2>
@@ -537,6 +596,16 @@
       <button class="btn" id="btn-verificar" data-i18n="verif_btn">Verificar firma</button>
       <span class="veredicto" id="veredicto"></span>
     </div>
+  </section>
+  <section class="verificador">
+    <h2 data-i18n="sv_title">Consultar un ser vivo</h2>
+    <p data-i18n="sv_desc">Pegá una dirección EVM (0x…) o Ğ1 (g1…) para ver si pertenece a un miembro de la red de confianza Ğ1. La respuesta sale de la cadena Ğ1, no de esta web.</p>
+    <input class="g1-entrada" id="sv-entrada" data-i18n-ph="sv_ph" placeholder="" autocomplete="off" spellcheck="false">
+    <div class="cuerpo">
+      <button class="btn" id="btn-sv" data-i18n="sv_btn">Consultar</button>
+      <span class="veredicto" id="sv-veredicto"></span>
+    </div>
+    <div id="sv-resultado"></div>
   </section>
 </main>
 </div><!-- /vista-verificar -->
@@ -594,6 +663,7 @@
 
 <script src="/js/ethers-6.13.2.umd.min.js"></script>
 <script src="/js/qr-code-styling.js"></script>
+<script src="/js/g1.js"></script>
 <script>
 /* ================= i18n (es / en / fr) ================= */
 window.IusI18n = (function(){
@@ -649,7 +719,21 @@ window.IusI18n = (function(){
     import_added:'{n} atestación(es) importada(s).', import_none:'No había atestaciones nuevas para importar.', import_err:'No se pudo importar: {e}',
     verif_bad_json:'No es un JSON válido.', verif_no_sig:'El certificado no tiene mensaje y firma.',
     verif_ok:'✦ Firma válida. La atestación fue firmada por su declarante.', verif_mismatch:'✗ La firma es válida pero NO corresponde al firmante declarado. Posible manipulación.', verif_invalid:'Firma inválida o corrupta: {e}',
-    lbl_signer:'Firmante', lbl_doc:'Documento', lbl_cid:'CID', lbl_date:'Fecha', lbl_recovered:'Recuperada', lbl_declared:'Declarada'
+    lbl_signer:'Firmante', lbl_doc:'Documento', lbl_cid:'CID', lbl_date:'Fecha', lbl_recovered:'Recuperada', lbl_declared:'Declarada',
+    g1_title:'Ser vivo · Ğ1', g1_sub:'tu humanidad, certificada por la red de confianza de la Ğ1',
+    g1_desc:'Ius no certifica a nadie: la Ğ1 ya lo hace, con personas que se conocen en persona. Vinculá tu cuenta Ğ1 a esta wallet y quien verifique tus atestaciones verá que las firmó un ser vivo.',
+    g1_ph:'Tu dirección Ğ1 (g1…)', g1_bad:'No es una dirección Ğ1 válida.', g1_checking:'Consultando la red Ğ1…',
+    g1_prev_member:'✦ {name} · miembro Ğ1', g1_prev_nomember:'{name} · identidad Ğ1 sin membresía vigente (se puede vincular, pero no da el badge)', g1_prev_none:'Cuenta Ğ1 sin identidad (se puede vincular, pero no da el badge)',
+    g1_sign_btn:'Firmar vínculo', g1_sign_wait:'Firmá el vínculo en tu wallet (sin costo)…', g1_sign_wait_remote:'Aprobá el vínculo en tu chatWallet (en el celular)…', g1_sign_err:'Vínculo no firmado: {e}',
+    g1_step_title:'Último paso: mandalo desde tu billetera Ğ1', g1_step_desc:'En Ğecko o Cesium², hacé una transferencia de 0,01 Ğ1 a quien quieras y pegá este texto como comentario. Ese comentario, firmado por tu cuenta Ğ1, cierra el vínculo en la cadena.',
+    g1_copy:'Copiar comentario', g1_copied:'Comentario copiado. Pegalo en tu billetera Ğ1.', g1_cancel:'Cancelar',
+    g1_waiting:'Esperando ver el comentario en la red Ğ1… se revisa solo cada 15 s.', g1_linked_ok:'Vínculo confirmado en la cadena Ğ1.',
+    g1_revoke:'Desvincular', g1_revoke_desc:'Para deshacer el vínculo, mandá desde tu cuenta Ğ1 una transferencia con este comentario:',
+    g1_err:'No se pudo consultar la red Ğ1: {e}',
+    badge_member:'✦ Ser vivo · miembro Ğ1', badge_nomember:'Identidad Ğ1 sin membresía vigente', badge_certs:'{n} certificaciones vigentes', badge_expires:'membresía hasta {date}', badge_block:'vínculo en el bloque #{b}',
+    lbl_g1:'Cuenta Ğ1', lbl_evm:'Dirección EVM',
+    sv_title:'Consultar un ser vivo', sv_desc:'Pegá una dirección EVM (0x…) o Ğ1 (g1…) para ver si pertenece a un miembro de la red de confianza Ğ1. La respuesta sale de la cadena Ğ1, no de esta web.', sv_ph:'0x… o g1…', sv_btn:'Consultar',
+    sv_bad:'Formato no reconocido: pegá una dirección 0x… o g1…', sv_none_evm:'Esta dirección no tiene un vínculo Ğ1 vigente.', sv_none_idty:'Esta cuenta Ğ1 no tiene identidad en la red de confianza.', sv_no_link:'Sin vínculo con una dirección EVM.'
   },
   en:{
     connect:'Connect wallet', net_aria:'Anchoring network', close:'Close', done:'✦ done',
@@ -702,7 +786,21 @@ window.IusI18n = (function(){
     import_added:'{n} attestation(s) imported.', import_none:'No new attestations to import.', import_err:'Could not import: {e}',
     verif_bad_json:'Not a valid JSON.', verif_no_sig:'The certificate has no message and signature.',
     verif_ok:'✦ Valid signature. The attestation was signed by its declarant.', verif_mismatch:'✗ The signature is valid but does NOT match the declared signer. Possible tampering.', verif_invalid:'Invalid or corrupt signature: {e}',
-    lbl_signer:'Signer', lbl_doc:'Document', lbl_cid:'CID', lbl_date:'Date', lbl_recovered:'Recovered', lbl_declared:'Declared'
+    lbl_signer:'Signer', lbl_doc:'Document', lbl_cid:'CID', lbl_date:'Date', lbl_recovered:'Recovered', lbl_declared:'Declared',
+    g1_title:'Living being · Ğ1', g1_sub:'your humanity, certified by the Ğ1 web of trust',
+    g1_desc:'Ius certifies no one: Ğ1 already does, through people who meet in person. Link your Ğ1 account to this wallet and whoever verifies your attestations will see they were signed by a living being.',
+    g1_ph:'Your Ğ1 address (g1…)', g1_bad:'Not a valid Ğ1 address.', g1_checking:'Querying the Ğ1 network…',
+    g1_prev_member:'✦ {name} · Ğ1 member', g1_prev_nomember:'{name} · Ğ1 identity without current membership (can be linked, but gives no badge)', g1_prev_none:'Ğ1 account without identity (can be linked, but gives no badge)',
+    g1_sign_btn:'Sign link', g1_sign_wait:'Sign the link in your wallet (free)…', g1_sign_wait_remote:'Approve the link in your chatWallet (on your phone)…', g1_sign_err:'Link not signed: {e}',
+    g1_step_title:'Last step: send it from your Ğ1 wallet', g1_step_desc:'In Ğecko or Cesium², make a 0.01 Ğ1 transfer to anyone and paste this text as the comment. That comment, signed by your Ğ1 account, seals the link on-chain.',
+    g1_copy:'Copy comment', g1_copied:'Comment copied. Paste it in your Ğ1 wallet.', g1_cancel:'Cancel',
+    g1_waiting:'Waiting to see the comment on the Ğ1 network… checked every 15 s.', g1_linked_ok:'Link confirmed on the Ğ1 chain.',
+    g1_revoke:'Unlink', g1_revoke_desc:'To undo the link, send from your Ğ1 account a transfer with this comment:',
+    g1_err:'Could not query the Ğ1 network: {e}',
+    badge_member:'✦ Living being · Ğ1 member', badge_nomember:'Ğ1 identity without current membership', badge_certs:'{n} active certifications', badge_expires:'membership until {date}', badge_block:'linked at block #{b}',
+    lbl_g1:'Ğ1 account', lbl_evm:'EVM address',
+    sv_title:'Look up a living being', sv_desc:'Paste an EVM (0x…) or Ğ1 (g1…) address to see whether it belongs to a member of the Ğ1 web of trust. The answer comes from the Ğ1 chain, not from this site.', sv_ph:'0x… or g1…', sv_btn:'Look up',
+    sv_bad:'Unrecognized format: paste a 0x… or g1… address', sv_none_evm:'This address has no current Ğ1 link.', sv_none_idty:'This Ğ1 account has no identity in the web of trust.', sv_no_link:'Not linked to an EVM address.'
   },
   fr:{
     connect:'Connecter le portefeuille', net_aria:'Réseau d\'ancrage', close:'Fermer', done:'✦ accompli',
@@ -755,7 +853,21 @@ window.IusI18n = (function(){
     import_added:'{n} attestation(s) importée(s).', import_none:'Aucune nouvelle attestation à importer.', import_err:'Import impossible : {e}',
     verif_bad_json:'JSON invalide.', verif_no_sig:'Le certificat n\'a ni message ni signature.',
     verif_ok:'✦ Signature valide. L\'attestation a été signée par son déclarant.', verif_mismatch:'✗ La signature est valide mais NE correspond PAS au signataire déclaré. Falsification possible.', verif_invalid:'Signature invalide ou corrompue : {e}',
-    lbl_signer:'Signataire', lbl_doc:'Document', lbl_cid:'CID', lbl_date:'Date', lbl_recovered:'Récupérée', lbl_declared:'Déclarée'
+    lbl_signer:'Signataire', lbl_doc:'Document', lbl_cid:'CID', lbl_date:'Date', lbl_recovered:'Récupérée', lbl_declared:'Déclarée',
+    g1_title:'Être vivant · Ğ1', g1_sub:'votre humanité, certifiée par la toile de confiance Ğ1',
+    g1_desc:'Ius ne certifie personne : la Ğ1 le fait déjà, avec des personnes qui se rencontrent physiquement. Liez votre compte Ğ1 à ce wallet et quiconque vérifie vos attestations verra qu\'elles ont été signées par un être vivant.',
+    g1_ph:'Votre adresse Ğ1 (g1…)', g1_bad:'Adresse Ğ1 invalide.', g1_checking:'Interrogation du réseau Ğ1…',
+    g1_prev_member:'✦ {name} · membre Ğ1', g1_prev_nomember:'{name} · identité Ğ1 sans adhésion en cours (liable, mais sans badge)', g1_prev_none:'Compte Ğ1 sans identité (liable, mais sans badge)',
+    g1_sign_btn:'Signer le lien', g1_sign_wait:'Signez le lien dans votre wallet (gratuit)…', g1_sign_wait_remote:'Approuvez le lien dans votre chatWallet (sur le téléphone)…', g1_sign_err:'Lien non signé : {e}',
+    g1_step_title:'Dernière étape : envoyez-le depuis votre portefeuille Ğ1', g1_step_desc:'Dans Ğecko ou Cesium², faites un virement de 0,01 Ğ1 à qui vous voulez et collez ce texte en commentaire. Ce commentaire, signé par votre compte Ğ1, scelle le lien sur la chaîne.',
+    g1_copy:'Copier le commentaire', g1_copied:'Commentaire copié. Collez-le dans votre portefeuille Ğ1.', g1_cancel:'Annuler',
+    g1_waiting:'En attente du commentaire sur le réseau Ğ1… vérifié toutes les 15 s.', g1_linked_ok:'Lien confirmé sur la chaîne Ğ1.',
+    g1_revoke:'Délier', g1_revoke_desc:'Pour défaire le lien, envoyez depuis votre compte Ğ1 un virement avec ce commentaire :',
+    g1_err:'Impossible d\'interroger le réseau Ğ1 : {e}',
+    badge_member:'✦ Être vivant · membre Ğ1', badge_nomember:'Identité Ğ1 sans adhésion en cours', badge_certs:'{n} certifications actives', badge_expires:'adhésion jusqu\'au {date}', badge_block:'lié au bloc #{b}',
+    lbl_g1:'Compte Ğ1', lbl_evm:'Adresse EVM',
+    sv_title:'Consulter un être vivant', sv_desc:'Collez une adresse EVM (0x…) ou Ğ1 (g1…) pour savoir si elle appartient à un membre de la toile de confiance Ğ1. La réponse vient de la chaîne Ğ1, pas de ce site.', sv_ph:'0x… ou g1…', sv_btn:'Consulter',
+    sv_bad:'Format non reconnu : collez une adresse 0x… ou g1…', sv_none_evm:'Cette adresse n\'a pas de lien Ğ1 en cours.', sv_none_idty:'Ce compte Ğ1 n\'a pas d\'identité dans la toile de confiance.', sv_no_link:'Non lié à une adresse EVM.'
   }};
   let LANG = (localStorage.getItem('ius:lang')||'').toLowerCase();
   if(!D[LANG]){ const nav=(navigator.language||'es').slice(0,2).toLowerCase(); LANG = D[nav]?nav:'es'; }
@@ -838,7 +950,7 @@ window.IusI18n = (function(){
   // por si vuelve, pero la que contesta es crustipfs.xyz.
   const GATEWAYS = ['https://crustipfs.xyz','https://gw.crustfiles.app'];
   const NORMA = 'ius-naturalis/atestacion/1';
-  const VERSION = '0.9.4';
+  const VERSION = '0.10.0';
 
   /* ================= estado ================= */
   const S = {
@@ -852,6 +964,7 @@ window.IusI18n = (function(){
     precio:null, abiV2:false,
     atestacion:null,         // { mensaje, firma, fecha, declaracion }
     docs:[],
+    serVivo:null,            // vínculo Ğ1 + identidad (IusG1.consultarSerVivo)
   };
 
   const $ = id => document.getElementById(id);
@@ -971,6 +1084,7 @@ window.IusI18n = (function(){
     $('ident1').hidden = false;
     estado(1, t('st_wallet_ok',{addr:abreviar(S.cuenta)}), 'ok');
     await cargarRegistro();
+    iniciarG1();      // no se espera: la red Ğ1 no tiene por qué frenar la firma W3Auth
     await firmar();   // conectar y autenticarse son un solo acto (ver firmar())
   }
 
@@ -1639,6 +1753,174 @@ window.IusI18n = (function(){
   fijarVisibilidad(true);
   pintarRegistro();
 
+  /* ================= ser vivo · Ğ1 (norma ius-naturalis/vinculo-g1/1, ver ius-spec/) ================= */
+  // Ius no certifica humanidad: la lee de la red de confianza Ğ1. El vínculo 0x↔g1 es un
+  // comentario de transferencia Ğ1 que lleva la firma EVM adentro (js/g1.js).
+  const G1 = window.IusG1;
+  const G1_ESPERA_MS = 15000;
+  let g1Timer = null, g1Revisar = null, g1PreviaN = 0;
+  const claveG1Pend = () => 'ius:g1pend:' + S.cuenta.toLowerCase();
+  function leerPendienteG1(){ try{ return JSON.parse(localStorage.getItem(claveG1Pend()) || 'null'); }catch(_){ return null; } }
+  function guardarPendienteG1(p){ try{ localStorage.setItem(claveG1Pend(), JSON.stringify(p)); }catch(_){} }
+  function borrarPendienteG1(){ try{ localStorage.removeItem(claveG1Pend()); }catch(_){} }
+  function pararEsperaG1(){ if(g1Timer) clearTimeout(g1Timer); g1Timer = null; g1Revisar = null; }
+
+  function fechaLinda(d){
+    try{ return d.toLocaleDateString(window.IusI18n.lang(), {year:'numeric', month:'long', day:'numeric'}); }
+    catch(_){ return d.toISOString().slice(0,10); }
+  }
+
+  // Tarjeta del badge a partir de IusG1.consultarSerVivo(). Todo lo que viene de la red se escapa.
+  function htmlSerVivo(r){
+    const id = r.identidad, v = r.vinculo, miembro = !!(id && id.miembro);
+    const sello = miembro ? t('badge_member') : (id ? t('badge_nomember') : t('sv_none_idty'));
+    const partes = [`<span class="sello-vivo">${escapar(sello)}</span>`];
+    if(id) partes.push(`<span class="nombre">${escapar(id.nombre)}</span>`);
+    partes.push(`<span class="det">${escapar(t('lbl_g1'))}: <b>${escapar(r.g1)}</b></span>`);
+    partes.push(`<span class="det">${escapar(t('lbl_evm'))}: ${v ? `<b>${escapar(v.evm)}</b>` : escapar(t('sv_no_link'))}</span>`);
+    const det = [];
+    if(miembro){
+      det.push(t('badge_certs', {n:id.certificaciones}));
+      if(id.vence) det.push(t('badge_expires', {date:fechaLinda(id.vence)}));
+    }
+    if(v && v.bloque != null) det.push(t('badge_block', {b:v.bloque}));
+    if(det.length) partes.push(`<span class="det">${escapar(det.join(' · '))}</span>`);
+    return `<div class="badge-vivo${miembro?' miembro':''}">${partes.join('')}</div>`;
+  }
+
+  async function iniciarG1(){
+    pararEsperaG1();
+    $('g1-vinculado').innerHTML = ''; $('g1-revocar').hidden = true;
+    $('g1-form').hidden = true; $('g1-pendiente').hidden = true;
+    try{
+      estado('-g1', t('g1_checking'), null, true);
+      const v = await G1.vinculoDeEvm(S.cuenta, ethers);
+      if(v){ await mostrarVinculadoG1(v.g1); estado('-g1', ''); return; }
+      estado('-g1', '');
+      const pend = leerPendienteG1();
+      if(pend) mostrarPendienteG1(pend); else $('g1-form').hidden = false;
+    }catch(e){
+      estado('-g1', t('g1_err', {e:e.message}), 'err');
+      $('g1-form').hidden = false;
+    }
+  }
+
+  async function mostrarVinculadoG1(g1){
+    pararEsperaG1(); borrarPendienteG1();
+    $('g1-form').hidden = true; $('g1-pendiente').hidden = true;
+    S.serVivo = await G1.consultarSerVivo(g1, ethers);
+    $('g1-vinculado').innerHTML = htmlSerVivo(S.serVivo);
+    $('g1-revocar').hidden = false;
+    marcarCuentaViva();
+  }
+  function marcarCuentaViva(){
+    const el = $('cuenta'); const previa = el.querySelector('.vivo'); if(previa) previa.remove();
+    if(S.serVivo && S.serVivo.identidad && S.serVivo.identidad.miembro){
+      const m = document.createElement('span'); m.className = 'vivo'; m.textContent = '✦';
+      m.title = t('badge_member'); el.appendChild(m);
+    }
+  }
+
+  // Previsualización mientras se escribe la dirección: formato local, identidad desde la red.
+  async function previaG1(){
+    const n = ++g1PreviaN, g1 = $('g1-dir').value.trim(), el = $('g1-previa');
+    $('btn-g1-firmar').disabled = true;
+    el.className = 'g1-previa'; el.textContent = '';
+    if(!g1) return;
+    if(!G1.esDireccionG1(g1)){ el.className = 'g1-previa err'; el.textContent = t('g1_bad'); return; }
+    $('btn-g1-firmar').disabled = false;
+    el.textContent = t('g1_checking');
+    try{
+      const id = await G1.identidad(g1);
+      if(n !== g1PreviaN) return;          // llegó tarde: ya escribieron otra cosa
+      if(!id){ el.textContent = t('g1_prev_none'); return; }
+      el.className = 'g1-previa' + (id.miembro ? ' ok' : '');
+      el.textContent = t(id.miembro ? 'g1_prev_member' : 'g1_prev_nomember', {name:id.nombre});
+    }catch(e){ if(n === g1PreviaN) el.textContent = t('g1_err', {e:e.message}); }
+  }
+
+  async function firmarVinculoG1(){
+    const g1 = $('g1-dir').value.trim();
+    if(!G1.esDireccionG1(g1)) return;
+    $('btn-g1-firmar').disabled = true;
+    try{
+      estado('-g1', S.remoto ? t('g1_sign_wait_remote') : t('g1_sign_wait'), null, true);
+      const firma = await S.signer.signMessage(G1.mensajeVinculo(S.cuenta, g1));
+      const comentario = G1.comentarioVinculo(S.cuenta, firma);
+      // Antes de mandar a nadie a transferir: lo firmado tiene que verificar acá mismo.
+      if(G1.verificarComentario(comentario, g1, ethers) !== ethers.getAddress(S.cuenta)) throw new Error('la firma no verifica');
+      const p = { g1, comentario };
+      guardarPendienteG1(p);
+      mostrarPendienteG1(p);
+    }catch(e){
+      estado('-g1', t('g1_sign_err', {e:(e.shortMessage||e.message)}), 'err');
+      $('btn-g1-firmar').disabled = false;
+    }
+  }
+
+  // Muestra el comentario a pegar y revisa la red hasta verlo. Sobrevive a recargar la página.
+  function mostrarPendienteG1(p){
+    $('g1-form').hidden = true; $('g1-pendiente').hidden = false;
+    $('g1-comentario-txt').textContent = p.comentario;
+    estado('-g1', t('g1_waiting'), null, true);
+    pararEsperaG1();
+    const revisar = g1Revisar = async ()=>{
+      if(g1Timer) clearTimeout(g1Timer);
+      try{
+        const v = await G1.vinculoDeG1(p.g1, ethers);
+        if(g1Revisar !== revisar) return;  // cancelado mientras consultaba
+        if(v && v.evm.toLowerCase() === S.cuenta.toLowerCase()){
+          await mostrarVinculadoG1(p.g1);
+          estado('-g1', t('g1_linked_ok'), 'ok');
+          return;
+        }
+      }catch(_){ /* el indexador puede fallar un rato: se reintenta */ }
+      if(g1Revisar === revisar) g1Timer = setTimeout(revisar, G1_ESPERA_MS);
+    };
+    revisar();
+  }
+  // Al volver de la billetera Ğ1 (mismo celular) se revisa enseguida, sin esperar el reloj.
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible' && g1Revisar) g1Revisar();
+  });
+
+  $('g1-dir').addEventListener('input', previaG1);
+  $('btn-g1-firmar').addEventListener('click', firmarVinculoG1);
+  $('btn-g1-cancelar').addEventListener('click', ()=>{
+    pararEsperaG1(); borrarPendienteG1();
+    $('g1-pendiente').hidden = true; $('g1-form').hidden = false;
+    estado('-g1', ''); previaG1();
+  });
+  $('btn-g1-copiar').addEventListener('click', async ()=>{
+    const txt = $('g1-comentario-txt').textContent;
+    try{ await navigator.clipboard.writeText(txt); }
+    catch(_){ const r = document.createRange(); r.selectNodeContents($('g1-comentario-txt')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); return; }
+    estado('-g1', t('g1_copied'), 'ok');
+    setTimeout(()=>{ if(g1Revisar) estado('-g1', t('g1_waiting'), null, true); }, 3500);
+  });
+
+  // Vista Verificar: cualquiera consulta una 0x o una g1, sin conectar nada.
+  let svUltimo = null;
+  async function consultarSV(){
+    const entrada = $('sv-entrada').value.trim(), ver = $('sv-veredicto');
+    if(!entrada) return;
+    $('sv-resultado').innerHTML = ''; svUltimo = null;
+    ver.className = 'veredicto'; ver.innerHTML = '<span class="girando"></span>' + escapar(t('g1_checking'));
+    $('btn-sv').disabled = true;
+    try{
+      const r = await G1.consultarSerVivo(entrada, ethers);
+      ver.textContent = '';
+      if(!r.g1){ ver.className = 'veredicto err'; ver.textContent = t('sv_none_evm'); return; }
+      svUltimo = r;
+      $('sv-resultado').innerHTML = htmlSerVivo(r);
+    }catch(e){
+      ver.className = 'veredicto err';
+      ver.textContent = e.message === 'formato' ? t('sv_bad') : t('g1_err', {e:e.message});
+    }finally{ $('btn-sv').disabled = false; }
+  }
+  $('btn-sv').addEventListener('click', consultarSV);
+  $('sv-entrada').addEventListener('keydown', e=>{ if(e.key === 'Enter') consultarSV(); });
+
   // router de vistas (Atestiguar / Verificar)
   const vistas = { atestiguar: $('vista-atestiguar'), verificar: $('vista-verificar') };
   const tabs = document.querySelectorAll('.nav-vistas .tab');
@@ -1687,6 +1969,8 @@ window.IusI18n = (function(){
     fijarVisibilidad(S.cifrado);
     pintarRegistro();
     startWordCycle();
+    if(S.serVivo){ $('g1-vinculado').innerHTML = htmlSerVivo(S.serVivo); marcarCuentaViva(); }
+    if(svUltimo) $('sv-resultado').innerHTML = htmlSerVivo(svUltimo);
     if(S.cuenta && !$('ident1').hidden) $('ident1-modo').textContent = S.remoto ? t('ident_remote') : t('ident_local');
   };
 
