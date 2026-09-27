@@ -820,6 +820,60 @@
             display: none;
         }
 
+        #userCardG1 {
+            display: flex;
+            flex-direction: column;
+            gap: .2rem;
+            margin: -.4rem 0 1rem;
+            padding: .6rem .75rem;
+            border-radius: .6rem;
+            border: 1px solid rgba(148, 163, 184, .35);
+            background: rgba(148, 163, 184, .08);
+            text-align: center;
+            font-size: .8rem;
+            color: #cbd5e1;
+        }
+
+        #userCardG1.hidden {
+            display: none;
+        }
+
+        #userCardG1.miembro {
+            border-color: rgba(234, 179, 8, .55);
+            background: rgba(234, 179, 8, .08);
+        }
+
+        #userCardG1 .g1-sello {
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        #userCardG1.miembro .g1-sello {
+            color: #eab308;
+        }
+
+        #userCardG1 .g1-nombre {
+            font-size: .95rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        #userCardG1 .g1-cuenta {
+            word-break: break-all;
+        }
+
+        body.theme-light #userCardG1 {
+            color: #475569;
+        }
+
+        body.theme-light #userCardG1 .g1-nombre {
+            color: #0f172a;
+        }
+
+        body.theme-light #userCardG1.miembro .g1-sello {
+            color: #a16207;
+        }
+
         #userCardLinks {
             display: flex;
             flex-direction: column;
@@ -2033,6 +2087,9 @@
                 </svg>
             </button>
         </div>
+        <!-- Ser vivo · Ğ1: sólo aparece si la 0x tiene un vínculo vigente en la cadena Ğ1
+             (norma ius-naturalis/vinculo-g1/1). Se lee cada vez; no se guarda en el perfil. -->
+        <div id="userCardG1" class="hidden"></div>
         <!-- Links del DID del contacto (poblados desde el perfil soberano recibido por XMTP) -->
         <div id="userCardLinks"></div>
     </div>
@@ -4353,6 +4410,10 @@
             window.computeAddress = computeAddress;
             window.keccak256 = keccak256;
             window.toUtf8Bytes = toUtf8Bytes;
+            // Ğ1 a demanda: la consulta del vínculo 0x↔g1 (la misma de Ius, ius/js/g1.js) queda
+            // en un pedazo aparte que se baja recién cuando alguien abre una tarjeta de DID.
+            // El script clásico la llama al tocar, nunca al cargar (ver orden de carga).
+            window.cwCargarG1 = () => import('../ius/js/g1.js').then(m => m.default || m);
 
 
         </script>
@@ -12601,6 +12662,63 @@
 
                 document.getElementById('userCardEditBtn')?.classList.add('hidden');   // no es la tuya
                 card.style.display = 'block';
+                pintarSerVivoG1(address);
+            }
+
+            // ── Ser vivo · Ğ1 en la tarjeta ─────────────────────────────────────────────
+            // Si la 0x tiene un vínculo vigente con una cuenta Ğ1 (comentario ius1: en la cadena,
+            // misma regla que Ius), se muestra la identidad Ğ1: seudónimo, si es miembro de la
+            // red de confianza, certificaciones y vencimiento. Sin vínculo no se muestra nada: un
+            // "no vinculado" en cada contacto sería puro ruido. El seudónimo lo eligió un tercero:
+            // todo va por textContent. La tarjeta abre al instante; esto llega cuando llega.
+            const G1_CACHE_MS = 10 * 60 * 1000;
+            const g1Cache = new Map();   // 0x en minúsculas → { t, r }
+            async function consultarSerVivoG1(address) {
+                const k = address.toLowerCase();
+                const c = g1Cache.get(k);
+                if (c && Date.now() - c.t < G1_CACHE_MS) return c.r;
+                if (typeof window.cwCargarG1 !== 'function') return null;
+                const G1 = await window.cwCargarG1();
+                const vinculo = await G1.vinculoDeEvm(address, window.ethers);
+                const r = vinculo ? { g1: vinculo.g1, identidad: await G1.identidad(vinculo.g1) } : null;
+                g1Cache.set(k, { t: Date.now(), r });
+                return r;
+            }
+
+            async function pintarSerVivoG1(address) {
+                const box = document.getElementById('userCardG1');
+                if (!box) return;
+                box.classList.add('hidden');
+                box.replaceChildren();
+                if (!/^0x[0-9a-fA-F]{40}$/.test(address || '')) return;   // grupos, etc.
+                let r;
+                try { r = await consultarSerVivoG1(address); }
+                catch (e) { console.warn('[g1] consulta del vínculo falló:', e?.message || e); return; }
+                // La tarjeta pudo cerrarse o pasar a otra persona mientras se consultaba.
+                const card = document.getElementById('userInfoCard');
+                if (!r || card?.style.display !== 'block'
+                    || document.getElementById('userCardAddress')?.textContent.toLowerCase() !== address.toLowerCase()) return;
+                const id = r.identidad, miembro = !!(id && id.miembro);
+                const linea = (clase, texto) => {
+                    const el = document.createElement('span');
+                    el.className = clase;
+                    el.textContent = texto;
+                    box.appendChild(el);
+                };
+                linea('g1-sello', miembro ? '✦ ' + t('g1_card_member') : t('g1_card_linked'));
+                if (id && id.nombre) linea('g1-nombre', id.nombre);
+                linea('g1-cuenta font-mono', `${t('g1_card_account')}: ${r.g1}`);
+                if (miembro) {
+                    const det = [t('g1_card_certs', { n: id.certificaciones })];
+                    if (id.vence) {
+                        const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+                        const fecha = new Date(id.vence).toLocaleDateString(lang, { day: 'numeric', month: 'long', year: 'numeric' });
+                        det.push(t('g1_card_until', { date: fecha }));
+                    }
+                    linea('g1-det', det.join(' · '));
+                }
+                box.classList.toggle('miembro', miembro);
+                box.classList.remove('hidden');
             }
 
             // Un link por línea. Se muestra lo que escribió el usuario, pero se navega a una URL
@@ -12637,6 +12755,7 @@
                 pintarLinks(document.getElementById('userCardLinks'), me.links);
                 document.getElementById('userCardEditBtn')?.classList.remove('hidden');
                 card.style.display = 'block';
+                pintarSerVivoG1(currentWallet.address);
             }
 
             function updateChainName() {
@@ -18146,6 +18265,11 @@
                     "settings_keys_title": "Gestión de claves",
                     "card_your_name_for_them": "Alias: {alias}",
                     "card_give_them_a_name": "Ponerle un alias",
+                    "g1_card_member": "Ser vivo · miembro Ğ1",
+                    "g1_card_linked": "Cuenta Ğ1 vinculada",
+                    "g1_card_account": "Cuenta Ğ1",
+                    "g1_card_certs": "{n} certificaciones vigentes",
+                    "g1_card_until": "membresía hasta el {date}",
                     "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
                     "apk_banner_cta": "Descargar",
                     "settings_install_title": "Instalar la app",
@@ -18482,6 +18606,11 @@
                     "settings_keys_title": "Key management",
                     "card_your_name_for_them": "Alias: {alias}",
                     "card_give_them_a_name": "Add an alias",
+                    "g1_card_member": "Living being · Ğ1 member",
+                    "g1_card_linked": "Linked Ğ1 account",
+                    "g1_card_account": "Ğ1 account",
+                    "g1_card_certs": "{n} active certifications",
+                    "g1_card_until": "membership until {date}",
                     "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
                     "apk_banner_cta": "Download",
                     "settings_install_title": "Install the app",
@@ -18818,6 +18947,11 @@
                     "settings_keys_title": "Gestion des clés",
                     "card_your_name_for_them": "Alias : {alias}",
                     "card_give_them_a_name": "Ajouter un alias",
+                    "g1_card_member": "Être vivant · membre Ğ1",
+                    "g1_card_linked": "Compte Ğ1 lié",
+                    "g1_card_account": "Compte Ğ1",
+                    "g1_card_certs": "{n} certifications actives",
+                    "g1_card_until": "adhésion jusqu'au {date}",
                     "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",
                     "apk_banner_cta": "Télécharger",
                     "settings_install_title": "Installer l'app",
