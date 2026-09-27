@@ -262,6 +262,7 @@
 
   /* ---------- ser vivo · Ğ1 ---------- */
   .g1-sec{margin-top:3.5rem}
+  .g1-sec[hidden]{display:none}
   .g1-sec .desc-g1{color:var(--bruma);font-size:.85rem;margin-bottom:1rem;max-width:44rem}
   .g1-fila{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
   .g1-fila input{flex:1 1 20rem;min-width:0;background:var(--noche-3);color:var(--lavanda);border:1px solid var(--linea);
@@ -950,7 +951,7 @@ window.IusI18n = (function(){
   // por si vuelve, pero la que contesta es crustipfs.xyz.
   const GATEWAYS = ['https://crustipfs.xyz','https://gw.crustfiles.app'];
   const NORMA = 'ius-naturalis/atestacion/1';
-  const VERSION = '0.10.0';
+  const VERSION = '0.10.1';
 
   /* ================= estado ================= */
   const S = {
@@ -1084,7 +1085,7 @@ window.IusI18n = (function(){
     $('ident1').hidden = false;
     estado(1, t('st_wallet_ok',{addr:abreviar(S.cuenta)}), 'ok');
     await cargarRegistro();
-    iniciarG1();      // no se espera: la red Ğ1 no tiene por qué frenar la firma W3Auth
+    if(G1_VINCULAR) iniciarG1();   // no se espera: la red Ğ1 no tiene por qué frenar la firma W3Auth
     await firmar();   // conectar y autenticarse son un solo acto (ver firmar())
   }
 
@@ -1758,6 +1759,11 @@ window.IusI18n = (function(){
   // comentario de transferencia Ğ1 que lleva la firma EVM adentro (js/g1.js).
   const G1 = window.IusG1;
   const G1_ESPERA_MS = 15000;
+  // Vincular queda oculto hasta probarlo con una cuenta Ğ1 real (¿Ğecko/Cesium² aceptan un
+  // comentario de 119 caracteres sin tocarlo?). Para probarlo en producción: ?vincular
+  // La consulta pública (vista Verificar) no depende de esto.
+  const G1_VINCULAR = new URLSearchParams(location.search).has('vincular');
+  $('g1-sec').hidden = !G1_VINCULAR;
   let g1Timer = null, g1Revisar = null, g1PreviaN = 0;
   const claveG1Pend = () => 'ius:g1pend:' + S.cuenta.toLowerCase();
   function leerPendienteG1(){ try{ return JSON.parse(localStorage.getItem(claveG1Pend()) || 'null'); }catch(_){ return null; } }

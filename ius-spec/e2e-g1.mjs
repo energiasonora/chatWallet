@@ -5,7 +5,7 @@ import os from 'node:os';
 import fs from 'node:fs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', PORT = 9461;
-const URL = 'http://127.0.0.1:8830/';
+const URL = process.env.IUS_URL || 'http://127.0.0.1:8830/';
 const G1 = 'g1K378tVb3YMtuLRCB7T63zQ22orBRdkmtrhzMsu81LRRaLxH';     // SophieRegis, miembro real
 const OTRO = 'g1LqPgmosBjJC4qW7iniiAxopFXVugVHPzhDPNKCasdT6UFJo';   // Benham, miembro real
 const OUT = process.argv[2];
@@ -80,7 +80,7 @@ const PRELUDIO = `
 try{
   await rpc('Page.enable'); await rpc('Runtime.enable');
   await rpc('Page.addScriptToEvaluateOnNewDocument', { source: PRELUDIO });
-  await rpc('Page.navigate', { url: URL + '?lang=es' });
+  await rpc('Page.navigate', { url: URL + '?lang=es&vincular' });
   await esperar(`window.IusG1 && document.readyState==='complete'`, 15000, 'carga');
   await ev(`window.IusI18n.setLang('es')`);
   ok(await ev(`return document.getElementById('g1-sec').offsetParent === null`), 'sin sesión, la sección Ğ1 está oculta');
@@ -147,6 +147,19 @@ try{
   await ev(`window.__g1Comentarios.push({ remark:'ius1:rev', authorId:${JSON.stringify(G1)}, blockNumber:2906000, event:{extrinsic:{hash:'0xrev',success:true}} })`);
   r = await consultar(evm);
   ok(/no tiene un vínculo Ğ1/.test(r), 'tras ius1:rev la 0x pierde el vínculo');
+
+  console.log('· sin ?vincular (lo publicado por defecto)');
+  await rpc('Page.navigate', { url: URL + '?lang=es' });
+  await esperar(`window.IusG1 && document.readyState==='complete'`, 15000, 'recarga');
+  await ev(`document.getElementById('btn-conectar-hero').click()`);
+  await esperar(`[...document.querySelectorAll('.wallet-item')].some(b=>/Wallet del navegador/.test(b.textContent))`, 5000, 'modal');
+  await ev(`[...document.querySelectorAll('.wallet-item')].find(b=>/Wallet del navegador/.test(b.textContent)).click()`);
+  await esperar(`document.getElementById('paso1').classList.contains('hecho')`, 15000, 'W3Auth');
+  await dormir(1500);
+  ok(await ev(`return getComputedStyle(document.getElementById('g1-sec')).display === 'none' && window.__g1Consultas === 0`), 'sección de vincular oculta y sin consultar la red al conectar');
+  await ev(`document.querySelector('.nav-vistas .tab[data-vista=verificar]').click()`);
+  r = await consultar(G1);
+  ok(/miembro Ğ1/.test(r) && /SophieRegis/.test(r), 'la consulta pública funciona igual');
 
   ok(errores.length === 0, 'sin errores en consola' + (errores.length ? ': ' + errores.join(' / ') : ''));
   console.log(`\n✔ ${n} comprobaciones E2E OK`);
