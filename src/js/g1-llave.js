@@ -15,11 +15,9 @@ import { ed25519 } from '@noble/curves/ed25519';
 import { blake2b } from '@noble/hashes/blake2b';
 import { pbkdf2 } from '@noble/hashes/pbkdf2';
 import { sha512 } from '@noble/hashes/sha512';
-import { Mnemonic, wordlists } from 'ethers';
+import { leerFrase } from './frase.js';
 
 export const PREFIJO_G1 = 4450;
-// Las listas con las que ChatWallet crea frases (en/es/fr) y las que ofrecen los clientes Ğ1.
-const LISTAS = ['en', 'es', 'fr', 'it', 'pt'];
 
 const utf8 = (s) => new TextEncoder().encode(s);
 const concatenar = (...partes) => {
@@ -29,18 +27,10 @@ const concatenar = (...partes) => {
     return out;
 };
 
-// Entropía de la frase, en la lista que sea. null si no es una frase BIP39 válida.
+// Entropía de la frase, en el idioma que sea. null si no es una frase BIP39 válida.
 export function entropiaDeFrase(frase) {
-    const limpia = String(frase || '').trim().toLowerCase().replace(/\s+/g, ' ');
-    for (const l of LISTAS) {
-        try { return Mnemonic.fromPhrase(limpia, undefined, wordlists[l]).entropy; } catch (e) { /* otra lista */ }
-    }
-    return null;
-}
-
-function bytesDeHex(hex) {
-    const h = hex.replace(/^0x/, '');
-    return Uint8Array.from(h.match(/../g).map((b) => parseInt(b, 16)));
+    const r = leerFrase(frase);
+    return r ? r.entropia : null;
 }
 
 // SCALE compact de un largo chico (< 64): un byte, largo << 2.
@@ -64,18 +54,27 @@ function codigoDeJuntura(j) {
     return out;
 }
 
-// Semilla ed25519 de 32 bytes para `frase` + `ruta` ('' = raíz, '//0', '//1'…).
-// Solo junturas duras: ed25519 no admite blandas.
-export function semillaG1(frase, ruta = '') {
+// Mini-secreto Substrate de la frase (la raíz): PBKDF2 una sola vez, que es lo caro.
+function miniSecreto(frase) {
     const entropia = entropiaDeFrase(frase);
     if (!entropia) throw new Error('frase');
-    let semilla = pbkdf2(sha512, bytesDeHex(entropia), utf8('mnemonic'), { c: 2048, dkLen: 64 }).slice(0, 32);
-    const partes = String(ruta).split('//').slice(1);
-    if (String(ruta) && (!String(ruta).startsWith('//') || partes.some((p) => !p || p.includes('/')))) {
-        throw new Error('ruta');
-    }
+    return pbkdf2(sha512, entropia, utf8('mnemonic'), { c: 2048, dkLen: 64 }).slice(0, 32);
+}
+
+// Aplica una ruta ('' = raíz, '//0', '//1'…) a un mini-secreto. Solo junturas duras:
+// ed25519 no admite blandas.
+function derivar(raiz, ruta) {
+    const r = String(ruta);
+    const partes = r.split('//').slice(1);
+    if (r && (!r.startsWith('//') || partes.some((p) => !p || p.includes('/')))) throw new Error('ruta');
+    let semilla = raiz;
     for (const p of partes) semilla = blake2b(concatenar(HDKD, semilla, codigoDeJuntura(p)), { dkLen: 32 });
     return semilla;
+}
+
+// Semilla ed25519 de 32 bytes para `frase` + `ruta`.
+export function semillaG1(frase, ruta = '') {
+    return derivar(miniSecreto(frase), ruta);
 }
 
 // SS58: prefijo (2 bytes para ids ≥ 64) ‖ llave ‖ blake2b-512("SS58PRE"‖…)[0..2], en base58.
@@ -97,17 +96,21 @@ export function direccionG1(publica, prefijo = PREFIJO_G1) {
     return base58(concatenar(cuerpo, suma));
 }
 
-// La cuenta Ğ1 de una frase: { ruta, semilla, publica, direccion }.
-export function cuentaG1(frase, ruta = '') {
-    const semilla = semillaG1(frase, ruta);
+function cuentaDeSemilla(semilla, ruta) {
     const publica = ed25519.getPublicKey(semilla);
     return { ruta, semilla, publica, direccion: direccionG1(publica) };
 }
 
+// La cuenta Ğ1 de una frase: { ruta, semilla, publica, direccion }.
+export function cuentaG1(frase, ruta = '') {
+    return cuentaDeSemilla(semillaG1(frase, ruta), ruta);
+}
+
 // Las mismas candidatas que escanean Ğecko y Cesium² al importar: raíz y //0 … //(n-1).
 export function candidatasG1(frase, n = 30) {
+    const raiz = miniSecreto(frase);
     const rutas = ['', ...Array.from({ length: n }, (_, i) => '//' + i)];
-    return rutas.map((r) => cuentaG1(frase, r));
+    return rutas.map((r) => cuentaDeSemilla(derivar(raiz, r), r));
 }
 
 export function firmarG1(cuenta, mensaje) {
