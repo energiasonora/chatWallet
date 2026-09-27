@@ -55,7 +55,8 @@ function codigoDeJuntura(j) {
 }
 
 // Mini-secreto Substrate de la frase (la raíz): PBKDF2 una sola vez, que es lo caro.
-function miniSecreto(frase) {
+// Con él se derivan todas las cuentas Ğ1 de la frase, pero no la 0x (esa sale del texto).
+export function miniSecreto(frase) {
     const entropia = entropiaDeFrase(frase);
     if (!entropia) throw new Error('frase');
     return pbkdf2(sha512, entropia, utf8('mnemonic'), { c: 2048, dkLen: 64 }).slice(0, 32);
@@ -99,6 +100,11 @@ export function direccionG1(publica, prefijo = PREFIJO_G1) {
 function cuentaDeSemilla(semilla, ruta) {
     const publica = ed25519.getPublicKey(semilla);
     return { ruta, semilla, publica, direccion: direccionG1(publica) };
+}
+
+// La cuenta Ğ1 de un mini-secreto ya calculado (ver miniSecreto) y una ruta.
+export function cuentaDeRaiz(raiz, ruta = '') {
+    return cuentaDeSemilla(derivar(raiz, ruta), ruta);
 }
 
 // La cuenta Ğ1 de una frase: { ruta, semilla, publica, direccion }.

@@ -6,10 +6,19 @@
 // Se carga a demanda al activar la red Ğ1 (window.cwCargarBilleteraG1 en dapp.html).
 import { sha256 } from '@noble/hashes/sha256';
 import IusG1 from '../../ius/js/g1.js';
-import { candidatasG1 } from './g1-llave.js';
+import { candidatasG1, miniSecreto, cuentaDeRaiz } from './g1-llave.js';
 import { leerFrase, semillaBip39 } from './frase.js';
 
-export { leerFrase, semillaBip39 };
+export { leerFrase, semillaBip39, cuentaDeRaiz };
+
+// La raíz Ğ1 de la frase, en hex, para guardarla (ver cuentaFirmanteG1 en dapp.html).
+export function raizHex(frase) {
+    return Array.from(miniSecreto(frase), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+export function cuentaDeRaizHex(hex, ruta) {
+    const b = Uint8Array.from(hex.match(/../g).map((x) => parseInt(x, 16)));
+    return cuentaDeRaiz(b, ruta);
+}
 export const G1 = IusG1;
 
 // Las 31 direcciones que puede ser tu cuenta (raíz y //0…//29), sin secretos: solo lo

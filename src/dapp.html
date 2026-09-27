@@ -4448,6 +4448,8 @@
             // a demanda. Nadie que no active Ğ1 ni restaure una frase en francés los baja.
             window.cwCargarBilleteraG1 = () => import('./js/g1-billetera.js');
             window.cwCargarFrase = () => import('./js/frase.js');
+            // La cadena Ğ1 (@polkadot/api): la parte pesada, solo con la red Ğ1 elegida.
+            window.cwCargarCadenaG1 = () => import('./js/g1-cadena.js');
 
 
         </script>
@@ -12812,12 +12814,15 @@
             // ── Red Ğ1: billetera de solo lectura ─────────────────────────────────────────
             // Se elige desde el selector de redes, debajo de las EVM. La cuenta Ğ1 sale de la
             // misma frase (ver src/js/g1-llave.js): la que ve el usuario en Ğecko o Cesium².
-            // Solo se guarda lo público: las 31 direcciones candidatas y la elegida. La frase no.
+            // Se guardan las 31 direcciones candidatas y la elegida, y —para poder firmar en una
+            // billetera restaurada— la RAÍZ Ğ1 (el mini-secreto del que salen las cuentas Ğ1; la 0x
+            // no sale de ahí), al mismo nivel que la clave EVM que la app ya guarda. La frase no.
             // Declaraciones de función y `var`, no const/let: renderBalances() y updateBalance()
             // las llaman y podrían correr antes de que el script llegue a esta línea (TDZ).
             function claveRedG1() { return `cw-red-g1-${currentWallet?.address?.toLowerCase()}`; }
             function claveCuentaG1(a) { return `cw-g1-cuenta-${String(a).toLowerCase()}`; }
             function claveCandidatasG1(a) { return `cw-g1-candidatas-${String(a).toLowerCase()}`; }
+            function claveRaizG1(a) { return `cw-g1-raiz-${String(a).toLowerCase()}`; }
             var G1_REFRESCO_MS = 30 * 1000;
             var g1Lectura = null;          // { t, r } última lectura de la cuenta
             var g1Pintando = null;
@@ -12838,6 +12843,7 @@
                 try {
                     const B = await window.cwCargarBilleteraG1();
                     localStorage.setItem(claveCandidatasG1(wallet.address), JSON.stringify(B.candidatas(frase)));
+                    localStorage.setItem(claveRaizG1(wallet.address), B.raizHex(frase));
                 } catch (e) { console.warn('[g1] candidatas al restaurar:', e?.message || e); }
             }
 
@@ -12879,9 +12885,8 @@
                             q('[data-g1="error"]').textContent = t('g1_phrase_other');
                             return;
                         }
-                        const cands = B.candidatas(r.frase);
                         campo.value = '';
-                        cerrar(cands);
+                        cerrar(r.frase);
                     };
                     document.body.appendChild(modal);
                     q('textarea').focus();
@@ -12896,10 +12901,12 @@
                         const B = await window.cwCargarBilleteraG1();
                         let cands = leerJSONLocal(claveCandidatasG1(dir));
                         if (!cands) {
-                            const frase = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic();
-                            cands = frase ? B.candidatas(frase) : await pedirFraseParaG1(B);
-                            if (!cands) return;                       // canceló
+                            const guardada = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic();
+                            const frase = guardada || await pedirFraseParaG1(B);
+                            if (!frase) return;                       // canceló
+                            cands = B.candidatas(frase);
                             localStorage.setItem(claveCandidatasG1(dir), JSON.stringify(cands));
+                            if (!guardada) localStorage.setItem(claveRaizG1(dir), B.raizHex(frase));
                         }
                         showToast(t('g1_searching'), 'info');
                         const elegida = await B.elegirCuenta(cands);
@@ -12968,7 +12975,21 @@
                 g1Pintando = (async () => {
                     try {
                         const B = await window.cwCargarBilleteraG1();
-                        const r = await B.leerCuenta(cuenta.g1);
+                        // Identidad del indexador; saldo y dividendo de la CADENA, que manda (el
+                        // squid llegó a dar 214 Ğ1 menos en el mismo bloque). Si la cadena no
+                        // contesta, queda el saldo del indexador.
+                        const [ind, cad] = await Promise.allSettled([
+                            B.leerCuenta(cuenta.g1),
+                            window.cwCargarCadenaG1().then(C => withTimeout(C.saldo(cuenta.g1), 20000, 'saldo Ğ1')),
+                        ]);
+                        if (ind.status === 'rejected' && cad.status === 'rejected') throw ind.reason;
+                        const r = ind.status === 'fulfilled' ? ind.value : { g1: cuenta.g1, existe: false, saldo: 0, pendiente: 0, identidad: null };
+                        if (cad.status === 'fulfilled') {
+                            r.saldo = cad.value.saldo;
+                            r.pendiente = cad.value.pendiente;
+                            r.existe = r.existe || r.saldo > 0;
+                            r.deCadena = true;
+                        } else console.warn('[g1] saldo de la cadena:', cad.reason?.message || cad.reason);
                         if (!redG1Activa()) return;                   // se cambió de red mientras tanto
                         g1Lectura = { t: Date.now(), r };
                         setBalanceText('main', `${formatoG1(r.saldo)} Ğ1`);
@@ -12982,6 +13003,13 @@
                     }
                 })();
                 return g1Pintando;
+            }
+
+            // "✦ Nombre · miembro Ğ1", o en qué punto está una identidad que no es miembro.
+            function lineaIdentidadG1(id) {
+                if (id.miembro) return t('g1_member_line', { nombre: id.nombre });
+                const estado = { Unconfirmed: 'g1_st_unconfirmed', Unvalidated: 'g1_st_unvalidated', NotMember: 'g1_st_notmember', Revoked: 'g1_st_revoked' }[id.estado];
+                return `${id.nombre} · ${t(estado || 'g1_st_notmember')}`;
             }
 
             // ── QR de Ğ1 escaneado ─────────────────────────────────────────────────────
@@ -13009,10 +13037,10 @@
                         <p class="text-xs" data-g1="vinculo"></p>
                         <p class="text-base font-bold hidden" data-g1="monto"></p>
                         <p class="text-sm text-gray-300 italic hidden" data-g1="comentario"></p>
-                        <p class="text-xs text-gray-400" data-g1="nota"></p>
                         <div class="flex flex-col gap-2 pt-2">
                             <button type="button" data-g1="chat" class="hidden px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold"></button>
                             <button type="button" data-g1="invitar" class="hidden px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold"></button>
+                            <button type="button" data-g1="pagar" class="px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-500 text-white font-semibold"></button>
                             <button type="button" data-g1="copiar" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600"></button>
                             <button type="button" data-g1="cerrar" class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500"></button>
                         </div>
@@ -13029,7 +13057,8 @@
                     q('comentario').textContent = `“${r.comentario}”`;
                     q('comentario').classList.remove('hidden');
                 }
-                q('nota').textContent = t('g1_scan_pay_soon');
+                q('pagar').textContent = t('g1_pay_btn');
+                q('pagar').onclick = () => { modal.remove(); abrirEnvioG1({ destino: r.g1, monto: r.monto, comentario: r.comentario }); };
                 q('copiar').textContent = t('g1_scan_copy');
                 q('cerrar').textContent = t('g1_cancel_close');
                 q('invitar').textContent = t('g1_scan_invite');
@@ -13054,9 +13083,7 @@
                         // Miembro: ✦ y el vencimiento. Si no, en qué punto está: pendiente de
                         // certificaciones, membresía vencida, revocada… Las certificaciones siempre:
                         // son lo que dice cuánta gente respondió por esta persona.
-                        const estado = { Unconfirmed: 'g1_st_unconfirmed', Unvalidated: 'g1_st_unvalidated', NotMember: 'g1_st_notmember', Revoked: 'g1_st_revoked' }[id.estado];
-                        idl.textContent = id.miembro ? t('g1_member_line', { nombre: id.nombre })
-                            : `${id.nombre} · ${t(estado || 'g1_st_notmember')}`;
+                        idl.textContent = lineaIdentidadG1(id);
                         idl.classList.toggle('text-yellow-500', !!id.miembro);
                         const det = [id.miembro ? t('g1_card_certs', { n: id.certificaciones }) : t('g1_scan_certs_needed', { n: id.certificaciones })];
                         if (id.miembro && id.vence) {
@@ -13097,6 +13124,203 @@
                 })().catch((e) => console.warn('[g1] consulta del escaneo:', e?.message || e));
             }
 
+            // ── Enviar Ğ1 ────────────────────────────────────────────────────────────────
+            // La cuenta con su secreto, para firmar: de la frase (billetera creada acá) o de la
+            // raíz guardada (restaurada). Si no hay ninguna de las dos, se pide la frase una vez.
+            async function cuentaFirmanteG1() {
+                const c = cuentaG1Guardada();
+                if (!c) return null;
+                const B = await window.cwCargarBilleteraG1();
+                const dir = currentWallet.address;
+                let raiz = localStorage.getItem(claveRaizG1(dir));
+                if (!raiz) {
+                    const frase = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic() || await pedirFraseParaG1(B);
+                    if (!frase) return null;
+                    raiz = B.raizHex(frase);
+                    localStorage.setItem(claveRaizG1(dir), raiz);
+                }
+                const cuenta = B.cuentaDeRaizHex(raiz, c.ruta);
+                if (cuenta.direccion !== c.g1) throw new Error('la llave guardada no corresponde a tu cuenta Ğ1');
+                return cuenta;
+            }
+
+            // Un monto para poner en el campo: sin separador de miles, con la coma o el punto
+            // decimal del idioma (centimosDeTexto acepta los dos).
+            function montoParaCampo(centimos) {
+                const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+                const txt = (centimos / 100).toFixed(2);
+                return lang === 'en' ? txt : txt.replace('.', ',');
+            }
+
+            // Céntimos desde lo que escribe la gente: "12", "12,5", "12.50". Hasta 2 decimales.
+            function centimosDeTexto(txt) {
+                const v = String(txt || '').trim().replace(/\s/g, '').replace(',', '.');
+                if (!/^\d+(\.\d{1,2})?$/.test(v)) return null;
+                const [ent, dec = ''] = v.split('.');
+                const c = Number(ent) * 100 + Number(dec.padEnd(2, '0'));
+                return Number.isSafeInteger(c) && c > 0 ? c : null;
+            }
+
+            // Formulario de envío. prellenado: { destino, monto (céntimos), comentario }.
+            async function abrirEnvioG1(prellenado = {}) {
+                if (!currentWallet) return;
+                if (!cuentaG1Guardada()) { await activarRedG1(); if (!cuentaG1Guardada()) return; }
+                document.getElementById('g1EnvioModal')?.remove();
+                const miCuenta = cuentaG1Guardada().g1;
+                const conG1 = contacts.filter(c => c.g1 && !c.isGroup);
+                const modal = document.createElement('div');
+                modal.id = 'g1EnvioModal';
+                modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50';
+                modal.innerHTML = `
+                    <form class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-3" novalidate>
+                        <h3 class="text-lg font-bold" data-g1="titulo"></h3>
+                        <div data-g1="paso1" class="space-y-3">
+                            <select data-g1="contactos" class="hidden w-full bg-gray-700 rounded-lg p-2 text-sm"></select>
+                            <input data-g1="destino" autocomplete="off" autocapitalize="off" spellcheck="false"
+                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs">
+                            <p class="text-xs min-h-[1rem]" data-g1="quien"></p>
+                            <div class="flex gap-2">
+                                <input data-g1="monto" inputmode="decimal" autocomplete="off"
+                                    class="flex-1 min-w-0 bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                                <button type="button" data-g1="max" class="px-3 rounded-lg bg-gray-600 hover:bg-gray-500 text-sm"></button>
+                            </div>
+                            <p class="text-xs text-gray-400" data-g1="disponible"></p>
+                            <input data-g1="comentario" maxlength="140" autocomplete="off"
+                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div data-g1="paso2" class="hidden space-y-2 text-center">
+                            <p class="text-sm" data-g1="resumen"></p>
+                            <p class="text-xs text-gray-400" data-g1="cobro"></p>
+                            <p class="text-sm italic text-gray-300" data-g1="resumenComentario"></p>
+                        </div>
+                        <p class="text-sm min-h-[1.25rem]" data-g1="estado"></p>
+                        <div class="flex justify-end gap-3">
+                            <button type="button" data-g1="cancelar" class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500"></button>
+                            <button type="submit" data-g1="seguir" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold"></button>
+                        </div>
+                    </form>`;
+                const q = (k) => modal.querySelector(`[data-g1="${k}"]`);
+                q('titulo').textContent = t('g1_send_title');
+                q('destino').placeholder = t('g1_send_to');
+                q('monto').placeholder = t('g1_send_amount');
+                q('comentario').placeholder = t('g1_send_comment');
+                q('max').textContent = t('g1_send_max');
+                q('cancelar').textContent = t('g1_cancel');
+                q('seguir').textContent = t('g1_send_review');
+                if (conG1.length) {
+                    const op0 = document.createElement('option');
+                    op0.value = ''; op0.textContent = t('g1_send_contacts');
+                    q('contactos').appendChild(op0);
+                    for (const c of conG1) {
+                        const op = document.createElement('option');
+                        op.value = c.g1; op.textContent = contactOwnName(c);
+                        q('contactos').appendChild(op);
+                    }
+                    q('contactos').classList.remove('hidden');
+                    q('contactos').onchange = () => { if (q('contactos').value) { q('destino').value = q('contactos').value; revisarDestino(); } };
+                }
+                if (prellenado.destino) q('destino').value = prellenado.destino;
+                if (prellenado.monto) q('monto').value = montoParaCampo(prellenado.monto);
+                if (prellenado.comentario) q('comentario').value = prellenado.comentario;
+                const estado = (txt, clase = 'text-gray-300') => { q('estado').textContent = txt; q('estado').className = 'text-sm min-h-[1.25rem] ' + clase; };
+                let cerrado = false;
+                const cerrar = () => { cerrado = true; modal.remove(); };
+                q('cancelar').onclick = cerrar;
+                document.body.appendChild(modal);
+
+                const B = await window.cwCargarBilleteraG1();
+                // Disponible = saldo + dividendo por cobrar (se cobra en la misma transacción) − 1 Ğ1
+                // que la cuenta tiene que conservar (keep_alive).
+                let disponible = null, pendiente = 0, destino = null;
+                estado(t('g1_connecting'));
+                window.cwCargarCadenaG1().then(C => withTimeout(C.saldo(miCuenta), 20000, 'saldo Ğ1')).then(s => {
+                    if (cerrado) return;
+                    pendiente = s.pendiente;
+                    disponible = Math.max(0, s.saldo + s.pendiente - 100);
+                    q('disponible').textContent = t('g1_send_available', { monto: formatoG1(disponible) });
+                    estado('');
+                }).catch(e => estado(t('g1_err', { e: e?.message || e }), 'text-red-400'));
+                q('max').onclick = () => { if (disponible != null) q('monto').value = montoParaCampo(disponible); };
+
+                // Quién es el destinatario: su identidad Ğ1, para no mandarle a cualquiera.
+                let consulta = 0;
+                async function revisarDestino() {
+                    const r = B.leerQrG1(q('destino').value);
+                    destino = r ? r.g1 : null;
+                    if (r && r.monto && !q('monto').value) q('monto').value = montoParaCampo(r.monto);
+                    if (r && r.comentario && !q('comentario').value) q('comentario').value = r.comentario;
+                    if (r && r.g1 !== q('destino').value.trim()) q('destino').value = r.g1;
+                    const quien = q('quien');
+                    quien.className = 'text-xs min-h-[1rem]';
+                    if (!q('destino').value.trim()) { quien.textContent = ''; return; }
+                    if (!destino) { quien.textContent = t('g1_err_dest'); quien.classList.add('text-red-400'); return; }
+                    if (destino === miCuenta) { quien.textContent = t('g1_err_self'); quien.classList.add('text-red-400'); return; }
+                    const n = ++consulta;
+                    quien.textContent = t('g1_scan_loading');
+                    const id = await B.G1.identidad(destino).catch(() => undefined);
+                    if (n !== consulta || cerrado) return;
+                    if (id === undefined) quien.textContent = '';
+                    else if (!id) quien.textContent = t('g1_scan_no_idty');
+                    else {
+                        quien.textContent = lineaIdentidadG1(id);
+                        if (id.miembro) quien.classList.add('text-yellow-500');
+                    }
+                    q('destino').dataset.nombre = id && id.nombre ? id.nombre : '';
+                }
+                q('destino').addEventListener('input', revisarDestino);
+                if (q('destino').value) revisarDestino();
+
+                let paso = 1, montoC = null;
+                modal.querySelector('form').onsubmit = async (e) => {
+                    e.preventDefault();
+                    if (paso === 1) {
+                        await revisarDestino();
+                        if (!destino || destino === miCuenta) return;
+                        montoC = centimosDeTexto(q('monto').value);
+                        if (!montoC) { estado(t('g1_err_amount'), 'text-red-400'); return; }
+                        if (disponible != null && montoC > disponible) { estado(t('g1_err_funds', { monto: formatoG1(disponible) }), 'text-red-400'); return; }
+                        const nombre = q('destino').dataset.nombre;
+                        q('resumen').textContent = t('g1_send_summary', { monto: formatoG1(montoC), quien: nombre ? `${nombre} (${destino.slice(0, 8)}…${destino.slice(-6)})` : destino });
+                        q('cobro').textContent = pendiente > 0 ? t('g1_send_with_ud', { monto: formatoG1(pendiente) }) : '';
+                        const com = q('comentario').value.trim();
+                        q('resumenComentario').textContent = com ? `“${com}”` : '';
+                        q('paso1').classList.add('hidden');
+                        q('paso2').classList.remove('hidden');
+                        q('seguir').textContent = t('g1_send_confirm', { monto: formatoG1(montoC) });
+                        estado('');
+                        paso = 2;
+                        return;
+                    }
+                    if (paso !== 2) return;
+                    paso = 3;
+                    q('seguir').disabled = true;
+                    q('cancelar').disabled = true;
+                    try {
+                        estado(t('g1_connecting'));
+                        const cuenta = await cuentaFirmanteG1();
+                        if (!cuenta) { paso = 2; q('seguir').disabled = false; q('cancelar').disabled = false; estado(''); return; }
+                        const C = await window.cwCargarCadenaG1();
+                        estado(t('g1_send_sending'));
+                        const res = await C.enviar(cuenta, destino, montoC, q('comentario').value.trim(), (st) => {
+                            if (st === 'en-bloque') estado(t('g1_send_sending'));
+                        });
+                        estado(t('g1_send_inblock', { b: res.bloque ?? '?' }), 'text-green-400');
+                        showToast(t('g1_send_done', { monto: formatoG1(montoC) }), 'success', 5000);
+                        g1Lectura = null;
+                        if (redG1Activa()) pintarRedG1(true);
+                        q('cancelar').disabled = false;
+                        q('cancelar').textContent = t('g1_cancel_close');
+                        q('seguir').classList.add('hidden');
+                    } catch (err) {
+                        console.warn('[g1] enviar:', err);
+                        estado(t('g1_send_err', { e: err?.message || err }), 'text-red-400');
+                        paso = 2;
+                        q('seguir').disabled = false;
+                        q('cancelar').disabled = false;
+                    }
+                };
+            }
+
             // Enviar, Recibir y copiar la dirección del QR: con Ğ1 elegida no van al flujo EVM.
             // Captura en el mismo botón: corre antes que los manejadores EVM y los corta.
             function desvioG1(id, fn) {
@@ -13107,7 +13331,7 @@
                     fn(e);
                 }, true);
             }
-            desvioG1('sendBtn', () => cwNotify({ title: t('g1_net_name'), body: t('g1_send_soon'), type: 'info', duration: 8000 }));
+            desvioG1('sendBtn', () => abrirEnvioG1({}));
             desvioG1('qrAddressBtn', () => {
                 const c = cuentaG1Guardada();
                 if (!c) return;
@@ -18701,7 +18925,6 @@
                     "g1_no_account": "Cuenta Ğ1 nueva: todavía no recibió nada",
                     "g1_searching": "Buscando tu cuenta Ğ1…",
                     "g1_err": "No se pudo leer la red Ğ1: {e}",
-                    "g1_send_soon": "Enviar Ğ1 llega en la próxima versión. Por ahora podés recibir: compartí tu cuenta Ğ1.",
                     "g1_phrase_title": "Activar Ğ1",
                     "g1_phrase_body": "Tu cuenta Ğ1 sale de tu frase semilla. Escribila una vez: no se guarda, solo se calcula tu dirección Ğ1.",
                     "g1_phrase_pk_note": "Si importaste esta billetera con clave privada, no tiene frase y no puede tener una cuenta Ğ1 derivada.",
@@ -18715,10 +18938,30 @@
                     "g1_scan_offline": "No se pudo consultar la red Ğ1.",
                     "g1_scan_no_idty": "Cuenta Ğ1 sin identidad en la red de confianza",
                     "g1_scan_asks": "Te pide {monto} Ğ1",
-                    "g1_scan_pay_soon": "Pagar en Ğ1 desde ChatWallet llega en la próxima versión. Mientras tanto, copiá la cuenta y pagá desde Ğecko o Cesium².",
                     "g1_scan_copy": "Copiar cuenta Ğ1",
                     "g1_scan_chat": "Abrir chat",
                     "g1_cancel_close": "Cerrar",
+                    "g1_pay_btn": "Pagar en Ğ1",
+                    "g1_connecting": "Conectando con la red Ğ1…",
+                    "g1_send_title": "Enviar Ğ1",
+                    "g1_send_to": "Cuenta g1… (o pegá un pedido de pago)",
+                    "g1_send_amount": "Monto en Ğ1",
+                    "g1_send_comment": "Comentario (opcional; queda público en la cadena)",
+                    "g1_send_available": "Disponible: {monto} Ğ1",
+                    "g1_send_max": "Máx",
+                    "g1_send_contacts": "Contactos con Ğ1…",
+                    "g1_send_review": "Revisar",
+                    "g1_send_confirm": "Enviar {monto} Ğ1",
+                    "g1_send_summary": "Vas a enviar {monto} Ğ1 a {quien}.",
+                    "g1_send_with_ud": "En la misma operación se cobra tu dividendo pendiente ({monto} Ğ1).",
+                    "g1_send_sending": "Enviando…",
+                    "g1_send_inblock": "Listo: confirmado en el bloque #{b}.",
+                    "g1_send_done": "Enviaste {monto} Ğ1",
+                    "g1_send_err": "No se pudo enviar: {e}",
+                    "g1_err_dest": "Esa no es una cuenta Ğ1 válida.",
+                    "g1_err_self": "Es tu propia cuenta.",
+                    "g1_err_amount": "Monto inválido (hasta 2 decimales).",
+                    "g1_err_funds": "No te alcanza: podés enviar hasta {monto} Ğ1 (1 Ğ1 queda siempre en la cuenta).",
                     "g1_scan_add": "Agregar a la agenda y chatear",
                     "g1_scan_linked": "Chat vinculado: {dir}",
                     "g1_scan_unlinked": "Todavía no vinculó un chat, así que no se le puede escribir desde su cuenta Ğ1. Mandale tu invitación: con ese link te escribe directo.",
@@ -19078,7 +19321,6 @@
                     "g1_no_account": "New Ğ1 account: nothing received yet",
                     "g1_searching": "Looking for your Ğ1 account…",
                     "g1_err": "Couldn't read the Ğ1 network: {e}",
-                    "g1_send_soon": "Sending Ğ1 comes in the next version. For now you can receive: share your Ğ1 account.",
                     "g1_phrase_title": "Enable Ğ1",
                     "g1_phrase_body": "Your Ğ1 account comes from your seed phrase. Enter it once: it isn't stored, only your Ğ1 address is computed.",
                     "g1_phrase_pk_note": "If you imported this wallet with a private key, it has no phrase and can't have a derived Ğ1 account.",
@@ -19092,10 +19334,30 @@
                     "g1_scan_offline": "Couldn't reach the Ğ1 network.",
                     "g1_scan_no_idty": "Ğ1 account with no identity in the web of trust",
                     "g1_scan_asks": "Asks you for {monto} Ğ1",
-                    "g1_scan_pay_soon": "Paying in Ğ1 from ChatWallet comes in the next version. Meanwhile, copy the account and pay from Ğecko or Cesium².",
                     "g1_scan_copy": "Copy Ğ1 account",
                     "g1_scan_chat": "Open chat",
                     "g1_cancel_close": "Close",
+                    "g1_pay_btn": "Pay in Ğ1",
+                    "g1_connecting": "Connecting to the Ğ1 network…",
+                    "g1_send_title": "Send Ğ1",
+                    "g1_send_to": "g1… account (or paste a payment request)",
+                    "g1_send_amount": "Amount in Ğ1",
+                    "g1_send_comment": "Comment (optional; public on the chain)",
+                    "g1_send_available": "Available: {monto} Ğ1",
+                    "g1_send_max": "Max",
+                    "g1_send_contacts": "Contacts with Ğ1…",
+                    "g1_send_review": "Review",
+                    "g1_send_confirm": "Send {monto} Ğ1",
+                    "g1_send_summary": "You're sending {monto} Ğ1 to {quien}.",
+                    "g1_send_with_ud": "Your pending dividend ({monto} Ğ1) is claimed in the same operation.",
+                    "g1_send_sending": "Sending…",
+                    "g1_send_inblock": "Done: confirmed in block #{b}.",
+                    "g1_send_done": "You sent {monto} Ğ1",
+                    "g1_send_err": "Couldn't send: {e}",
+                    "g1_err_dest": "That isn't a valid Ğ1 account.",
+                    "g1_err_self": "That's your own account.",
+                    "g1_err_amount": "Invalid amount (up to 2 decimals).",
+                    "g1_err_funds": "Not enough: you can send up to {monto} Ğ1 (1 Ğ1 always stays in the account).",
                     "g1_scan_add": "Add to contacts and chat",
                     "g1_scan_linked": "Linked chat: {dir}",
                     "g1_scan_unlinked": "No chat linked yet, so you can't message them from their Ğ1 account. Send them your invite: with that link they can message you directly.",
@@ -19455,7 +19717,6 @@
                     "g1_no_account": "Nouveau compte Ğ1 : rien reçu pour l'instant",
                     "g1_searching": "Recherche de ton compte Ğ1…",
                     "g1_err": "Impossible de lire le réseau Ğ1 : {e}",
-                    "g1_send_soon": "L'envoi de Ğ1 arrive dans la prochaine version. Pour l'instant tu peux recevoir : partage ton compte Ğ1.",
                     "g1_phrase_title": "Activer Ğ1",
                     "g1_phrase_body": "Ton compte Ğ1 vient de ta phrase secrète. Saisis-la une fois : elle n'est pas enregistrée, seule ton adresse Ğ1 est calculée.",
                     "g1_phrase_pk_note": "Si tu as importé ce portefeuille avec une clé privée, il n'a pas de phrase et ne peut pas avoir de compte Ğ1 dérivé.",
@@ -19469,10 +19730,30 @@
                     "g1_scan_offline": "Impossible de consulter le réseau Ğ1.",
                     "g1_scan_no_idty": "Compte Ğ1 sans identité dans la toile de confiance",
                     "g1_scan_asks": "Te demande {monto} Ğ1",
-                    "g1_scan_pay_soon": "Payer en Ğ1 depuis ChatWallet arrive dans la prochaine version. En attendant, copie le compte et paie depuis Ğecko ou Cesium².",
                     "g1_scan_copy": "Copier le compte Ğ1",
                     "g1_scan_chat": "Ouvrir le chat",
                     "g1_cancel_close": "Fermer",
+                    "g1_pay_btn": "Payer en Ğ1",
+                    "g1_connecting": "Connexion au réseau Ğ1…",
+                    "g1_send_title": "Envoyer des Ğ1",
+                    "g1_send_to": "Compte g1… (ou colle une demande de paiement)",
+                    "g1_send_amount": "Montant en Ğ1",
+                    "g1_send_comment": "Commentaire (facultatif ; public sur la chaîne)",
+                    "g1_send_available": "Disponible : {monto} Ğ1",
+                    "g1_send_max": "Max",
+                    "g1_send_contacts": "Contacts avec Ğ1…",
+                    "g1_send_review": "Vérifier",
+                    "g1_send_confirm": "Envoyer {monto} Ğ1",
+                    "g1_send_summary": "Tu vas envoyer {monto} Ğ1 à {quien}.",
+                    "g1_send_with_ud": "Ton dividende en attente ({monto} Ğ1) est réclamé dans la même opération.",
+                    "g1_send_sending": "Envoi…",
+                    "g1_send_inblock": "Fait : confirmé dans le bloc #{b}.",
+                    "g1_send_done": "Tu as envoyé {monto} Ğ1",
+                    "g1_send_err": "Impossible d'envoyer : {e}",
+                    "g1_err_dest": "Ce n'est pas un compte Ğ1 valide.",
+                    "g1_err_self": "C'est ton propre compte.",
+                    "g1_err_amount": "Montant invalide (2 décimales max).",
+                    "g1_err_funds": "Pas assez : tu peux envoyer jusqu'à {monto} Ğ1 (1 Ğ1 reste toujours sur le compte).",
                     "g1_scan_add": "Ajouter aux contacts et discuter",
                     "g1_scan_linked": "Chat lié : {dir}",
                     "g1_scan_unlinked": "Pas encore de chat lié : impossible de lui écrire depuis son compte Ğ1. Envoie-lui ton invitation : avec ce lien, il peut t'écrire directement.",

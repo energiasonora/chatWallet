@@ -10,6 +10,7 @@ import os from 'node:os';
 import fs from 'node:fs';
 import { HDNodeWallet, Mnemonic, wordlists } from 'ethers';
 import { cuentaG1 } from '../src/js/g1-llave.js';
+const hexDe = (u) => Array.from(u, b => b.toString(16).padStart(2, '0')).join('');
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const BASE = process.env.BASE || 'http://127.0.0.1:8849/dapp.html';
@@ -40,6 +41,19 @@ const FALSO = `(() => {
     const PENDIENTE = ${JSON.stringify(PENDIENTE)};
     const cuentas = { [MIEMBRO]: { id: MIEMBRO, balance: '412013', identity: { isMember: true, name: 'TestMiembro', firstEligibleUd: 202 }, estado: 'Member', certs: 7 },
                       [PENDIENTE]: { id: PENDIENTE, balance: '0', identity: { isMember: false, name: 'Novata', firstEligibleUd: 0 }, estado: 'Unvalidated', certs: 3 } };
+    // La cadena Ğ1, falsa: saldo DISTINTO del indexador (4.334,12 vs 4.120,13) para probar
+    // que manda la cadena, y los envíos se anotan en vez de mandarse.
+    window.__g1envios = [];
+    const hex = (u) => Array.from(u, b => b.toString(16).padStart(2, '0')).join('');
+    const cadena = {
+        saldo: async (g1) => g1 === MIEMBRO ? { saldo: 433412, pendiente: 2434 } : { saldo: 0, pendiente: 0 },
+        enviar: async (cuenta, destino, centimos, comentario, alEstado) => {
+            window.__g1envios.push({ de: cuenta.direccion, publica: hex(cuenta.publica), destino, centimos, comentario });
+            alEstado('enviada'); await new Promise(r => setTimeout(r, 300)); alEstado('en-bloque');
+            return { hash: '0x01', bloque: 2923999 };
+        },
+    };
+    Object.defineProperty(window, 'cwCargarCadenaG1', { configurable: true, get: () => async () => cadena, set: () => { } });
     const real = window.fetch.bind(window);
     window.__g1consultas = 0;
     const json = (data) => new Response(JSON.stringify({ data }), { headers: { 'content-type': 'application/json' } });
@@ -118,7 +132,7 @@ try {
     console.log('\n── A) activar Ğ1 ──');
     await ev(`document.getElementById('redG1Item').click()`);
     ok(await listo(`/Ğ1$/.test(document.getElementById('balanceDisplay').textContent)`, 20), 'el saldo pasa a Ğ1', await texto('#balanceDisplay'));
-    ok(await texto('#balanceDisplay') === '4.120,13 Ğ1', 'saldo 4.120,13 Ğ1', await texto('#balanceDisplay'));
+    ok(await texto('#balanceDisplay') === '4.334,12 Ğ1', 'saldo 4.334,12 Ğ1 (el de la cadena, no el del indexador)', await texto('#balanceDisplay'));
     ok(await texto('#g1WalletPendiente') === '+ 24,34 Ğ1 de dividendo universal por cobrar', 'dividendo por cobrar', await texto('#g1WalletPendiente'));
     ok(await texto('#g1WalletIdentidad') === '✦ TestMiembro · miembro Ğ1', 'identidad de miembro', await texto('#g1WalletIdentidad'));
     ok(await texto('#chainNameDisplay') === 'Ğ1 · moneda libre', 'nombre de la red');
@@ -143,7 +157,8 @@ try {
     await ev(`document.getElementById('sendBtn').click()`);
     await sleep(800);
     ok(!(await visible('#sendModal')), 'Enviar no abre el envío EVM');
-    ok(await ev(`[...document.querySelectorAll('.cw-notif')].some(n => /próxima versión/.test(n.innerText))`), 'avisa que enviar Ğ1 llega pronto');
+    ok(await listo(`!!document.getElementById('g1EnvioModal')`, 10), 'abre el envío Ğ1');
+    await ev(`document.querySelector('#g1EnvioModal [data-g1="cancelar"]').click()`);
     await ev(`document.getElementById('receiveBtn').click()`);
     await sleep(800);
     ok(await visible('#receiveModal') && await texto('#receiveStandardAddress') === MIEMBRO, 'Recibir muestra la cuenta Ğ1', await texto('#receiveStandardAddress'));
@@ -153,7 +168,7 @@ try {
     console.log('\n── A) recargar ──');
     await rpc('Page.navigate', { url: BASE });
     await listo(`!!(currentWallet && currentWallet.address)`);
-    ok(await listo(`document.getElementById('balanceDisplay').textContent.trim() === '4.120,13 Ğ1'`, 20), 'sigue en Ğ1 después de recargar', await texto('#balanceDisplay'));
+    ok(await listo(`document.getElementById('balanceDisplay').textContent.trim() === '4.334,12 Ğ1'`, 20), 'sigue en Ğ1 después de recargar', await texto('#balanceDisplay'));
     ok(await listo(`/Recibir|Receive/.test(document.body.innerText)`, 5) && await texto('#chainNameDisplay') === 'Ğ1 · moneda libre', 'con el nombre de la red Ğ1');
 
     console.log('\n── A) volver a una red EVM ──');
@@ -200,7 +215,7 @@ try {
     await sleep(300);
     ok(/no es una frase válida/.test(await texto('#g1FraseModal [data-g1="error"]')), 'rechaza lo que no es una frase');
     await ev(`{ const m = document.getElementById('g1FraseModal'); m.querySelector('textarea').value = ${JSON.stringify(P1)}; m.querySelector('form').requestSubmit() }`);
-    ok(await listo(`!document.getElementById('g1FraseModal') && document.getElementById('balanceDisplay').textContent.trim() === '4.120,13 Ğ1'`, 20), 'con la correcta, activa y muestra el saldo', await texto('#balanceDisplay'));
+    ok(await listo(`!document.getElementById('g1FraseModal') && document.getElementById('balanceDisplay').textContent.trim() === '4.334,12 Ğ1'`, 20), 'con la correcta, activa y muestra el saldo', await texto('#balanceDisplay'));
     const guardado = await ev(`JSON.stringify(Object.fromEntries(Object.entries(localStorage)))`);
     ok(!guardado.includes(P1.split(' ').slice(0, 3).join(' ')), 'y la frase no quedó guardada en ningún lado');
 
@@ -255,6 +270,59 @@ try {
     await ev(`handleScannedData('esto no es nada')`);
     await sleep(1500);
     ok((await ev(`window.__alertas`)).some(a => /no reconocido/.test(a)), 'un QR cualquiera sigue diciendo "no reconocido"');
+
+    // ── E) enviar Ğ1 ─────────────────────────────────────────────────────────────
+    console.log('\n── E) enviar Ğ1 ──');
+    const envio = () => ev(`(() => { const m = document.getElementById('g1EnvioModal'); if (!m) return null;
+        const q = k => m.querySelector('[data-g1="' + k + '"]');
+        return { quien: q('quien').textContent, disponible: q('disponible').textContent, estado: q('estado').textContent,
+                 resumen: q('resumen').textContent, cobro: q('cobro').textContent, destino: q('destino').value,
+                 monto: q('monto').value, comentario: q('comentario').value, paso2: !q('paso2').classList.contains('hidden') }; })()`);
+    const tipear = (k, v) => ev(`(() => { const e = document.querySelector('#g1EnvioModal [data-g1="${k}"]'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input')); })()`);
+    const seguir = () => ev(`document.querySelector('#g1EnvioModal form').requestSubmit()`);
+    await ev(`document.getElementById('sendBtn').click()`);
+    ok(await listo(`/Disponible/.test(document.querySelector('#g1EnvioModal [data-g1="disponible"]')?.textContent || '')`, 15), 'Enviar abre el envío Ğ1');
+    let e1 = await envio();
+    ok(e1.disponible === 'Disponible: 4.357,46 Ğ1', 'disponible = saldo + dividendo − 1 Ğ1', e1.disponible);
+    await tipear('destino', 'g1nada');
+    await sleep(300);
+    ok((await envio()).quien === 'Esa no es una cuenta Ğ1 válida.', 'rechaza una cuenta inválida');
+    await tipear('destino', MIEMBRO);
+    await sleep(300);
+    ok((await envio()).quien === 'Es tu propia cuenta.', 'rechaza la propia');
+    await tipear('destino', PENDIENTE);
+    ok(await listo(`/Novata/.test(document.querySelector('#g1EnvioModal [data-g1="quien"]').textContent)`, 10), 'muestra quién es el destinatario');
+    ok((await envio()).quien === 'Novata · identidad esperando certificaciones', 'con su estado real', (await envio()).quien);
+    await tipear('monto', 'abc'); await seguir(); await sleep(300);
+    ok((await envio()).estado === 'Monto inválido (hasta 2 decimales).', 'monto inválido');
+    await tipear('monto', '9999'); await seguir(); await sleep(300);
+    ok(/No te alcanza: podés enviar hasta 4.357,46 Ğ1/.test((await envio()).estado), 'más de lo disponible', (await envio()).estado);
+    await ev(`document.querySelector('#g1EnvioModal [data-g1="max"]').click()`);
+    ok((await envio()).monto === '4357,46', 'Máx completa el disponible', (await envio()).monto);
+    await tipear('monto', '12,5'); await tipear('comentario', 'gracias por el pan');
+    await seguir(); await sleep(500);
+    e1 = await envio();
+    ok(e1.paso2 && e1.resumen === `Vas a enviar 12,50 Ğ1 a Novata (${PENDIENTE.slice(0, 8)}…${PENDIENTE.slice(-6)}).`, 'revisión antes de firmar', e1.resumen);
+    ok(e1.cobro === 'En la misma operación se cobra tu dividendo pendiente (24,34 Ğ1).', 'avisa que cobra el dividendo', e1.cobro);
+    ok((await ev(`window.__g1envios.length`)) === 0, 'todavía no mandó nada');
+    await seguir();
+    ok(await listo(`/bloque #2923999/.test(document.querySelector('#g1EnvioModal [data-g1="estado"]').textContent)`, 15), 'confirma con el bloque', (await envio())?.estado);
+    const mandado = (await ev(`window.__g1envios`))[0];
+    const esperada = cuentaG1(P1, '//0');
+    ok(mandado && mandado.de === MIEMBRO && mandado.publica === hexDe(esperada.publica), 'firma con TU cuenta Ğ1 (la //0 de tu frase, desde la raíz guardada)', JSON.stringify(mandado));
+    ok(mandado.destino === PENDIENTE && mandado.centimos === 1250 && mandado.comentario === 'gracias por el pan', 'destino, 1250 céntimos y el comentario', JSON.stringify(mandado));
+    ok(!!(await ev(`localStorage.getItem('cw-g1-raiz-' + currentWallet.address.toLowerCase())`)) && (await ev(`localStorage.getItem('xmtp-chat-wallet-mnemonic')`)) === null, 'guardada la raíz Ğ1, no la frase');
+    await ev(`document.querySelector('#g1EnvioModal [data-g1="cancelar"]').click()`);
+
+    console.log('\n── E) pagar un pedido escaneado ──');
+    await ev(`handleScannedData(${JSON.stringify('june://' + RAIZ1 + '?amount=3&comment=caf%C3%A9')})`);
+    ok(await listo(`!!document.querySelector('#g1EscaneoModal [data-g1="pagar"]')`, 10), 'el escaneo ofrece "Pagar en Ğ1"');
+    await ev(`document.querySelector('#g1EscaneoModal [data-g1="pagar"]').click()`);
+    ok(await listo(`!!document.getElementById('g1EnvioModal')`, 10), 'abre el envío');
+    await sleep(500);
+    e1 = await envio();
+    ok(e1.destino === RAIZ1 && e1.monto === '3,00' && e1.comentario === 'café', 'con destino, monto y comentario del pedido', JSON.stringify(e1));
+    await ev(`document.querySelector('#g1EnvioModal [data-g1="cancelar"]').click()`);
 } finally {
     try { ws && ws.close(); } catch { }
     try { proc.kill('SIGKILL'); } catch { }
