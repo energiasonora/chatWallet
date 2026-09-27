@@ -17,6 +17,15 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.56 — 2026-09-27
+
+- Al escanear el QR de una cuenta **Ğ1**, antes de agregarla ves su identidad en la red de
+  confianza: si es miembro o en qué punto está (esperando certificaciones, membresía vencida,
+  revocada), cuántas certificaciones tiene y hasta cuándo vale. Si esa persona vinculó su
+  chat, un botón la **agrega a tu agenda** con su seudónimo Ğ1, y desde ahí chatean y le
+  pagás en cualquier red como a cualquier contacto. Si no lo vinculó, podés mandarle tu
+  invitación.
+
 ## 3.55 — 2026-09-27
 
 - El escáner ahora **reconoce los QR de Ğ1**: la cuenta sola, los pedidos de pago de Ğecko
