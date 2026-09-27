@@ -28,6 +28,12 @@ const P2 = Mnemonic.fromEntropy('0x' + '2b'.repeat(16), undefined, wordlists.fr)
 const W2 = HDNodeWallet.fromMnemonic(Mnemonic.fromPhrase(P2, undefined, wordlists.fr));
 const RAIZ2 = cuentaG1(P2, '').direccion;
 
+// Vínculo ius1 del miembro con una 0x (sección D): lo firma una llave EVM al azar.
+const EVM_VINCULADA = HDNodeWallet.createRandom();
+const firmaV = Buffer.from((await EVM_VINCULADA.signMessage('Ius Naturalis · vinculo Ğ1 · v1\nEVM: ' + EVM_VINCULADA.address.toLowerCase() + '\nG1: ' + MIEMBRO)).slice(2), 'hex');
+const COMENTARIO_VINCULO = { remark: 'ius1:' + Buffer.concat([Buffer.from(EVM_VINCULADA.address.slice(2), 'hex'), firmaV]).toString('base64url'),
+    blockNumber: 2900000, authorId: MIEMBRO, event: { extrinsic: { hash: '0xabc', success: true } } };
+
 const FALSO = `(() => {
     const MIEMBRO = ${JSON.stringify(MIEMBRO)};
     const cuentas = { [MIEMBRO]: { id: MIEMBRO, balance: '412013', identity: { isMember: true, name: 'TestMiembro', firstEligibleUd: 202 } } };
@@ -46,7 +52,10 @@ const FALSO = `(() => {
                 return json({ identityByAccountId: c ? { index: 99, name: c.identity.name, status: 'Member', isMember: true, expireOn: 3000000,
                     certReceived: { totalCount: 7 } } : null, blocks: { nodes: [{ height: 2900000, timestamp: new Date().toISOString() }] } });
             }
-            if (/txComments/.test(q)) return json({ txComments: { nodes: [] } });
+            if (/txComments/.test(q)) {
+                const nodos = (window.__g1comentarios || []).filter(n => v.id ? n.authorId === v.id : n.remark.startsWith(v.p));
+                return json({ txComments: { nodes: nodos } });
+            }
         }
         return real(url, opts);
     };
@@ -191,6 +200,41 @@ try {
     ok(await listo(`!document.getElementById('g1FraseModal') && document.getElementById('balanceDisplay').textContent.trim() === '4.120,13 Ğ1'`, 20), 'con la correcta, activa y muestra el saldo', await texto('#balanceDisplay'));
     const guardado = await ev(`JSON.stringify(Object.fromEntries(Object.entries(localStorage)))`);
     ok(!guardado.includes(P1.split(' ').slice(0, 3).join(' ')), 'y la frase no quedó guardada en ningún lado');
+
+    // ── D) escanear QR de Ğ1 ─────────────────────────────────────────────────────
+    console.log('\n── D) escanear QR de Ğ1 ──');
+    await ev(`window.__alertas = []; window.alert = (m) => window.__alertas.push(String(m))`);
+    const modalG1 = () => ev(`(() => { const m = document.getElementById('g1EscaneoModal'); if (!m) return null;
+        const q = k => m.querySelector('[data-g1="' + k + '"]');
+        const vis = k => !q(k).classList.contains('hidden');
+        return { identidad: q('identidad').textContent, det: q('det').textContent, cuenta: q('cuenta').textContent,
+                 monto: vis('monto') ? q('monto').textContent : null, comentario: vis('comentario') ? q('comentario').textContent : null,
+                 chat: vis('chat') }; })()`);
+    await ev(`handleScannedData(${JSON.stringify(MIEMBRO)})`);
+    ok(await listo(`/TestMiembro/.test(document.getElementById('g1EscaneoModal')?.innerText || '')`, 15), 'la dirección sola abre la cuenta Ğ1');
+    let m = await modalG1();
+    ok(m.identidad === '✦ TestMiembro · miembro Ğ1' && /7 certificaciones vigentes/.test(m.det), 'con su identidad de miembro', JSON.stringify(m));
+    ok(m.cuenta === MIEMBRO && m.monto === null && !m.chat, 'sin monto y sin chat (no vinculó una 0x)');
+    ok((await ev(`window.__alertas`)).length === 0, 'ya no dice "QR no reconocido"');
+    await ev(`document.querySelector('#g1EscaneoModal [data-g1="cerrar"]').click()`);
+
+    await ev(`handleScannedData(${JSON.stringify('june://' + RAIZ1 + '?amount=12.50&comment=Caf%C3%A9%20%3Cb%3Ey%3C%2Fb%3E')})`);
+    ok(await listo(`!!document.getElementById('g1EscaneoModal') && !/Consultando/.test(document.getElementById('g1EscaneoModal').innerText)`, 15), 'june:// con monto');
+    m = await modalG1();
+    ok(m.monto === 'Te pide 12,50 Ğ1', 'muestra el monto pedido', m.monto);
+    ok(m.comentario === '“Café <b>y</b>”' && !(await ev(`!!document.querySelector('#g1EscaneoModal b')`)), 'y el comentario como texto', m.comentario);
+    ok(/sin identidad/.test(m.identidad), 'cuenta sin identidad', m.identidad);
+    await ev(`document.querySelector('#g1EscaneoModal [data-g1="cerrar"]').click()`);
+
+    await ev(`window.__g1comentarios = [${JSON.stringify(COMENTARIO_VINCULO)}]`);
+    await ev(`handleScannedData(${JSON.stringify('june://' + MIEMBRO)})`);
+    ok(await listo(`!document.querySelector('#g1EscaneoModal [data-g1="chat"]')?.classList.contains('hidden')`, 15), 'cuenta vinculada: aparece "Abrir chat"');
+    await ev(`document.querySelector('#g1EscaneoModal [data-g1="chat"]').click()`);
+    ok(await listo(`contacts.some(c => c.address.toLowerCase() === ${JSON.stringify(EVM_VINCULADA.address.toLowerCase())})`, 20), 'y abre el chat con su 0x (queda en la agenda)');
+
+    await ev(`handleScannedData('esto no es nada')`);
+    await sleep(1500);
+    ok((await ev(`window.__alertas`)).some(a => /no reconocido/.test(a)), 'un QR cualquiera sigue diciendo "no reconocido"');
 } finally {
     try { ws && ws.close(); } catch { }
     try { proc.kill('SIGKILL'); } catch { }

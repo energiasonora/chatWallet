@@ -12978,6 +12978,90 @@
                 return g1Pintando;
             }
 
+            // ── QR de Ğ1 escaneado ─────────────────────────────────────────────────────
+            async function leerQrG1Seguro(data) {
+                try { return (await window.cwCargarBilleteraG1()).leerQrG1(data); }
+                catch (e) { console.warn('[g1] QR:', e?.message || e); return null; }
+            }
+
+            // Una cuenta Ğ1 escaneada: quién es (identidad en la red de confianza) y, si vinculó
+            // una dirección de chat (vínculo ius1, ver Ius), el botón para hablarle. Pagar en Ğ1
+            // llega con el envío; mientras, se puede copiar la cuenta. Todo lo que viene del QR
+            // o de la red va por textContent: lo escribió otro.
+            function mostrarCuentaG1Escaneada(r) {
+                document.getElementById('g1EscaneoModal')?.remove();
+                const modal = document.createElement('div');
+                modal.id = 'g1EscaneoModal';
+                modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50';
+                modal.innerHTML = `
+                    <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-3 text-center">
+                        <h3 class="text-lg font-bold" data-g1="titulo"></h3>
+                        <p class="text-sm font-semibold" data-g1="identidad"></p>
+                        <p class="text-xs text-gray-400" data-g1="det"></p>
+                        <p class="font-mono text-xs text-gray-300 break-all" data-g1="cuenta"></p>
+                        <p class="text-base font-bold hidden" data-g1="monto"></p>
+                        <p class="text-sm text-gray-300 italic hidden" data-g1="comentario"></p>
+                        <p class="text-xs text-gray-400" data-g1="nota"></p>
+                        <div class="flex flex-col gap-2 pt-2">
+                            <button type="button" data-g1="chat" class="hidden px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold"></button>
+                            <button type="button" data-g1="copiar" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600"></button>
+                            <button type="button" data-g1="cerrar" class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500"></button>
+                        </div>
+                    </div>`;
+                const q = (k) => modal.querySelector(`[data-g1="${k}"]`);
+                q('titulo').textContent = t('g1_scan_title');
+                q('identidad').textContent = t('g1_scan_loading');
+                q('cuenta').textContent = r.g1;
+                if (r.monto) {
+                    q('monto').textContent = t('g1_scan_asks', { monto: formatoG1(r.monto) });
+                    q('monto').classList.remove('hidden');
+                }
+                if (r.comentario) {
+                    q('comentario').textContent = `“${r.comentario}”`;
+                    q('comentario').classList.remove('hidden');
+                }
+                q('nota').textContent = t('g1_scan_pay_soon');
+                q('copiar').textContent = t('g1_scan_copy');
+                q('cerrar').textContent = t('g1_cancel_close');
+                q('chat').textContent = t('g1_scan_chat');
+                q('cerrar').onclick = () => modal.remove();
+                modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+                q('copiar').onclick = () => navigator.clipboard.writeText(r.g1)
+                    .then(() => showToast(t('g1_copied'), 'success')).catch(() => { });
+                document.body.appendChild(modal);
+
+                (async () => {
+                    const B = await window.cwCargarBilleteraG1();
+                    const [id, vinculo] = await Promise.all([
+                        B.G1.identidad(r.g1).catch(() => undefined),
+                        B.G1.vinculoDeG1(r.g1, window.ethers).catch(() => null),
+                    ]);
+                    if (!modal.isConnected) return;
+                    const idl = q('identidad');
+                    if (id === undefined) idl.textContent = t('g1_scan_offline');
+                    else if (!id) idl.textContent = t('g1_scan_no_idty');
+                    else {
+                        idl.textContent = id.miembro ? t('g1_member_line', { nombre: id.nombre }) : t('g1_idty_line', { nombre: id.nombre });
+                        idl.classList.toggle('text-yellow-500', !!id.miembro);
+                        if (id.miembro) {
+                            const det = [t('g1_card_certs', { n: id.certificaciones })];
+                            if (id.vence) {
+                                const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+                                det.push(t('g1_card_until', { date: new Date(id.vence).toLocaleDateString(lang, { day: 'numeric', month: 'long', year: 'numeric' }) }));
+                            }
+                            q('det').textContent = det.join(' · ');
+                        }
+                    }
+                    if (vinculo && vinculo.evm) {
+                        q('chat').classList.remove('hidden');
+                        q('chat').onclick = async () => {
+                            modal.remove();
+                            await handleScannedAddress(vinculo.evm, null, { greet: 'qr' });
+                        };
+                    }
+                })().catch((e) => console.warn('[g1] consulta del escaneo:', e?.message || e));
+            }
+
             // Enviar, Recibir y copiar la dirección del QR: con Ğ1 elegida no van al flujo EVM.
             // Captura en el mismo botón: corre antes que los manejadores EVM y los corta.
             function desvioG1(id, fn) {
@@ -15335,9 +15419,17 @@
                 if (address) {
                     playQRscanned();
                     await handleScannedAddress(address, extractPubKeyFromData(data), { greet: opts.greet || 'qr' });
-                } else {
-                    alert("QR no reconocido o no contiene una dirección ni llave válida.");
+                    return;
                 }
+                // ¿Es de Ğ1? (g1…, june://…, g1://…, duniter:key/…, clave v1). Va último: el
+                // módulo se baja recién acá, así que ningún otro QR paga por él.
+                const g1 = await leerQrG1Seguro(data);
+                if (g1) {
+                    playQRscanned();
+                    mostrarCuentaG1Escaneada(g1);
+                    return;
+                }
+                alert("QR no reconocido o no contiene una dirección ni llave válida.");
             }
 
             // Mismo pipeline que un QR escaneado, para payloads que llegan por otra vía
@@ -18583,6 +18675,15 @@
                     "g1_activate": "Activar",
                     "g1_cancel": "Cancelar",
                     "g1_copied": "Cuenta Ğ1 copiada",
+                    "g1_scan_title": "Cuenta Ğ1",
+                    "g1_scan_loading": "Consultando la red Ğ1…",
+                    "g1_scan_offline": "No se pudo consultar la red Ğ1.",
+                    "g1_scan_no_idty": "Cuenta Ğ1 sin identidad en la red de confianza",
+                    "g1_scan_asks": "Te pide {monto} Ğ1",
+                    "g1_scan_pay_soon": "Pagar en Ğ1 desde ChatWallet llega en la próxima versión. Mientras tanto, copiá la cuenta y pagá desde Ğecko o Cesium².",
+                    "g1_scan_copy": "Copiar cuenta Ğ1",
+                    "g1_scan_chat": "Abrir chat",
+                    "g1_cancel_close": "Cerrar",
                     "phrase_lang_title": "Frase en {idioma}",
                     "phrase_lang_body": "Para volver siempre a este mismo chat, restaurá con esta misma frase y en este mismo idioma: la misma frase en otro idioma abre otra identidad de chat.",
                     "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
@@ -18942,6 +19043,15 @@
                     "g1_activate": "Enable",
                     "g1_cancel": "Cancel",
                     "g1_copied": "Ğ1 account copied",
+                    "g1_scan_title": "Ğ1 account",
+                    "g1_scan_loading": "Checking the Ğ1 network…",
+                    "g1_scan_offline": "Couldn't reach the Ğ1 network.",
+                    "g1_scan_no_idty": "Ğ1 account with no identity in the web of trust",
+                    "g1_scan_asks": "Asks you for {monto} Ğ1",
+                    "g1_scan_pay_soon": "Paying in Ğ1 from ChatWallet comes in the next version. Meanwhile, copy the account and pay from Ğecko or Cesium².",
+                    "g1_scan_copy": "Copy Ğ1 account",
+                    "g1_scan_chat": "Open chat",
+                    "g1_cancel_close": "Close",
                     "phrase_lang_title": "Phrase in {idioma}",
                     "phrase_lang_body": "To always come back to this same chat, restore with this same phrase in this same language: the same phrase in another language opens a different chat identity.",
                     "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
@@ -19301,6 +19411,15 @@
                     "g1_activate": "Activer",
                     "g1_cancel": "Annuler",
                     "g1_copied": "Compte Ğ1 copié",
+                    "g1_scan_title": "Compte Ğ1",
+                    "g1_scan_loading": "Consultation du réseau Ğ1…",
+                    "g1_scan_offline": "Impossible de consulter le réseau Ğ1.",
+                    "g1_scan_no_idty": "Compte Ğ1 sans identité dans la toile de confiance",
+                    "g1_scan_asks": "Te demande {monto} Ğ1",
+                    "g1_scan_pay_soon": "Payer en Ğ1 depuis ChatWallet arrive dans la prochaine version. En attendant, copie le compte et paie depuis Ğecko ou Cesium².",
+                    "g1_scan_copy": "Copier le compte Ğ1",
+                    "g1_scan_chat": "Ouvrir le chat",
+                    "g1_cancel_close": "Fermer",
                     "phrase_lang_title": "Phrase en {idioma}",
                     "phrase_lang_body": "Pour revenir toujours à ce même chat, restaure avec cette même phrase dans cette même langue : la même phrase dans une autre langue ouvre une autre identité de chat.",
                     "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",
