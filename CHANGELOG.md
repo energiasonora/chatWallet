@@ -17,6 +17,23 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.54 — 2026-09-27
+
+- Llegó la **Ğ1 (junas)**, la moneda libre. Está al final del selector de redes, debajo de
+  las demás. Al elegirla ves tu saldo en Ğ1, el **dividendo universal** que tenés por
+  cobrar y, si sos miembro de la red de confianza, tu identidad con un ✦. **Recibir** y el
+  QR muestran tu cuenta `g1…`, para que te paguen desde Ğecko o Cesium². Enviar Ğ1 llega
+  en la próxima versión.
+- Tu cuenta Ğ1 sale de tu **misma frase semilla**, y es la misma que ves en Ğecko o
+  Cesium². Si ya sos miembro de la Ğ1, restaurá ChatWallet con la frase de tu billetera Ğ1 y
+  tenés tu cuenta y, además, chat. La frase no se guarda: solo tu dirección Ğ1.
+- **Restaurar con frase** ahora acepta frases en español, francés, italiano y portugués,
+  con o sin tildes. Ojo: la misma frase en otro idioma abre otra identidad de chat, así que
+  usá siempre la misma, en el mismo idioma.
+- En la tarjeta de un contacto aparece **✦ Ser vivo · miembro Ğ1**, con su seudónimo, sus
+  certificaciones y hasta cuándo es miembro, si esa persona vinculó su dirección con su
+  cuenta Ğ1 en Ius Naturalis.
+
 ## 3.53 — 2026-09-24
 
 - Al compartir **chatwallet.org** en X, WhatsApp, Telegram o cualquier red, el link ahora se ve
