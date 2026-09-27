@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.55 — 2026-09-27
+
+- El escáner ahora **reconoce los QR de Ğ1**: la cuenta sola, los pedidos de pago de Ğecko
+  (con monto y comentario) y las claves viejas de Duniter v1. Te muestra quién es, si es
+  miembro de la red de confianza, cuánto te pide y, si esa persona vinculó su chat, un botón
+  para **abrir el chat**. Pagar en Ğ1 llega en la próxima versión: por ahora podés copiar la
+  cuenta.
+
 ## 3.54 — 2026-09-27
 
 - Llegó la **Ğ1 (junas)**, la moneda libre. Está al final del selector de redes, debajo de
