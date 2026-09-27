@@ -17,6 +17,18 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.57 — 2026-09-27
+
+- **Ya podés enviar Ğ1.** Con la red Ğ1 elegida, **Enviar** abre el envío: pegás la cuenta
+  `g1…` (o un pedido de pago de Ğecko) o elegís un contacto que tenga Ğ1, y antes de firmar
+  ves quién es en la red de confianza. Si tenés dividendo universal por cobrar, se cobra en
+  la misma operación, como hace Ğecko. El comentario es opcional y queda público en la
+  cadena.
+- Al escanear un QR de Ğ1 aparece **Pagar en Ğ1**, con el monto y el comentario del pedido
+  ya cargados.
+- El saldo Ğ1 ahora se lee **directo de la cadena**. Antes salía de un índice que a veces
+  mostraba menos de lo que tenías.
+
 ## 3.56 — 2026-09-27
 
 - Al escanear el QR de una cuenta **Ğ1**, antes de agregarla ves su identidad en la red de

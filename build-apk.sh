@@ -44,6 +44,10 @@ echo "✦ XMTP_ENV = ${ENV_XMTP} (el árbol vuelve a '${ORIG_ENV}' al terminar)"
 export PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH"
 unset NODE_OPTIONS
 echo "✦ Parcel con Node $(node -v)…"
+# Parcel no borra dist-apk: sin esto, cada build dejaba adentro los pedazos de los builds
+# anteriores (con otro hash) y cap copy los empaquetaba todos. El APK engordaba con cada
+# versión sin que nada los usara (visto el 27/9/2026: tres g1-billetera distintos).
+rm -rf dist-apk
 PARCEL_WORKERS=0 yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html src/book-admin.html \
   --dist-dir dist-apk --public-url ./ --cache-dir .parcel-cache-apk >/dev/null
 
