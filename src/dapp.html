@@ -9205,6 +9205,7 @@
                     lastMessage: c.lastMessage, lastMessageTimestamp: c.lastMessageTimestamp,
                     lastReadTimestamp: c.lastReadTimestamp,
                     pubKey: c.pubKey || undefined, // handshake offline: sin esto, el QR frío pide re-escanear identidad
+                    g1: c.g1 || undefined,         // su cuenta Ğ1 (agregado escaneando su QR de Ğ1)
                     // Grupos: sin estas dos, al restaurar quedaba una fila que al abrirla
                     // intentaba un DM contra la cadena "group:…" y explotaba.
                     isGroup: c.isGroup || undefined,
@@ -9236,6 +9237,7 @@
                             status: 'offline', lastSeen: null,
                             avatar: bcIsGroup ? GROUP_AVATAR : ANON_AVATAR,
                             pubKey: bc.pubKey || null,
+                            g1: bc.g1 || undefined,
                             // La membresía MLS del grupo viaja con el inbox, no con el respaldo:
                             // al sincronizar, la instalación nueva recupera la conversación sola.
                             isGroup: bcIsGroup || undefined,
@@ -9250,6 +9252,10 @@
                         }
                         if (bc.pubKey && !contacts[idx].pubKey) {
                             contacts[idx].pubKey = bc.pubKey;
+                            contactsChanged = true;
+                        }
+                        if (bc.g1 && !contacts[idx].g1) {
+                            contacts[idx].g1 = bc.g1;
                             contactsChanged = true;
                         }
                     }
@@ -12984,10 +12990,11 @@
                 catch (e) { console.warn('[g1] QR:', e?.message || e); return null; }
             }
 
-            // Una cuenta Ğ1 escaneada: quién es (identidad en la red de confianza) y, si vinculó
-            // una dirección de chat (vínculo ius1, ver Ius), el botón para hablarle. Pagar en Ğ1
-            // llega con el envío; mientras, se puede copiar la cuenta. Todo lo que viene del QR
-            // o de la red va por textContent: lo escribió otro.
+            // Una cuenta Ğ1 escaneada, ANTES de agregarla: su DID Ğ1 (estado en la red de confianza,
+            // certificaciones, vencimiento) y si vinculó una dirección de chat (vínculo ius1, ver
+            // Ius). Con vínculo, se agrega como cualquier contacto —chat y pagos en cualquier red—
+            // y guarda también su g1. Sin vínculo no hay 0x con quién chatear: se ofrece invitarlo.
+            // Todo lo que viene del QR o de la red va por textContent: lo escribió otro.
             function mostrarCuentaG1Escaneada(r) {
                 document.getElementById('g1EscaneoModal')?.remove();
                 const modal = document.createElement('div');
@@ -12999,11 +13006,13 @@
                         <p class="text-sm font-semibold" data-g1="identidad"></p>
                         <p class="text-xs text-gray-400" data-g1="det"></p>
                         <p class="font-mono text-xs text-gray-300 break-all" data-g1="cuenta"></p>
+                        <p class="text-xs" data-g1="vinculo"></p>
                         <p class="text-base font-bold hidden" data-g1="monto"></p>
                         <p class="text-sm text-gray-300 italic hidden" data-g1="comentario"></p>
                         <p class="text-xs text-gray-400" data-g1="nota"></p>
                         <div class="flex flex-col gap-2 pt-2">
                             <button type="button" data-g1="chat" class="hidden px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold"></button>
+                            <button type="button" data-g1="invitar" class="hidden px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold"></button>
                             <button type="button" data-g1="copiar" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600"></button>
                             <button type="button" data-g1="cerrar" class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500"></button>
                         </div>
@@ -13023,7 +13032,8 @@
                 q('nota').textContent = t('g1_scan_pay_soon');
                 q('copiar').textContent = t('g1_scan_copy');
                 q('cerrar').textContent = t('g1_cancel_close');
-                q('chat').textContent = t('g1_scan_chat');
+                q('invitar').textContent = t('g1_scan_invite');
+                q('invitar').onclick = () => { modal.remove(); shareInviteLink(); };
                 q('cerrar').onclick = () => modal.remove();
                 modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
                 q('copiar').onclick = () => navigator.clipboard.writeText(r.g1)
@@ -13034,30 +13044,55 @@
                     const B = await window.cwCargarBilleteraG1();
                     const [id, vinculo] = await Promise.all([
                         B.G1.identidad(r.g1).catch(() => undefined),
-                        B.G1.vinculoDeG1(r.g1, window.ethers).catch(() => null),
+                        B.G1.vinculoDeG1(r.g1, window.ethers).catch(() => undefined),
                     ]);
                     if (!modal.isConnected) return;
                     const idl = q('identidad');
                     if (id === undefined) idl.textContent = t('g1_scan_offline');
                     else if (!id) idl.textContent = t('g1_scan_no_idty');
                     else {
-                        idl.textContent = id.miembro ? t('g1_member_line', { nombre: id.nombre }) : t('g1_idty_line', { nombre: id.nombre });
+                        // Miembro: ✦ y el vencimiento. Si no, en qué punto está: pendiente de
+                        // certificaciones, membresía vencida, revocada… Las certificaciones siempre:
+                        // son lo que dice cuánta gente respondió por esta persona.
+                        const estado = { Unconfirmed: 'g1_st_unconfirmed', Unvalidated: 'g1_st_unvalidated', NotMember: 'g1_st_notmember', Revoked: 'g1_st_revoked' }[id.estado];
+                        idl.textContent = id.miembro ? t('g1_member_line', { nombre: id.nombre })
+                            : `${id.nombre} · ${t(estado || 'g1_st_notmember')}`;
                         idl.classList.toggle('text-yellow-500', !!id.miembro);
-                        if (id.miembro) {
-                            const det = [t('g1_card_certs', { n: id.certificaciones })];
-                            if (id.vence) {
-                                const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
-                                det.push(t('g1_card_until', { date: new Date(id.vence).toLocaleDateString(lang, { day: 'numeric', month: 'long', year: 'numeric' }) }));
-                            }
-                            q('det').textContent = det.join(' · ');
+                        const det = [id.miembro ? t('g1_card_certs', { n: id.certificaciones }) : t('g1_scan_certs_needed', { n: id.certificaciones })];
+                        if (id.miembro && id.vence) {
+                            const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+                            det.push(t('g1_card_until', { date: new Date(id.vence).toLocaleDateString(lang, { day: 'numeric', month: 'long', year: 'numeric' }) }));
                         }
+                        q('det').textContent = det.join(' · ');
                     }
-                    if (vinculo && vinculo.evm) {
+                    const evm = vinculo && vinculo.evm;
+                    if (evm) {
+                        const ya = contacts.find(c => c.address.toLowerCase() === evm.toLowerCase());
+                        q('vinculo').textContent = t('g1_scan_linked', { dir: shortAddr(evm) });
+                        q('vinculo').className = 'text-xs text-green-400';
+                        q('chat').textContent = ya ? t('g1_scan_chat') : t('g1_scan_add');
                         q('chat').classList.remove('hidden');
                         q('chat').onclick = async () => {
                             modal.remove();
-                            await handleScannedAddress(vinculo.evm, null, { greet: 'qr' });
+                            // Sin await: handleScannedAddress crea el contacto antes de su primer
+                            // await, pero después espera el chat y el saludo (hasta 50 s).
+                            const abriendo = handleScannedAddress(evm, null, { greet: 'qr' });
+                            // El g1 queda en el contacto (para pagarle en Ğ1). Si es nuevo, arranca
+                            // con su seudónimo Ğ1: es único en la cadena y lo respaldan sus
+                            // certificaciones; igual lo pisa su alias si después manda su perfil.
+                            const c = contacts.find(x => x.address.toLowerCase() === evm.toLowerCase());
+                            if (c) {
+                                let cambio = false;
+                                if (c.g1 !== r.g1) { c.g1 = r.g1; cambio = true; }
+                                if (!ya && id && id.nombre && c.name === shortAddr(c.address)) { c.name = id.nombre; cambio = true; }
+                                if (cambio) { saveContacts(); renderContacts(); }
+                            }
+                            await abriendo;
                         };
+                    } else if (vinculo !== undefined) {
+                        q('vinculo').textContent = t('g1_scan_unlinked');
+                        q('vinculo').className = 'text-xs text-gray-400';
+                        q('invitar').classList.remove('hidden');
                     }
                 })().catch((e) => console.warn('[g1] consulta del escaneo:', e?.message || e));
             }
@@ -18684,6 +18719,15 @@
                     "g1_scan_copy": "Copiar cuenta Ğ1",
                     "g1_scan_chat": "Abrir chat",
                     "g1_cancel_close": "Cerrar",
+                    "g1_scan_add": "Agregar a la agenda y chatear",
+                    "g1_scan_linked": "Chat vinculado: {dir}",
+                    "g1_scan_unlinked": "Todavía no vinculó un chat, así que no se le puede escribir desde su cuenta Ğ1. Mandale tu invitación: con ese link te escribe directo.",
+                    "g1_scan_invite": "Invitar a ChatWallet",
+                    "g1_scan_certs_needed": "{n} certificaciones vigentes (hacen falta 5 para ser miembro)",
+                    "g1_st_unconfirmed": "identidad sin confirmar",
+                    "g1_st_unvalidated": "identidad esperando certificaciones",
+                    "g1_st_notmember": "membresía vencida",
+                    "g1_st_revoked": "identidad revocada",
                     "phrase_lang_title": "Frase en {idioma}",
                     "phrase_lang_body": "Para volver siempre a este mismo chat, restaurá con esta misma frase y en este mismo idioma: la misma frase en otro idioma abre otra identidad de chat.",
                     "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
@@ -19052,6 +19096,15 @@
                     "g1_scan_copy": "Copy Ğ1 account",
                     "g1_scan_chat": "Open chat",
                     "g1_cancel_close": "Close",
+                    "g1_scan_add": "Add to contacts and chat",
+                    "g1_scan_linked": "Linked chat: {dir}",
+                    "g1_scan_unlinked": "No chat linked yet, so you can't message them from their Ğ1 account. Send them your invite: with that link they can message you directly.",
+                    "g1_scan_invite": "Invite to ChatWallet",
+                    "g1_scan_certs_needed": "{n} active certifications (5 needed to become a member)",
+                    "g1_st_unconfirmed": "unconfirmed identity",
+                    "g1_st_unvalidated": "identity awaiting certifications",
+                    "g1_st_notmember": "membership expired",
+                    "g1_st_revoked": "revoked identity",
                     "phrase_lang_title": "Phrase in {idioma}",
                     "phrase_lang_body": "To always come back to this same chat, restore with this same phrase in this same language: the same phrase in another language opens a different chat identity.",
                     "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
@@ -19420,6 +19473,15 @@
                     "g1_scan_copy": "Copier le compte Ğ1",
                     "g1_scan_chat": "Ouvrir le chat",
                     "g1_cancel_close": "Fermer",
+                    "g1_scan_add": "Ajouter aux contacts et discuter",
+                    "g1_scan_linked": "Chat lié : {dir}",
+                    "g1_scan_unlinked": "Pas encore de chat lié : impossible de lui écrire depuis son compte Ğ1. Envoie-lui ton invitation : avec ce lien, il peut t'écrire directement.",
+                    "g1_scan_invite": "Inviter sur ChatWallet",
+                    "g1_scan_certs_needed": "{n} certifications actives (il en faut 5 pour être membre)",
+                    "g1_st_unconfirmed": "identité non confirmée",
+                    "g1_st_unvalidated": "identité en attente de certifications",
+                    "g1_st_notmember": "adhésion expirée",
+                    "g1_st_revoked": "identité révoquée",
                     "phrase_lang_title": "Phrase en {idioma}",
                     "phrase_lang_body": "Pour revenir toujours à ce même chat, restaure avec cette même phrase dans cette même langue : la même phrase dans une autre langue ouvre une autre identité de chat.",
                     "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",

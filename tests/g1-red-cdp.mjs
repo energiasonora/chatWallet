@@ -23,6 +23,7 @@ const P1 = Mnemonic.fromEntropy('0x' + '17'.repeat(16)).phrase;
 const W1 = HDNodeWallet.fromPhrase(P1);
 const MIEMBRO = cuentaG1(P1, '//0').direccion;
 const RAIZ1 = cuentaG1(P1, '').direccion;
+const PENDIENTE = cuentaG1(P1, '//1').direccion;   // identidad que todavía junta certificaciones
 // Frase 2 (francés, como la muestra Ğecko): ninguna candidata existe todavía.
 const P2 = Mnemonic.fromEntropy('0x' + '2b'.repeat(16), undefined, wordlists.fr).phrase;
 const W2 = HDNodeWallet.fromMnemonic(Mnemonic.fromPhrase(P2, undefined, wordlists.fr));
@@ -36,7 +37,9 @@ const COMENTARIO_VINCULO = { remark: 'ius1:' + Buffer.concat([Buffer.from(EVM_VI
 
 const FALSO = `(() => {
     const MIEMBRO = ${JSON.stringify(MIEMBRO)};
-    const cuentas = { [MIEMBRO]: { id: MIEMBRO, balance: '412013', identity: { isMember: true, name: 'TestMiembro', firstEligibleUd: 202 } } };
+    const PENDIENTE = ${JSON.stringify(PENDIENTE)};
+    const cuentas = { [MIEMBRO]: { id: MIEMBRO, balance: '412013', identity: { isMember: true, name: 'TestMiembro', firstEligibleUd: 202 }, estado: 'Member', certs: 7 },
+                      [PENDIENTE]: { id: PENDIENTE, balance: '0', identity: { isMember: false, name: 'Novata', firstEligibleUd: 0 }, estado: 'Unvalidated', certs: 3 } };
     const real = window.fetch.bind(window);
     window.__g1consultas = 0;
     const json = (data) => new Response(JSON.stringify({ data }), { headers: { 'content-type': 'application/json' } });
@@ -49,8 +52,8 @@ const FALSO = `(() => {
             if (/universalDividends/.test(q)) return json({ universalDividends: { nodes: v.desde === 202 ? [{ amount: '1217' }, { amount: '1217' }] : [] } });
             if (/identityByAccountId/.test(q)) {
                 const c = cuentas[v.id];
-                return json({ identityByAccountId: c ? { index: 99, name: c.identity.name, status: 'Member', isMember: true, expireOn: 3000000,
-                    certReceived: { totalCount: 7 } } : null, blocks: { nodes: [{ height: 2900000, timestamp: new Date().toISOString() }] } });
+                return json({ identityByAccountId: c ? { index: 99, name: c.identity.name, status: c.estado, isMember: c.identity.isMember, expireOn: 3000000,
+                    certReceived: { totalCount: c.certs } } : null, blocks: { nodes: [{ height: 2900000, timestamp: new Date().toISOString() }] } });
             }
             if (/txComments/.test(q)) {
                 const nodos = (window.__g1comentarios || []).filter(n => v.id ? n.authorId === v.id : n.remark.startsWith(v.p));
@@ -209,12 +212,13 @@ try {
         const vis = k => !q(k).classList.contains('hidden');
         return { identidad: q('identidad').textContent, det: q('det').textContent, cuenta: q('cuenta').textContent,
                  monto: vis('monto') ? q('monto').textContent : null, comentario: vis('comentario') ? q('comentario').textContent : null,
-                 chat: vis('chat') }; })()`);
+                 vinculo: q('vinculo').textContent, chat: vis('chat') ? q('chat').textContent : null, invitar: vis('invitar') }; })()`);
     await ev(`handleScannedData(${JSON.stringify(MIEMBRO)})`);
     ok(await listo(`/TestMiembro/.test(document.getElementById('g1EscaneoModal')?.innerText || '')`, 15), 'la dirección sola abre la cuenta Ğ1');
     let m = await modalG1();
     ok(m.identidad === '✦ TestMiembro · miembro Ğ1' && /7 certificaciones vigentes/.test(m.det), 'con su identidad de miembro', JSON.stringify(m));
     ok(m.cuenta === MIEMBRO && m.monto === null && !m.chat, 'sin monto y sin chat (no vinculó una 0x)');
+    ok(/Todavía no vinculó un chat/.test(m.vinculo) && m.invitar, 'dice que no vinculó y ofrece invitarlo', m.vinculo);
     ok((await ev(`window.__alertas`)).length === 0, 'ya no dice "QR no reconocido"');
     await ev(`document.querySelector('#g1EscaneoModal [data-g1="cerrar"]').click()`);
 
@@ -226,11 +230,27 @@ try {
     ok(/sin identidad/.test(m.identidad), 'cuenta sin identidad', m.identidad);
     await ev(`document.querySelector('#g1EscaneoModal [data-g1="cerrar"]').click()`);
 
+    await ev(`handleScannedData(${JSON.stringify(PENDIENTE)})`);
+    ok(await listo(`/Novata/.test(document.getElementById('g1EscaneoModal')?.innerText || '')`, 15), 'identidad que no es miembro');
+    m = await modalG1();
+    ok(m.identidad === 'Novata · identidad esperando certificaciones', 'muestra su estado', m.identidad);
+    ok(m.det === '3 certificaciones vigentes (hacen falta 5 para ser miembro)', 'y cuántas certificaciones le faltan', m.det);
+    await ev(`document.querySelector('#g1EscaneoModal [data-g1="cerrar"]').click()`);
+
     await ev(`window.__g1comentarios = [${JSON.stringify(COMENTARIO_VINCULO)}]`);
     await ev(`handleScannedData(${JSON.stringify('june://' + MIEMBRO)})`);
-    ok(await listo(`!document.querySelector('#g1EscaneoModal [data-g1="chat"]')?.classList.contains('hidden')`, 15), 'cuenta vinculada: aparece "Abrir chat"');
+    ok(await listo(`!document.querySelector('#g1EscaneoModal [data-g1="chat"]')?.classList.contains('hidden')`, 15), 'cuenta vinculada: ofrece agregarla');
+    m = await modalG1();
+    ok(m.chat === 'Agregar a la agenda y chatear' && m.vinculo === 'Chat vinculado: ' + EVM_VINCULADA.address.slice(0, 6) + '...' + EVM_VINCULADA.address.slice(-4) && !m.invitar, 'con la 0x vinculada a la vista', JSON.stringify(m));
+    ok(!(await ev(`contacts.some(c => c.address.toLowerCase() === ${JSON.stringify(EVM_VINCULADA.address.toLowerCase())})`)), 'todavía NO está en la agenda (primero se ve el DID)');
     await ev(`document.querySelector('#g1EscaneoModal [data-g1="chat"]').click()`);
-    ok(await listo(`contacts.some(c => c.address.toLowerCase() === ${JSON.stringify(EVM_VINCULADA.address.toLowerCase())})`, 20), 'y abre el chat con su 0x (queda en la agenda)');
+    ok(await listo(`contacts.some(c => c.address.toLowerCase() === ${JSON.stringify(EVM_VINCULADA.address.toLowerCase())} && c.g1 === ${JSON.stringify(MIEMBRO)})`, 20), 'al aceptar: contacto con su 0x y su g1');
+    const nuevo = await ev(`contacts.find(c => c.address.toLowerCase() === ${JSON.stringify(EVM_VINCULADA.address.toLowerCase())})`);
+    ok(nuevo.name === 'TestMiembro', 'nombrado con su seudónimo Ğ1', nuevo.name);
+    ok(await listo(`(currentChatContact?.address || '').toLowerCase() === ${JSON.stringify(EVM_VINCULADA.address.toLowerCase())}`, 20), 'y queda abierto su chat');
+    await ev(`handleScannedData(${JSON.stringify(MIEMBRO)})`);
+    ok(await listo(`document.querySelector('#g1EscaneoModal [data-g1="chat"]')?.textContent === 'Abrir chat'`, 15), 'escanearlo de nuevo: "Abrir chat" (ya está en la agenda)');
+    await ev(`document.querySelector('#g1EscaneoModal [data-g1="cerrar"]').click()`);
 
     await ev(`handleScannedData('esto no es nada')`);
     await sleep(1500);
