@@ -17,6 +17,13 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.58 — 2026-09-28
+
+- Al escanear el QR de un comercio argentino que **no trae monto** (el que se pega en el
+  mostrador de cualquier kiosco), ahora podés **poner cuánto pagás** y la ficha te dice al
+  instante **cuántos USDC son**. Acepta el monto como lo escribís: `5.000`, `5.000,50` o `5000`.
+- El spread de la cotización se muestra con coma (`2,5 %`).
+
 ## 3.57 — 2026-09-27
 
 - **Ya podés enviar Ğ1.** Con la red Ğ1 elegida, **Enviar** abre el envío: pegás la cuenta
