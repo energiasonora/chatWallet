@@ -3573,6 +3573,11 @@
                 <div class="bg-gray-900/60 rounded-lg p-4 space-y-1">
                     <p class="text-xs text-gray-400" data-i18n-key="ars_qr_amount">Monto</p>
                     <p id="payQrAmount" class="text-2xl font-bold">—</p>
+                    <!-- QR estático (sin tag 54): el monto lo pone quien paga, como en cualquier
+                         kiosco. Sin este campo la ficha no podía decir cuánto sale en USDC. -->
+                    <input id="payQrAmountInput" type="text" inputmode="decimal" autocomplete="off"
+                        class="hidden w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-2xl font-bold focus:outline-none focus:border-indigo-500"
+                        placeholder="$ 0">
                 </div>
                 <div id="payQrCostRow" class="bg-gray-900/60 rounded-lg p-4 space-y-1 hidden">
                     <p class="text-xs text-gray-400" data-i18n-key="pay_qr_cost">Te sale</p>
@@ -15510,6 +15515,35 @@
             // Sube con cada QR escaneado: una cotización que llega tarde se descarta comparando
             // contra este número en vez de pintar la ficha equivocada.
             let cwPayQrGen = 0;
+            // Lo que la ficha abierta necesita para recalcular mientras se tipea el monto.
+            let cwPayQrEstado = { gen: 0, info: null, precio: null, monto: null };
+
+            // Monto tipeado a la argentina: "5.000", "5.000,50", "5000" o "5000.5".
+            function cwLeerMontoFiat(s) {
+                let v = String(s || '').replace(/[\s$]/g, '');
+                if (!v) return null;
+                if (v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+                else if ((v.match(/\./g) || []).length > 1 || /\.\d{3}$/.test(v)) v = v.replace(/\./g, '');
+                const n = Number(v);
+                return Number.isFinite(n) && n > 0 ? n : null;
+            }
+            window.cwLeerMontoFiat = cwLeerMontoFiat;
+
+            function pintarCostoPayQr() {
+                const { info, precio, monto } = cwPayQrEstado;
+                const elCosto = document.getElementById('payQrCost');
+                if (!elCosto || !precio || !info) return;
+                if (monto === null) { elCosto.textContent = '—'; return; }
+                const usdc = monto / precio.venta;
+                const d = usdc < 1 ? 4 : 2;
+                elCosto.textContent = usdc.toLocaleString(info.locale,
+                    { minimumFractionDigits: d, maximumFractionDigits: d }) + ' USDC';
+            }
+
+            document.getElementById('payQrAmountInput')?.addEventListener('input', e => {
+                cwPayQrEstado.monto = cwLeerMontoFiat(e.target.value);
+                pintarCostoPayQr();
+            });
 
             async function handleIncomingPaymentQr(data, info) {
                 playQRscanned();
@@ -15546,6 +15580,9 @@
                 if (el('payQrMerchant')) el('payQrMerchant').textContent = merchant || t('ars_qr_no_merchant');
                 const n = Number(rawAmount);
                 const montoFiat = (rawAmount && Number.isFinite(n) && n > 0) ? n : null;
+                const gen = ++cwPayQrGen;
+                cwPayQrEstado = { gen, info, precio: null, monto: montoFiat };
+                const entrada = el('payQrAmountInput');
                 if (el('payQrAmount')) {
                     let txt = t('ars_qr_open_amount');
                     if (montoFiat !== null) {
@@ -15553,12 +15590,18 @@
                         catch (e) { txt = '$ ' + rawAmount; }
                     }
                     el('payQrAmount').textContent = txt;
+                    // Con monto abierto el renglón pasa a ser la indicación y el número lo tipea
+                    // el usuario en el campo de abajo.
+                    el('payQrAmount').className = montoFiat === null ? 'text-xs text-gray-300' : 'text-2xl font-bold';
+                }
+                if (entrada) {
+                    entrada.value = '';
+                    entrada.classList.toggle('hidden', montoFiat !== null);
                 }
 
                 // Cotización: se pide DESPUÉS de tener la ficha lista y nunca la bloquea. Si el
                 // RPC no contesta, el usuario igual ve comercio y monto — que es lo que necesita
                 // para decidir — y una línea diciendo que el precio no llegó.
-                const gen = ++cwPayQrGen;
                 const filaCosto = el('payQrCostRow');
                 if (filaCosto) filaCosto.classList.add('hidden');
                 cwPrecioP2P(info.iso).then(precio => {
@@ -15572,21 +15615,13 @@
                         filaCosto.classList.remove('hidden');
                         return;
                     }
-                    if (elCosto) {
-                        if (montoFiat === null) {
-                            elCosto.textContent = '—';
-                        } else {
-                            const usdc = montoFiat / precio.venta;
-                            const d = usdc < 1 ? 4 : 2;
-                            elCosto.textContent = usdc.toLocaleString(info.locale,
-                                { minimumFractionDigits: d, maximumFractionDigits: d }) + ' USDC';
-                        }
-                    }
+                    cwPayQrEstado.precio = precio;
+                    pintarCostoPayQr();
                     if (elTasa) {
                         let linea = t('pay_qr_rate', {
                             precio: precio.venta.toLocaleString(info.locale, { maximumFractionDigits: 2 }),
                             moneda: info.iso,
-                            spread: precio.spread
+                            spread: precio.spread.toLocaleString(info.locale, { maximumFractionDigits: 2 })
                         });
                         const edad = cwPrecioEdadMin(precio);
                         if (edad >= 1) linea += ' · ' + t('pay_qr_rate_old', { min: edad });
@@ -19059,7 +19094,7 @@
                     "ars_qr_amount": "Monto",
                     "ars_qr_close": "Entendido",
                     "ars_qr_no_merchant": "Sin nombre",
-                    "ars_qr_open_amount": "Lo pone el comercio",
+                    "ars_qr_open_amount": "Monto libre: poné cuánto le pagás al comercio",
                     "ars_qr_ok_note": "QR válido de Transferencias 3.0. Por ahora ChatWallet lo reconoce y te lo muestra; pagarlo con USDC todavía no está disponible.",
                     "ars_qr_bad_note": "Este QR dice ser argentino pero el código de verificación no cierra. Puede estar dañado o mal fotografiado.",
                     "pay_qr_cost": "Te sale",
@@ -19455,7 +19490,7 @@
                     "ars_qr_amount": "Amount",
                     "ars_qr_close": "Got it",
                     "ars_qr_no_merchant": "No name",
-                    "ars_qr_open_amount": "Set by the merchant",
+                    "ars_qr_open_amount": "Open amount: enter what you pay the merchant",
                     "ars_qr_ok_note": "Valid Transferencias 3.0 QR. For now ChatWallet recognises it and shows it to you; paying it with USDC is not available yet.",
                     "ars_qr_bad_note": "This QR claims to be Argentine but its checksum does not match. It may be damaged or badly photographed.",
                     "pay_qr_cost": "You pay",
@@ -19851,7 +19886,7 @@
                     "ars_qr_amount": "Montant",
                     "ars_qr_close": "Compris",
                     "ars_qr_no_merchant": "Sans nom",
-                    "ars_qr_open_amount": "Fixé par le commerce",
+                    "ars_qr_open_amount": "Montant libre : indique combien tu paies au commerce",
                     "ars_qr_ok_note": "QR Transferencias 3.0 valide. Pour l'instant ChatWallet le reconnaît et te l'affiche ; le payer en USDC n'est pas encore disponible.",
                     "ars_qr_bad_note": "Ce QR se présente comme argentin mais sa somme de contrôle ne correspond pas. Il est peut-être abîmé ou mal photographié.",
                     "pay_qr_cost": "Ça te coûte",

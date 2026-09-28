@@ -229,6 +229,23 @@ try {
         const f = await dev.eval(leerFicha);
         check('con monto abierto no inventa un costo', (f.costo || '').trim() === '—', f.costo);
         check('pero igual muestra la cotización', /1\.554,53/.test(f.tasa || ''), f.tasa);
+        // En un QR estático el monto lo pone quien paga: tiene que haber dónde tipearlo, y la
+        // cuenta en USDC se rehace al vuelo con la misma cotización.
+        const tipear = v => dev.eval(`(() => { const i = document.getElementById('payQrAmountInput');
+            i.value = ${JSON.stringify(v)}; i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+        const campoVisible = () => dev.eval(`!document.getElementById('payQrAmountInput').classList.contains('hidden')`);
+        check('aparece el campo para poner el monto', await campoVisible());
+        for (const v of ['5.000', '5.000,00', '5000']) {
+            await tipear(v);
+            const c = (await dev.eval(leerFicha)).costo;
+            check(`"${v}" pesos salen 3,22 USDC`, /3,22\s*USDC/.test(c || ''), c);
+        }
+        await tipear('');
+        check('borrar el monto vuelve a "—"', ((await dev.eval(leerFicha)).costo || '').trim() === '—');
+        await cerrar();
+        await dev.eval(`window.handleScannedData(${JSON.stringify(armarQr({ comercio: 'KIOSCO', monto: '100.00' }))})`);
+        await sleep(400);
+        check('con monto fijo el campo no aparece', !(await campoVisible()));
         await cerrar();
     }
     {
