@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.59 — 2026-09-28
+
 - **Nombres `.eth`.** En **Enviar** y al agregar un contacto podés escribir `vitalik.eth`
   (o un `.base.eth`) en vez de la dirección: debajo ves a qué dirección apunta antes de
   confirmar, y lo que se firma es esa dirección. Un nombre **vencido** no se acepta, aunque
