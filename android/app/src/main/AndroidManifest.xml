@@ -30,6 +30,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="chatwallet.org" android:pathPrefix="/dapp" />
+                <!-- chatwallet.org/@nombre: el link personal para que te escriban (ver _redirects) -->
+                <data android:scheme="https" android:host="chatwallet.org" android:pathPrefix="/@" />
             </intent-filter>
 
         </activity>

@@ -18,3 +18,8 @@
 /tools/         /tools/index.html   200
 /tools/sign     /tools/sign.html    200
 /tools/bip39    /tools/bip39.html   200
+# chatwallet.org/@nombre → abre el chat con esa persona. `nombre` puede ser una dirección
+# 0x…, un nombre ENS (vitalik.eth, jesse.base.eth) o un nombre pelado (xunorus → xunorus.eth);
+# lo resuelve la dapp (cwDireccionDeDestino), no el hosting. Redirección y no reescritura: así
+# la app vive siempre en /dapp.html (start_url, service worker, App Links del APK).
+/@*             /dapp.html?to=:splat 302

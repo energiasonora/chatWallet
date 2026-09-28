@@ -3006,8 +3006,10 @@
                     <div>
                         <label for="recipientAddress" class="block text-sm text-gray-400 mb-1"
                             data-i18n-key="recipient_label">Dirección del destinatario</label>
-                        <input type="text" id="recipientAddress" required placeholder="0x..."
+                        <input type="text" id="recipientAddress" required placeholder="0x… o nombre.eth"
+                            autocapitalize="off" autocorrect="off" spellcheck="false"
                             class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                        <p id="recipientEnsHint" class="hidden text-xs mt-1 font-mono break-all"></p>
                     </div>
                     <!-- Selector de Token/Red en el Modal -->
                     <div class="relative">
@@ -3464,7 +3466,7 @@
                     <div>
                         <label for="contactAddress" class="block text-sm text-gray-400 mb-1">Dirección</label>
                         <div class="flex items-center space-x-2">
-                            <input type="text" id="contactAddress" required placeholder="0x… o escanea el QR"
+                            <input type="text" id="contactAddress" required placeholder="0x…, nombre.eth o escanea el QR" autocapitalize="off" autocorrect="off" spellcheck="false"
                                 class="flex-grow bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
                             <button type="button" id="scanForContactAddressBtn"
                                 class="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg flex-shrink-0">
@@ -6371,7 +6373,35 @@
                 } else {
                     stealthFields.style.display = 'none';
                 }
+                pintarPistaEns(recipient);
             });
+
+            // Debajo del destinatario: a qué dirección apunta el nombre que se está tipeando.
+            // Es sólo una pista; la resolución que vale es la del envío (handleSendTransaction).
+            let cwPistaEnsGen = 0, cwPistaEnsTimer = null;
+            function pintarPistaEns(valor) {
+                const hint = document.getElementById('recipientEnsHint');
+                if (!hint) return;
+                const gen = ++cwPistaEnsGen;
+                clearTimeout(cwPistaEnsTimer);
+                if (!cwEsNombreEns(valor)) { hint.classList.add('hidden'); hint.textContent = ''; return; }
+                hint.className = 'text-xs mt-1 font-mono break-all text-gray-400';
+                hint.textContent = t('ens_resolving', { name: valor });
+                cwPistaEnsTimer = setTimeout(async () => {
+                    let r, fallo = false;
+                    try { r = await cwResolverEns(valor); } catch { fallo = true; }
+                    if (gen !== cwPistaEnsGen) return;   // ya tipeó otra cosa
+                    if (r) {
+                        hint.className = 'text-xs mt-1 font-mono break-all text-green-400';
+                        hint.textContent = '→ ' + r.address;
+                    } else {
+                        hint.className = 'text-xs mt-1 break-all text-red-400';
+                        hint.textContent = fallo ? t('ens_no_red') : t('ens_not_found', { name: valor });
+                    }
+                }, 450);
+            }
+            // reset() no dispara 'input': sin esto la pista del envío anterior quedaba colgada.
+            sendForm?.addEventListener('reset', () => pintarPistaEns(''));
 
             async function handleSendTransaction(e) {
                 e.preventDefault();
@@ -6388,12 +6418,32 @@
                     return;
                 }
 
-                const recipient = recipientAddressInput.value.trim();
+                let recipient = recipientAddressInput.value.trim();
                 const amount = amountInput.value.trim();
 
                 if (isNaN(amount) || parseFloat(amount) <= 0) {
                     setTxStatus('<span class="text-red-400">Monto inválido.</span>', false);
                     return;
+                }
+
+                // vitalik.eth → 0x…  Se resuelve ACÁ, justo antes de confirmar, y lo que se firma
+                // es la dirección que se muestra: si el nombre cambia de dueño después, no importa.
+                let nombreEns = null;
+                if (cwEsNombreEns(recipient)) {
+                    setTxStatus(escHtml(t('ens_resolving', { name: recipient })), true);
+                    let r = null;
+                    try { r = await cwResolverEns(recipient); }
+                    catch (err) {
+                        setTxStatus(`<span class="text-red-400">${escHtml(t('ens_no_red'))}</span>`, false);
+                        return;
+                    }
+                    if (!r) {
+                        setTxStatus(`<span class="text-red-400">${escHtml(t('ens_not_found', { name: recipient }))}</span>`, false);
+                        return;
+                    }
+                    setTxStatus('', false);
+                    recipient = r.address;
+                    nombreEns = r.name;
                 }
 
                 const selectedNetwork = optionsList[currentTokenIndex];
@@ -6402,7 +6452,7 @@
                 const detailsEl = document.getElementById('confirmTxDetails');
                 detailsEl.innerHTML = `
                 <p><strong>Desde:</strong> <span class="font-mono text-xs break-all">${currentWallet.address}</span></p>
-                <p><strong>Hacia:</strong> <span class="font-mono text-xs break-all">${recipient}</span></p>
+                <p><strong>Hacia:</strong> ${nombreEns ? `<span class="font-bold text-indigo-300">${escHtml(nombreEns)}</span><br>` : ''}<span class="font-mono text-xs break-all">${escHtml(recipient)}</span></p>
                 <p><strong>Monto:</strong> <span class="font-bold">${amount} ${tokenSymbol}</span></p>
                 <p><strong>Red:</strong> ${selectedNetwork.TOKEN_CHAIN_NAME}</p>
             `;
@@ -10216,7 +10266,7 @@
                         const statusBit = isG
                             ? `<span class="text-indigo-400">👥${contact.memberCount ? ' ' + contact.memberCount : ''}</span> · `
                             : (aliasAbajo
-                                ? `<span class="${statusColor} font-medium">${aliasAbajo}</span> · `
+                                ? `<span class="${statusColor} font-medium">${escHtml(aliasAbajo)}</span> · `
                                 : `<span class="${statusColor}">●</span> `);
 
                         // El nombre grande de la fila lo eligió EL OTRO (el alias de su perfil,
@@ -10225,7 +10275,8 @@
                         // el único nombre que nadie puede falsificar es el que escribís vos.
                         const nombreMostrado = contactOwnName(contact);
                         const corta = isG ? '' : shortAddr(contact.address);
-                        const sinConfirmar = !isG && !localAlias;
+                        // Un .eth no se marca: está verificado on-chain (ver contactOwnName).
+                        const sinConfirmar = !isG && !localAlias && !contact.ensName;
                         // Si lo que se ve arriba YA es la address, repetirla al lado es ruido.
                         // Y en una barra angosta el chip no entra: entre mostrar la address
                         // recortada a "0xe1…" o dejar el nombre y la hora legibles, gana lo
@@ -10253,19 +10304,19 @@
                         contactEl.innerHTML = `
                         <div class="flex-shrink-0">
                             <div class="contact-avatar-btn user-avatar w-10 h-10 text-xs cursor-pointer" title="${isG ? 'Abrir grupo' : 'Ver DID'}">
-                                <img src="${contact.avatar || (isG ? GROUP_AVATAR : ANON_AVATAR)}" alt="${contact.name}">
+                                <img src="${String(contact.avatar || (isG ? GROUP_AVATAR : ANON_AVATAR)).replace(/"/g, '%22')}" alt="${escHtml(contact.name).replace(/"/g, '&quot;')}">
                             </div>
                         </div>
                         <div class="flex-grow overflow-hidden">
                             <div class="flex justify-between items-baseline">
                                 <div class="flex items-baseline gap-1.5 min-w-0 pr-2">
-                                    <p class="font-semibold truncate ${sinConfirmar ? 'contact-unconfirmed' : ''}">${nombreMostrado}</p>
+                                    <p class="font-semibold truncate ${sinConfirmar ? 'contact-unconfirmed' : ''}">${escHtml(nombreMostrado)}</p>
                                     ${chipAddr}
                                 </div>
                                 <p class="text-xs text-gray-400 flex-shrink-0">${lastMessageTime}</p>
                             </div>
                             <div class="flex items-center mt-1">
-                                <p class="text-xs text-gray-500 truncate flex-grow">${statusBit}${lastMessageText}</p>
+                                <p class="text-xs text-gray-500 truncate flex-grow">${statusBit}${escHtml(lastMessageText)}</p>
                                 ${unreadCount > 0 ? `<span class="unread-badge flex-shrink-0 ml-2">${unreadCount}</span>` : ''}
                             </div>
                         </div>
@@ -10302,7 +10353,7 @@
                         if (!confirm(`¿Salir de "${contact.name}"?\n\nSe borran el chat y su historial de este dispositivo, y dejás de recibir sus mensajes.`)) return;
                         try {
                             await leaveGroupChat(contact);
-                            showToast(`Saliste de "${contact.name}".`, 'success');
+                            showToast(`Saliste de "${escHtml(contact.name)}".`, 'success');
                         } catch (err) {
                             console.error('salir del grupo:', err);
                             showToast('No se pudo salir del grupo.', 'error');
@@ -10329,7 +10380,7 @@
                         if (!contact) return;
                         if (confirm(`¿Eliminar a ${contact.name}?\n\nSe borran el chat y su historial de este dispositivo. Si esa dirección te escribe un mensaje nuevo, el contacto vuelve a aparecer (para eso está "Bloquear").`)) {
                             await removeContactByAddress(address, { blocked: false });
-                            showToast(`${contact.name} eliminado.`, 'success');
+                            showToast(`${escHtml(contact.name)} eliminado.`, 'success');
                         }
                     });
                 });
@@ -10343,7 +10394,7 @@
                         if (confirm(`¿Bloquear a ${contact.name}?\n\nSe borran el chat y su historial, y no vuelve a aparecer nunca: sus mensajes se descartan sin avisarte. Podés desbloquearlo en Configuración.`)) {
                             await removeContactByAddress(address, { blocked: true });
                             renderBlockedContacts();
-                            showToast(`${contact.name} bloqueado.`, 'success');
+                            showToast(`${escHtml(contact.name)} bloqueado.`, 'success');
                         }
                     });
                 });
@@ -10363,12 +10414,25 @@
             addContactForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 let name = document.getElementById('contactName').value.trim();
-                const address = document.getElementById('contactAddress').value.trim();
+                let address = document.getElementById('contactAddress').value.trim();
                 const index = parseInt(editContactIndexInput.value);
 
                 if (!address) {
                     showToast("La dirección es obligatoria.", 'error');
                     return;
+                }
+                // nombre.eth → se guarda la DIRECCIÓN (el chat de XMTP va atado a ella) y el
+                // nombre queda de apodo si no se puso otro.
+                let ensDelAlta = null;
+                if (cwEsNombreEns(address)) {
+                    let r = null;
+                    try { r = await cwResolverEns(address); }
+                    catch { showToast(t('ens_no_red'), 'error'); return; }
+                    if (!r) { showToast(escHtml(t('ens_not_found', { name: address })), 'error'); return; }
+                    if (!name) name = r.name;
+                    address = r.address;
+                    // El nombre que tipeaste apunta a esa dirección (verificado recién): es suyo.
+                    ensDelAlta = r.name;
                 }
                 if (!isAddress(address) && !isStealthAddress(address)) {
                     showToast("Dirección Ethereum o Stealth Meta-Address inválida.", 'error');
@@ -10396,6 +10460,7 @@
                         status: 'offline',
                         lastSeen: null
                     };
+                    if (ensDelAlta) newContact.ensName = ensDelAlta;
                     contacts.push(newContact);
                     await clearTombstone(address); // lo agregás a mano → levanta el borrado/bloqueo
                 }
@@ -10405,6 +10470,7 @@
                 showToast(index > -1 ? "Contacto actualizado." : "Contacto añadido.", 'success');
 
                 if (newContact) {
+                    if (!newContact.ensName) cwAnotarEnsDe(newContact).catch(() => { });
                     await startChatWithContact(newContact);
                 }
             });
@@ -10431,15 +10497,30 @@
                 // lo llamaste VOS. Mostrar la address teniendo un apodo tuyo no le servía a nadie;
                 // y el apodo propio no lo puede falsificar nadie, así que ocupar el renglón
                 // grande con él es seguro — es justo el nombre en el que sí se puede confiar.
-                return contact.selfAlias || contactLocalAlias(contact) || shortAddr(contact.address) || contact.name || '';
+                // Su .eth va primero: también lo eligió él, pero ése SÍ está verificado on-chain
+                // (reverse record confirmado ida y vuelta, ver cwNombreEnsDe).
+                return contact.ensName || contact.selfAlias || contactLocalAlias(contact) || shortAddr(contact.address) || contact.name || '';
             }
             // El apodo local, y SÓLO si de verdad pusiste uno: `name` nace sembrado con el alias
             // del dueño o con la address, y repetir eso abajo no agrega información.
             function contactLocalAlias(contact) {
                 if (!contact || contact.isGroup) return '';
                 const name = contact.name || '';
-                if (!name || name === contact.selfAlias || name === shortAddr(contact.address)) return '';
+                if (!name || name === contact.selfAlias || name === contact.ensName || name === shortAddr(contact.address)) return '';
                 return name;
+            }
+
+            // Busca el .eth de un contacto NUEVO, de fondo, y si aparece lo muestra. Sólo al
+            // estrenarlo, a propósito: recorrer toda la agenda contra un RPC público le contaría
+            // a ese RPC con quién hablás. Una dirección que igual vas a contactar no cuenta nada.
+            async function cwAnotarEnsDe(contact) {
+                if (!contact || contact.isGroup || !ethers.isAddress(contact.address || '')) return;
+                if (isOffline) return;
+                const name = await cwNombreEnsDe(contact.address);
+                if (!name || contact.ensName === name) return;
+                contact.ensName = name;
+                await saveContacts();
+                renderContacts();
             }
 
             function openEditContactModal(index) {
@@ -15321,6 +15402,140 @@
                 }
             }
 
+            // ── Nombres ENS (vitalik.eth, jesse.base.eth) ──
+            // Se resuelven SIEMPRE contra Ethereum mainnet, sea cual sea la red elegida: ahí vive
+            // el registro de ENS. Los .base.eth y demás subnombres fuera de L1 funcionan igual
+            // porque ethers sigue el CCIP-read (EIP-3668) del resolver.
+            // Sólo `.eth`: ENS también acepta dominios DNS (alguien.com), pero en un campo de
+            // "destinatario" eso se confunde con una web y no lo pidió nadie.
+            const CW_ENS_RPCS = ['https://ethereum-rpc.publicnode.com', 'https://eth.llamarpc.com', 'https://cloudflare-eth.com'];
+            const CW_ENS_REGISTRAR = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';   // BaseRegistrar de .eth
+            const cwEnsCache = new Map();   // nombre|dir → { v, t }
+            const CW_ENS_TTL = 10 * 60 * 1000;
+            let cwEnsProviders = null;
+
+            function cwEsNombreEns(s) {
+                return typeof s === 'string' && /^[^\s/?#@:]+\.eth$/i.test(s.trim());
+            }
+            window.cwEsNombreEns = cwEsNombreEns;
+
+            async function cwEnsLlamar(fn) {
+                if (!cwEnsProviders) cwEnsProviders = CW_ENS_RPCS.map(u => new ethers.JsonRpcProvider(u, 1, { staticNetwork: true }));
+                let ultimo;
+                for (const p of cwEnsProviders) {
+                    try { return await withTimeout(fn(p), 8000, 'ens'); } catch (e) { ultimo = e; }
+                }
+                throw ultimo;
+            }
+
+            // → { address, name } o null si el nombre no existe, no apunta a nada o VENCIÓ.
+            // Lo del vencimiento no es un detalle: cuando un .eth vence, el registro conserva
+            // el resolver viejo y resolveName sigue devolviendo la dirección del dueño anterior
+            // (medido con xunorus.eth, vencido el 17/4/2026). Pagarle a eso es pagarle a un
+            // nombre que cualquiera puede registrar mañana.
+            async function cwResolverEns(nombre) {
+                let name;
+                try { name = ethers.ensNormalize(String(nombre).trim()); } catch { return null; }
+                if (!cwEsNombreEns(name)) return null;
+                const hit = cwEnsCache.get(name);
+                if (hit && Date.now() - hit.t < CW_ENS_TTL) return hit.v;
+                const partes = name.split('.');
+                const v = await cwEnsLlamar(async p => {
+                    // El vencimiento se mira sobre el .eth de segundo nivel (dueño de todo lo de abajo).
+                    // Los .base.eth no dependen de eso: base.eth no vence y el resto vive en Base.
+                    const segundo = partes.slice(-2).join('.');
+                    if (segundo !== 'base.eth') {
+                        const reg = new ethers.Contract(CW_ENS_REGISTRAR, ['function nameExpires(uint256) view returns (uint256)'], p);
+                        const vence = Number(await reg.nameExpires(BigInt(ethers.id(partes[partes.length - 2]))));
+                        if (vence * 1000 < Date.now()) return null;
+                    }
+                    const address = await p.resolveName(name);
+                    return address ? { address: ethers.getAddress(address), name } : null;
+                });
+                cwEnsCache.set(name, { v, t: Date.now() });
+                return v;
+            }
+            window.cwResolverEns = cwResolverEns;
+
+            // El nombre principal de una dirección (reverse record), ya verificado ida y vuelta
+            // por ethers: nadie puede decir que es vitalik.eth sin que vitalik.eth lo apunte.
+            // Nunca tira: sin red o sin nombre → null.
+            async function cwNombreEnsDe(address) {
+                if (!address || !ethers.isAddress(address)) return null;
+                const k = address.toLowerCase();
+                const hit = cwEnsCache.get(k);
+                if (hit && Date.now() - hit.t < CW_ENS_TTL) return hit.v;
+                let v = null;
+                try {
+                    const name = await cwEnsLlamar(p => p.lookupAddress(address));
+                    // Y que no esté vencido: el reverse record sobrevive al nombre.
+                    if (name) {
+                        const r = await cwResolverEns(name);
+                        v = r && r.address.toLowerCase() === k ? r.name : null;
+                    }
+                } catch (e) { console.warn('[ens] reverse', e?.message || e); return null; }
+                cwEnsCache.set(k, { v, t: Date.now() });
+                return v;
+            }
+            window.cwNombreEnsDe = cwNombreEnsDe;
+
+            // Lo que llega de afuera (link, QR, pegado) puede traer un nombre en vez de una
+            // dirección. Esto lo baja a dirección o devuelve null; lo que ya es dirección pasa.
+            // Un nombre pelado ("xunorus", como en chatwallet.org/@xunorus) se lee como .eth.
+            async function cwDireccionDeDestino(s) {
+                s = String(s || '').trim().replace(/^@/, '').replace(/\/+$/, '');
+                if (!s) return null;
+                if (ethers.isAddress(s)) return { address: ethers.getAddress(s), name: null };
+                if (!s.includes('.') && /^[\p{L}\p{N}_-]+$/u.test(s)) s += '.eth';
+                if (!cwEsNombreEns(s)) return null;
+                return cwResolverEns(s);
+            }
+            window.cwDireccionDeDestino = cwDireccionDeDestino;
+
+            // El destino que trae un link o un QR con nombre: chatwallet.org/@xunorus,
+            // …/dapp.html?to=vitalik.eth, ethereum:vitalik.eth, "@xunorus" o "vitalik.eth" a secas.
+            // Devuelve el texto a resolver (cwDireccionDeDestino) o null. Un 0x… en ?address=
+            // no pasa por acá: lo sigue atendiendo extractAddressFromData, como siempre.
+            function cwDestinoDeLink(data) {
+                const s = String(data || '').trim();
+                if (!s) return null;
+                if (/^https?:\/\//i.test(s)) {
+                    let u;
+                    try { u = new URL(s); } catch { return null; }
+                    if (!/(^|\.)chatwallet\.org$|^localhost$|^127\.0\.0\.1$/i.test(u.hostname)) return null;
+                    if (u.pathname.startsWith('/@')) {
+                        try { return decodeURIComponent(u.pathname.slice(2)) || null; } catch { return null; }
+                    }
+                    const to = u.searchParams.get('to');
+                    if (to) return to;
+                    const addr = u.searchParams.get('address');
+                    return cwEsNombreEns(addr) ? addr : null;
+                }
+                if (/^ethereum:/i.test(s)) {
+                    const n = s.slice(9).split(/[?@/]/)[0];
+                    return cwEsNombreEns(n) ? n : null;
+                }
+                if (cwEsNombreEns(s)) return s;
+                if (/^@[\p{L}\p{N}_.-]+$/u.test(s)) return s;
+                return null;
+            }
+            window.cwDestinoDeLink = cwDestinoDeLink;
+
+            // Abre (o crea) el chat con lo que diga un link o un QR con nombre.
+            async function abrirChatConDestino(destino, pubKey, opts = {}) {
+                let r = null;
+                try { r = await cwDireccionDeDestino(destino); }
+                catch (e) { showToast(t('ens_no_red'), 'error', 6000); return false; }
+                if (!r) {
+                    // showToast pinta HTML y `destino` lo escribió quien armó el link: escapar.
+                    const quien = String(destino).replace(/^@/, '').slice(0, 80);
+                    showToast(escHtml(t('ens_not_found', { name: quien })), 'error', 8000);
+                    return false;
+                }
+                await handleScannedAddress(r.address, pubKey, { ...opts, ensName: r.name });
+                return true;
+            }
+
             function extractAddressFromData(data) {
                 try {
                     // The generated QR might be just the URL string, not a full URL object.
@@ -15709,6 +15924,14 @@
                     return;
                 }
 
+                // chatwallet.org/@nombre, ?to=, nombre.eth: hay que resolverlo antes de chatear.
+                const destino = cwDestinoDeLink(data);
+                if (destino) {
+                    playQRscanned();
+                    await abrirChatConDestino(destino, extractPubKeyFromData(data), { greet: opts.greet || 'qr' });
+                    return;
+                }
+
                 const address = extractAddressFromData(data);
                 if (address) {
                     playQRscanned();
@@ -15776,6 +15999,10 @@
                         existingContact.pubKey = pubKey;
                         saveContacts();
                     }
+                    if (opts.ensName && existingContact.ensName !== opts.ensName) {
+                        existingContact.ensName = opts.ensName;
+                        saveContacts();
+                    }
                     await startChatWithContact(existingContact);
                 } else {
                     const shortName = `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -15783,6 +16010,8 @@
                     contacts.push(newContact);
                     await clearTombstone(address); // escaneaste su QR a propósito → levanta el borrado/bloqueo
                     saveContacts();
+                    if (opts.ensName) newContact.ensName = opts.ensName;   // vino por nombre: ya está verificado
+                    else cwAnotarEnsDe(newContact).catch(() => { });
                     await startChatWithContact(newContact);
                     if (opts.greet) await sendPairGreeting(newContact, opts.greet);
                 }
@@ -15997,6 +16226,13 @@
                 if (addressFromUrl && ethers.isAddress(addressFromUrl)) {
                     window.history.replaceState({}, document.title, window.location.pathname);
                     await handleScannedAddress(addressFromUrl, null, { greet: 'link' });
+                    return;
+                }
+                // chatwallet.org/@nombre llega acá como /dapp.html?to=nombre (ver _redirects).
+                const destino = cwDestinoDeLink(window.location.href);
+                if (destino) {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    await abrirChatConDestino(destino, null, { greet: 'link' });
                 }
             }
 
@@ -17427,7 +17663,7 @@
                 const localAlias = contactLocalAlias(contact);
                 const aliasAbajo = localAlias && localAlias !== contactOwnName(contact) ? localAlias : '';
                 const aliasBit = aliasAbajo
-                    ? `<span class="${statusColor} font-medium">${aliasAbajo}</span> · `
+                    ? `<span class="${statusColor} font-medium">${escHtml(aliasAbajo)}</span> · `
                     : `<span class="${statusColor}">●</span> `;
                 chatStatusIndicator.innerHTML = `${aliasBit}<span class="text-gray-400">${detail}</span>`;
             }
@@ -19095,6 +19331,9 @@
                     "ars_qr_close": "Entendido",
                     "ars_qr_no_merchant": "Sin nombre",
                     "ars_qr_open_amount": "Monto libre: poné cuánto le pagás al comercio",
+                    "ens_resolving": "Buscando {name}…",
+                    "ens_not_found": "{name} no existe o venció: no apunta a ninguna dirección.",
+                    "ens_no_red": "No se pudo consultar ENS (sin conexión a Ethereum). Probá de nuevo.",
                     "ars_qr_ok_note": "QR válido de Transferencias 3.0. Por ahora ChatWallet lo reconoce y te lo muestra; pagarlo con USDC todavía no está disponible.",
                     "ars_qr_bad_note": "Este QR dice ser argentino pero el código de verificación no cierra. Puede estar dañado o mal fotografiado.",
                     "pay_qr_cost": "Te sale",
@@ -19491,6 +19730,9 @@
                     "ars_qr_close": "Got it",
                     "ars_qr_no_merchant": "No name",
                     "ars_qr_open_amount": "Open amount: enter what you pay the merchant",
+                    "ens_resolving": "Looking up {name}…",
+                    "ens_not_found": "{name} does not exist or has expired: it points to no address.",
+                    "ens_no_red": "Could not reach ENS (no connection to Ethereum). Try again.",
                     "ars_qr_ok_note": "Valid Transferencias 3.0 QR. For now ChatWallet recognises it and shows it to you; paying it with USDC is not available yet.",
                     "ars_qr_bad_note": "This QR claims to be Argentine but its checksum does not match. It may be damaged or badly photographed.",
                     "pay_qr_cost": "You pay",
@@ -19887,6 +20129,9 @@
                     "ars_qr_close": "Compris",
                     "ars_qr_no_merchant": "Sans nom",
                     "ars_qr_open_amount": "Montant libre : indique combien tu paies au commerce",
+                    "ens_resolving": "Recherche de {name}…",
+                    "ens_not_found": "{name} n'existe pas ou a expiré : il ne pointe vers aucune adresse.",
+                    "ens_no_red": "Impossible de consulter ENS (pas de connexion à Ethereum). Réessaie.",
                     "ars_qr_ok_note": "QR Transferencias 3.0 valide. Pour l'instant ChatWallet le reconnaît et te l'affiche ; le payer en USDC n'est pas encore disponible.",
                     "ars_qr_bad_note": "Ce QR se présente comme argentin mais sa somme de contrôle ne correspond pas. Il est peut-être abîmé ou mal photographié.",
                     "pay_qr_cost": "Ça te coûte",

@@ -17,6 +17,18 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Nombres `.eth`.** En **Enviar** y al agregar un contacto podés escribir `vitalik.eth`
+  (o un `.base.eth`) en vez de la dirección: debajo ves a qué dirección apunta antes de
+  confirmar, y lo que se firma es esa dirección. Un nombre **vencido** no se acepta, aunque
+  todavía guarde la dirección de su dueño anterior.
+- **Tu link para que te escriban: `chatwallet.org/@tunombre.eth`.** Abre ChatWallet (la web
+  o la app) directo en un chat con vos. También sirve con una dirección: `chatwallet.org/@0x…`.
+- Los contactos con nombre `.eth` lo muestran en la lista de chats, sin la marca de "sin
+  confirmar": ese nombre está verificado en la cadena.
+- **Arreglo de seguridad:** el nombre que alguien se pone en su perfil y el último mensaje que
+  te manda ya no se interpretan como código en la lista de chats. Un contacto podía hacer
+  correr código en tu app escribiéndose un nombre armado a propósito.
+
 ## 3.58 — 2026-09-28
 
 - Al escanear el QR de un comercio argentino que **no trae monto** (el que se pega en el
