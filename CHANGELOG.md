@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.61 — 2026-09-30
+
 - **Fijar mensajes 📌.** Mantené apretado un mensaje y tocá 📌: queda fijado **para los dos**
   (o para todo el grupo), en una barra arriba del chat. Tocar la barra te lleva al mensaje; si
   hay varios fijados, cada toque pasa al siguiente. La ✕ lo desfija, y lo puede desfijar
