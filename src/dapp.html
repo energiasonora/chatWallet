@@ -5735,6 +5735,27 @@
             }
 
             let isXmtpInitializing = false;
+            let cwXmtpUltimoError = null;   // el motivo del último arranque fallido, para mostrarlo
+
+            function cwTextoError(e) {
+                return String((e && (e.message || e.name)) || e || '?').replace(/\s+/g, ' ').slice(0, 220);
+            }
+
+            // Vuelve a arrancar el chat sin recargar la página (recargar tiraba lo que se venía
+            // haciendo, y en un navegador embebido a veces ni vuelve al mismo lugar).
+            async function cwReintentarXmtp() {
+                if (!currentWallet) { location.reload(); return; }
+                if (!chatwalletxmtp && !isXmtpInitializing) {
+                    if (messagesContainer && currentChatContact) messagesContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full">
+                        <div class="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                        <p class="text-gray-400 text-sm">${escHtml(t('xmtp_reintentando'))}</p>
+                    </div>`;
+                    await setupXmtpService(currentWallet);
+                }
+                if (currentChatContact) await reloadCurrentChat();
+            }
+            window.cwReintentarXmtp = cwReintentarXmtp;
 
             // --- FUNCIÓN PARA INICIALIZAR XMTP EN SEGUNDO PLANO ---
             async function setupXmtpService(wallet) {
@@ -5743,6 +5764,9 @@
                     return;
                 }
                 isXmtpInitializing = true;
+                // Hasta dónde llegó el arranque: si falla ANTES de quedar sincronizado, el
+                // cliente se desarma (ver el catch) para que "Reintentar" empiece de cero.
+                let etapa = 'crear';
                 try {
                     const walletSigner = {
                         type: "EOA",
@@ -5788,6 +5812,7 @@
                     document.getElementById('headerXmtpErrorBadge')?.classList.add('hidden');
 
                     console.log("Sincronizando todas las conversaciones XMTP...");
+                    etapa = 'sincronizar';
                     await chatwalletxmtp.conversations.syncAll();
                     // Sincronizar el "sync group" (device/history sync): trae historial que tienen
                     // OTRAS instalaciones de este inbox (p.ej. el celu) y que esta instalación (navegador),
@@ -5795,6 +5820,8 @@
                     // en el celu sirve el historial, en el navegador lo recibe. Sin esto, el backfill "a veces" no llega.
                     await chatwalletxmtp.preferences.sync().catch(e => console.warn('preferences.sync (history):', e));
                     console.log("✅ XMTP sincronizado.");
+                    etapa = 'listo';
+                    cwXmtpUltimoError = null;
 
                     listenForIncomingMessages();
                     await loadContacts();
@@ -5841,6 +5868,14 @@
                     await handleUrlParameters();
                 } catch (e) {
                     console.error("Background XMTP Error:", e);
+                    cwXmtpUltimoError = e;
+                    // Un cliente creado pero sin sincronizar queda a medias: sin stream, sin agenda
+                    // y sin el link abierto. Con él puesto, setupXmtpService sale enseguida ("ya está
+                    // inicializado") y el chat no vuelve más sin recargar. Se desarma.
+                    if (etapa !== 'listo' && chatwalletxmtp) {
+                        try { chatwalletxmtp.close && chatwalletxmtp.close(); } catch (_) { }
+                        chatwalletxmtp = null;
+                    }
 
                     // Si detectamos el límite de 10 instalaciones, mostramos el aviso con el botón para solucionar
                     if (e.message && e.message.includes("10/10 installations")) {
@@ -5852,7 +5887,8 @@
 
                     document.getElementById('xmtpErrorBadge')?.classList.remove('hidden');
                     document.getElementById('headerXmtpErrorBadge')?.classList.remove('hidden');
-                    statusEl.textContent = "Chat no disponible (ver consola).";
+                    // En un teléfono nadie ve la consola: el motivo va en pantalla.
+                    statusEl.textContent = t('xmtp_no_arranco', { err: cwTextoError(e) });
                 } finally {
                     isXmtpInitializing = false;
                 }
@@ -11559,9 +11595,13 @@
                     messagesContainer.innerHTML = `
                     <div class="flex flex-col items-center justify-center h-full p-4 text-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-10 h-10 text-red-400 mb-2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                        <p class="text-red-400 font-semibold">El chat no está listo.</p>
-                        <p class="text-gray-400 text-xs mt-1">Reintenta en unos instantes o recarga la página.</p>
-                        <button onclick="location.reload()" class="mt-4 px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition">Recargar página</button>
+                        <p class="text-red-400 font-semibold">${escHtml(t('chat_no_listo'))}</p>
+                        <p class="text-gray-400 text-xs mt-1">${escHtml(t('chat_no_listo_d'))}</p>
+                        <div class="flex items-center gap-2 mt-4">
+                            <button type="button" onclick="window.cwReintentarXmtp && window.cwReintentarXmtp()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs transition">${escHtml(t('reintentar'))}</button>
+                            <button type="button" onclick="location.reload()" class="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs transition">${escHtml(t('recargar_app'))}</button>
+                        </div>
+                        ${cwXmtpUltimoError ? `<p class="text-gray-500 text-[11px] mt-3 break-all select-text">${escHtml(cwTextoError(cwXmtpUltimoError))}</p>` : ''}
                     </div>`;
                     return;
                 }
@@ -11717,13 +11757,13 @@
                 messagesContainer.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-full p-4 text-center">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-10 h-10 text-yellow-400 mb-2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    <p class="text-yellow-400 font-semibold">${title}</p>
+                    <p class="text-yellow-400 font-semibold">${escHtml(title)}</p>
                     <p class="text-gray-400 text-xs mt-1">${timedOut ? 'La sincronización tardó demasiado.' : 'Hubo un problema al sincronizar.'} Deslizá hacia abajo o tocá el botón para reintentar.</p>
                     <div class="flex items-center gap-2 mt-4">
-                        <button type="button" onclick="window.reloadCurrentChat && window.reloadCurrentChat()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs transition">Reintentar</button>
+                        <button type="button" onclick="window.cwReintentarXmtp && window.cwReintentarXmtp()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs transition">Reintentar</button>
                         ${timedOut ? '<button type="button" onclick="location.reload()" class="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs transition">Recargar app</button>' : ''}
                     </div>
-                    ${detail ? `<p class="text-gray-600 text-[10px] mt-3 break-all">${detail}</p>` : ''}
+                    ${detail ? `<p class="text-gray-500 text-[11px] mt-3 break-all select-text">${escHtml(detail)}</p>` : ''}
                 </div>`;
             }
 
@@ -18890,6 +18930,63 @@
 
             // --- FIN: LÓGICA DE COPIA DE SEGURIDAD ---
 
+            // ── Navegadores embebidos (Instagram, Facebook, TikTok…) ──
+            // Un link tocado adentro de esas apps se abre en SU navegador, con SU almacenamiento.
+            // Ahí XMTP puede no arrancar, y lo peor: la wallet que nace ahí queda encerrada en esa
+            // app. Cuando el usuario, con razón, lo abre después en Chrome o Safari, no la
+            // encuentra y tiene que crear otra (visto el 30/9/2026 con un invitado por QR).
+            // Se avisa ANTES de crear nada. La APK también es un WebView ("; wv)"): se excluye.
+            function cwNavegadorEmbebido(ua = navigator.userAgent || '') {
+                if (typeof IS_NATIVE !== 'undefined' && IS_NATIVE) return null;
+                const apps = [
+                    [/Instagram/i, 'Instagram'], [/FBAN|FBAV|FB_IAB|FB4A|FBIOS/, 'Facebook'],
+                    [/Messenger/i, 'Messenger'], [/musical_ly|Bytedance|TikTok/i, 'TikTok'],
+                    [/Twitter/i, 'X'], [/LinkedInApp/i, 'LinkedIn'], [/Snapchat/i, 'Snapchat'],
+                    [/\bLine\//, 'LINE'], [/MicroMessenger/i, 'WeChat'], [/\bGSA\//, 'Google'],
+                ];
+                for (const [re, nombre] of apps) if (re.test(ua)) return nombre;
+                if (/Android/.test(ua) && /; wv\)/.test(ua)) return '?';   // WebView de otra app
+                return null;
+            }
+            window.cwNavegadorEmbebido = cwNavegadorEmbebido;
+
+            // Resuelve true si el usuario elige seguir acá igual. Si se va a Chrome no resuelve:
+            // en esta pestaña no hay nada más que hacer.
+            function cwAvisarNavegadorEmbebido(app) {
+                return new Promise(resolve => {
+                    const android = /Android/i.test(navigator.userAgent || '');
+                    const href = location.href;
+                    const intent = `intent://${location.host}${location.pathname}${location.search}${location.hash}` +
+                        `#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(href)};end`;
+                    const quien = app && app !== '?' ? app : t('embebido_esta_app');
+                    const el = document.createElement('div');
+                    el.id = 'cwEmbebidoModal';
+                    el.className = 'fixed inset-0 z-[120] flex items-center justify-center p-5 bg-black/80';
+                    el.innerHTML = `
+                    <div class="bg-gray-800 rounded-xl p-5 w-full max-w-sm space-y-3 text-center">
+                        <p class="text-3xl">🧭</p>
+                        <h3 class="text-lg font-bold text-white">${escHtml(t('embebido_titulo', { app: quien }))}</h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">${escHtml(t('embebido_texto'))}</p>
+                        ${android
+                            ? `<a id="cwEmbAbrir" href="${escHtml(intent).replace(/"/g, '&quot;')}" class="block w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm">${escHtml(t('embebido_abrir_chrome'))}</a>`
+                            : `<p class="text-xs text-gray-400">${escHtml(t('embebido_ios'))}</p>`}
+                        <button type="button" id="cwEmbCopiar" class="w-full py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm">${escHtml(t('embebido_copiar'))}</button>
+                        <p id="cwEmbCopiado" class="text-xs text-green-400 min-h-[1rem]"></p>
+                        <button type="button" id="cwEmbSeguir" class="w-full py-1.5 text-xs text-gray-400 hover:text-white">${escHtml(t('embebido_seguir'))}</button>
+                    </div>`;
+                    document.body.appendChild(el);
+                    el.querySelector('#cwEmbCopiar').onclick = async () => {
+                        let ok = false;
+                        try { await navigator.clipboard.writeText(href); ok = true; } catch (_) { }
+                        // Sin portapapeles (pasa en algunos embebidos): el link queda a la vista para copiarlo a mano.
+                        const msg = el.querySelector('#cwEmbCopiado');
+                        msg.classList.toggle('select-all', !ok); msg.classList.toggle('break-all', !ok);
+                        msg.textContent = ok ? t('embebido_copiado') : href;
+                    };
+                    el.querySelector('#cwEmbSeguir').onclick = () => { el.remove(); resolve(true); };
+                });
+            }
+
             // --- Carga Inicial ---
             async function init() {
                 document.getElementById('fixXmtpErrorBtn')?.addEventListener('click', () => {
@@ -18904,24 +19001,48 @@
 
                 const savedPrivateKey = localStorage.getItem(WALLET_STORAGE_KEY);
                 if (savedPrivateKey) {
-                    try {
-                        statusEl.textContent = "Cargando billetera guardada...";
-                        const savedWallet = new ethers.Wallet(savedPrivateKey);
-                        await initializeWalletAndXmtp(savedWallet, false);
-                        await handleUrlParameters();
-                    } catch (e) {
-                        console.error('[init] No se pudo cargar la billetera guardada:', e?.stack || e);
-                        statusEl.textContent = "No se pudo cargar la billetera. Crea o restaura una.";
-                        showToast('No se pudo cargar la billetera. Crea o restaura una.', 'error');
+                    // La clave guardada NO se borra por un error al arrancar. Antes cualquier
+                    // excepción de initializeWalletAndXmtp o de handleUrlParameters (que abre el
+                    // chat de un link) caía acá, hacía removeItem de la clave privada y pedía
+                    // "Crea o restaura una": una falla pasajera se llevaba la wallet, y con ella
+                    // los fondos de quien no había anotado la frase (el recién llegado por un
+                    // link, justamente). Sólo una clave ILEGIBLE sale de su lugar, y va a una
+                    // copia de rescate, como la agenda (ver loadContacts).
+                    let savedWallet = null;
+                    try { savedWallet = new ethers.Wallet(savedPrivateKey); }
+                    catch (e) {
+                        console.error('[init] La clave guardada no se puede leer:', e?.stack || e);
+                        try { localStorage.setItem(WALLET_STORAGE_KEY + '-rescate-' + Date.now(), savedPrivateKey); } catch (_) { }
                         localStorage.removeItem(WALLET_STORAGE_KEY);
+                        statusEl.textContent = "No se pudo leer la billetera guardada. Crea o restaura una.";
+                        showToast('No se pudo leer la billetera guardada (quedó una copia de rescate). Crea o restaura una.', 'error', 12000);
                         resetUI();
+                    }
+                    if (savedWallet) {
+                        statusEl.textContent = "Cargando billetera guardada...";
+                        try { await initializeWalletAndXmtp(savedWallet, false); }
+                        catch (e) {
+                            console.error('[init] Falló el arranque con la billetera guardada:', e?.stack || e);
+                            statusEl.textContent = 'Hubo un problema al abrir la billetera: ' + String(e?.message || e).slice(0, 160);
+                            showToast(escHtml(t('arranque_fallo', { err: String(e?.message || e).slice(0, 160) })), 'error', 12000);
+                        }
+                        try { await handleUrlParameters(); }
+                        catch (e) { console.error('[init] No se pudo abrir el link:', e?.stack || e); }
                     }
                 } else {
                     statusEl.textContent = "Crea o restaura una billetera para empezar.";
                     document.getElementById('initLoader').classList.add('hidden');
                     document.getElementById('initActions').classList.remove('hidden');
                     resetUI();
-                    await handleUrlParameters();
+                    // Antes de que nazca una wallet: ¿estamos adentro de Instagram & cía.?
+                    const embebido = cwNavegadorEmbebido();
+                    if (embebido) await cwAvisarNavegadorEmbebido(embebido);
+                    // Acá nace la wallet de quien llega por un link: si algo falla, que se vea.
+                    try { await handleUrlParameters(); }
+                    catch (e) {
+                        console.error('[init] No se pudo abrir el link:', e?.stack || e);
+                        showToast(escHtml(t('arranque_fallo', { err: cwTextoError(e) })), 'error', 12000);
+                    }
                 }
 
                 // Al final: si estrenás versión, contarle al usuario qué cambió. Va después de
@@ -19334,6 +19455,21 @@
                     "ens_resolving": "Buscando {name}…",
                     "ens_not_found": "{name} no existe o venció: no apunta a ninguna dirección.",
                     "ens_no_red": "No se pudo consultar ENS (sin conexión a Ethereum). Probá de nuevo.",
+                    "arranque_fallo": "Hubo un problema al abrir la billetera ({err}). Tu billetera sigue guardada: recargá la página.",
+                    "xmtp_no_arranco": "Chat no disponible: {err}",
+                    "xmtp_reintentando": "Reintentando conectar el chat…",
+                    "chat_no_listo": "El chat no pudo arrancar.",
+                    "chat_no_listo_d": "Tocá Reintentar. Si vuelve a fallar, mandale una captura de este mensaje a quien te invitó.",
+                    "reintentar": "Reintentar",
+                    "recargar_app": "Recargar app",
+                    "embebido_esta_app": "esta app",
+                    "embebido_titulo": "Estás en el navegador de {app}",
+                    "embebido_texto": "Acá el chat puede no funcionar, y la billetera que se cree quedaría guardada solo dentro de esta app. Abrí el link en tu navegador.",
+                    "embebido_abrir_chrome": "Abrir en Chrome",
+                    "embebido_ios": "Tocá el menú (··· o ⋯) y elegí «Abrir en Safari» o «Abrir en el navegador».",
+                    "embebido_copiar": "Copiar el link",
+                    "embebido_copiado": "Copiado: pegalo en Chrome o Safari.",
+                    "embebido_seguir": "Seguir acá igual",
                     "ars_qr_ok_note": "QR válido de Transferencias 3.0. Por ahora ChatWallet lo reconoce y te lo muestra; pagarlo con USDC todavía no está disponible.",
                     "ars_qr_bad_note": "Este QR dice ser argentino pero el código de verificación no cierra. Puede estar dañado o mal fotografiado.",
                     "pay_qr_cost": "Te sale",
@@ -19733,6 +19869,21 @@
                     "ens_resolving": "Looking up {name}…",
                     "ens_not_found": "{name} does not exist or has expired: it points to no address.",
                     "ens_no_red": "Could not reach ENS (no connection to Ethereum). Try again.",
+                    "arranque_fallo": "There was a problem opening the wallet ({err}). Your wallet is still saved: reload the page.",
+                    "xmtp_no_arranco": "Chat unavailable: {err}",
+                    "xmtp_reintentando": "Retrying the chat connection…",
+                    "chat_no_listo": "The chat could not start.",
+                    "chat_no_listo_d": "Tap Retry. If it fails again, send a screenshot of this message to whoever invited you.",
+                    "reintentar": "Retry",
+                    "recargar_app": "Reload app",
+                    "embebido_esta_app": "this app",
+                    "embebido_titulo": "You're in {app}'s browser",
+                    "embebido_texto": "The chat may not work here, and a wallet created here would be stored only inside this app. Open the link in your browser.",
+                    "embebido_abrir_chrome": "Open in Chrome",
+                    "embebido_ios": "Tap the menu (··· or ⋯) and choose \"Open in Safari\" or \"Open in browser\".",
+                    "embebido_copiar": "Copy the link",
+                    "embebido_copiado": "Copied: paste it in Chrome or Safari.",
+                    "embebido_seguir": "Stay here anyway",
                     "ars_qr_ok_note": "Valid Transferencias 3.0 QR. For now ChatWallet recognises it and shows it to you; paying it with USDC is not available yet.",
                     "ars_qr_bad_note": "This QR claims to be Argentine but its checksum does not match. It may be damaged or badly photographed.",
                     "pay_qr_cost": "You pay",
@@ -20132,6 +20283,21 @@
                     "ens_resolving": "Recherche de {name}…",
                     "ens_not_found": "{name} n'existe pas ou a expiré : il ne pointe vers aucune adresse.",
                     "ens_no_red": "Impossible de consulter ENS (pas de connexion à Ethereum). Réessaie.",
+                    "arranque_fallo": "Un problème est survenu à l'ouverture du portefeuille ({err}). Ton portefeuille est toujours enregistré : recharge la page.",
+                    "xmtp_no_arranco": "Discussion indisponible : {err}",
+                    "xmtp_reintentando": "Nouvelle tentative de connexion…",
+                    "chat_no_listo": "La discussion n'a pas pu démarrer.",
+                    "chat_no_listo_d": "Touche Réessayer. Si ça échoue encore, envoie une capture de ce message à la personne qui t'a invité.",
+                    "reintentar": "Réessayer",
+                    "recargar_app": "Recharger l'app",
+                    "embebido_esta_app": "cette app",
+                    "embebido_titulo": "Tu es dans le navigateur de {app}",
+                    "embebido_texto": "La discussion peut ne pas fonctionner ici, et un portefeuille créé ici resterait enfermé dans cette app. Ouvre le lien dans ton navigateur.",
+                    "embebido_abrir_chrome": "Ouvrir dans Chrome",
+                    "embebido_ios": "Touche le menu (··· ou ⋯) et choisis « Ouvrir dans Safari » ou « Ouvrir dans le navigateur ».",
+                    "embebido_copiar": "Copier le lien",
+                    "embebido_copiado": "Copié : colle-le dans Chrome ou Safari.",
+                    "embebido_seguir": "Rester ici quand même",
                     "ars_qr_ok_note": "QR Transferencias 3.0 valide. Pour l'instant ChatWallet le reconnaît et te l'affiche ; le payer en USDC n'est pas encore disponible.",
                     "ars_qr_bad_note": "Ce QR se présente comme argentin mais sa somme de contrôle ne correspond pas. Il est peut-être abîmé ou mal photographié.",
                     "pay_qr_cost": "Ça te coûte",

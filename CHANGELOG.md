@@ -17,6 +17,18 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Arreglo importante: un error al abrir la app ya no borra tu billetera.** Si algo fallaba
+  al arrancar, la app borraba la wallet guardada y te pedía crear o restaurar una. Quien no
+  había anotado su frase la perdía, con sus fondos. Ahora la wallet queda guardada y la app
+  te dice qué falló.
+- Si el chat no logra arrancar, ahora ves **el motivo en pantalla** (antes decía "ver
+  consola", imposible en un teléfono) y un botón **Reintentar** que lo vuelve a intentar sin
+  recargar la página.
+- Si abrís un link de ChatWallet **adentro de Instagram, Facebook, TikTok u otra app**, te
+  avisa antes de crear la billetera: ahí el chat puede no funcionar y la wallet quedaría
+  encerrada en esa app. En Android te ofrece **Abrir en Chrome**; en iPhone, cómo pasarlo a
+  Safari.
+
 ## 3.59 — 2026-09-28
 
 - **Nombres `.eth`.** En **Enviar** y al agregar un contacto podés escribir `vitalik.eth`
