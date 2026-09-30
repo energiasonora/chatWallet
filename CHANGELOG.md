@@ -17,6 +17,15 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Fijar mensajes 📌.** Mantené apretado un mensaje y tocá 📌: queda fijado **para los dos**
+  (o para todo el grupo), en una barra arriba del chat. Tocar la barra te lleva al mensaje; si
+  hay varios fijados, cada toque pasa al siguiente. La ✕ lo desfija, y lo puede desfijar
+  cualquiera del chat.
+- **Quitar una reacción ahora funciona de verdad.** Antes el emoji volvía a aparecer solo y la
+  otra persona lo seguía viendo.
+- Las **reacciones que te llegaban con la app cerrada** ahora aparecen al abrirla; antes se
+  perdían.
+
 ## 3.60 — 2026-09-30
 
 - **Arreglo importante: un error al abrir la app ya no borra tu billetera.** Si algo fallaba

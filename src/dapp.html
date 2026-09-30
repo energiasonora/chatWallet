@@ -1434,6 +1434,8 @@
         body.theme-light .sent .reply-quote { background: rgba(0, 0, 0, .07); border-left-color: #6366f1; }
         body.theme-light .sent .reply-quote .rq-name { color: #4f46e5; }
         body.theme-light #replyPreviewBar { background: #e5e7eb !important; }
+        body.theme-light #pinBar { background: #e5e7eb !important; }
+        body.theme-light #pinBarText { color: #374151 !important; }
 
         /* Inputs oscuros → claros con borde. */
         body.theme-light input.bg-gray-700,
@@ -2523,6 +2525,17 @@
                                 </svg>
                             </button>
                         </div>
+                    </div>
+                    <!-- Mensajes fijados (📌): tocar salta al mensaje; con varios, cada toque pasa al siguiente -->
+                    <div id="pinBar" class="hidden items-center gap-2 bg-gray-700/80 rounded-xl px-3 py-1.5 mb-2 flex-shrink-0 cursor-pointer">
+                        <span class="text-base flex-shrink-0" aria-hidden="true">📌</span>
+                        <div class="flex-grow min-w-0 border-l-2 border-indigo-400 pl-2">
+                            <span id="pinBarLabel" class="block text-xs font-bold text-indigo-300"></span>
+                            <p id="pinBarText" class="text-sm text-gray-300 truncate"></p>
+                        </div>
+                        <button id="pinBarUnpin" type="button" class="p-2 text-gray-400 hover:text-white flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
                     </div>
                     <div id="messagesContainer"
                         class="flex-grow overflow-y-auto bg-gray-900/50 p-4 rounded-lg flex flex-col space-y-4 w-full mb-4">
@@ -10658,6 +10671,8 @@
                 // Cada apertura invalida las cargas anteriores: si abrís B mientras A todavía
                 // sincroniza, la carga de A ya no pisa la pantalla (era otra fuente de hilos raros/vacíos).
                 chatOpenToken++;
+                // El 📌 del chat anterior no puede quedar arriba mientras carga éste.
+                { const pb = document.getElementById('pinBar'); if (pb) { pb.classList.add('hidden'); pb.classList.remove('flex'); pb.dataset.msgId = ''; } }
                 const contactIndex = contacts.findIndex(c => c.address.toLowerCase() === contact.address.toLowerCase());
                 if (contactIndex > -1) contacts[contactIndex].unreadCount = 0;
                 // OJO: la marca de lectura NO se pone acá con Date.now(). Ver más abajo: se fija
@@ -11780,6 +11795,7 @@
                     </div>`;
                     processedMessages.clear();
                 }
+                renderPinBar();   // sin burbujas en pantalla → la barra del chat anterior se va
                 handshakeShownInChat = false;
                 cancelReply();
                 hideReactionPicker();
@@ -11802,6 +11818,7 @@
                         try { peerAddr = await getAddressFromInboxId(await conv.peerInboxId()); } catch (e) { }
                     }
                     const entries = [];
+                    const conReacciones = [];   // las reacciones colgadas de los mensajes (ver abajo)
                     for (const message of existingMessages) {
                         const typeId = message.contentType.typeId;
                         if (typeId === 'readReceipt' || typeId === 'read-receipt' || typeId === 'presence') continue;
@@ -11813,12 +11830,22 @@
                         const type = message.senderInboxId === chatwalletxmtp.inboxId ? 'sent' : 'received';
                         const ts = message.sentAt ? message.sentAt.getTime() : 0;
                         entries.push({ message, type, ts });
+                        // Con el SDK v6, messages() NO trae las reacciones sueltas: vienen colgadas
+                        // del mensaje al que reaccionan (message.reactions). Antes no se leían, así
+                        // que una reacción (o un 📌) que llegó con la app cerrada no aparecía nunca:
+                        // sólo existían las que pasaron por el stream en vivo. Se reproducen en su
+                        // orden cronológico, después de su mensaje.
+                        for (const rx of (Array.isArray(message.reactions) ? message.reactions : [])) {
+                            conReacciones.push(rx);
+                            entries.push({ message: rx, type: rx.senderInboxId === chatwalletxmtp.inboxId ? 'sent' : 'received',
+                                           ts: rx.sentAt ? rx.sentAt.getTime() : ts });
+                        }
                     }
                     if (peerAddr) {
                         // Backfill del store con lo descifrable hoy (mañana puede no serlo).
-                        captureXmtpMessages(existingMessages, peerAddr, chatwalletxmtp.inboxId);
+                        captureXmtpMessages(existingMessages.concat(conReacciones), peerAddr, chatwalletxmtp.inboxId);
                         try {
-                            const xmtpIds = new Set(existingMessages.map(m => m.id));
+                            const xmtpIds = new Set(existingMessages.concat(conReacciones).map(m => m.id));
                             const restored = (await msgStoreGetByPeer(peerAddr)).filter(r => !xmtpIds.has(r.id));
                             for (const r of restored) entries.push({ message: msgRecordToUiMessage(r), type: r.dir, ts: r.ts });
                             if (restored.length) console.log(`☁ ${restored.length} mensaje(s) del respaldo agregados al hilo.`);
@@ -11839,6 +11866,8 @@
                         </div>`;
                     }
                     for (const entry of entries) addMessageToUI(entry.message, entry.type);
+                    // Los 📌 ya se reprodujeron junto con el hilo: el más reciente arriba.
+                    pinBarIdx = 0; renderPinBar();
                     if (window.__updateRefreshBtn) window.__updateRefreshBtn();
                     // Y de paso, comparar el hilo con la otra punta: si a alguno le faltan
                     // mensajes (base borrada, push perdida), el otro se los completa.
@@ -12137,6 +12166,7 @@
                 }
                 if (typeId === 'reaction') {
                     const r = parseMsgObjContent(message);
+                    if (r && r.content === '📌') return t(reaccionQuita(r) ? 'pin_preview_quito' : 'pin_preview');
                     return r ? `Reaccionó ${r.content || ''}` : 'Reacción';
                 }
                 const texto = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
@@ -12147,11 +12177,119 @@
                 return descripcionDeProtocolo(texto) || texto;
             }
 
+            // Quitar una reacción. Con el SDK v6 las reacciones se decodifican de forma NATIVA y
+            // `action` llega como enum numérico (ReactionAction: 1 = Added, 2 = Removed), no como
+            // el texto 'removed' del codec JS. Comparar sólo contra el texto hacía que TODO "quitar"
+            // se leyera como "agregar": el eco de tu propio quitar volvía a poner el chip y el
+            // otro nunca se enteraba. Medido el 30/9/2026 (eco con action: 2). El respaldo viejo
+            // guarda el texto, así que valen las dos formas.
+            function reaccionQuita(r) {
+                return !!r && (r.action === 'removed' || r.action === 2 || String(r.action).toLowerCase() === 'removed');
+            }
+
             function applyReactionMessage(message) {
                 const r = parseMsgObjContent(message);
+                if (r && !r.reference && r.referenceId) r.reference = r.referenceId;
                 if (!r || !r.reference || !r.content) return;
+                if (r.content === PIN_EMOJI) { applyPin(r, message); return; }
                 applyReaction(r, message.senderInboxId);
             }
+
+            // ── Mensajes fijados (📌) ────────────────────────────────────────
+            // Un pin viaja como una REACCIÓN 📌 (content type oficial de XMTP), no como un tipo
+            // propio. Así: lo ven los dos lados; entra al respaldo soberano como cualquier
+            // reacción; no cuenta como no-leído ni dispara push; y una versión vieja de
+            // ChatWallet (u otra app de XMTP) ve un chip 📌 sobre el mensaje en vez de romperse.
+            // El estado NO se guarda aparte: sale de reproducir el historial en orden
+            // (added → fijado, removed → no). Cualquiera del chat fija o desfija, como en
+            // WhatsApp; por eso acá no importa QUIÉN lo agregó, a diferencia de un emoji.
+            const PIN_EMOJI = '📌';
+            const pinnedMsgs = new Map();   // msgId → { ts, by }
+            let pinBarIdx = 0;
+
+            function applyPin(r, message) {
+                const ts = message?.sentAt ? new Date(message.sentAt).getTime()
+                    : (message?.sentAtNs ? Number(BigInt(message.sentAtNs) / 1000000n) : Date.now());
+                if (reaccionQuita(r)) pinnedMsgs.delete(r.reference);
+                else pinnedMsgs.set(r.reference, { ts, by: message?.senderInboxId || null });
+                pinBarIdx = 0;
+                renderPinBar();
+            }
+
+            // Sólo los fijados de ESTE chat: los ids son únicos, así que alcanza con que la
+            // burbuja esté en el hilo abierto. El más reciente primero.
+            function pinsDelChatAbierto() {
+                return [...pinnedMsgs.entries()]
+                    .filter(([id]) => document.getElementById(`msg-${id}`))
+                    .sort((a, b) => b[1].ts - a[1].ts)
+                    .map(([id]) => id);
+            }
+
+            function renderPinBar() {
+                const bar = document.getElementById('pinBar');
+                if (!bar) return;
+                const ids = (currentConversation && !isOffline) ? pinsDelChatAbierto() : [];
+                if (!ids.length) { bar.classList.add('hidden'); bar.classList.remove('flex'); bar.dataset.msgId = ''; return; }
+                if (pinBarIdx >= ids.length) pinBarIdx = 0;
+                const id = ids[pinBarIdx];
+                const info = msgTextById.get(id);
+                document.getElementById('pinBarLabel').textContent = ids.length > 1
+                    ? t('pin_bar_n', { i: pinBarIdx + 1, n: ids.length })
+                    : t('pin_bar_uno');
+                document.getElementById('pinBarText').textContent = (info && info.text) || t('pin_sin_texto');
+                bar.dataset.msgId = id;
+                bar.classList.remove('hidden'); bar.classList.add('flex');
+            }
+            window.renderPinBar = renderPinBar;
+
+            function saltarAMensaje(msgId) {
+                const target = document.getElementById(`msg-${msgId}`);
+                if (!target) return false;
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                target.classList.remove('quote-flash');
+                void target.offsetWidth; // reinicia la animación si ya corrió
+                target.classList.add('quote-flash');
+                return true;
+            }
+
+            async function togglePin(msgId) {
+                if (!currentConversation || !chatwalletxmtp || isOffline) {
+                    showToast(t('pin_offline'), 'info');
+                    return;
+                }
+                if (!msgId || String(msgId).startsWith('temp-')) return;
+                hideReactionPicker();
+                const estaba = pinnedMsgs.get(msgId);
+                const reaction = { reference: msgId, action: estaba ? 'removed' : 'added', content: PIN_EMOJI, schema: 'unicode' };
+                applyPin(reaction, { sentAt: new Date(), senderInboxId: chatwalletxmtp.inboxId });   // optimista
+                try {
+                    await currentConversation.send(new window.ReactionCodec().encode(reaction));
+                    showToast(t(estaba ? 'pin_quitado' : 'pin_puesto'), 'success');
+                } catch (e) {
+                    console.error('Error fijando mensaje:', e);
+                    // rollback
+                    if (estaba) pinnedMsgs.set(msgId, estaba); else pinnedMsgs.delete(msgId);
+                    renderPinBar();
+                    showToast(t('pin_error'), 'error');
+                }
+            }
+            window.togglePin = togglePin;
+
+            document.getElementById('pinBar')?.addEventListener('click', (e) => {
+                if (e.target.closest('#pinBarUnpin')) return;
+                const bar = e.currentTarget;
+                const id = bar.dataset.msgId;
+                if (!id) return;
+                saltarAMensaje(id);
+                // El próximo toque muestra (y lleva a) el siguiente fijado.
+                const n = pinsDelChatAbierto().length;
+                if (n > 1) { pinBarIdx = (pinBarIdx + 1) % n; renderPinBar(); }
+            });
+            document.getElementById('pinBarUnpin')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = document.getElementById('pinBar')?.dataset.msgId;
+                if (id) togglePin(id);
+            });
 
             // Idempotente (Sets): el eco del stream de mis propias reacciones y los re-renders
             // del historial no duplican chips.
@@ -12160,7 +12298,7 @@
                 if (!perEmoji) { perEmoji = new Map(); reactionsByMsg.set(r.reference, perEmoji); }
                 let who = perEmoji.get(r.content);
                 if (!who) { who = new Set(); perEmoji.set(r.content, who); }
-                if (r.action === 'removed') who.delete(senderInboxId); else who.add(senderInboxId);
+                if (reaccionQuita(r)) who.delete(senderInboxId); else who.add(senderInboxId);
                 if (who.size === 0) perEmoji.delete(r.content);
                 renderReactionsBar(r.reference);
             }
@@ -12270,6 +12408,15 @@
                 fwdBtn.onclick = (e) => { e.stopPropagation(); const id = pickerForMsgId; hideReactionPicker(); abrirReenviar(id); };
                 picker.appendChild(fwdBtn);
 
+                // Fijar / desfijar (el título se ajusta al abrir, según el mensaje).
+                const pinBtn = document.createElement('button');
+                pinBtn.type = 'button';
+                pinBtn.id = 'rpPinBtn';
+                pinBtn.className = 'rp-reply';
+                pinBtn.textContent = PIN_EMOJI;
+                pinBtn.onclick = (e) => { e.stopPropagation(); togglePin(pickerForMsgId); };
+                picker.appendChild(pinBtn);
+
                 const replyBtn = document.createElement('button');
                 replyBtn.type = 'button';
                 replyBtn.className = 'rp-reply';
@@ -12299,6 +12446,13 @@
                 if (String(msgId).startsWith('temp-')) return;
                 const picker = ensureReactionPicker();
                 pickerForMsgId = msgId;
+                const pb = document.getElementById('rpPinBtn');
+                if (pb) {
+                    const fijado = pinnedMsgs.has(msgId);
+                    pb.title = t(fijado ? 'pin_desfijar' : 'pin_fijar');
+                    pb.setAttribute('aria-label', pb.title);
+                    pb.classList.toggle('opacity-50', fijado);
+                }
                 pickerOpenedAt = Date.now();
                 picker.classList.remove('hidden');
                 const rect = anchorEl.getBoundingClientRect();
@@ -12742,12 +12896,7 @@
                         quote.appendChild(textDiv);
                         quote.onclick = (e) => {
                             e.stopPropagation();
-                            const target = document.getElementById(`msg-${replyInfo.reference}`);
-                            if (!target) return;
-                            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            target.classList.remove('quote-flash');
-                            void target.offsetWidth; // reinicia la animación si ya corrió
-                            target.classList.add('quote-flash');
+                            saltarAMensaje(replyInfo.reference);
                         };
                         messageContainer.appendChild(quote);
                     }
@@ -19455,6 +19604,17 @@
                     "ens_resolving": "Buscando {name}…",
                     "ens_not_found": "{name} no existe o venció: no apunta a ninguna dirección.",
                     "ens_no_red": "No se pudo consultar ENS (sin conexión a Ethereum). Probá de nuevo.",
+                    "pin_fijar": "Fijar mensaje",
+                    "pin_desfijar": "Desfijar mensaje",
+                    "pin_puesto": "Mensaje fijado para los dos.",
+                    "pin_quitado": "Mensaje desfijado.",
+                    "pin_error": "No se pudo fijar el mensaje.",
+                    "pin_offline": "Fijar mensajes necesita el chat online.",
+                    "pin_bar_uno": "Mensaje fijado",
+                    "pin_bar_n": "Fijado {i} de {n}",
+                    "pin_sin_texto": "(mensaje sin texto)",
+                    "pin_preview": "📌 Fijó un mensaje",
+                    "pin_preview_quito": "📌 Desfijó un mensaje",
                     "arranque_fallo": "Hubo un problema al abrir la billetera ({err}). Tu billetera sigue guardada: recargá la página.",
                     "xmtp_no_arranco": "Chat no disponible: {err}",
                     "xmtp_reintentando": "Reintentando conectar el chat…",
@@ -19869,6 +20029,17 @@
                     "ens_resolving": "Looking up {name}…",
                     "ens_not_found": "{name} does not exist or has expired: it points to no address.",
                     "ens_no_red": "Could not reach ENS (no connection to Ethereum). Try again.",
+                    "pin_fijar": "Pin message",
+                    "pin_desfijar": "Unpin message",
+                    "pin_puesto": "Message pinned for everyone.",
+                    "pin_quitado": "Message unpinned.",
+                    "pin_error": "Could not pin the message.",
+                    "pin_offline": "Pinning needs the chat online.",
+                    "pin_bar_uno": "Pinned message",
+                    "pin_bar_n": "Pinned {i} of {n}",
+                    "pin_sin_texto": "(message without text)",
+                    "pin_preview": "📌 Pinned a message",
+                    "pin_preview_quito": "📌 Unpinned a message",
                     "arranque_fallo": "There was a problem opening the wallet ({err}). Your wallet is still saved: reload the page.",
                     "xmtp_no_arranco": "Chat unavailable: {err}",
                     "xmtp_reintentando": "Retrying the chat connection…",
@@ -20283,6 +20454,17 @@
                     "ens_resolving": "Recherche de {name}…",
                     "ens_not_found": "{name} n'existe pas ou a expiré : il ne pointe vers aucune adresse.",
                     "ens_no_red": "Impossible de consulter ENS (pas de connexion à Ethereum). Réessaie.",
+                    "pin_fijar": "Épingler le message",
+                    "pin_desfijar": "Désépingler le message",
+                    "pin_puesto": "Message épinglé pour tout le monde.",
+                    "pin_quitado": "Message désépinglé.",
+                    "pin_error": "Impossible d'épingler le message.",
+                    "pin_offline": "Épingler nécessite la discussion en ligne.",
+                    "pin_bar_uno": "Message épinglé",
+                    "pin_bar_n": "Épinglé {i} sur {n}",
+                    "pin_sin_texto": "(message sans texte)",
+                    "pin_preview": "📌 A épinglé un message",
+                    "pin_preview_quito": "📌 A désépinglé un message",
                     "arranque_fallo": "Un problème est survenu à l'ouverture du portefeuille ({err}). Ton portefeuille est toujours enregistré : recharge la page.",
                     "xmtp_no_arranco": "Discussion indisponible : {err}",
                     "xmtp_reintentando": "Nouvelle tentative de connexion…",
