@@ -48,7 +48,11 @@ echo "✦ Parcel con Node $(node -v)…"
 # anteriores (con otro hash) y cap copy los empaquetaba todos. El APK engordaba con cada
 # versión sin que nada los usara (visto el 27/9/2026: tres g1-billetera distintos).
 rm -rf dist-apk
-PARCEL_WORKERS=0 yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html src/book-admin.html \
+# COLUMNS/LINES: con la salida a /dev/null Parcel no ve una terminal y le pregunta el ancho
+# a term-size, que trae un binario x86. Desde macOS 27 (sin Rosetta) ese binario no corre
+# ("Bad CPU type in executable"), Parcel muere callado y el cp de abajo no encuentra nada.
+# term-size mira primero estas variables y ya no llega al binario. (30/9/2026)
+COLUMNS=120 LINES=40 PARCEL_WORKERS=0 yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html src/book-admin.html \
   --dist-dir dist-apk --public-url ./ --cache-dir .parcel-cache-apk >/dev/null
 
 # ── 2. EL paso que se olvida: el WebView abre index.html ──
@@ -60,7 +64,9 @@ echo "✦ index.html = dapp.html ($(wc -c < dist-apk/index.html | tr -d ' ') byt
 export PATH="$HOME/.nvm/versions/node/v20.19.0/bin:$PATH"
 npx cap copy android >/dev/null
 echo "✦ assets copiados al proyecto Android"
-( cd android && ./gradlew "assemble${VARIANT^}" --no-daemon -q )
+# Sin ${VARIANT^}: eso es bash 4, y desde macOS 27 sólo queda el bash 3.2 del sistema.
+TAREA="assemble$(printf '%s' "${VARIANT:0:1}" | tr '[:lower:]' '[:upper:]')${VARIANT:1}"
+( cd android && ./gradlew "$TAREA" --no-daemon -q )
 APK="android/app/build/outputs/apk/${VARIANT}/app-${VARIANT}.apk"
 [ -f "$APK" ] || { echo "✗ no se generó $APK"; exit 1; }
 

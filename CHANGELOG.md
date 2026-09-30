@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.60 — 2026-09-30
+
 - **Arreglo importante: un error al abrir la app ya no borra tu billetera.** Si algo fallaba
   al arrancar, la app borraba la wallet guardada y te pedía crear o restaurar una. Quien no
   había anotado su frase la perdía, con sus fondos. Ahora la wallet queda guardada y la app
