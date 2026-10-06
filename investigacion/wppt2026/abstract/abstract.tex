@@ -1,0 +1,173 @@
+\documentclass[10pt]{article}
+\usepackage[a4paper,margin=2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue!50!black}
+\setlength{\parskip}{0.35em}
+\setlength{\parindent}{0pt}
+
+\title{\vspace{-1.5em}\textbf{Stealth In, Linked Out:}\\[0.2em]
+\large The Consolidation Gap of a Deployed Stealth-Address Wallet\\
+and What It Costs to Close It on a 2018 Phone}
+% TODO(autor): nombre real, afiliación y email antes de enviar.
+\author{[Author name]\\ \small EnergíaSonora / ChatWallet \\ \small \texttt{xunorus@gmail.com}}
+\date{\vspace{-1.2em}}
+
+\begin{document}
+\maketitle
+
+\section*{Problem}
+Stealth addresses (ERC-5564~\cite{erc5564}) make \emph{receiving} private: every payment lands
+on a fresh address that only the recipient can link to themselves. \emph{Spending} is a
+different story. Ethereum has no multi-input transaction, so paying an amount larger than any
+single stealth balance requires $N$ transfers from $N$ stealth addresses to the same
+destination within seconds, a pattern that re-links the very identities the scheme was
+designed to separate. We call this the \emph{consolidation gap}. We report on it from a
+deployed wallet, measure what it costs to close it with today's shielded pools on a
+commodity 2018 phone, and show that the pools' anonymity sets are fragmented across chains
+in a way that leaves low-fee users unprotected.
+
+\section*{System: StealthPay in ChatWallet}
+ChatWallet is an open-source, self-custodial wallet with end-to-end encrypted chat over
+XMTP, oriented to stablecoin payments on Base, distributed as a PWA and an Android app. It implements
+StealthPay~v1, a public specification with reference code and test
+vectors~\cite{stealthpay}:
+\begin{itemize}\setlength\itemsep{0em}
+\item keys derived deterministically from the wallet seed;
+\item ERC-5564 scheme~1 (secp256k1 with view tags) against the canonical Announcer;
+\item a chain scanner that filters announcements by view tag before the costly point addition and recovers all payments from the seed alone;
+\item an optional in-chat notice that speeds up detection but never replaces the on-chain announcement.
+\end{itemize}
+Spending is where the engineering lives:
+\begin{itemize}\setlength\itemsep{0em}
+\item \textbf{Coin selection.} Stealth balances are treated as non-fungible coins, never as one balance. The wallet always prefers the \emph{smallest single coin that covers the payment}, merges only when unavoidable, and tells the user how many identities will be joined before confirming.
+\item \textbf{Gas without linkage.} A stealth address holding USDC has no ETH, and funding it from the main wallet links the two. Instead the wallet signs two ERC-3009~\cite{erc3009} \texttt{transferWithAuthorization}s (payment and fee), which a relayer submits atomically. The relayer's ledger records amounts and fees but no addresses or transaction hashes, so it does not become the linkage database the scheme exists to avoid.
+\end{itemize}
+
+\section*{Where linkage still leaks}
+Running the system exposed four residual channels:
+\begin{enumerate}\setlength\itemsep{0em}
+\item \textbf{Consolidation:} $N$ same-destination transfers in the same minute. Coin selection mitigates this but cannot remove it.
+\item \textbf{Gas funding:} closed by ERC-3009 plus the relayer, at the cost of the relayer seeing the (stealth address, destination) pair in transit.
+\item \textbf{Destination:} paying the user's own main address, or a counterparty who knows them.
+\item \textbf{Read metadata:} the RPC that polls all of a user's stealth balances can cluster them.
+\end{enumerate}
+Channel~1 cannot be fixed inside a transparent ledger. It needs a shielded pool in which
+coins are merged privately and only the final payment exits.
+
+\section*{Closing the gap: three deployed pools, measured}
+We compare the three pools a wallet could integrate today, using L2BEAT's privacy
+dashboard~\cite{l2beat} (as of 4~Oct~2026) and our own measurements.
+
+\begin{table}[h]\centering\small
+\resizebox{\linewidth}{!}{\begin{tabular}{@{}lccc@{}}\toprule
+ & zk.money (Aztec)~\cite{zkmoney} & Privacy Pools~\cite{privacypools} & Railgun~\cite{railgun} \\\midrule
+Private spending inside & yes & no (deposit/withdraw) & yes \\
+Chains & Ethereum portal & Ethereum & Ethereum, Base \\
+TVL & \$17.3k & \$9.43M & \$112M (Ethereum) \\
+Anonymity set & launch-stage & 6--83 depositors/asset & large on Ethereum \\
+Exit depends on & live AWS Nitro enclave & ASP inclusion (else public ragequit) & DAO upgrades (7-day window) \\
+Per-tx cap & $<$2{,}583 DAI & per-asset limits & none \\
+Proof on 2018 phone & $\approx$1 min (vendor docs, unspecified device) & \textbf{6.0\,s} (ours) & \textbf{11.5--41\,s + 22.5\,s POI} (ours) \\
+\bottomrule\end{tabular}}
+\end{table}
+
+\textbf{Measurement method.} Device: Samsung Galaxy S9 (Exynos~9810, 2018, Android~10),
+Chrome~154, snarkjs~0.7.6 WASM in the browser. This is the path a PWA or WebView wallet
+uses; native provers were not measured. Circuit artifacts were fetched from the IPFS root
+used by the official Railgun SDK~11.2.0 and checked against the SHA-256 table shipped in
+the SDK. For Railgun's JoinSplit we built \emph{valid} witnesses by hand from the public
+circuit~\cite{railguncircuits}:
+\begin{itemize}\setlength\itemsep{0em}
+\item an EdDSA-Poseidon signature over the public-signal hash;
+\item nullifiers $\mathsf{Poseidon}(nk, i)$;
+\item note commitments with a depth-16 Merkle membership proof;
+\item value balance between inputs and outputs, with USDC on Base as the token.
+\end{itemize}
+Every proof verified against the official verification key. The deployed
+Proof-of-Innocence (POI) circuit differs from its public repository, so we timed
+\texttt{groth16.prove} on a synthetic witness of the correct length. Calibrated against
+real JoinSplit proofs on the same device, synthetic timings were within 3\% (11.3 vs.\
+11.5\,s; 40.1 vs.\ 41.0\,s).
+
+\begin{table}[h]\centering\small
+\resizebox{\linewidth}{!}{\begin{tabular}{@{}lrrrr@{}}\toprule
+Circuit (inputs$\times$outputs) & Use & Artifacts (compressed) & S9 (median of 3) & Laptop (M-series) \\\midrule
+JoinSplit 1$\times$2 & pay from one note & 4.4\,MB & 11.5\,s (13.0 cold) & 1.3\,s \\
+JoinSplit 2$\times$2 & merge two & 5.7\,MB & 14.7\,s & -- \\
+JoinSplit 3$\times$2 & merge three stealth coins & 7.9\,MB & 20.6\,s & -- \\
+JoinSplit 8$\times$2 & consolidate eight & 15.9\,MB & 41.1\,s & 4.4\,s \\
+POI 3$\times$3 (synthetic witness) & innocence proof & 8.9\,MB & 22.5\,s & 2.5\,s \\
+Privacy Pools withdraw~\cite{privacypools} & exit & 19.5\,MB & 6.0\,s & 2.3\,s \\
+\bottomrule\end{tabular}}
+\end{table}
+
+A private payment that merges three stealth coins therefore costs about \textbf{43\,s of
+proving} on a 2018 phone (JoinSplit~3$\times$2 plus POI), plus about 17\,MB of artifacts on
+first use. On a laptop it costs about 4\,s. The phone-to-laptop ratio is a stable
+9--10$\times$ across circuits. Proving is feasible but far from instant, and this latency is
+precisely the step users would be asked to wait through for privacy.
+
+\section*{Finding: anonymity sets do not follow users across chains}
+Our target users hold small amounts on Base, where fees are low, so the natural design is to keep
+the whole stealth $\rightarrow$ shield $\rightarrow$ spend flow on Base. Railgun has been
+deployed on Base since 20~Aug~2026 (proxy \texttt{0x0047d1F9\ldots}, block 50{,}224{,}711).
+We enumerated every event and token transfer on that proxy through 6~Oct~2026 and found:
+\begin{itemize}\setlength\itemsep{0em}
+\item \textbf{one} \texttt{Shield} ever, of 0.25\,USDC on 8~Sep (0.249375 net of the 0.25\% fee);
+\item \textbf{zero} \texttt{Transact} and \textbf{zero} \texttt{Unshield} events.
+\end{itemize}
+The SDK's own network configuration notes that Base cannot yet be loaded by the wallet SDK.
+The \$112M crowd lives on Ethereum mainnet, where fees are far higher for small payments, and bridging from Base to reach it is itself a public, linkable
+hop. A user who shields on Base today is the pool's second depositor. The other options
+show the same tension in different forms:
+\begin{itemize}\setlength\itemsep{0em}
+\item \textbf{zk.money}~\cite{zkmoney} has a polished payments UX (human-readable tags, payment links, XMTP requests), but at launch it held \$17.3k across 762 deposits.
+\item \textbf{Privacy Pools} reports 6--83 unique depositors per asset in recent windows.
+\end{itemize}
+\emph{Deployment is not anonymity}: a wallet integrator must check where the crowd
+actually is, chain by chain, before promising privacy.
+
+\section*{Naming and the privileged resolver}
+Human-readable payment names interact with all of this. zk.money's ENS wildcard resolver
+returns a fresh deposit address per lookup, but the operator can re-derive every such
+address (L2BEAT: ``privileged insider: link exposed''). We face the same design choice for
+ChatWallet's \texttt{@name} links. An extended-public-key resolver gives fresh, seed-recoverable
+addresses without on-chain announcements, but its operator learns the same links. We will
+discuss how this compares with keeping ERC-5564 meta-addresses, which the resolver never
+sees, for wallet-to-wallet payments.
+
+\section*{Takeaways for the workshop}
+\begin{enumerate}\setlength\itemsep{0em}
+\item Stealth receiving is a solved, deployable problem. Stealth \emph{spending} is not, and coin selection plus gasless relaying only shrink the leak.
+\item Closing it with a shielded pool costs roughly 30--45\,s of proving per payment on a 2018 phone in WASM. Native provers and artifact bundling are the next engineering steps; we will report them if available by the workshop.
+\item The binding constraint is not cryptography but \emph{where the anonymity set lives}: the cheap chain has the users, the expensive chain has the crowd.
+\item The trust bases differ in kind: a TEE that must stay alive, an association-set provider, or token governance. A wallet has to choose which one to expose its users to.
+\end{enumerate}
+All code, inputs, raw results and scripts are public and reproducible:
+\url{https://github.com/energiasonora/chatWallet/tree/ius-vinculo-g1/investigacion/wppt2026}.
+
+\paragraph{Publication status.} Unpublished work in progress, based on a deployed system.
+
+\paragraph{Use of AI tools.} In line with the Asiacrypt~2026 policy, the authors disclose
+that a generative AI assistant (Claude, Anthropic) was used substantially to draft this
+abstract and to write the measurement scripts. The authors reviewed, verified and take full
+responsibility for all content and data.
+
+\begin{thebibliography}{9}\small\setlength\itemsep{0em}
+\bibitem{erc5564} T.~Wahrstätter et al. ERC-5564: Stealth Addresses. Ethereum Improvement Proposals, 2022.
+\bibitem{erc3009} ERC-3009: Transfer With Authorization. Ethereum Improvement Proposals, 2020.
+\bibitem{stealthpay} StealthPay v1 specification, reference implementation and vectors. \url{https://github.com/energiasonora/stealthpay}
+\bibitem{l2beat} L2BEAT Privacy dashboard. \url{https://l2beat.com/privacy}, accessed 4~Oct~2026.
+\bibitem{zkmoney} Aztec Labs. zk.money documentation. \url{https://docs.zk.money}, accessed 4~Oct~2026.
+\bibitem{privacypools} V.~Buterin, J.~Illum, M.~Nadler, F.~Schär, A.~Soleimani. Blockchain Privacy and Regulatory Compliance: Towards a Practical Equilibrium. 2023.
+\bibitem{railgun} Railgun. \url{https://railgun.org}; SDK \texttt{@railgun-community/wallet} 11.2.0.
+\bibitem{railguncircuits} Railgun circuits v2. \url{https://github.com/Railgun-Privacy/circuits-v2}
+\end{thebibliography}
+\end{document}
