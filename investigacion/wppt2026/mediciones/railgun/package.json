@@ -1,0 +1,10 @@
+{
+  "name": "medicion-railgun",
+  "private": true,
+  "type": "module",
+  "description": "Medición de las pruebas Groth16 del JoinSplit de Railgun en Mac y en el S9",
+  "dependencies": {
+    "circomlibjs": "0.1.7",
+    "snarkjs": "0.7.6"
+  }
+}

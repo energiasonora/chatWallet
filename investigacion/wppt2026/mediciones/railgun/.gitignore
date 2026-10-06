@@ -1,0 +1,5 @@
+node_modules/
+art/*/zkey*
+art/*/*.wtns
+art/*/wasm*
+.chrome-mac/

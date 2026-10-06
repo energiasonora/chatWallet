@@ -1,0 +1,63 @@
+{
+ "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36",
+ "nucleos": 7,
+ "memoriaGB": 4,
+ "filas": [
+  {
+   "variante": "01x02",
+   "wasmMB": 3.007613,
+   "zkeyMB": 6.121318,
+   "bajadaLocalMs": 7703,
+   "pruebaMs": [
+    13028,
+    11476,
+    11494
+   ],
+   "picoHeapMB": 10,
+   "limiteHeapMB": 1000,
+   "valida": true
+  },
+  {
+   "variante": "02x02",
+   "wasmMB": 3.936627,
+   "zkeyMB": 8.461426,
+   "bajadaLocalMs": 3411,
+   "pruebaMs": [
+    14733,
+    14770,
+    14725
+   ],
+   "picoHeapMB": 10,
+   "limiteHeapMB": 1000,
+   "valida": true
+  },
+  {
+   "variante": "03x02",
+   "wasmMB": 4.115488,
+   "zkeyMB": 11.848454,
+   "bajadaLocalMs": 3030,
+   "pruebaMs": [
+    20722,
+    20439,
+    20561
+   ],
+   "picoHeapMB": 10,
+   "limiteHeapMB": 1000,
+   "valida": true
+  },
+  {
+   "variante": "08x02",
+   "wasmMB": 4.92679,
+   "zkeyMB": 25.658314,
+   "bajadaLocalMs": 7375,
+   "pruebaMs": [
+    41324,
+    41120,
+    40914
+   ],
+   "picoHeapMB": 10,
+   "limiteHeapMB": 1000,
+   "valida": true
+  }
+ ]
+}

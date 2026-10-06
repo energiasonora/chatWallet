@@ -1,0 +1,33 @@
+{
+ "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+ "nucleos": 8,
+ "memoriaGB": 8,
+ "filas": [
+  {
+   "variante": "01x02",
+   "wasmMB": 3.007613,
+   "zkeyMB": 6.121318,
+   "bajadaLocalMs": 137,
+   "pruebaMs": [
+    1492,
+    1254
+   ],
+   "picoHeapMB": 61,
+   "limiteHeapMB": 4396,
+   "valida": true
+  },
+  {
+   "variante": "08x02",
+   "wasmMB": 4.92679,
+   "zkeyMB": 25.658314,
+   "bajadaLocalMs": 173,
+   "pruebaMs": [
+    4639,
+    4135
+   ],
+   "picoHeapMB": 193,
+   "limiteHeapMB": 4396,
+   "valida": true
+  }
+ ]
+}

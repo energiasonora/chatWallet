@@ -1,0 +1,41 @@
+{
+ "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36",
+ "nucleos": 7,
+ "memoriaGB": 4,
+ "filas": [
+  {
+   "variante": "none",
+   "error": "SyntaxError: Unexpected end of JSON input"
+  },
+  {
+   "variante": "01x02",
+   "sintetico": true,
+   "zkeyMB": 6.121318,
+   "pruebaMs": [
+    12218,
+    11168,
+    11277
+   ]
+  },
+  {
+   "variante": "08x02",
+   "sintetico": true,
+   "zkeyMB": 25.658314,
+   "pruebaMs": [
+    40168,
+    40392,
+    39760
+   ]
+  },
+  {
+   "variante": "POI_3x3",
+   "sintetico": true,
+   "zkeyMB": 14.192542,
+   "pruebaMs": [
+    22906,
+    22342,
+    22508
+   ]
+  }
+ ]
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Railgun JoinSplit en el teléfono</title>
+<pre id="log">cargando…</pre>
+<script src="snarkjs.min.js"></script>
+<script>
+// Mide en el navegador lo que un usuario de ChatWallet pagaría al gastar notas privadas de Railgun:
+// bajar los artefactos, generar el testigo + la prueba Groth16 y verificarla contra la vkey oficial.
+const log = (s) => { document.getElementById('log').textContent += '\n' + s; console.log(s); };
+let pico = 0;
+setInterval(() => { const m = performance.memory?.usedJSHeapSize || 0; if (m > pico) pico = m; }, 50);
+async function bajar(url) {
+  const t0 = performance.now(); const r = await fetch(url, { cache: 'no-store' });
+  const b = new Uint8Array(await r.arrayBuffer()); return { b, ms: performance.now() - t0 };
+}
+async function medir(v, reps) {
+  const base = `art/${v}/`;
+  const [wasm, zkey] = await Promise.all([bajar(base + 'wasm'), bajar(base + 'zkey')]);
+  const input = await (await fetch(base + 'input.json')).json();
+  const vkey = await (await fetch(base + 'vkey.json')).json();
+  const tiempos = []; let valida = true; pico = 0;
+  for (let i = 0; i < reps; i++) {
+    const t0 = performance.now();
+    const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, { type: 'mem', data: wasm.b }, { type: 'mem', data: zkey.b });
+    tiempos.push(performance.now() - t0);
+    valida = valida && await snarkjs.groth16.verify(vkey, publicSignals, proof);
+  }
+  return { variante: v, wasmMB: wasm.b.length / 1e6, zkeyMB: zkey.b.length / 1e6,
+           bajadaLocalMs: Math.round(wasm.ms + zkey.ms), pruebaMs: tiempos.map(Math.round),
+           picoHeapMB: Math.round(pico / 1e6), limiteHeapMB: Math.round((performance.memory?.jsHeapSizeLimit || 0) / 1e6),
+           valida };
+}
+async function medirSintetico(v, reps) {
+  // Sólo groth16.prove con testigo sintético (ver testigo-sintetico.mjs): la prueba sale inválida a propósito.
+  const base = `art/${v}/`;
+  const [zkey, wtns] = await Promise.all([bajar(base + 'zkey'), bajar(base + 'sintetico.wtns')]);
+  const tiempos = [];
+  for (let i = 0; i < reps; i++) {
+    const t0 = performance.now();
+    await snarkjs.groth16.prove({ type: 'mem', data: zkey.b }, { type: 'mem', data: wtns.b });
+    tiempos.push(performance.now() - t0);
+  }
+  return { variante: v, sintetico: true, zkeyMB: zkey.b.length / 1e6, pruebaMs: tiempos.map(Math.round) };
+}
+(async () => {
+  const q = new URLSearchParams(location.search);
+  const variantes = (q.get('v') || '01x02,02x02,03x02,08x02').split(',');
+  const reps = +(q.get('reps') || 3);
+  const res = { ua: navigator.userAgent, nucleos: navigator.hardwareConcurrency, memoriaGB: navigator.deviceMemory, filas: [] };
+  log(`UA: ${res.ua}\nnúcleos: ${res.nucleos}`);
+  for (const v of variantes) {
+    try { const f = await medir(v, reps); res.filas.push(f); log(JSON.stringify(f)); }
+    catch (e) { res.filas.push({ variante: v, error: String(e) }); log(v + ' ERROR ' + e); }
+  }
+  for (const v of (q.get('sint') || '').split(',').filter(Boolean)) {
+    try { const f = await medirSintetico(v, reps); res.filas.push(f); log(JSON.stringify(f)); }
+    catch (e) { res.filas.push({ variante: v, sintetico: true, error: String(e) }); log(v + ' ERROR ' + e); }
+  }
+  window.__res = res; log('LISTO');
+})();
+</script>
