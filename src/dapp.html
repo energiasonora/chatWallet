@@ -14957,21 +14957,54 @@
                 return { inbox, chainId };
             }
 
+            // libxmtp devuelve como ERROR el resumen de una sincronización a la que algo le
+            // salió mal aunque los mensajes se hayan procesado ("synced 1 messages, 0 failed
+            // 1 succeeded from cursor …"). No es un fallo del pedido: el canal quedó bien.
+            function cwEsResumenSyncXmtp(e) {
+                return /^synced \d+ messages, \d+ failed \d+ succeeded/.test(String((e && e.message) || e || ''));
+            }
+
+            // Abre (o reusa) el DM con una dApp para cw:1/cw:2. El sync previo es de mejor
+            // esfuerzo: si se cuelga o devuelve el resumen de arriba, igual se intenta el DM.
+            async function cwAbrirDmCon(identifier) {
+                const conv = chatwalletxmtp.conversations;
+                const id = { identifier, identifierKind: 0 };
+                try { await withTimeout(conv.sync(), 15000, 'conversations.sync (dApp)'); }
+                catch (e) { console.warn('[dApp] sync previo al DM:', e?.message || e); }
+                try { return await conv.createDmWithIdentifier(id); }
+                catch (e) {
+                    if (!cwEsResumenSyncXmtp(e)) throw e;
+                    console.warn('[dApp] createDm devolvió un resumen de sync, se reintenta:', e?.message || e);
+                    const dm = await conv.fetchDmByIdentifier(id).catch(() => null);
+                    return dm || await conv.createDmWithIdentifier(id);
+                }
+            }
+
+            async function cwEnviarTextoDapp(dm, texto) {
+                try { await dm.sendText(texto); }
+                catch (e) {
+                    // El mensaje se publica antes del sync que produce el resumen: está enviado.
+                    if (!cwEsResumenSyncXmtp(e)) throw e;
+                    console.warn('[dApp] sendText devolvió un resumen de sync:', e?.message || e);
+                }
+            }
+
+            // → true si el pedido quedó atendido (vinculado o rechazado por el usuario) y el
+            // link se puede borrar; false si falló y conviene dejarlo para reintentar.
             async function startWalletConnectSession(uri) {
-                if (!currentWallet) { alert(t('wc_need_unlock')); return; }
-                if (!chatwalletxmtp) { alert(t('wc_xmtp_not_ready')); return; }
+                if (!currentWallet) { alert(t('wc_need_unlock')); return false; }
+                if (!chatwalletxmtp) { alert(t('wc_xmtp_not_ready')); return false; }
                 const req = parseWcRequestFromString(uri);
-                if (!req) { alert(t('wc_bad_qr')); return; }
+                if (!req) { alert(t('wc_bad_qr')); return true; }
                 const inbox = req.inbox, chainId = req.chainId;
 
                 const ok = await wcApprove(t('wc_connect_title'),
                     t('wc_connect_body', { inbox: inbox.slice(0, 10) + '…' + inbox.slice(-6), chain: chainId || '?' }),
                     t('wc_connect_cta'), 'vincular');
-                if (!ok) return;
+                if (!ok) return true;
 
                 try {
-                    await chatwalletxmtp.conversations.sync();
-                    const dm = await chatwalletxmtp.conversations.createDmWithIdentifier({ identifier: inbox, identifierKind: 0 });
+                    const dm = await cwAbrirDmCon(inbox);
                     let peerInboxId = null;
                     try { peerInboxId = await dm.peerInboxId(); } catch (_) {}
                     // Persistir la sesión (sobrevive recargas/reinicios del worker) + registrarla.
@@ -14980,10 +15013,12 @@
                         wcLogActivity({ kind: 'connect', peerInboxId, summary: wcShortId(inbox), result: 'approved' });
                     }
                     // browser-sdk v6: texto plano va con sendText() — send() espera EncodedContent
-                    await dm.sendText(JSON.stringify({ cw: 1, type: 'connect', address: currentWallet.address, chainId }));
+                    await cwEnviarTextoDapp(dm, JSON.stringify({ cw: 1, type: 'connect', address: currentWallet.address, chainId }));
                     wcToast(t('wc_connected_toast'));
+                    return true;
                 } catch (e) {
                     alert(t('wc_connect_err', { e: (e.message || e) }));
+                    return false;
                 }
             }
 
@@ -15527,19 +15562,19 @@
                 };
             }
 
-            async function handleIncomingPaymentRequest(payReq) {
-                if (!currentWallet) { alert(t('wc_need_unlock')); return; }
-                if (!chatwalletxmtp) { alert(t('wc_xmtp_not_ready')); return; }
+            async function handleIncomingPaymentRequest(payReq, alAbrirCanal) {
+                if (!currentWallet) { alert(t('wc_need_unlock')); return false; }
+                if (!chatwalletxmtp) { alert(t('wc_xmtp_not_ready')); return false; }
 
                 let conv;
                 try {
-                    await chatwalletxmtp.conversations.sync();
-                    conv = await chatwalletxmtp.conversations.createDmWithIdentifier({ identifier: payReq.reply, identifierKind: 0 });
+                    conv = await cwAbrirDmCon(payReq.reply);
                 } catch (e) {
                     alert(t('wc_pay_channel_err', { e: (e.message || e) }));
-                    return;
+                    return false;
                 }
-                const reply = (obj) => conv && conv.sendText(JSON.stringify(Object.assign({ cw: 2, type: 'payment_result', ref: payReq.ref }, obj)));
+                if (alAbrirCanal) alAbrirCanal();
+                const reply = (obj) => conv && cwEnviarTextoDapp(conv, JSON.stringify(Object.assign({ cw: 2, type: 'payment_result', ref: payReq.ref }, obj)));
 
                 // Si ChatWallet está en otra red, buscar la entrada nativa (sin TOKEN_ADDRESS,
                 // no un token) que coincida con el chainId pedido y cambiar. Si no está
@@ -16391,23 +16426,48 @@
                     }
                 }
             });
+            // Un link cw:1/cw:2 abierto en frío llega ANTES que el chat: init() llama a
+            // handleUrlParameters() apenas carga la wallet, con XMTP todavía arrancando. Antes eso
+            // alertaba "no está listo" y además borraba el pedido de la URL, así que la segunda
+            // llamada (la de setupXmtpService, ya con el chat listo) no tenía nada que abrir.
+            // Ahora el pedido se queda en la URL hasta que se atienda; si el chat no llega en 60 s
+            // se avisa, y recargar lo reintenta.
+            let cwLinkEsperandoXmtp = null;
+            function cwEsperarXmtpParaLink() {
+                if (cwLinkEsperandoXmtp) return;
+                wcToast(t(currentWallet ? 'wc_waiting_xmtp' : 'wc_need_unlock'));
+                if (!currentWallet) return;   // al crear/restaurar la wallet arranca XMTP y vuelve a entrar
+                cwLinkEsperandoXmtp = setTimeout(() => {
+                    cwLinkEsperandoXmtp = null;
+                    if (chatwalletxmtp) return;
+                    const href = window.location.href;
+                    if (parseWcRequestFromString(href) || parsePaymentRequestFromString(href)) alert(t('wc_xmtp_timeout'));
+                }, 60000);
+            }
+
             async function handleUrlParameters() {
+                const hrefPedido = window.location.href;
+                const esWc = !!parseWcRequestFromString(hrefPedido);
+                const payReq = esWc ? null : parsePaymentRequestFromString(hrefPedido);
+                if ((esWc || payReq) && (!currentWallet || !chatwalletxmtp)) {
+                    cwEsperarXmtpParaLink();
+                    return;
+                }
+                if (cwLinkEsperandoXmtp) { clearTimeout(cwLinkEsperandoXmtp); cwLinkEsperandoXmtp = null; }
+                const borrarPedido = () => window.history.replaceState({}, document.title, window.location.pathname);
                 // Vinculación cw:1 abierta en frío por link (chatwallet.org/dapp?wc=1&...).
                 // Es el caso "mismo dispositivo": la dApp corre en el navegador de al lado y
                 // el App Link (AndroidManifest, pathPrefix /dapp) trae el pedido hasta acá sin
-                // pasar por la cámara.
-                if (parseWcRequestFromString(window.location.href)) {
-                    const href = window.location.href;
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    await startWalletConnectSession(href);
+                // pasar por la cámara. El pedido se borra recién si quedó atendido.
+                if (esWc) {
+                    if (await startWalletConnectSession(hrefPedido)) borrarPedido();
                     return;
                 }
                 // Solicitud de pago cw:2 (chatwallet.org/dapp?pay=1&...) abierta en frío,
                 // p.ej. tocada sin el APK instalado (PWA) o desde el propio scanner.
-                const payReq = parsePaymentRequestFromString(window.location.href);
+                // Se borra apenas se abre el canal: lo que sigue (aprobar, pagar) no se repite al recargar.
                 if (payReq) {
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    await handleIncomingPaymentRequest(payReq);
+                    if (await handleIncomingPaymentRequest(payReq, borrarPedido) !== false) borrarPedido();
                     return;
                 }
                 const urlParams = new URLSearchParams(window.location.search);
@@ -19667,6 +19727,8 @@
                     "wc_close": "Cerrar",
                     "wc_need_unlock": "Primero desbloqueá tu wallet.",
                     "wc_xmtp_not_ready": "El chat (XMTP) todavía no está listo. Esperá unos segundos e intentá de nuevo.",
+                    "wc_waiting_xmtp": "Conectando el chat para vincular…",
+                    "wc_xmtp_timeout": "El chat (XMTP) no terminó de conectar. Recargá la página para reintentar el pedido.",
                     "wc_bad_qr": "QR de conexión inválido.",
                     "wc_connect_title": "Conectar con dApp",
                     "wc_connect_body": "Una dApp quiere vincularse a tu ChatWallet vía XMTP para pedirte firmas y envíos.\n\nInbox: {inbox}\nRed (chainId): {chain}\n\nTu clave privada nunca sale de ChatWallet.",
@@ -20092,6 +20154,8 @@
                     "wc_close": "Close",
                     "wc_need_unlock": "Unlock your wallet first.",
                     "wc_xmtp_not_ready": "Chat (XMTP) is not ready yet. Wait a few seconds and try again.",
+                    "wc_waiting_xmtp": "Connecting the chat to link…",
+                    "wc_xmtp_timeout": "Chat (XMTP) did not finish connecting. Reload the page to retry the request.",
                     "wc_bad_qr": "Invalid connection QR.",
                     "wc_connect_title": "Connect to dApp",
                     "wc_connect_body": "A dApp wants to link to your ChatWallet over XMTP to request signatures and transactions.\n\nInbox: {inbox}\nNetwork (chainId): {chain}\n\nYour private key never leaves ChatWallet.",
@@ -20515,6 +20579,8 @@
                     "wc_close": "Fermer",
                     "wc_need_unlock": "Déverrouillez d'abord votre portefeuille.",
                     "wc_xmtp_not_ready": "Le chat (XMTP) n'est pas encore prêt. Attendez quelques secondes et réessayez.",
+                    "wc_waiting_xmtp": "Connexion du chat pour lier…",
+                    "wc_xmtp_timeout": "Le chat (XMTP) n'a pas fini de se connecter. Rechargez la page pour réessayer la demande.",
                     "wc_bad_qr": "QR de connexion invalide.",
                     "wc_connect_title": "Se connecter à la dApp",
                     "wc_connect_body": "Une dApp veut se lier à votre ChatWallet via XMTP pour vous demander des signatures et des envois.\n\nInbox : {inbox}\nRéseau (chainId) : {chain}\n\nVotre clé privée ne quitte jamais ChatWallet.",
