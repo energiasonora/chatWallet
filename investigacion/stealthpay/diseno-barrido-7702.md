@@ -1,6 +1,6 @@
 # StealthPay: barrido de direcciones stealth con EIP-7702 (diseño, 7/10/2026)
 
-**Estado:** propuesta, sin implementar. Toma dos antecedentes:
+**Estado:** fase 1 hecha el 7/10/2026 (`contracts/stealth-sweeper/`): 30 tests de Foundry y E2E en un fork de Base con USDC real. Todavía no está desplegado. El resto de este documento es la propuesta original. Toma dos antecedentes:
 - la *receive box* de Tacit (`../wppt2026/notas/05-tacit-anonwei.md`);
 - el diseño SA_eph de `~/xunserver/stealthpay-app` (marzo de 2026), donde la clave stealth es dueña de una LightAccount contrafáctica y el gas lo paga el paymaster de Alchemy.
 
@@ -39,6 +39,7 @@ cualquier cuenta con gas ──tx tipo 4 (authorizationList=[1])──► S.barr
                                 destino (o `llamada`: shield a un pool)
 ```
 - **La primera vez** va la autorización. Las siguientes, si S ya tiene el código `0xef0100‖StealthSweeper`, sólo la orden.
+- **El receptor puede pagar el gas:** con `relayer = destino` y `comision = 0`, la orden viaja al receptor (en ChatWallet, por el chat) y él la transmite. No interviene ningún tercero: nadie más que el receptor, que igual sabe que le pagan, ve el par (stealth, destino) antes de la cadena. **Ojo:** esto resuelve el canal del gas, no la consolidación. N stealth que le pagan al mismo destino siguen agrupadas, sea quien sea el que pague el gas.
 - **`relayer`:** si es una dirección, sólo ella puede transmitir y cobrar. Si es `0x0`, **transmite y cobra cualquiera**: es el modo sin permiso, como el keeper de Tacit. Si nuestro relayer se cae, la orden se le puede dar a cualquier otro.
 - **`llamada` y `datosHash`:** si están vacíos, transferencia simple. Si no, el contrato aprueba `monto` a `llamada`, ejecuta `datos` y vuelve la aprobación a cero. Es la puerta para hacer shield a un pool cuando haya uno con multitud (fase 4), sin cambiar el contrato.
 
@@ -143,7 +144,12 @@ Eso sólo lo rompe un pool, y por eso existe `llamada`: el día que haya un pool
 - Privacy Pools está sólo en Ethereum.
 
 ## Costo
-- **Medido:** 47.609 de gas para la autorización más una llamada vacía.
+- **Medido en el fork de Base:**
+  - primer barrido de USDC con autorización: **142.948** de gas;
+  - los siguientes: **84.935**;
+  - ETH: **111.421**;
+  - despliegue: 931.972, una vez por red.
+- **Medido antes:** 47.609 de gas para la autorización más una llamada vacía.
 - **Estimado:** un barrido de ERC-20 con comisión (dos transferencias, verificación ECDSA y nonce) ronda los 110–130k de gas la primera vez y unos 85–105k las siguientes. ERC-3009 con dos autorizaciones ronda los 100k.
 - En Base son fracciones de centavo en cualquier caso. Hay que medirlo en un fork antes de fijar la comisión.
 
