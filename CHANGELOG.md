@@ -17,6 +17,15 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.62 — 2026-10-07
+
+- **Entrar con ChatWallet desde otra web abierta en la misma computadora** (por ejemplo,
+  Soberano Mail → "Abrir ChatWallet aquí") ya no falla con "El chat todavía no está listo". La
+  app espera a que el chat conecte ("Conectando el chat para vincular…") y te muestra el
+  pedido sola. Si el chat no llega a conectar, recargar la página reintenta el pedido.
+- Se arregló un **"No se pudo conectar: synced 1 messages…"** que a veces cortaba la
+  vinculación con una web o un pedido de pago aunque todo estuviera bien.
+
 ## 3.61 — 2026-09-30
 
 - **Fijar mensajes 📌.** Mantené apretado un mensaje y tocá 📌: queda fijado **para los dos**
