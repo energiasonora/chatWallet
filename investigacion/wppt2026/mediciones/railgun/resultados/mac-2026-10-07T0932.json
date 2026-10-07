@@ -1,0 +1,21 @@
+{
+ "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+ "nucleos": 8,
+ "memoriaGB": 8,
+ "filas": [
+  {
+   "variante": "TACIT_2x2",
+   "wasmMB": 4.916992,
+   "zkeyMB": 28.558285,
+   "bajadaLocalMs": 258,
+   "pruebaMs": [
+    3793,
+    3586,
+    3854
+   ],
+   "picoHeapMB": 222,
+   "limiteHeapMB": 4396,
+   "valida": true
+  }
+ ]
+}

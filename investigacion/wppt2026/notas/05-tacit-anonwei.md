@@ -82,10 +82,10 @@ Pool más router, desde el bloque de despliegue. El primer evento es del 27/9/20
 5. **Verificar la prueba con `eth_call` antes de enviarla** y fijar los artefactos por SHA-256 con varios espejos: aplica a cualquier pool que integremos.
 
 ## Dónde sinergizar
-- **Ellos no midieron en un teléfono real** (`DEVICE-PROOFS.md`: "No real phone was used, and no real iOS Safari or Chrome on Android"; las cifras de teléfono son un modelo).
-  - Nosotros tenemos el banco del S9 armado.
-  - Medir su `transact` (44k restricciones, dominio 2¹⁶, como el 08x02 de Railgun, que en el S9 tarda **41 s**) les da el dato que les falta y le suma una fila al paper.
-  - Las entradas válidas salen de su `evm-pool-wallet.js` (MIT). Es la vía natural para contactar a z0r0z.
+- **Ellos no midieron en un teléfono real** (`DEVICE-PROOFS.md`: "No real phone was used…"). **Ya lo medimos (7/10/2026):** su `transact` 2x2 tarda **47,3 s en el S9**, contra 3,6–3,9 s en la Mac.
+  - Usamos entradas válidas, verificadas contra su vkey y contra **su verificador desplegado** en Base.
+  - Detalle en `../mediciones/tacit/RESULTADOS.md`. Es el dato que les falta y la vía natural para contactar a z0r0z.
+  - **Pendiente:** su prover propio de 6 workers, que puede rendir distinto a snarkjs en el teléfono. Se mide abriendo anon.wei.limo en el S9.
 - **Interop:** como cliente, ChatWallet podría derivar la clave Tacit con el mismo mensaje de identidad y pagar a `tacit1…` o a `.wei` desde el chat. Lo que nos frena:
   - es **sólo ETH**;
   - el conjunto de anonimato es chico (arriba);

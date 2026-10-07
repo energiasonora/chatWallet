@@ -52,6 +52,6 @@ Los aportes posibles:
 - `notas/03-chatwallet-stealth.md`: estado real de StealthPay en ChatWallet y dónde se filtra el vínculo.
 - `notas/04-privacy-pools-s9.md`: la medición del 4/9/2026.
 - `notas/05-tacit-anonwei.md`: anon.wei / pool EVM de Tacit (3/10/2026). *Receive boxes* (lo que le falta a StealthPay) y actividad medida: el volumen es ida y vuelta por puntos, con 1,5 ETH de saldo y 14 pagos privados en Base.
-- `mediciones/tacit/`: actividad del pool de Tacit en Ethereum y Base (`actividad-tacit.mjs`).
+- `mediciones/tacit/`: actividad del pool de Tacit en Ethereum y Base (`actividad-tacit.mjs`), y su circuito `transact` medido en el S9 (`RESULTADOS.md`: 47,3 s; 3,6 s en la Mac).
 - `mediciones/railgun/`: el banco reproducible (pruebas Groth16 reales en Mac y en el S9, más la actividad en Base).
 - `abstract/`: el borrador del resumen de 3 páginas (pendiente).

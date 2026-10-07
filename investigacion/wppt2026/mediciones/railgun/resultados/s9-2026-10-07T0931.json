@@ -1,0 +1,21 @@
+{
+ "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36",
+ "nucleos": 7,
+ "memoriaGB": 4,
+ "filas": [
+  {
+   "variante": "TACIT_2x2",
+   "wasmMB": 4.916992,
+   "zkeyMB": 28.558285,
+   "bajadaLocalMs": 3930,
+   "pruebaMs": [
+    48026,
+    46571,
+    61634
+   ],
+   "picoHeapMB": 10,
+   "limiteHeapMB": 1000,
+   "valida": true
+  }
+ ]
+}
