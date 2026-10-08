@@ -21485,12 +21485,21 @@
 
             avatarUpload.addEventListener('change', (event) => {
                 const file = event.target.files[0];
+                event.target.value = '';   // sin esto, volver a elegir la MISMA imagen no dispara 'change'
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = async (e) => {
-                        // Normalizar al subir: cuadrado + WebP a 256px → evita guardar el original
-                        // multi-MB en localStorage; el envío por XMTP re-thumbnailea a 128.
-                        userDidAvatar.src = (await makeAvatarThumb(e.target.result, 256)) || e.target.result;
+                        // Encuadrar primero (mismo recortador que la imagen del grupo): el avatar
+                        // se ve en círculo y sin encuadre la cara queda cortada o descentrada.
+                        const cropped = await openImageCropper(e.target.result, { out: 512, title: 'Tu foto de perfil' });
+                        if (cropped === null) {
+                            showToast(`No se pudo leer esa imagen${file.type ? ' (' + file.type + ')' : ''}. Probá con un JPG o PNG.`, 'error');
+                            return;
+                        }
+                        if (!cropped) return;   // canceló el recorte
+                        // Normalizar: WebP a 256px → evita guardar el original multi-MB en
+                        // localStorage; el envío por XMTP re-thumbnailea a 128.
+                        userDidAvatar.src = (await makeAvatarThumb(cropped, 256)) || cropped;
                     };
                     reader.readAsDataURL(file);
                 }

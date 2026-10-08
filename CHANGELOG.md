@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Recortar tu foto de perfil.** Al elegir la imagen de tu DID se abre un recortador:
+  arrastrás para mover, pellizcás o usás la barra para acercar, y lo que queda dentro del
+  círculo es lo que ven los demás. Antes la foto se cortaba sola al centro y la cara podía
+  quedar afuera.
+
 ## 3.62 — 2026-10-07
 
 - **Entrar con ChatWallet desde otra web abierta en la misma computadora** (por ejemplo,
