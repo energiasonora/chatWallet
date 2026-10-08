@@ -1189,6 +1189,12 @@
             border-radius: 0 !important;
         }
 
+        /* Sin esto el display:flex de arriba (más específico) le gana a .hidden de Tailwind:
+           Docs se seguía viendo en la barra con DOCS_ENABLED = false (jul–oct 2026). */
+        #appNav button.hidden {
+            display: none;
+        }
+
         #appNav button .text-xs {
             font-size: 10px;
             letter-spacing: 0.5px;
@@ -2370,6 +2376,9 @@
                                     </svg>
                                 </button>
                             </div>
+                            <!-- Lo mismo en la moneda que eligió el usuario (USD, EUR, ARS, ETH, BTC).
+                                 Lo pinta cwPintarValorPrincipal(); vacío si el activo no tiene cotización. -->
+                            <p id="balanceFiat" class="text-sm text-gray-400 -mt-1 min-h-[1.25rem]"></p>
                             <div id="gasBalanceDisplay"
                                 class="hidden flex items-center justify-center space-x-1 mt-1 text-xs text-gray-400">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
@@ -2665,6 +2674,47 @@
                     </div>
                 </div>
 
+                <!-- VISTA DE BALANCES: el total de las redes favoritas (hasta 6) en la moneda
+                     elegida, con el reparto por activo. Precios leídos de la cadena: Chainlink en
+                     Base (una sola llamada) y el dólar en pesos de P2P.me. Ver cwPintarBalances(). -->
+                <div id="balancesView" class="view flex-col h-full overflow-y-auto">
+                    <div class="p-4 space-y-4 w-full max-w-md mx-auto">
+                        <div class="flex items-center justify-between gap-2">
+                            <h2 class="text-xl font-bold" data-i18n-key="bal_title">Tus balances</h2>
+                            <div class="flex items-center gap-1">
+                                <select id="balCurrency" aria-label="Moneda"
+                                    class="bg-gray-700 rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option value="USD">USD</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="ARS">ARS</option>
+                                    <option value="ETH">ETH</option>
+                                    <option value="BTC">BTC</option>
+                                </select>
+                                <button id="balRefresh" title="Refrescar"
+                                    class="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-700/50">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <path d="M21 12a9 9 0 1 1-2.64-6.36L21 8" />
+                                        <path d="M21 3v5h-5" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl p-4">
+                            <p class="text-xs text-gray-400" data-i18n-key="bal_total">Total</p>
+                            <p id="balTotal" class="text-4xl font-bold break-words">—</p>
+                            <p id="balTotalNote" class="text-xs text-gray-500 mt-1 min-h-[1rem]"></p>
+                        </div>
+                        <div id="balList" class="space-y-2"></div>
+                        <p class="text-xs text-gray-500">
+                            <span id="balHint" data-i18n-key="bal_hint">Se muestran tus favoritas (hasta 6).</span>
+                            <button type="button" id="balManageNets" class="text-indigo-400 hover:underline"
+                                data-i18n-key="bal_manage">Elegilas con ★</button>
+                        </p>
+                    </div>
+                </div>
+
                 <!-- VISTA DE DOCUMENTOS (IPFS) -->
                 <div id="documentView" class="view flex-col h-full overflow-y-auto">
                     <div class="p-4 space-y-4">
@@ -2767,6 +2817,16 @@
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                     </svg>
                     <span class="text-xs" data-i18n-key="nav_history">Historial</span>
+                </button>
+                <!-- Ocupa el lugar de Docs (oculta tras DOCS_ENABLED). -->
+                <button data-view="balancesView" id="balancesNavBtn"
+                    class="nav-btn transition-colors duration-200 hover:bg-gray-700/50 text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                        <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                    </svg>
+                    <span class="text-xs" data-i18n-key="nav_balances">Balances</span>
                 </button>
                 <button data-view="documentView"
                     class="nav-btn transition-colors duration-200 hover:bg-gray-700/50 text-gray-400">
@@ -3982,6 +4042,22 @@
                             <span class="block text-xs text-gray-500" data-i18n-key="settings_hide_balance_desc">Muestra
                                 •••• en vez del monto. También se prende y apaga con el ojo, al lado del saldo.</span>
                         </label>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <label for="settingsCurrency" class="select-none">
+                            <span class="text-sm text-gray-200" data-i18n-key="settings_currency">Moneda para ver el
+                                valor</span>
+                            <span class="block text-xs text-gray-500" data-i18n-key="settings_currency_desc">En qué
+                                mostrar tu saldo y el total de Balances.</span>
+                        </label>
+                        <select id="settingsCurrency"
+                            class="bg-gray-700 rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="USD">USD</option>
+                            <option value="EUR">EUR</option>
+                            <option value="ARS">ARS</option>
+                            <option value="ETH">ETH</option>
+                            <option value="BTC">BTC</option>
+                        </select>
                     </div>
                 </div>
 
@@ -5505,6 +5581,8 @@
                     populateHistoryNetworkSelector();
                     fetchTransactionHistory();
                 }
+
+                if (viewId === 'balancesView') cwPintarBalances();
             }
 
             // --- Sidebar Functions ---
@@ -6117,6 +6195,7 @@
                     el.textContent = (hide && /^[\d.,]/.test(val)) ? '••••' : val;
                 }
                 renderInfoG1();
+                cwPintarValorPrincipal();
             }
 
             function setBalanceText(slot, text) {
@@ -6134,6 +6213,7 @@
                 const sw = document.getElementById('hideBalanceToggle');
                 if (sw) sw.checked = hidden;
                 renderBalances();
+                if (document.getElementById('balancesView')?.classList.contains('active')) cwPintarBalances();
             }
 
             function toggleHideBalance() {
@@ -15940,6 +16020,337 @@
             }
             window.cwPrecioP2P = cwPrecioP2P;
 
+            // ── Balances en la moneda del usuario ──────────────────────────────────────
+            // Una sola moneda para todo (saldo de la wallet y pestaña Balances), elegida por el
+            // usuario. Global y no por wallet, como el idioma.
+            const CW_MONEDA_KEY = 'cw-moneda';
+            const CW_MONEDAS = ['USD', 'EUR', 'ARS', 'ETH', 'BTC'];
+            // Balances suma sólo las favoritas, y hasta 6: cada una es un pedido a un RPC
+            // público distinto, y una pantalla con 15 filas deja de servir para leer el total.
+            const CW_MAX_FAVORITAS = 6;
+
+            function cwMoneda() {
+                try { const m = localStorage.getItem(CW_MONEDA_KEY); if (CW_MONEDAS.includes(m)) return m; } catch (e) { }
+                return 'USD';
+            }
+
+            // Precios en dólares, leídos de los oráculos de Chainlink en Base con UNA llamada a
+            // Multicall3: mainnet.base.org corta las ráfagas de pedidos sueltos ("missing revert
+            // data", medido 8/10/2026), y así además todos los precios son del mismo bloque.
+            // Direcciones verificadas en vivo ese día (description(), 8 decimales, frescas).
+            const CW_BASE_RPCS = ['https://base-rpc.publicnode.com', 'https://mainnet.base.org'];   // los dos con CORS abierto
+            const CW_MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11';
+            const CW_FEEDS = {
+                ETH: '0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70',
+                BTC: '0x64c911996D3c6aC71f9b455B1E8E7266BcbD848F',
+                EUR: '0xc91D87E81faB8f93699ECf7Ee9B44D11e1D53F0F',
+                BNB: '0x4b7836916781CAAfbb7Bd1E5FDd20ED544B453b1',
+                HYPE: '0xEdB56c5DE751eD3182DDa337f7d9ab33cf091DcA',
+                USDC: '0x7e860098F58bBFC8648a4311b374B1D669a2bc6B',
+            };
+            const CW_FEED_ABI = ['function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)'];
+            const CW_MC_ABI = ['function aggregate3((address target, bool allowFailure, bytes callData)[] calls) view returns ((bool success, bytes returnData)[])'];
+            const CW_PRECIOS_KEY = 'cw-precios-usd';
+            const CW_PRECIOS_FRESCO_MS = 5 * 60 * 1000;
+            // Un feed que no se movió en 2 días está roto o abandonado: eso no es un precio.
+            // (Los de heartbeat más largo, USDC y BNB, se actualizan al menos una vez por día.)
+            const CW_FEED_VIEJO_S = 2 * 86400;
+            let cwPreciosMem = null;
+            let cwPreciosEnVuelo = null;
+
+            function cwPreciosGuardados() {
+                if (cwPreciosMem) return cwPreciosMem;
+                try { return JSON.parse(localStorage.getItem(CW_PRECIOS_KEY) || 'null'); } catch (e) { return null; }
+            }
+
+            // Resuelve con { ETH, BTC, EUR, BNB, HYPE, USDC, cuando } (cada uno en USD; falta la
+            // clave si ese feed no respondió) o null si nunca hubo precios. Sin red devuelve los
+            // últimos guardados: quien los muestra dice de cuándo son (ver `cuando`).
+            async function cwPreciosUsd(forzar = false) {
+                const guardado = cwPreciosGuardados();
+                if (!forzar && guardado && Date.now() - guardado.cuando < CW_PRECIOS_FRESCO_MS) return guardado;
+                if (cwPreciosEnVuelo) return cwPreciosEnVuelo;
+                cwPreciosEnVuelo = (async () => {
+                    const iface = new ethers.Interface(CW_FEED_ABI);
+                    const callData = iface.encodeFunctionData('latestRoundData');
+                    const claves = Object.keys(CW_FEEDS);
+                    const llamadas = claves.map(k => ({ target: CW_FEEDS[k], allowFailure: true, callData }));
+                    let res = null;
+                    for (const url of CW_BASE_RPCS) {
+                        try {
+                            const prov = new ethers.JsonRpcProvider(url, 8453, { staticNetwork: true });
+                            const mc = new ethers.Contract(CW_MULTICALL3, CW_MC_ABI, prov);
+                            res = await withTimeout(mc.aggregate3(llamadas), 10000, 'precios');
+                            break;
+                        } catch (e) { console.warn('[precios]', url, e?.shortMessage || e?.message || e); }
+                    }
+                    if (!res) return guardado || null;
+                    const p = { cuando: Date.now() };
+                    const ahora = Date.now() / 1000;
+                    claves.forEach((k, i) => {
+                        const [ok, ret] = res[i];
+                        if (!ok) return;
+                        try {
+                            const r = iface.decodeFunctionResult('latestRoundData', ret);
+                            const v = Number(ethers.formatUnits(r[1], 8));
+                            if (v > 0 && ahora - Number(r[3]) < CW_FEED_VIEJO_S) p[k] = v;
+                        } catch (e) { }
+                    });
+                    if (!p.ETH) return guardado || null;
+                    cwPreciosMem = p;
+                    try { localStorage.setItem(CW_PRECIOS_KEY, JSON.stringify(p)); } catch (e) { }
+                    return p;
+                })().finally(() => { cwPreciosEnVuelo = null; });
+                return cwPreciosEnVuelo;
+            }
+            window.cwPreciosUsd = cwPreciosUsd;
+
+            // Cuántas unidades de `moneda` vale 1 USD. El peso sale de P2P.me (el dólar al que
+            // de verdad se vende USDC, no el oficial); lo demás de los oráculos. null = sin dato.
+            async function cwTasa(moneda, precios) {
+                if (moneda === 'USD') return 1;
+                if (moneda === 'ARS') { const a = await cwPrecioP2P('ARS'); return a && a.venta > 0 ? a.venta : null; }
+                const k = { EUR: 'EUR', ETH: 'ETH', BTC: 'BTC' }[moneda];
+                return precios && precios[k] > 0 ? 1 / precios[k] : null;
+            }
+
+            // Las testnets tienen saldo pero no valen nada: se listan y no suman.
+            const CW_TESTNETS = new Set(['11155111', '421614', '84532', '11155420', '80002', '97', '17000']);
+
+            // Qué precio le toca a una red/token de la lista, por su símbolo. null = sin cotización
+            // (un token propio, una red rara): se muestra la cantidad y no se inventa un valor.
+            function cwClavePrecio(net) {
+                if (!net) return null;
+                if (CW_TESTNETS.has(String(net.TOKEN_CHAINID))) return 'TESTNET';
+                const esToken = net.TOKEN_ADDRESS && ethers.isAddress(net.TOKEN_ADDRESS);
+                const s = String(esToken ? net.TOKEN_SYMBOL || '' : net.NATIVE_SYMBOL || 'ETH').toUpperCase();
+                if (s === 'ETH' || s === 'WETH') return 'ETH';
+                if (['BTC', 'BTCB', 'WBTC', 'CBBTC', 'TBTC'].includes(s)) return 'BTC';
+                // USDT y DAI no tienen feed propio acá: valen un dólar, como USDC.
+                if (['USDC', 'USDC.E', 'USDBC', 'USDT', 'DAI'].includes(s)) return 'USDC';
+                if (s === 'BNB' || s === 'WBNB') return 'BNB';
+                if (s === 'HYPE' || s === 'WHYPE') return 'HYPE';
+                return null;
+            }
+
+            function cwSimbolo(net) {
+                return (net.TOKEN_ADDRESS && ethers.isAddress(net.TOKEN_ADDRESS)) ? (net.TOKEN_SYMBOL || 'tokens') : (net.NATIVE_SYMBOL || 'ETH');
+            }
+
+            function cwLocale() {
+                let lang = 'es';
+                try { lang = localStorage.getItem('chatwallet-lang') || 'es'; } catch (e) { }
+                return lang === 'en' ? 'en-US' : lang === 'fr' ? 'fr-FR' : 'es-AR';
+            }
+
+            function cwFormatoMoneda(v, moneda) {
+                const loc = cwLocale();
+                if (moneda === 'ETH' || moneda === 'BTC') {
+                    const dec = v === 0 ? 0 : v < 0.01 ? 6 : 4;
+                    return new Intl.NumberFormat(loc, { maximumFractionDigits: dec }).format(v) + ' ' + moneda;
+                }
+                // ARS con código: en es-AR el "$" a secas es el peso, pero al lado de US$ confunde.
+                // EUR con narrowSymbol: con 'symbol' es-AR escribe "EUR" en vez de "€".
+                return new Intl.NumberFormat(loc, {
+                    style: 'currency', currency: moneda,
+                    currencyDisplay: moneda === 'ARS' ? 'code' : moneda === 'EUR' ? 'narrowSymbol' : 'symbol',
+                    maximumFractionDigits: moneda === 'ARS' && v >= 1000 ? 0 : 2,
+                }).format(v);
+            }
+
+            function cwFormatoCantidad(v) {
+                return new Intl.NumberFormat(cwLocale(), { maximumFractionDigits: v !== 0 && Math.abs(v) < 1 ? 6 : 4 }).format(v);
+            }
+
+            // ── Valor del saldo principal ("≈ US$ 12,34" debajo del monto) ──
+            let cwValorGen = 0;
+            async function cwPintarValorPrincipal() {
+                const el = document.getElementById('balanceFiat');
+                if (!el) return;
+                const gen = ++cwValorGen;
+                const net = optionsList[currentTokenIndex];
+                const txt = lastBalances.main;
+                const cantidad = parseFloat(txt);
+                const clave = cwClavePrecio(net);
+                const moneda = cwMoneda();
+                // Ğ1, "Cargando...", errores, testnets, tokens sin precio, o ETH mostrado en ETH: nada.
+                if (!net || redG1Activa() || !/^[\d.]/.test(txt || '') || !isFinite(cantidad)
+                    || !clave || clave === 'TESTNET' || clave === moneda) { el.textContent = ''; return; }
+                const precios = await cwPreciosUsd();
+                const tasa = await cwTasa(moneda, precios);
+                if (gen !== cwValorGen) return;   // llegó tarde: otra red u otra moneda ya pintó
+                if (!precios || !(precios[clave] > 0) || !tasa) { el.textContent = ''; return; }
+                el.textContent = '≈ ' + (isBalanceHidden() ? '••••' : cwFormatoMoneda(cantidad * precios[clave] * tasa, moneda));
+            }
+
+            // ── Pestaña Balances ──
+            function cwActivosDeBalances() {
+                const conIdx = optionsList.map((n, i) => ({ n, i })).filter(x => x.n && x.n.API);
+                let elegidos = conIdx.filter(x => x.n.isFavorite);
+                const porDefecto = elegidos.length === 0;
+                // Sin favoritas: las redes de verdad que trae la app, para que la pestaña no nazca
+                // vacía. Se leen todas (son 7) y cwPintarBalances se queda con las 6 que más valen.
+                if (porDefecto) {
+                    elegidos = conIdx.filter(x => isDefaultNetwork(x.n) && !CW_TESTNETS.has(String(x.n.TOKEN_CHAINID)));
+                    return { activos: elegidos, porDefecto, sobran: 0 };
+                }
+                return { activos: elegidos.slice(0, CW_MAX_FAVORITAS), porDefecto, sobran: Math.max(0, elegidos.length - CW_MAX_FAVORITAS) };
+            }
+
+            const cwProvs = new Map();
+            function cwProveedor(url, chainId) {
+                const k = url + '|' + chainId;
+                if (!cwProvs.has(k)) {
+                    const id = Number(chainId);
+                    // staticNetwork: sin el eth_chainId previo que ethers hace en cada provider nuevo.
+                    cwProvs.set(k, id > 0 ? new ethers.JsonRpcProvider(url, id, { staticNetwork: true }) : new ethers.JsonRpcProvider(url));
+                }
+                return cwProvs.get(k);
+            }
+
+            // Repuesto por red para Balances: varias filas leen a la vez del mismo RPC y el oficial
+            // de Base corta esas ráfagas (medido 8/10/2026: USDC on Base fallaba y desaparecía
+            // de la lista). Todos verificados ese día con CORS abierto y el chainId correcto.
+            const CW_RPC_REPUESTO = {
+                '8453': 'https://base-rpc.publicnode.com',
+                '42161': 'https://arbitrum-one-rpc.publicnode.com',
+                '56': 'https://bsc-rpc.publicnode.com',
+                '1': 'https://ethereum-rpc.publicnode.com',
+                '10': 'https://optimism-rpc.publicnode.com',
+            };
+
+            async function cwSaldoDe(net, addr) {
+                const urls = [net.API, ...(Array.isArray(net.rpc) ? net.rpc : []), CW_RPC_REPUESTO[String(net.TOKEN_CHAINID)]]
+                    .filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 4);
+                let ultimo = null;
+                for (const url of urls) {
+                    try {
+                        const prov = cwProveedor(url, net.TOKEN_CHAINID);
+                        if (net.TOKEN_ADDRESS && ethers.isAddress(net.TOKEN_ADDRESS)) {
+                            const c = new ethers.Contract(net.TOKEN_ADDRESS, erc20Abi, prov);
+                            const dec = Number.isFinite(Number(net.DECIMALS)) && net.DECIMALS !== undefined && net.DECIMALS !== ''
+                                ? Number(net.DECIMALS) : await withTimeout(c.decimals(), 8000, 'decimals');
+                            return Number(ethers.formatUnits(await withTimeout(c.balanceOf(addr), 8000, 'balanceOf'), dec));
+                        }
+                        return Number(ethers.formatEther(await withTimeout(prov.getBalance(addr), 8000, 'saldo')));
+                    } catch (e) { ultimo = e; }
+                }
+                throw ultimo || new Error('sin RPC');
+            }
+
+            let cwBalGen = 0;
+            async function cwPintarBalances(forzar = false) {
+                const lista = document.getElementById('balList');
+                const totalEl = document.getElementById('balTotal');
+                const nota = document.getElementById('balTotalNote');
+                const hint = document.getElementById('balHint');
+                if (!lista || !totalEl || !currentWallet) return;
+                const gen = ++cwBalGen;
+                const moneda = cwMoneda();
+                const oculto = isBalanceHidden();
+                const { activos, porDefecto, sobran } = cwActivosDeBalances();
+                hint.textContent = porDefecto ? t('bal_hint_default')
+                    : sobran ? t('bal_hint_extra', { n: sobran }) : t('bal_hint');
+
+                // Esqueleto en el acto: la red puede tardar varios segundos.
+                totalEl.textContent = '…';
+                nota.textContent = t('bal_loading');
+                lista.innerHTML = activos.slice(0, CW_MAX_FAVORITAS).map(({ n }) => `
+                    <div class="bg-gray-800 rounded-xl p-3 flex items-center justify-between gap-2 opacity-60">
+                        <div class="min-w-0"><p class="font-semibold text-sm truncate">${escHtml(n.TOKEN_CHAIN_NAME)}</p>
+                        <p class="text-xs text-gray-400">… ${escHtml(cwSimbolo(n))}</p></div><p class="text-sm text-gray-400">…</p>
+                    </div>`).join('');
+
+                const addr = currentWallet.address;
+                const [precios, saldos] = await Promise.all([
+                    cwPreciosUsd(forzar),
+                    Promise.allSettled(activos.map(a => cwSaldoDe(a.n, addr))),
+                ]);
+                const tasa = await cwTasa(moneda, precios);
+                if (gen !== cwBalGen) return;
+
+                let filas = activos.map((a, k) => {
+                    const s = saldos[k];
+                    const clave = cwClavePrecio(a.n);
+                    const cantidad = s.status === 'fulfilled' ? s.value : null;
+                    const precio = clave && clave !== 'TESTNET' && precios ? precios[clave] : null;
+                    const valor = cantidad !== null && precio > 0 && tasa ? cantidad * precio * tasa : null;
+                    return { ...a, clave, cantidad, valor };
+                });
+                // Se cuentan ANTES de recortar: una red que no respondió va al fondo y, sin
+                // favoritas (7 principales para 6 lugares), el recorte la hacía desaparecer muda.
+                const fallaron = filas.filter(f => f.cantidad === null).length;
+                // Como en el resto de las wallets: lo que más vale, arriba. Lo sin valor, al fondo.
+                filas.sort((a, b) => (b.valor ?? -1) - (a.valor ?? -1));
+                filas = filas.slice(0, CW_MAX_FAVORITAS);
+                const total = filas.reduce((acc, f) => acc + (f.valor || 0), 0);
+                const fmtPct = new Intl.NumberFormat(cwLocale(), { style: 'percent', maximumFractionDigits: 1 });
+
+                lista.innerHTML = filas.map(f => {
+                    const pct = total > 0 && f.valor ? f.valor / total * 100 : 0;
+                    const cant = f.cantidad === null ? t('bal_no_rpc')
+                        : (oculto ? '••••' : cwFormatoCantidad(f.cantidad)) + ' ' + cwSimbolo(f.n);
+                    const valor = f.cantidad === null ? '—'
+                        : f.clave === 'TESTNET' ? t('bal_testnet')
+                        : f.valor === null ? t('bal_no_price')
+                        : oculto ? '••••' : cwFormatoMoneda(f.valor, moneda);
+                    const pctTxt = pct >= 0.1 ? fmtPct.format(pct >= 10 ? Math.round(pct) / 100 : pct / 100)
+                        : (f.valor ? '< ' + fmtPct.format(0.001) : '');
+                    return `
+                    <button type="button" data-net-index="${f.i}"
+                        class="bal-row relative w-full text-left bg-gray-800 hover:bg-gray-700/70 rounded-xl p-3 overflow-hidden">
+                        <div class="absolute inset-y-0 left-0 bg-indigo-500/15" style="width:${pct.toFixed(2)}%"></div>
+                        <div class="relative flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="font-semibold text-sm truncate">${escHtml(f.n.TOKEN_CHAIN_NAME)}</p>
+                                <p class="text-xs text-gray-400 truncate">${escHtml(cant)}</p>
+                            </div>
+                            <div class="text-right flex-shrink-0">
+                                <p class="text-sm font-semibold">${escHtml(valor)}</p>
+                                <p class="text-xs text-gray-500">${escHtml(oculto ? '' : pctTxt)}</p>
+                            </div>
+                        </div>
+                    </button>`;
+                }).join('');
+
+                if (!precios || !tasa) {
+                    totalEl.textContent = '—';
+                    nota.textContent = t('bal_no_prices');
+                    return;
+                }
+                totalEl.textContent = oculto ? '••••' : cwFormatoMoneda(total, moneda);
+                const min = Math.floor((Date.now() - precios.cuando) / 60000);
+                nota.textContent = (min >= 10 ? t('bal_price_age', { m: min }) : t('bal_price_live'))
+                    + (fallaron ? ' · ' + t('bal_some_failed', { n: fallaron }) : '');
+            }
+            window.cwPintarBalances = cwPintarBalances;
+
+            function cwSetMoneda(m) {
+                if (!CW_MONEDAS.includes(m)) return;
+                try { localStorage.setItem(CW_MONEDA_KEY, m); } catch (e) { }
+                document.querySelectorAll('#balCurrency, #settingsCurrency').forEach(s => { s.value = m; });
+                cwPintarValorPrincipal();
+                if (document.getElementById('balancesView')?.classList.contains('active')) cwPintarBalances();
+            }
+
+            (function wireBalances() {
+                const m = cwMoneda();
+                document.querySelectorAll('#balCurrency, #settingsCurrency').forEach(s => {
+                    s.value = m;
+                    s.addEventListener('change', () => cwSetMoneda(s.value));
+                });
+                document.getElementById('balRefresh')?.addEventListener('click', () => cwPintarBalances(true));
+                document.getElementById('balManageNets')?.addEventListener('click', () => openManageNetworksModal());
+                document.getElementById('balList')?.addEventListener('click', (e) => {
+                    const row = e.target.closest('.bal-row');
+                    if (!row) return;
+                    const idx = parseInt(row.dataset.netIndex, 10);
+                    if (!Number.isInteger(idx) || !optionsList[idx]) return;
+                    switchNetwork(idx);
+                    showView('walletView');
+                });
+            })();
+
             // Hoy el plugin argentino vive adentro del bundle y esto es un envoltorio de dos
             // líneas. Cuando llegue el pago de verdad (que arrastra viem) esta función pasa a
             // bajar el bundle del nodo propio, verificar su SHA-256 y arrancarlo en un Worker sin
@@ -17085,10 +17496,17 @@
             function toggleFavorite(e) {
                 e.stopPropagation();
                 const indexToToggle = parseInt(e.currentTarget.dataset.index, 10);
+                // Tope de favoritas: Balances suma sólo esas (ver CW_MAX_FAVORITAS).
+                if (!optionsList[indexToToggle].isFavorite
+                    && optionsList.filter(n => n.isFavorite).length >= CW_MAX_FAVORITAS) {
+                    showToast(t('bal_max_favs', { n: CW_MAX_FAVORITAS }), 'error');
+                    return;
+                }
                 optionsList[indexToToggle].isFavorite = !optionsList[indexToToggle].isFavorite;
                 saveNetworks();
                 renderNetworksList();
                 renderTokenMenu();
+                if (document.getElementById('balancesView')?.classList.contains('active')) cwPintarBalances();
             }
 
             function handleEditNetworkTrigger(e) {
@@ -19830,6 +20248,24 @@
                     "settings_open_on_last_paid_desc": "Al abrir la wallet ves la red, el token y el saldo donde te pagaron la última vez.",
                     "settings_hide_balance": "Ocultar el saldo",
                     "settings_hide_balance_desc": "Muestra •••• en vez del monto. También se prende y apaga con el ojo, al lado del saldo.",
+                    "nav_balances": "Balances",
+                    "bal_title": "Tus balances",
+                    "bal_total": "Total",
+                    "bal_hint": "Se muestran tus favoritas (hasta 6).",
+                    "bal_hint_default": "Todavía no marcaste favoritas: se muestran las redes principales.",
+                    "bal_hint_extra": "Se muestran las primeras 6 favoritas ({n} quedan afuera).",
+                    "bal_manage": "Elegilas con ★",
+                    "bal_loading": "Leyendo saldos y precios…",
+                    "bal_no_rpc": "La red no respondió",
+                    "bal_testnet": "testnet",
+                    "bal_no_price": "sin cotización",
+                    "bal_no_prices": "No se pudieron leer los precios. Revisá la conexión y refrescá.",
+                    "bal_price_live": "Precios de Chainlink (y P2P.me para el peso), leídos de la cadena.",
+                    "bal_price_age": "Precios de hace {m} min (sin conexión).",
+                    "bal_some_failed": "{n} red(es) sin respuesta",
+                    "bal_max_favs": "Podés tener hasta {n} favoritas. Quitá una para marcar otra.",
+                    "settings_currency": "Moneda para ver el valor",
+                    "settings_currency_desc": "En qué mostrar tu saldo y el total de Balances.",
                     "settings_show_balance": "Mostrar el saldo",
                     "toast_paid_on_network": "💰 Cobraste {amount} en {net}.",
                     "toast_go_to_net": "Ver",
@@ -20257,6 +20693,24 @@
                     "settings_open_on_last_paid_desc": "When you open the wallet you see the network, token and balance where you were last paid.",
                     "settings_hide_balance": "Hide the balance",
                     "settings_hide_balance_desc": "Shows •••• instead of the amount. You can also toggle it with the eye next to the balance.",
+                    "nav_balances": "Balances",
+                    "bal_title": "Your balances",
+                    "bal_total": "Total",
+                    "bal_hint": "Showing your favorites (up to 6).",
+                    "bal_hint_default": "No favorites yet: showing the main networks.",
+                    "bal_hint_extra": "Showing the first 6 favorites ({n} left out).",
+                    "bal_manage": "Pick them with ★",
+                    "bal_loading": "Reading balances and prices…",
+                    "bal_no_rpc": "Network didn't respond",
+                    "bal_testnet": "testnet",
+                    "bal_no_price": "no price",
+                    "bal_no_prices": "Couldn't read prices. Check your connection and refresh.",
+                    "bal_price_live": "Prices from Chainlink (and P2P.me for ARS), read on-chain.",
+                    "bal_price_age": "Prices from {m} min ago (offline).",
+                    "bal_some_failed": "{n} network(s) not responding",
+                    "bal_max_favs": "You can have up to {n} favorites. Remove one to add another.",
+                    "settings_currency": "Currency for values",
+                    "settings_currency_desc": "How to show your balance and the Balances total.",
                     "settings_show_balance": "Show the balance",
                     "toast_paid_on_network": "💰 You received {amount} on {net}.",
                     "toast_go_to_net": "View",
@@ -20684,6 +21138,24 @@
                     "settings_open_on_last_paid_desc": "À l'ouverture du portefeuille, vous voyez le réseau, le jeton et le solde où vous avez été payé la dernière fois.",
                     "settings_hide_balance": "Masquer le solde",
                     "settings_hide_balance_desc": "Affiche •••• au lieu du montant. L'œil à côté du solde fait la même chose.",
+                    "nav_balances": "Soldes",
+                    "bal_title": "Vos soldes",
+                    "bal_total": "Total",
+                    "bal_hint": "Vos favoris sont affichés (jusqu'à 6).",
+                    "bal_hint_default": "Pas encore de favoris : les réseaux principaux sont affichés.",
+                    "bal_hint_extra": "Les 6 premiers favoris sont affichés ({n} restent dehors).",
+                    "bal_manage": "Choisissez-les avec ★",
+                    "bal_loading": "Lecture des soldes et des prix…",
+                    "bal_no_rpc": "Le réseau n'a pas répondu",
+                    "bal_testnet": "testnet",
+                    "bal_no_price": "pas de cours",
+                    "bal_no_prices": "Impossible de lire les prix. Vérifiez la connexion et actualisez.",
+                    "bal_price_live": "Prix de Chainlink (et P2P.me pour l'ARS), lus sur la chaîne.",
+                    "bal_price_age": "Prix d'il y a {m} min (hors ligne).",
+                    "bal_some_failed": "{n} réseau(x) sans réponse",
+                    "bal_max_favs": "Vous pouvez avoir jusqu'à {n} favoris. Retirez-en un pour en ajouter un autre.",
+                    "settings_currency": "Devise d'affichage",
+                    "settings_currency_desc": "Dans quelle devise afficher votre solde et le total des Soldes.",
                     "settings_show_balance": "Afficher le solde",
                     "toast_paid_on_network": "💰 Vous avez reçu {amount} sur {net}.",
                     "toast_go_to_net": "Voir",

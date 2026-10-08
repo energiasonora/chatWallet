@@ -17,6 +17,18 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Nueva pestaña Balances** (en el lugar de Docs). Muestra cuánto tenés **en total** sumando
+  tus redes favoritas (hasta 6), cuánto hay en cada una y qué porcentaje del total es, con lo
+  que más vale arriba. Tocar una red te lleva a la billetera con esa red elegida. Si todavía no
+  marcaste favoritas, muestra las redes principales.
+- **Elegí en qué moneda ver tus saldos**: dólares, euros, pesos, ETH o BTC (por defecto,
+  dólares). Se cambia arriba en Balances o en **Configuración**, y debajo del saldo de la
+  billetera aparece lo que vale (por ejemplo, *≈ US$ 12,40*). Los precios se leen de la cadena:
+  oráculos de Chainlink y, para el peso, el dólar al que se vende USDC en P2P.me. Sin conexión
+  se muestran los últimos, con su antigüedad.
+- Ahora podés marcar **hasta 6 redes favoritas** (★).
+- La pestaña **Docs**, que no hacía nada, ya no aparece en la barra de abajo.
+
 ## 3.63 — 2026-10-08
 
 - **Recortar tu foto de perfil.** Al elegir la imagen de tu DID se abre un recortador:
