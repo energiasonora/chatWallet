@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.64 — 2026-10-08
+
 - **Nueva pestaña Balances** (en el lugar de Docs). Muestra cuánto tenés **en total** sumando
   tus redes favoritas (hasta 6), cuánto hay en cada una y qué porcentaje del total es, con lo
   que más vale arriba. Tocar una red te lleva a la billetera con esa red elegida. Si todavía no
