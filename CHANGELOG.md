@@ -17,6 +17,12 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.65 — 2026-10-08
+
+- Al **vincular una dApp** (MusicLog, Soberano Mail…) ahora le llega tu perfil: tu alias y tu
+  avatar, firmados con tu wallet. Así la dApp muestra tu foto en vez de un círculo de colores.
+  El aviso de vincular lo dice antes de que aceptes.
+
 ## 3.64 — 2026-10-08
 
 - **Nueva pestaña Balances** (en el lugar de Docs). Muestra cuánto tenés **en total** sumando
