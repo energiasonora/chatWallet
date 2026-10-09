@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.68 — 2026-10-09
+
 - **La ficha del QR de pago argentino se rehízo** (la que aparece al escanear el QR de un
   comercio):
   - Arriba de todo dice si se puede pagar desde ChatWallet. Todavía no se puede: te muestra
