@@ -1368,6 +1368,11 @@
             padding-top: var(--safe-top);
         }
 
+        /* Avisos de estado dentro de un modal (ficha del QR de pago). Traen sus propios colores
+           en los dos temas: con utilidades sueltas de Tailwind el ámbar claro sobre blanco no se lee. */
+        .cw-aviso-ambar { background-color: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.45); color: #fcd34d; }
+        .cw-aviso-rojo { background-color: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.45); color: #fca5a5; }
+
         /* ═══════════ TEMA CLARO ═══════════
            Activado con body.theme-light (toggle en el modal de marca, persistido en
            localStorage 'chatwallet_theme'). Nació para que el QR escanee fácil:
@@ -1384,6 +1389,13 @@
         body.theme-light .bg-gray-700 { background-color: #e5e7eb !important; }
         body.theme-light .bg-gray-900\/30 { background-color: rgba(229, 231, 235, 0.65) !important; }
         body.theme-light .bg-gray-900\/50 { background-color: #f9fafb !important; }
+        /* Faltaba: las cajas de la ficha del QR de pago quedaban gris oscuro translúcido sobre
+           blanco, con letra gris encima (casi ilegible, captura del 8/10/2026). */
+        body.theme-light .bg-gray-900\/60 { background-color: #f3f4f6 !important; }
+        /* emerald-400 sobre gris claro da ~1,9:1: el costo en USDC de la ficha casi no se leía. */
+        body.theme-light .text-emerald-400 { color: #047857 !important; }
+        body.theme-light .cw-aviso-ambar { background-color: #fffbeb; border-color: #f59e0b; color: #92400e; }
+        body.theme-light .cw-aviso-rojo { background-color: #fef2f2; border-color: #ef4444; color: #991b1b; }
         body.theme-light .bg-gray-800\/50 { background-color: #f9fafb !important; }
         body.theme-light .bg-gray-700\/50 { background-color: #f3f4f6 !important; }
         /* indigo-400 nació para leerse sobre fondo oscuro: sobre blanco da ~3:1, por debajo del
@@ -3631,9 +3643,12 @@
              pagarlo con USDC es la etapa siguiente, y llega como plugin. Reconocerlo ya vale la
              pena: hasta acá, escanear el QR de un kiosco contestaba "QR no reconocido" y ahí
              moría. La bandera y el esquema los llena handleIncomingPaymentQr según el país. -->
+        <!-- 90dvh y no 90vh: en el WebView `vh` no se achica al abrir el teclado, el modal quedaba
+             más alto que lo visible y el título se iba para arriba (captura del 8/10/2026, carnicería).
+             El encabezado es sticky para que siga a la vista mientras se tipea el monto. -->
         <div id="payQrModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center p-4 z-[70]">
-            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4 max-h-[90vh] overflow-y-auto">
-                <div class="flex justify-between items-start gap-2">
+            <div class="bg-gray-800 rounded-xl px-6 pb-6 w-full max-w-sm space-y-4 max-h-[90dvh] overflow-y-auto">
+                <div class="sticky top-0 z-10 bg-gray-800 pt-6 pb-1 flex justify-between items-start gap-2">
                     <div class="min-w-0">
                         <h3 class="text-lg font-bold flex items-center gap-2">
                             <span id="payQrFlag">🏳️</span><span data-i18n-key="pay_qr_title">QR de pago</span>
@@ -3642,6 +3657,9 @@
                     </div>
                     <button id="closePayQr" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 </div>
+                <!-- Lo primero que hay que saber, ANTES de tipear nada: si se puede pagar desde acá.
+                     Antes vivía en la última línea, debajo del teclado. -->
+                <p id="payQrStatus" class="hidden rounded-lg p-3 text-sm"></p>
                 <div class="bg-gray-900/60 rounded-lg p-4 space-y-1">
                     <p class="text-xs text-gray-400" data-i18n-key="ars_qr_merchant">Comercio</p>
                     <p id="payQrMerchant" class="text-base font-semibold break-words">—</p>
@@ -3656,9 +3674,16 @@
                         placeholder="$ 0">
                 </div>
                 <div id="payQrCostRow" class="bg-gray-900/60 rounded-lg p-4 space-y-1 hidden">
-                    <p class="text-xs text-gray-400" data-i18n-key="pay_qr_cost">Te sale</p>
+                    <p class="text-xs text-gray-400" data-i18n-key="pay_qr_cost">Equivale a</p>
                     <p id="payQrCost" class="text-2xl font-bold text-emerald-400">—</p>
                     <p id="payQrRate" class="text-xs text-gray-400"></p>
+                </div>
+                <!-- Con qué se paga y cuánto tenés ahí: sin esto no había forma de saber si te
+                     alcanzaba, ni en qué red ni con qué token. -->
+                <div id="payQrWithRow" class="bg-gray-900/60 rounded-lg p-4 space-y-1 hidden">
+                    <p class="text-xs text-gray-400" data-i18n-key="pay_qr_with">Se pagaría con</p>
+                    <p class="text-base font-semibold" data-i18n-key="pay_qr_with_value">USDC en la red Base</p>
+                    <p id="payQrBalance" class="text-xs text-gray-400"></p>
                 </div>
                 <p id="payQrNote" class="text-xs text-gray-400"></p>
                 <button type="button" id="payQrOk"
@@ -16594,15 +16619,39 @@
             }
             window.cwLeerMontoFiat = cwLeerMontoFiat;
 
+            // USDC nativo de Circle en Base: el que usa el Diamond de P2P.me (ver CW_P2P_DIAMOND).
+            const CW_P2P_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+
             function pintarCostoPayQr() {
-                const { info, precio, monto } = cwPayQrEstado;
+                const { info, precio, monto, saldo } = cwPayQrEstado;
                 const elCosto = document.getElementById('payQrCost');
                 if (!elCosto || !precio || !info) return;
-                if (monto === null) { elCosto.textContent = '—'; return; }
-                const usdc = monto / precio.venta;
-                const d = usdc < 1 ? 4 : 2;
-                elCosto.textContent = usdc.toLocaleString(info.locale,
-                    { minimumFractionDigits: d, maximumFractionDigits: d }) + ' USDC';
+                const fmt = (v) => { const d = v < 1 ? 4 : 2; return v.toLocaleString(info.locale, { minimumFractionDigits: d, maximumFractionDigits: d }); };
+                const usdc = monto === null ? null : monto / precio.venta;
+                if (usdc === null) {
+                    // Un guion verde no le decía nada a nadie: se dice qué hacer.
+                    elCosto.textContent = t('pay_qr_cost_hint');
+                    elCosto.className = 'text-sm text-gray-400';
+                } else {
+                    elCosto.textContent = fmt(usdc) + ' USDC';
+                    elCosto.className = 'text-2xl font-bold text-emerald-400';
+                }
+                // Saldo: cuánto tenés en Base y, con monto, si te alcanza.
+                const elSaldo = document.getElementById('payQrBalance');
+                if (!elSaldo) return;
+                if (saldo === 'sin') { elSaldo.textContent = ''; return; }
+                if (saldo === undefined) { elSaldo.textContent = t('pay_qr_balance_loading'); elSaldo.className = 'text-xs text-gray-400'; return; }
+                if (saldo === null) { elSaldo.textContent = t('pay_qr_balance_fail'); elSaldo.className = 'text-xs text-gray-400'; return; }
+                const falta = usdc !== null && usdc > saldo ? usdc - saldo : 0;
+                elSaldo.textContent = t('pay_qr_balance', { n: fmt(saldo) }) + (falta ? ' · ' + t('pay_qr_balance_short', { n: fmt(falta) }) : '');
+                elSaldo.className = 'text-xs ' + (falta ? 'text-red-400' : 'text-gray-400');
+            }
+
+            function cwPayQrAviso(texto, tipo) {
+                const el = document.getElementById('payQrStatus');
+                if (!el) return;
+                el.textContent = texto || '';
+                el.className = texto ? `rounded-lg p-3 text-sm ${tipo === 'rojo' ? 'cw-aviso-rojo' : 'cw-aviso-ambar'}` : 'hidden';
             }
 
             document.getElementById('payQrAmountInput')?.addEventListener('input', e => {
@@ -16628,10 +16677,10 @@
                     if (el('payQrMerchant')) el('payQrMerchant').textContent = '—';
                     if (el('payQrAmount')) el('payQrAmount').textContent = '—';
                     if (el('payQrCostRow')) el('payQrCostRow').classList.add('hidden');
-                    if (el('payQrNote')) {
-                        el('payQrNote').textContent = t('pay_qr_soon', { pais: info.pais, esquema: info.esquema });
-                        el('payQrNote').className = 'text-xs text-amber-400';
-                    }
+                    if (el('payQrWithRow')) el('payQrWithRow').classList.add('hidden');
+                    if (el('payQrAmountInput')) el('payQrAmountInput').classList.add('hidden');
+                    cwPayQrAviso(t('pay_qr_soon', { pais: info.pais, esquema: info.esquema }), 'ambar');
+                    if (el('payQrNote')) { el('payQrNote').textContent = ''; el('payQrNote').className = 'hidden'; }
                     abrir();
                     return;
                 }
@@ -16646,7 +16695,19 @@
                 const n = Number(rawAmount);
                 const montoFiat = (rawAmount && Number.isFinite(n) && n > 0) ? n : null;
                 const gen = ++cwPayQrGen;
-                cwPayQrEstado = { gen, info, precio: null, monto: montoFiat };
+                // saldo: undefined = leyendo · null = no se pudo · 'sin' = no hay wallet que mirar
+                cwPayQrEstado = { gen, info, precio: null, monto: montoFiat, saldo: currentWallet ? undefined : 'sin' };
+                // Arriba de todo, antes de tipear: ¿se puede pagar desde acá? (y si el QR es sano)
+                cwPayQrAviso(valido ? t('pay_qr_status_soon') : t('ars_qr_bad_note'), valido ? 'ambar' : 'rojo');
+                // Con qué se paga y cuánto tenés ahí. No bloquea la ficha.
+                const filaCon = el('payQrWithRow');
+                if (filaCon) filaCon.classList.toggle('hidden', !valido);
+                if (valido && currentWallet) {
+                    const usdcBase = { TOKEN_CHAINID: '8453', API: CW_P2P_RPC, TOKEN_ADDRESS: CW_P2P_USDC, DECIMALS: 6 };
+                    cwSaldoDe(usdcBase, currentWallet.address)
+                        .then(v => { if (gen === cwPayQrGen) { cwPayQrEstado.saldo = v; pintarCostoPayQr(); } })
+                        .catch(() => { if (gen === cwPayQrGen) { cwPayQrEstado.saldo = null; pintarCostoPayQr(); } });
+                }
                 const entrada = el('payQrAmountInput');
                 if (el('payQrAmount')) {
                     let txt = t('ars_qr_open_amount');
@@ -16694,9 +16755,10 @@
                     }
                     filaCosto.classList.remove('hidden');
                 });
+                // Al pie queda sólo el dato técnico: el estado ya se dijo arriba.
                 if (el('payQrNote')) {
-                    el('payQrNote').textContent = valido ? t('ars_qr_ok_note') : t('ars_qr_bad_note');
-                    el('payQrNote').className = 'text-xs ' + (valido ? 'text-gray-400' : 'text-red-400');
+                    el('payQrNote').textContent = valido ? t('ars_qr_ok_note') : '';
+                    el('payQrNote').className = valido ? 'text-xs text-gray-500' : 'hidden';
                 }
                 abrir();
             }
@@ -20316,10 +20378,18 @@
                     "embebido_copiar": "Copiar el link",
                     "embebido_copiado": "Copiado: pegalo en Chrome o Safari.",
                     "embebido_seguir": "Seguir acá igual",
-                    "ars_qr_ok_note": "QR válido de Transferencias 3.0. Por ahora ChatWallet lo reconoce y te lo muestra; pagarlo con USDC todavía no está disponible.",
+                    "ars_qr_ok_note": "QR válido de Transferencias 3.0.",
                     "ars_qr_bad_note": "Este QR dice ser argentino pero el código de verificación no cierra. Puede estar dañado o mal fotografiado.",
-                    "pay_qr_cost": "Te sale",
-                    "pay_qr_rate": "1 USDC = {precio} {moneda} · spread del protocolo {spread} %",
+                    "pay_qr_cost": "Equivale a",
+                    "pay_qr_status_soon": "Todavía no se puede pagar este QR desde ChatWallet. Te mostramos cuánto sería en USDC y si te alcanza.",
+                    "pay_qr_cost_hint": "Poné el monto arriba para ver cuántos USDC son.",
+                    "pay_qr_with": "Se pagaría con",
+                    "pay_qr_with_value": "USDC en la red Base",
+                    "pay_qr_balance": "Tenés {n} USDC en Base",
+                    "pay_qr_balance_short": "te faltan {n} USDC",
+                    "pay_qr_balance_loading": "Leyendo tu saldo en Base…",
+                    "pay_qr_balance_fail": "No se pudo leer tu saldo en Base.",
+                    "pay_qr_rate": "1 USDC = {precio} {moneda} · spread del protocolo {spread} %",
                     "pay_qr_rate_old": "cotización de hace {min} min",
                     "pay_qr_rate_fail": "No pude traer la cotización ahora.",
                     "chat_greeting_qr": "👋 Contacto iniciado escaneando el QR.",
@@ -20768,10 +20838,18 @@
                     "embebido_copiar": "Copy the link",
                     "embebido_copiado": "Copied: paste it in Chrome or Safari.",
                     "embebido_seguir": "Stay here anyway",
-                    "ars_qr_ok_note": "Valid Transferencias 3.0 QR. For now ChatWallet recognises it and shows it to you; paying it with USDC is not available yet.",
+                    "ars_qr_ok_note": "Valid Transferencias 3.0 QR.",
                     "ars_qr_bad_note": "This QR claims to be Argentine but its checksum does not match. It may be damaged or badly photographed.",
-                    "pay_qr_cost": "You pay",
-                    "pay_qr_rate": "1 USDC = {precio} {moneda} · protocol spread {spread} %",
+                    "pay_qr_cost": "Equals",
+                    "pay_qr_status_soon": "This QR can't be paid from ChatWallet yet. We show you how much it would be in USDC and whether you have enough.",
+                    "pay_qr_cost_hint": "Enter the amount above to see how many USDC it is.",
+                    "pay_qr_with": "It would be paid with",
+                    "pay_qr_with_value": "USDC on the Base network",
+                    "pay_qr_balance": "You have {n} USDC on Base",
+                    "pay_qr_balance_short": "you're {n} USDC short",
+                    "pay_qr_balance_loading": "Reading your balance on Base…",
+                    "pay_qr_balance_fail": "Couldn't read your balance on Base.",
+                    "pay_qr_rate": "1 USDC = {precio} {moneda} · protocol spread {spread} %",
                     "pay_qr_rate_old": "quote is {min} min old",
                     "pay_qr_rate_fail": "Could not fetch the quote right now.",
                     "chat_greeting_qr": "👋 Contact started by scanning the QR.",
@@ -21220,10 +21298,18 @@
                     "embebido_copiar": "Copier le lien",
                     "embebido_copiado": "Copié : colle-le dans Chrome ou Safari.",
                     "embebido_seguir": "Rester ici quand même",
-                    "ars_qr_ok_note": "QR Transferencias 3.0 valide. Pour l'instant ChatWallet le reconnaît et te l'affiche ; le payer en USDC n'est pas encore disponible.",
+                    "ars_qr_ok_note": "QR Transferencias 3.0 valide.",
                     "ars_qr_bad_note": "Ce QR se présente comme argentin mais sa somme de contrôle ne correspond pas. Il est peut-être abîmé ou mal photographié.",
-                    "pay_qr_cost": "Ça te coûte",
-                    "pay_qr_rate": "1 USDC = {precio} {moneda} · spread du protocole {spread} %",
+                    "pay_qr_cost": "Équivaut à",
+                    "pay_qr_status_soon": "Ce QR ne peut pas encore être payé depuis ChatWallet. Nous te montrons combien ce serait en USDC et si tu as assez.",
+                    "pay_qr_cost_hint": "Saisis le montant ci-dessus pour voir combien d'USDC cela fait.",
+                    "pay_qr_with": "Se paierait avec",
+                    "pay_qr_with_value": "USDC sur le réseau Base",
+                    "pay_qr_balance": "Tu as {n} USDC sur Base",
+                    "pay_qr_balance_short": "il te manque {n} USDC",
+                    "pay_qr_balance_loading": "Lecture de ton solde sur Base…",
+                    "pay_qr_balance_fail": "Impossible de lire ton solde sur Base.",
+                    "pay_qr_rate": "1 USDC = {precio} {moneda} · spread du protocole {spread} %",
                     "pay_qr_rate_old": "cotation d'il y a {min} min",
                     "pay_qr_rate_fail": "Impossible de récupérer la cotation pour le moment.",
                     "chat_greeting_qr": "👋 Contact démarré en scannant le QR.",

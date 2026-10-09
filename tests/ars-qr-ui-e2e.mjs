@@ -137,9 +137,15 @@ const leerFicha = `(() => {
         abierto: !!m && !m.classList.contains('hidden'),
         comercio: (document.getElementById('payQrMerchant') || {}).textContent,
         monto: (document.getElementById('payQrAmount') || {}).textContent,
-        nota: (document.getElementById('payQrNote') || {}).textContent,
-        notaRoja: ((document.getElementById('payQrNote') || {}).className || '').includes('text-red'),
-        notaAmbar: ((document.getElementById('payQrNote') || {}).className || '').includes('text-amber'),
+        // El estado (se puede pagar / QR dañado / falta el plugin) va ARRIBA, en #payQrStatus.
+        nota: (document.getElementById('payQrStatus') || {}).textContent,
+        notaRoja: ((document.getElementById('payQrStatus') || {}).className || '').includes('cw-aviso-rojo'),
+        notaAmbar: ((document.getElementById('payQrStatus') || {}).className || '').includes('cw-aviso-ambar'),
+        conVisible: !!document.getElementById('payQrWithRow') &&
+            !document.getElementById('payQrWithRow').classList.contains('hidden'),
+        con: (document.getElementById('payQrWithRow') || {}).innerText,
+        saldo: (document.getElementById('payQrBalance') || {}).textContent,
+        saldoRojo: ((document.getElementById('payQrBalance') || {}).className || '').includes('text-red'),
         esquema: (document.getElementById('payQrScheme') || {}).textContent,
         costoVisible: !!document.getElementById('payQrCostRow') &&
             !document.getElementById('payQrCostRow').classList.contains('hidden'),
@@ -224,10 +230,18 @@ try {
     }
     {
         // Sin monto en el QR no hay cuenta que hacer, pero la cotización sigue sirviendo.
+        // Una wallet (sólo la dirección) para que la ficha lea el saldo de USDC en Base.
+        await dev.eval(`currentWallet = { address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' }`);
         await dev.eval(`window.handleScannedData(${JSON.stringify(armarQr({ comercio: 'FERRETERIA' }))})`);
         await sleep(1200);
         const f = await dev.eval(leerFicha);
-        check('con monto abierto no inventa un costo', (f.costo || '').trim() === '—', f.costo);
+        check('con monto abierto no inventa un costo: dice qué hacer', /Poné el monto/.test(f.costo || ''), f.costo);
+        check('avisa arriba que todavía no se puede pagar', f.notaAmbar && /Todavía no se puede pagar/.test(f.nota || ''), f.nota);
+        check('dice con qué se pagaría: USDC en Base', f.conVisible && /USDC en la red Base/.test(f.con || ''), f.con);
+        // El RPC falso contesta cualquier eth_call con la tupla del precio: balanceOf lee la
+        // primera palabra (1.601,87). Alcanza para probar el cableado, no el número.
+        const saldo = await (async () => { for (let i = 0; i < 10; i++) { const x = (await dev.eval(leerFicha)).saldo; if (/Tenés/.test(x || '')) return x; await sleep(300); } return ''; })();
+        check('muestra tu saldo de USDC en Base', /Tenés 1\.601,87 USDC en Base/.test(saldo), saldo);
         check('pero igual muestra la cotización', /1\.554,53/.test(f.tasa || ''), f.tasa);
         // En un QR estático el monto lo pone quien paga: tiene que haber dónde tipearlo, y la
         // cuenta en USDC se rehace al vuelo con la misma cotización.
@@ -240,8 +254,11 @@ try {
             const c = (await dev.eval(leerFicha)).costo;
             check(`"${v}" pesos salen 3,22 USDC`, /3,22\s*USDC/.test(c || ''), c);
         }
+        await tipear('5.000.000');
+        const f2 = await dev.eval(leerFicha);
+        check('si no alcanza, dice cuánto falta y en rojo', f2.saldoRojo && /te faltan 1\.614,54 USDC/.test(f2.saldo || ''), f2.saldo);
         await tipear('');
-        check('borrar el monto vuelve a "—"', ((await dev.eval(leerFicha)).costo || '').trim() === '—');
+        check('borrar el monto vuelve a la indicación', /Poné el monto/.test((await dev.eval(leerFicha)).costo || ''));
         await cerrar();
         await dev.eval(`window.handleScannedData(${JSON.stringify(armarQr({ comercio: 'KIOSCO', monto: '100.00' }))})`);
         await sleep(400);
@@ -252,7 +269,9 @@ try {
         // País sin plugin: no corresponde mostrar precio de nada.
         await dev.eval(`window.handleScannedData(${JSON.stringify(armarQr({ pais: 'PE', moneda: '604', comercio: 'BODEGA' }))})`);
         await sleep(900);
-        check('sin plugin no se muestra costo', !(await dev.eval(leerFicha)).costoVisible);
+        const fp = await dev.eval(leerFicha);
+        check('sin plugin no se muestra costo', !fp.costoVisible);
+        check('ni con qué se pagaría', !fp.conVisible);
         await cerrar();
     }
 

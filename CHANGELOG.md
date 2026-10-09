@@ -17,6 +17,16 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **La ficha del QR de pago argentino se rehízo** (la que aparece al escanear el QR de un
+  comercio):
+  - Arriba de todo dice si se puede pagar desde ChatWallet. Todavía no se puede: te muestra
+    cuánto sería en USDC y si te alcanza. Antes eso estaba en la última línea, tapado por el
+    teclado.
+  - Dice **con qué se pagaría (USDC en la red Base)** y **cuánto USDC tenés ahí**. Si no te
+    alcanza, te dice cuánto te falta.
+  - En **tema claro** ahora se lee: las cajas eran grises con letra gris encima.
+  - Al tipear el monto, el título ya no se va para arriba de la pantalla.
+
 ## 3.67 — 2026-10-09
 
 - Se fue la línea **"SmartWallet: 0.00 CWLT"** de debajo del saldo. Mostraba un token que
