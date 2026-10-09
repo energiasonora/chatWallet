@@ -4570,6 +4570,15 @@
                 "CHATWALLET_DID_ADDRESS": "0x4ccA3288A4319c9c44e8797087F8776A863342F5",
             }
 
+            // SmartWallet (cuenta inteligente + relayer sin gas, saldo CWLT): APAGADA (v3.67).
+            // Mostraba "SmartWallet: 0.00 CWLT" en todas las redes (el supply en mainnet es 0
+            // hasta que abra el reclamo de la preventa), leía ese saldo en cada refresco y, al
+            // abrir la wallet, pedía `${API_BASE}/api/smart/account/…` — API_BASE es el
+            // localhost:3000 del server de desarrollo: en la máquina de cada usuario eso es SU
+            // localhost (falla, y si algo escucha ahí le llega la dirección). Lo único que la
+            // usaba era comprar cuota de Docs, que también está oculto. Reversible: poner true.
+            const SMART_ENABLED = false;
+
             const defaultNetworks = [
                 {
                     "TOKEN_CHAIN_NAME": "Sepolia",
@@ -5698,7 +5707,7 @@
                 // Obtener dirección de Smart Account vinculada — NO bloqueante y con timeout.
                 // Antes era `await` antes de mostrar la wallet: si API_BASE (localhost:3000) no
                 // respondía, la carga/restauración quedaba colgada. La wallet no debe depender de esto.
-                (async () => {
+                if (SMART_ENABLED) (async () => {
                     try {
                         const ctrl = new AbortController();
                         const to = setTimeout(() => ctrl.abort(), 4000);
@@ -6333,7 +6342,7 @@
                 renderStealthBalance().catch(e => console.warn('[stealth] fila:', e));
 
                 // Actualizar el saldo del Smart Wallet (ChatWallet Token)
-                if (generalOptions.CHATWALLET_TOKEN_ADDRESS && ethers.isAddress(generalOptions.CHATWALLET_TOKEN_ADDRESS)) {
+                if (SMART_ENABLED && generalOptions.CHATWALLET_TOKEN_ADDRESS && ethers.isAddress(generalOptions.CHATWALLET_TOKEN_ADDRESS)) {
                     document.getElementById('smartWalletBalanceDisplay').classList.remove('hidden');
                     try {
                         // a1 =generalOptions.CHATWALLET_TOKEN_ADDRESS

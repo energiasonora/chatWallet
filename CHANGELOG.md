@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- Se fue la línea **"SmartWallet: 0.00 CWLT"** de debajo del saldo. Mostraba un token que
+  todavía nadie puede tener y hacía consultas de red de más en cada refresco.
+- La app ya no intenta conectarse a un servicio de desarrollo en **tu propia computadora o
+  teléfono** (`localhost`) al abrir la billetera. Fallaba siempre y no tenía por qué pasar.
+
 ## 3.66 — 2026-10-09
 
 - **Balances ahora muestra todas tus redes**, no sólo 6 favoritas. Arriba va lo que tiene
