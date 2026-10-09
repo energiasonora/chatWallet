@@ -1,4 +1,4 @@
-// Pestaña Balances + valor en la moneda elegida debajo del saldo. Un Chrome headless, red real
+// Pestaña Balances (todas las redes, una llamada por red, filas ocultables) + valor en la moneda elegida debajo del saldo. Un Chrome headless, red real
 // (RPC públicos + Chainlink en Base + P2P.me), sin XMTP.
 // Para ver números distintos de cero, la lectura se apunta a una dirección pública con fondos
 // (vitalik.eth): sólo se LEEN saldos, no se firma nada.
@@ -47,8 +47,16 @@ async function pollFor(expr, tries = 40, delay = 500) {
     for (let i = 0; i < tries; i++) { try { const v = await ev(expr); if (v) return v; } catch { } await sleep(delay); }
     return false;
 }
-// Listo = total pintado Y filas reales (no el esqueleto): el total solo puede ser de la pasada anterior.
-const listo = `(() => { const t = document.getElementById('balTotal').textContent; return t !== '…' && document.querySelector('#balList .bal-row') && t; })()`;
+// Listo = la pasada terminó: total pintado y la nota ya no dice "Actualizando…" (lo pintado
+// antes sale de lo guardado y puede ser de la pasada anterior).
+const listo = `(() => {
+    const t = document.getElementById('balTotal').textContent;
+    const n = document.getElementById('balTotalNote').textContent;
+    return t !== '…' && !/Actualizando|Leyendo/.test(n) && t;
+})()`;
+const pliegues = `[...document.querySelectorAll('#balList .bal-fold')].map(b => b.innerText.replace(/\\s+/g, ' ').trim())`;
+// Filas de la sección principal (las que no están dentro de un pliegue).
+const principales = `[...document.querySelectorAll('#balList > .bal-row')].map(b => b.innerText.replace(/\\s+/g, ' ').trim())`;
 const filas = `[...document.querySelectorAll('#balList .bal-row')].map(b => b.innerText.replace(/\\s+/g, ' ').trim())`;
 
 try {
@@ -80,25 +88,51 @@ try {
     // Se mira lo que SE VE (getComputedStyle), no la clase: Docs tenía .hidden y se veía igual.
     check('barra: Wallet, Historial, Balances', JSON.stringify(nav) === JSON.stringify(['walletView', 'historyView', 'balancesView']), JSON.stringify(nav));
 
-    // ── Wallet nueva, sin favoritas: muestra las redes principales, total 0 ──
+    // ── Wallet nueva, todo en cero: nada arriba, todo plegado abajo ──
     await ev(`document.getElementById('balancesNavBtn').click()`);
     check('abre la vista', await ev(`document.getElementById('balancesView').classList.contains('active')`) === true);
     const t0 = await pollFor(listo, 60);
-    const f0 = await ev(filas);
-    check('sin favoritas: 6 redes principales, sin testnets', f0.length > 0 && f0.length <= 6 && !f0.some(f => /Sepolia/.test(f)), f0.length + ' filas');
-    check('total en USD por defecto', /US\$|\$/.test(t0), t0);
-    check('aviso de "sin favoritas"', /favoritas/.test(await ev(`document.getElementById('balHint').textContent`)));
+    const p0 = await ev(pliegues);
+    check('wallet vacía: sin filas arriba, con el aviso', (await ev(principales)).length === 0 && /No tenés saldo/.test(await ev(`document.getElementById('balList').innerText`)));
+    check('las vacías y las testnets, plegadas', p0.some(p => /Sin saldo \(\d+\)/.test(p)) && p0.some(p => /Testnets \(3\)/.test(p)), JSON.stringify(p0));
+    check('total en USD por defecto', /US\$/.test(t0), t0);
+    // Una llamada por red: las 10 entradas por defecto son 6 redes distintas.
+    check('lee todas las redes de la lista', (await ev(`[...cwRedesAgrupadas().values()].flat().length`)) === (await ev(`optionsList.filter(n => n.API).length`)));
 
     // ── Con fondos (lectura de una dirección pública) ──
     await ev(`currentWallet = { ...currentWallet, address: ${JSON.stringify(RICO)} }`);
     await ev(`cwPintarBalances(true)`);
     const t1 = await pollFor(listo, 60);
     const f1 = await ev(filas);
-    console.log('   total:', t1); f1.forEach(f => console.log('   ·', f));
+    console.log('   total:', t1); (await ev(principales)).forEach(f => console.log('   ·', f));
     check('total con fondos > 0', /[1-9]/.test(t1), t1);
-    // Sin favoritas son 7 principales para 6 lugares: si una no responde no puede irse muda.
-    check('USDC on Base aparece (el RPC de repuesto cubre las ráfagas)', f1.some(f => /USDC on Base/.test(f)));
-    check('ordenado por valor (la primera tiene el %)', /%/.test(f1[0] || ''));
+    const p1 = await ev(principales);
+    check('las 7 redes con saldo, arriba (ya no hay tope de 6)', p1.length === 7, p1.length + ' filas');
+    check('USDC on Base e Hyperliquid incluidas', p1.some(f => /USDC on Base/.test(f)) && p1.some(f => /Hyperliquid/.test(f)));
+    check('ordenado por valor (la primera tiene el %)', /%/.test(p1[0] || '') && /^Base /.test(p1[0] || ''), p1[0]);
+
+    // ── Ocultar una fila: deja de sumar, pasa a Ocultas, y vuelve ──
+    const totalAntes = await ev(`document.getElementById('balTotal').textContent`);
+    const claveBase = await ev(`cwClaveFila(optionsList.find(n => n.TOKEN_CHAIN_NAME === 'Base'))`);
+    await ev(`document.querySelector('#balList > .bal-row .bal-hide[data-key="${claveBase}"]').click()`);
+    await sleep(300);
+    const totalSinBase = await ev(`document.getElementById('balTotal').textContent`);
+    check('ocultar Base baja el total', totalSinBase !== totalAntes && !(await ev(principales)).some(f => /^Base /.test(f)), `${totalAntes} → ${totalSinBase}`);
+    check('y aparece en Ocultas (1)', (await ev(pliegues)).some(p => /Ocultas \(1\)/.test(p)));
+    check('el ojo no cambió de pantalla', await ev(`document.getElementById('balancesView').classList.contains('active')`) === true);
+    check('se recuerda', (await ev(`localStorage.getItem(CW_BAL_OCULTAS_KEY())`)).includes(claveBase));
+    await ev(`[...document.querySelectorAll('#balList .bal-fold')].find(b => /Ocultas/.test(b.innerText)).click()`);
+    await ev(`document.querySelector('#balList .bal-hide[data-key="${claveBase}"]').click()`);
+    await sleep(300);
+    check('volver a mostrarla restaura el total', await ev(`document.getElementById('balTotal').textContent`) === totalAntes);
+
+    // ── Abre al instante con lo guardado ──
+    await ev(`void cwPintarBalances()`);   // sin esperar: lo que importa es lo que se ve ANTES de la red
+    await sleep(50);
+    const inmediato = await ev(`document.getElementById('balTotal').textContent`);
+    const notaInm = await ev(`document.getElementById('balTotalNote').textContent`);
+    check('al reabrir: total al instante, desde lo guardado', /[1-9]/.test(inmediato) && /Actualizando/.test(notaInm), `${inmediato} | ${notaInm}`);
+    await pollFor(listo, 60);
     check('nota de precios', /Chainlink/.test(await ev(`document.getElementById('balTotalNote').textContent`)));
 
     const precios = await ev(`cwPreciosUsd()`);
@@ -123,8 +157,8 @@ try {
     // ── Valor debajo del saldo principal: tocar USDC on Base lleva a la wallet ──
     await ev(`(() => { const s = document.getElementById('balCurrency'); s.value = 'ARS'; s.dispatchEvent(new Event('change')); })()`);
     await pollFor(listo, 60);
-    const primera = await ev(`document.querySelector('#balList .bal-row').dataset.netIndex`);
-    await ev(`document.querySelector('#balList .bal-row').click()`);
+    const primera = await ev(`document.querySelector('#balList > .bal-row').dataset.netIndex`);
+    await ev(`document.querySelector('#balList > .bal-row p').click()`);
     check('tocar una fila vuelve a la wallet', await pollFor(`document.getElementById('walletView').classList.contains('active')`) === true);
     const fiat = await pollFor(`(() => { const t = document.getElementById('balanceFiat').textContent; return /ARS/.test(t) && t; })()`, 40);
     console.log('   saldo:', await ev(`document.getElementById('balanceDisplay').textContent`), '|', fiat);
@@ -139,15 +173,14 @@ try {
         fs.writeFileSync(process.env.SHOT, Buffer.from(shot.result.data, 'base64'));
         console.log('   captura →', process.env.SHOT);
     }
-    // ── Tope de 6 favoritas ──
+    // ── Las favoritas ya no tienen tope ──
     const r = await ev(`(() => {
         optionsList.forEach(n => n.isFavorite = false);
         const btn = i => ({ stopPropagation() {}, currentTarget: { dataset: { index: String(i) } } });
         for (let i = 0; i < optionsList.length; i++) toggleFavorite(btn(i));
-        return optionsList.filter(n => n.isFavorite).length;
+        return optionsList.filter(n => n.isFavorite).length === optionsList.length;
     })()`);
-    check('no deja marcar más de 6 favoritas', r === 6, r + ' favoritas de ' + await ev(`optionsList.length`));
-
+    check('se pueden marcar todas las favoritas', r === true);
     const nuestros = errores.filter(e => /cw[A-Z]|balances|Balance/i.test(e));
     check('sin excepciones de este código', nuestros.length === 0, nuestros.join(' | ').slice(0, 300));
 } catch (e) {

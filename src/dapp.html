@@ -2708,9 +2708,10 @@
                         </div>
                         <div id="balList" class="space-y-2"></div>
                         <p class="text-xs text-gray-500">
-                            <span id="balHint" data-i18n-key="bal_hint">Se muestran tus favoritas (hasta 6).</span>
+                            <span data-i18n-key="bal_hint">Se leen todas tus redes. Con el ojo ocultás una fila: deja de
+                                sumar y pasa a Ocultas.</span>
                             <button type="button" id="balManageNets" class="text-indigo-400 hover:underline"
-                                data-i18n-key="bal_manage">Elegilas con ★</button>
+                                data-i18n-key="bal_manage">Agregar redes y tokens</button>
                         </p>
                     </div>
                 </div>
@@ -6213,7 +6214,7 @@
                 const sw = document.getElementById('hideBalanceToggle');
                 if (sw) sw.checked = hidden;
                 renderBalances();
-                if (document.getElementById('balancesView')?.classList.contains('active')) cwPintarBalances();
+                if (document.getElementById('balancesView')?.classList.contains('active')) cwPintarBalances(false, { soloRepintar: true });
             }
 
             function toggleHideBalance() {
@@ -11981,10 +11982,43 @@
             // página reconstruye el cliente (y su Worker WASM) desde cero. Es seguro y silencioso: la
             // wallet se recarga sola desde localStorage al bootear (ver init(), sin PIN/unlock), y el
             // foreground service nativo (KeepAliveService) no se toca por un reload del WebView.
+            //
+            // PERO un timeout no prueba que el worker esté trabado: puede ser la RED de XMTP lenta.
+            // Medido el 9/10/2026 con una cuenta vacía: el mismo syncAll() tardó 0,3 s en una vuelta
+            // y 31 s en la siguiente, y listenForIncomingMessages() más de 40 s. Con eso el guardián
+            // recargaba la página con la app en pantalla, y la recarga traía otro resync lento: "se
+            // reinició la UX un par de veces mientras la tenía abierta". Ahora, antes de recargar, se
+            // le pregunta al worker algo LOCAL (la lista de conversaciones de la base del
+            // dispositivo, sin red). Si contesta, está vivo: no se recarga y el próximo resync
+            // reintenta. Si no contesta y la app está en pantalla, se avisa con un botón en vez de
+            // recargar de golpe; en segundo plano (el caso del APK) se recarga como antes.
             let recoveringFromWedgedXmtp = false;
-            function recoverFromWedgedXmtpStream(reason) {
+            async function recoverFromWedgedXmtpStream(reason) {
                 if (recoveringFromWedgedXmtp) return;
                 recoveringFromWedgedXmtp = true;
+                let vivo = false;
+                try {
+                    if (chatwalletxmtp) {
+                        await withTimeout(chatwalletxmtp.conversations.list(), 5000, 'sonda local XMTP');
+                        vivo = true;
+                    }
+                } catch (e) { }
+                if (vivo) {
+                    console.warn('[xmtp] la red está lenta pero el worker contesta; no se recarga:', reason);
+                    recoveringFromWedgedXmtp = false;
+                    return;
+                }
+                if (!document.hidden) {
+                    console.error('🔁 XMTP no responde (app en pantalla): se ofrece recargar:', reason);
+                    cwNotify({
+                        title: t('xmtp_colgado_titulo'), body: t('xmtp_colgado_cuerpo'),
+                        type: 'error', duration: 20000, tag: 'xmtp-colgado',
+                        onClick: () => location.reload(),
+                    });
+                    // Se puede volver a evaluar en el próximo resync (quizás se destrabó solo).
+                    setTimeout(() => { recoveringFromWedgedXmtp = false; }, 20000);
+                    return;
+                }
                 console.error('🔁 XMTP wedged, recargando para recuperar el stream:', reason);
                 location.reload();
             }
@@ -16029,9 +16063,6 @@
             // usuario. Global y no por wallet, como el idioma.
             const CW_MONEDA_KEY = 'cw-moneda';
             const CW_MONEDAS = ['USD', 'EUR', 'ARS', 'ETH', 'BTC'];
-            // Balances suma sólo las favoritas, y hasta 6: cada una es un pedido a un RPC
-            // público distinto, y una pantalla con 15 filas deja de servir para leer el total.
-            const CW_MAX_FAVORITAS = 6;
 
             function cwMoneda() {
                 try { const m = localStorage.getItem(CW_MONEDA_KEY); if (CW_MONEDAS.includes(m)) return m; } catch (e) { }
@@ -16187,20 +16218,6 @@
                 el.textContent = '≈ ' + (isBalanceHidden() ? '••••' : cwFormatoMoneda(cantidad * precios[clave] * tasa, moneda));
             }
 
-            // ── Pestaña Balances ──
-            function cwActivosDeBalances() {
-                const conIdx = optionsList.map((n, i) => ({ n, i })).filter(x => x.n && x.n.API);
-                let elegidos = conIdx.filter(x => x.n.isFavorite);
-                const porDefecto = elegidos.length === 0;
-                // Sin favoritas: las redes de verdad que trae la app, para que la pestaña no nazca
-                // vacía. Se leen todas (son 7) y cwPintarBalances se queda con las 6 que más valen.
-                if (porDefecto) {
-                    elegidos = conIdx.filter(x => isDefaultNetwork(x.n) && !CW_TESTNETS.has(String(x.n.TOKEN_CHAINID)));
-                    return { activos: elegidos, porDefecto, sobran: 0 };
-                }
-                return { activos: elegidos.slice(0, CW_MAX_FAVORITAS), porDefecto, sobran: Math.max(0, elegidos.length - CW_MAX_FAVORITAS) };
-            }
-
             const cwProvs = new Map();
             function cwProveedor(url, chainId) {
                 const k = url + '|' + chainId;
@@ -16242,92 +16259,256 @@
                 throw ultimo || new Error('sin RPC');
             }
 
+            // ── Pestaña Balances ──
+            // Se leen TODAS las redes de la lista, con UNA llamada por red: Multicall3 está en la
+            // misma dirección en todas las de la app (verificado 9/10/2026, testnets incluidas) y
+            // con getEthBalance + balanceOf trae el nativo y todos los tokens de esa red juntos.
+            // El costo crece con las redes distintas, no con los tokens. Lo que tiene saldo va
+            // arriba; lo vacío, las testnets, lo oculto y lo que no respondió, plegado abajo.
+            const CW_MC_BAL_ABI = [
+                'function aggregate3((address target, bool allowFailure, bytes callData)[] calls) view returns ((bool success, bytes returnData)[])',
+                'function getEthBalance(address addr) view returns (uint256)',
+            ];
+            const CW_ERC20_IFACE = () => new ethers.Interface([
+                'function balanceOf(address) view returns (uint256)',
+                'function decimals() view returns (uint8)',
+            ]);
+            const CW_BAL_OCULTAS_KEY = () => `cw-bal-ocultas-${currentWallet?.address?.toLowerCase()}`;
+            const CW_BAL_CACHE_KEY = () => `cw-bal-cache-${currentWallet?.address?.toLowerCase()}`;
+
+            function cwEsToken(net) { return !!(net.TOKEN_ADDRESS && ethers.isAddress(net.TOKEN_ADDRESS)); }
+            // Identidad estable de una fila (el índice de optionsList cambia al agregar/borrar redes).
+            function cwClaveFila(net) {
+                return `${net.TOKEN_CHAINID}|${cwEsToken(net) ? net.TOKEN_ADDRESS.toLowerCase() : 'nativo'}`;
+            }
+            function cwLeerJSON(k, def) { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? def; } catch (e) { return def; } }
+            function cwOcultas() { return new Set(cwLeerJSON(CW_BAL_OCULTAS_KEY(), [])); }
+            function cwAlternarOculta(clave) {
+                const s = cwOcultas();
+                if (s.has(clave)) s.delete(clave); else s.add(clave);
+                try { localStorage.setItem(CW_BAL_OCULTAS_KEY(), JSON.stringify([...s])); } catch (e) { }
+            }
+
+            // Una fila por red/token de la lista (sin duplicados), agrupadas por chainId.
+            function cwRedesAgrupadas() {
+                const vistas = new Set();
+                const porRed = new Map();
+                optionsList.forEach((n, i) => {
+                    if (!n || !n.API) return;
+                    const clave = cwClaveFila(n);
+                    if (vistas.has(clave)) return;
+                    vistas.add(clave);
+                    const id = String(n.TOKEN_CHAINID);
+                    if (!porRed.has(id)) porRed.set(id, []);
+                    porRed.get(id).push({ n, i, clave });
+                });
+                return porRed;
+            }
+
+            function cwUrlsDe(filas) {
+                const urls = [];
+                for (const { n } of filas) urls.push(n.API, ...(Array.isArray(n.rpc) ? n.rpc : []));
+                urls.push(CW_RPC_REPUESTO[String(filas[0].n.TOKEN_CHAINID)]);
+                return urls.filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 4);
+            }
+
+            // Lee todos los saldos de UNA red en una llamada. Resuelve Map(clave → cantidad).
+            // Si la red no tiene Multicall3 (una red propia rara), cae a leer de a uno.
+            async function cwSaldosDeRed(filas, addr) {
+                const erc = CW_ERC20_IFACE();
+                const mcIface = new ethers.Interface(CW_MC_BAL_ABI);
+                const llamadas = [];
+                const lectores = [];
+                for (const f of filas) {
+                    if (cwEsToken(f.n)) {
+                        llamadas.push({ target: f.n.TOKEN_ADDRESS, allowFailure: true, callData: erc.encodeFunctionData('balanceOf', [addr]) });
+                        const decConocidos = f.n.DECIMALS !== undefined && f.n.DECIMALS !== '' && Number.isFinite(Number(f.n.DECIMALS));
+                        if (!decConocidos) llamadas.push({ target: f.n.TOKEN_ADDRESS, allowFailure: true, callData: erc.encodeFunctionData('decimals') });
+                        lectores.push({ f, token: true, dec: decConocidos ? Number(f.n.DECIMALS) : null });
+                    } else {
+                        llamadas.push({ target: CW_MULTICALL3, allowFailure: true, callData: mcIface.encodeFunctionData('getEthBalance', [addr]) });
+                        lectores.push({ f, token: false });
+                    }
+                }
+                let ultimo = null;
+                for (const url of cwUrlsDe(filas)) {
+                    try {
+                        const prov = cwProveedor(url, filas[0].n.TOKEN_CHAINID);
+                        const mc = new ethers.Contract(CW_MULTICALL3, CW_MC_BAL_ABI, prov);
+                        const res = await withTimeout(mc.aggregate3(llamadas), 10000, 'saldos');
+                        const out = new Map();
+                        let k = 0;
+                        for (const l of lectores) {
+                            const [ok, ret] = res[k++];
+                            if (l.token) {
+                                let dec = l.dec;
+                                if (dec === null) { const [okD, retD] = res[k++]; dec = okD ? Number(erc.decodeFunctionResult('decimals', retD)[0]) : 18; }
+                                if (ok && ret !== '0x') out.set(l.f.clave, Number(ethers.formatUnits(erc.decodeFunctionResult('balanceOf', ret)[0], dec)));
+                            } else if (ok && ret !== '0x') {
+                                out.set(l.f.clave, Number(ethers.formatEther(mcIface.decodeFunctionResult('getEthBalance', ret)[0])));
+                            }
+                        }
+                        // Multicall3 ausente: la llamada "funciona" pero vuelve vacía. Eso no es un cero.
+                        if (out.size === 0 && filas.length) throw new Error('sin Multicall3 en esta red');
+                        return out;
+                    } catch (e) { ultimo = e; }
+                }
+                // Último recurso: de a uno, como antes.
+                const out = new Map();
+                await Promise.all(filas.map(async f => {
+                    try { out.set(f.clave, await cwSaldoDe(f.n, addr)); } catch (e) { }
+                }));
+                if (out.size) return out;
+                throw ultimo || new Error('sin RPC');
+            }
+
+            const cwBalPlegado = { vacias: true, testnets: true, ocultas: true, fallidas: true };
             let cwBalGen = 0;
-            async function cwPintarBalances(forzar = false) {
+            let cwBalUltimo = null;   // { filas, precios, tasa } de la última pasada: repintar sin red
+
+            async function cwPintarBalances(forzar = false, { soloRepintar = false } = {}) {
                 const lista = document.getElementById('balList');
                 const totalEl = document.getElementById('balTotal');
                 const nota = document.getElementById('balTotalNote');
-                const hint = document.getElementById('balHint');
                 if (!lista || !totalEl || !currentWallet) return;
                 const gen = ++cwBalGen;
+                const addr = currentWallet.address;
+                const porRed = cwRedesAgrupadas();
+                const cache = cwLeerJSON(CW_BAL_CACHE_KEY(), null);
+
+                // 1. Al instante, con lo guardado (si hay): la red tarda segundos y la pestaña no
+                //    tiene por qué quedarse en blanco mientras tanto.
+                if (soloRepintar && cwBalUltimo) return cwRenderBalances(cwBalUltimo);
+                if (cache && cache.cantidades) {
+                    const precios = cwPreciosGuardados();
+                    const tasa = precios ? await cwTasa(cwMoneda(), precios).catch(() => null) : null;
+                    if (gen !== cwBalGen) return;
+                    cwRenderBalances({ cantidades: cache.cantidades, fallidas: new Set(), precios, tasa, porRed, actualizando: true, cuandoSaldos: cache.cuando });
+                } else {
+                    totalEl.textContent = '…';
+                    nota.textContent = t('bal_loading');
+                    lista.innerHTML = '';
+                }
+
+                // 2. Una llamada por red, todas en paralelo (son hosts distintos).
+                const redes = [...porRed.values()];
+                const [precios, resultados] = await Promise.all([
+                    cwPreciosUsd(forzar),
+                    Promise.allSettled(redes.map(filas => cwSaldosDeRed(filas, addr))),
+                ]);
+                const tasa = await cwTasa(cwMoneda(), precios);
+                if (gen !== cwBalGen) return;
+                const cantidades = {};
+                const fallidas = new Set();
+                resultados.forEach((r, k) => {
+                    for (const f of redes[k]) {
+                        if (r.status === 'fulfilled' && r.value.has(f.clave)) cantidades[f.clave] = r.value.get(f.clave);
+                        else if (cache?.cantidades && f.clave in cache.cantidades) { cantidades[f.clave] = cache.cantidades[f.clave]; fallidas.add(f.clave); }
+                        else fallidas.add(f.clave);
+                    }
+                });
+                // Se guarda sólo lo leído de verdad recién, mezclado con lo viejo de las que fallaron.
+                try { localStorage.setItem(CW_BAL_CACHE_KEY(), JSON.stringify({ cuando: Date.now(), cantidades })); } catch (e) { }
+                cwRenderBalances({ cantidades, fallidas, precios, tasa, porRed, actualizando: false, cuandoSaldos: Date.now() });
+            }
+            window.cwPintarBalances = cwPintarBalances;
+
+            function cwRenderBalances(estado) {
+                cwBalUltimo = estado;
+                const { cantidades, fallidas, precios, tasa, porRed, actualizando } = estado;
+                const lista = document.getElementById('balList');
+                const totalEl = document.getElementById('balTotal');
+                const nota = document.getElementById('balTotalNote');
                 const moneda = cwMoneda();
                 const oculto = isBalanceHidden();
-                const { activos, porDefecto, sobran } = cwActivosDeBalances();
-                hint.textContent = porDefecto ? t('bal_hint_default')
-                    : sobran ? t('bal_hint_extra', { n: sobran }) : t('bal_hint');
+                const ocultas = cwOcultas();
 
-                // Esqueleto en el acto: la red puede tardar varios segundos.
-                totalEl.textContent = '…';
-                nota.textContent = t('bal_loading');
-                lista.innerHTML = activos.slice(0, CW_MAX_FAVORITAS).map(({ n }) => `
-                    <div class="bg-gray-800 rounded-xl p-3 flex items-center justify-between gap-2 opacity-60">
-                        <div class="min-w-0"><p class="font-semibold text-sm truncate">${escHtml(n.TOKEN_CHAIN_NAME)}</p>
-                        <p class="text-xs text-gray-400">… ${escHtml(cwSimbolo(n))}</p></div><p class="text-sm text-gray-400">…</p>
-                    </div>`).join('');
-
-                const addr = currentWallet.address;
-                const [precios, saldos] = await Promise.all([
-                    cwPreciosUsd(forzar),
-                    Promise.allSettled(activos.map(a => cwSaldoDe(a.n, addr))),
-                ]);
-                const tasa = await cwTasa(moneda, precios);
-                if (gen !== cwBalGen) return;
-
-                let filas = activos.map((a, k) => {
-                    const s = saldos[k];
-                    const clave = cwClavePrecio(a.n);
-                    const cantidad = s.status === 'fulfilled' ? s.value : null;
+                const todas = [];
+                for (const filas of porRed.values()) for (const f of filas) {
+                    const clave = cwClavePrecio(f.n);
+                    const cantidad = f.clave in cantidades ? cantidades[f.clave] : null;
                     const precio = clave && clave !== 'TESTNET' && precios ? precios[clave] : null;
                     const valor = cantidad !== null && precio > 0 && tasa ? cantidad * precio * tasa : null;
-                    return { ...a, clave, cantidad, valor };
-                });
-                // Se cuentan ANTES de recortar: una red que no respondió va al fondo y, sin
-                // favoritas (7 principales para 6 lugares), el recorte la hacía desaparecer muda.
-                const fallaron = filas.filter(f => f.cantidad === null).length;
-                // Como en el resto de las wallets: lo que más vale, arriba. Lo sin valor, al fondo.
-                filas.sort((a, b) => (b.valor ?? -1) - (a.valor ?? -1));
-                filas = filas.slice(0, CW_MAX_FAVORITAS);
-                const total = filas.reduce((acc, f) => acc + (f.valor || 0), 0);
+                    todas.push({ ...f, clave: f.clave, cp: clave, cantidad, valor, falla: fallidas.has(f.clave) && !(f.clave in cantidades) });
+                }
+                const grupos = { principal: [], vacias: [], testnets: [], ocultas: [], fallidas: [] };
+                for (const f of todas) {
+                    if (ocultas.has(f.clave)) grupos.ocultas.push(f);
+                    else if (f.cantidad === null) grupos.fallidas.push(f);
+                    else if (f.cp === 'TESTNET') grupos.testnets.push(f);
+                    else if (f.cantidad > 0) grupos.principal.push(f);
+                    else grupos.vacias.push(f);
+                }
+                const total = grupos.principal.reduce((a, f) => a + (f.valor || 0), 0);
+                // Lo que más vale arriba; lo que tiene saldo sin cotización, después.
+                grupos.principal.sort((a, b) => (b.valor ?? -1) - (a.valor ?? -1));
                 const fmtPct = new Intl.NumberFormat(cwLocale(), { style: 'percent', maximumFractionDigits: 1 });
 
-                lista.innerHTML = filas.map(f => {
-                    const pct = total > 0 && f.valor ? f.valor / total * 100 : 0;
+                const fila = (f, { conPct = false } = {}) => {
+                    const pct = conPct && total > 0 && f.valor ? f.valor / total * 100 : 0;
                     const cant = f.cantidad === null ? t('bal_no_rpc')
                         : (oculto ? '••••' : cwFormatoCantidad(f.cantidad)) + ' ' + cwSimbolo(f.n);
                     const valor = f.cantidad === null ? '—'
-                        : f.clave === 'TESTNET' ? t('bal_testnet')
-                        : f.valor === null ? t('bal_no_price')
+                        : f.cp === 'TESTNET' ? t('bal_testnet')
+                        : f.valor === null ? (f.cantidad > 0 ? t('bal_no_price') : '')
                         : oculto ? '••••' : cwFormatoMoneda(f.valor, moneda);
-                    const pctTxt = pct >= 0.1 ? fmtPct.format(pct >= 10 ? Math.round(pct) / 100 : pct / 100)
+                    const pctTxt = !conPct || oculto ? '' : pct >= 0.1 ? fmtPct.format(pct >= 10 ? Math.round(pct) / 100 : pct / 100)
                         : (f.valor ? '< ' + fmtPct.format(0.001) : '');
+                    const esOculta = ocultas.has(f.clave);
                     return `
-                    <button type="button" data-net-index="${f.i}"
-                        class="bal-row relative w-full text-left bg-gray-800 hover:bg-gray-700/70 rounded-xl p-3 overflow-hidden">
-                        <div class="absolute inset-y-0 left-0 bg-indigo-500/15" style="width:${pct.toFixed(2)}%"></div>
+                    <div role="button" tabindex="0" data-net-index="${f.i}"
+                        class="bal-row relative w-full text-left bg-gray-800 hover:bg-gray-700/70 rounded-xl p-3 overflow-hidden cursor-pointer">
+                        ${pct ? `<div class="absolute inset-y-0 left-0 bg-indigo-500/15" style="width:${pct.toFixed(2)}%"></div>` : ''}
                         <div class="relative flex items-center justify-between gap-2">
                             <div class="min-w-0">
                                 <p class="font-semibold text-sm truncate">${escHtml(f.n.TOKEN_CHAIN_NAME)}</p>
                                 <p class="text-xs text-gray-400 truncate">${escHtml(cant)}</p>
                             </div>
-                            <div class="text-right flex-shrink-0">
-                                <p class="text-sm font-semibold">${escHtml(valor)}</p>
-                                <p class="text-xs text-gray-500">${escHtml(oculto ? '' : pctTxt)}</p>
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                                <div class="text-right">
+                                    <p class="text-sm font-semibold">${escHtml(valor)}</p>
+                                    <p class="text-xs text-gray-500">${escHtml(pctTxt)}</p>
+                                </div>
+                                <button type="button" class="bal-hide p-2 -mr-1 text-gray-500 hover:text-white rounded-full hover:bg-gray-600/50"
+                                    data-key="${escHtml(f.clave)}" title="${escHtml(t(esOculta ? 'bal_unhide' : 'bal_hide'))}" aria-label="${escHtml(t(esOculta ? 'bal_unhide' : 'bal_hide'))}">
+                                    ${esOculta
+                            ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>'
+                            : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-8-10-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'}
+                                </button>
                             </div>
                         </div>
-                    </button>`;
-                }).join('');
+                    </div>`;
+                };
+                const plegable = (id, titulo, filas) => !filas.length ? '' : `
+                    <div class="pt-1">
+                        <button type="button" class="bal-fold w-full flex items-center justify-between text-xs text-gray-400 hover:text-white px-1 py-2" data-fold="${id}">
+                            <span>${escHtml(titulo)} (${filas.length})</span><span>${cwBalPlegado[id] ? '▸' : '▾'}</span>
+                        </button>
+                        ${cwBalPlegado[id] ? '' : `<div class="space-y-2">${filas.map(f => fila(f)).join('')}</div>`}
+                    </div>`;
+
+                lista.innerHTML =
+                    (grupos.principal.length ? grupos.principal.map(f => fila(f, { conPct: true })).join('')
+                        : `<p class="text-sm text-gray-400 text-center py-4">${escHtml(t('bal_empty'))}</p>`)
+                    + plegable('vacias', t('bal_sec_empty'), grupos.vacias)
+                    + plegable('testnets', t('bal_sec_testnets'), grupos.testnets)
+                    + plegable('fallidas', t('bal_sec_failed'), grupos.fallidas)
+                    + plegable('ocultas', t('bal_sec_hidden'), grupos.ocultas);
 
                 if (!precios || !tasa) {
                     totalEl.textContent = '—';
-                    nota.textContent = t('bal_no_prices');
+                    nota.textContent = actualizando ? t('bal_loading') : t('bal_no_prices');
                     return;
                 }
                 totalEl.textContent = oculto ? '••••' : cwFormatoMoneda(total, moneda);
-                const min = Math.floor((Date.now() - precios.cuando) / 60000);
-                nota.textContent = (min >= 10 ? t('bal_price_age', { m: min }) : t('bal_price_live'))
-                    + (fallaron ? ' · ' + t('bal_some_failed', { n: fallaron }) : '');
+                const minP = Math.floor((Date.now() - precios.cuando) / 60000);
+                const partes = [];
+                if (actualizando) partes.push(t('bal_updating', { m: Math.max(0, Math.floor((Date.now() - (estado.cuandoSaldos || Date.now())) / 60000)) }));
+                else partes.push(minP >= 10 ? t('bal_price_age', { m: minP }) : t('bal_price_live'));
+                const viejas = [...fallidas].filter(k => k in cantidades).length;
+                if (!actualizando && viejas) partes.push(t('bal_some_stale', { n: viejas }));
+                nota.textContent = partes.join(' · ');
             }
-            window.cwPintarBalances = cwPintarBalances;
 
             function cwSetMoneda(m) {
                 if (!CW_MONEDAS.includes(m)) return;
@@ -16345,13 +16526,34 @@
                 });
                 document.getElementById('balRefresh')?.addEventListener('click', () => cwPintarBalances(true));
                 document.getElementById('balManageNets')?.addEventListener('click', () => openManageNetworksModal());
-                document.getElementById('balList')?.addEventListener('click', (e) => {
-                    const row = e.target.closest('.bal-row');
-                    if (!row) return;
+                const lista = document.getElementById('balList');
+                const abrirRed = (row) => {
                     const idx = parseInt(row.dataset.netIndex, 10);
                     if (!Number.isInteger(idx) || !optionsList[idx]) return;
                     switchNetwork(idx);
                     showView('walletView');
+                };
+                lista?.addEventListener('click', (e) => {
+                    const ojo = e.target.closest('.bal-hide');
+                    if (ojo) {
+                        e.stopPropagation();
+                        cwAlternarOculta(ojo.dataset.key);
+                        if (cwBalUltimo) cwRenderBalances(cwBalUltimo);   // sin volver a la red
+                        return;
+                    }
+                    const fold = e.target.closest('.bal-fold');
+                    if (fold) {
+                        cwBalPlegado[fold.dataset.fold] = !cwBalPlegado[fold.dataset.fold];
+                        if (cwBalUltimo) cwRenderBalances(cwBalUltimo);
+                        return;
+                    }
+                    const row = e.target.closest('.bal-row');
+                    if (row) abrirRed(row);
+                });
+                lista?.addEventListener('keydown', (e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    const row = e.target.closest('.bal-row');
+                    if (row && e.target === row) { e.preventDefault(); abrirRed(row); }
                 });
             })();
 
@@ -17500,17 +17702,10 @@
             function toggleFavorite(e) {
                 e.stopPropagation();
                 const indexToToggle = parseInt(e.currentTarget.dataset.index, 10);
-                // Tope de favoritas: Balances suma sólo esas (ver CW_MAX_FAVORITAS).
-                if (!optionsList[indexToToggle].isFavorite
-                    && optionsList.filter(n => n.isFavorite).length >= CW_MAX_FAVORITAS) {
-                    showToast(t('bal_max_favs', { n: CW_MAX_FAVORITAS }), 'error');
-                    return;
-                }
                 optionsList[indexToToggle].isFavorite = !optionsList[indexToToggle].isFavorite;
                 saveNetworks();
                 renderNetworksList();
                 renderTokenMenu();
-                if (document.getElementById('balancesView')?.classList.contains('active')) cwPintarBalances();
             }
 
             function handleEditNetworkTrigger(e) {
@@ -20254,11 +20449,20 @@
                     "settings_hide_balance_desc": "Muestra •••• en vez del monto. También se prende y apaga con el ojo, al lado del saldo.",
                     "nav_balances": "Balances",
                     "bal_title": "Tus balances",
+                    "xmtp_colgado_titulo": "El chat no responde",
+                    "xmtp_colgado_cuerpo": "Tocá acá para recargar la app. Tu wallet no se pierde.",
+                    "bal_hint": "Se leen todas tus redes. Con el ojo ocultás una fila: deja de sumar y pasa a Ocultas.",
+                    "bal_manage": "Agregar redes y tokens",
+                    "bal_empty": "No tenés saldo en ninguna red todavía.",
+                    "bal_sec_empty": "Sin saldo",
+                    "bal_sec_testnets": "Testnets",
+                    "bal_sec_failed": "Sin respuesta",
+                    "bal_sec_hidden": "Ocultas",
+                    "bal_hide": "Ocultar de Balances",
+                    "bal_unhide": "Volver a mostrar",
+                    "bal_updating": "Actualizando… (saldos de hace {m} min)",
+                    "bal_some_stale": "{n} con el último saldo conocido (la red no respondió)",
                     "bal_total": "Total",
-                    "bal_hint": "Se muestran tus favoritas (hasta 6).",
-                    "bal_hint_default": "Todavía no marcaste favoritas: se muestran las redes principales.",
-                    "bal_hint_extra": "Se muestran las primeras 6 favoritas ({n} quedan afuera).",
-                    "bal_manage": "Elegilas con ★",
                     "bal_loading": "Leyendo saldos y precios…",
                     "bal_no_rpc": "La red no respondió",
                     "bal_testnet": "testnet",
@@ -20266,8 +20470,6 @@
                     "bal_no_prices": "No se pudieron leer los precios. Revisá la conexión y refrescá.",
                     "bal_price_live": "Precios de Chainlink (y P2P.me para el peso), leídos de la cadena.",
                     "bal_price_age": "Precios de hace {m} min (sin conexión).",
-                    "bal_some_failed": "{n} red(es) sin respuesta",
-                    "bal_max_favs": "Podés tener hasta {n} favoritas. Quitá una para marcar otra.",
                     "settings_currency": "Moneda para ver el valor",
                     "settings_currency_desc": "En qué mostrar tu saldo y el total de Balances.",
                     "settings_show_balance": "Mostrar el saldo",
@@ -20699,11 +20901,20 @@
                     "settings_hide_balance_desc": "Shows •••• instead of the amount. You can also toggle it with the eye next to the balance.",
                     "nav_balances": "Balances",
                     "bal_title": "Your balances",
+                    "xmtp_colgado_titulo": "Chat isn't responding",
+                    "xmtp_colgado_cuerpo": "Tap here to reload the app. Your wallet stays safe.",
+                    "bal_hint": "All your networks are read. The eye hides a row: it stops counting and moves to Hidden.",
+                    "bal_manage": "Add networks and tokens",
+                    "bal_empty": "You don't have a balance on any network yet.",
+                    "bal_sec_empty": "No balance",
+                    "bal_sec_testnets": "Testnets",
+                    "bal_sec_failed": "Not responding",
+                    "bal_sec_hidden": "Hidden",
+                    "bal_hide": "Hide from Balances",
+                    "bal_unhide": "Show again",
+                    "bal_updating": "Updating… (balances from {m} min ago)",
+                    "bal_some_stale": "{n} showing the last known balance (network didn't respond)",
                     "bal_total": "Total",
-                    "bal_hint": "Showing your favorites (up to 6).",
-                    "bal_hint_default": "No favorites yet: showing the main networks.",
-                    "bal_hint_extra": "Showing the first 6 favorites ({n} left out).",
-                    "bal_manage": "Pick them with ★",
                     "bal_loading": "Reading balances and prices…",
                     "bal_no_rpc": "Network didn't respond",
                     "bal_testnet": "testnet",
@@ -20711,8 +20922,6 @@
                     "bal_no_prices": "Couldn't read prices. Check your connection and refresh.",
                     "bal_price_live": "Prices from Chainlink (and P2P.me for ARS), read on-chain.",
                     "bal_price_age": "Prices from {m} min ago (offline).",
-                    "bal_some_failed": "{n} network(s) not responding",
-                    "bal_max_favs": "You can have up to {n} favorites. Remove one to add another.",
                     "settings_currency": "Currency for values",
                     "settings_currency_desc": "How to show your balance and the Balances total.",
                     "settings_show_balance": "Show the balance",
@@ -21144,11 +21353,20 @@
                     "settings_hide_balance_desc": "Affiche •••• au lieu du montant. L'œil à côté du solde fait la même chose.",
                     "nav_balances": "Soldes",
                     "bal_title": "Vos soldes",
+                    "xmtp_colgado_titulo": "Le chat ne répond pas",
+                    "xmtp_colgado_cuerpo": "Touchez ici pour recharger l'app. Votre wallet reste en sécurité.",
+                    "bal_hint": "Tous vos réseaux sont lus. L'œil masque une ligne : elle ne compte plus et passe dans Masqués.",
+                    "bal_manage": "Ajouter réseaux et jetons",
+                    "bal_empty": "Vous n'avez encore de solde sur aucun réseau.",
+                    "bal_sec_empty": "Sans solde",
+                    "bal_sec_testnets": "Testnets",
+                    "bal_sec_failed": "Sans réponse",
+                    "bal_sec_hidden": "Masqués",
+                    "bal_hide": "Masquer des Soldes",
+                    "bal_unhide": "Réafficher",
+                    "bal_updating": "Mise à jour… (soldes d'il y a {m} min)",
+                    "bal_some_stale": "{n} avec le dernier solde connu (le réseau n'a pas répondu)",
                     "bal_total": "Total",
-                    "bal_hint": "Vos favoris sont affichés (jusqu'à 6).",
-                    "bal_hint_default": "Pas encore de favoris : les réseaux principaux sont affichés.",
-                    "bal_hint_extra": "Les 6 premiers favoris sont affichés ({n} restent dehors).",
-                    "bal_manage": "Choisissez-les avec ★",
                     "bal_loading": "Lecture des soldes et des prix…",
                     "bal_no_rpc": "Le réseau n'a pas répondu",
                     "bal_testnet": "testnet",
@@ -21156,8 +21374,6 @@
                     "bal_no_prices": "Impossible de lire les prix. Vérifiez la connexion et actualisez.",
                     "bal_price_live": "Prix de Chainlink (et P2P.me pour l'ARS), lus sur la chaîne.",
                     "bal_price_age": "Prix d'il y a {m} min (hors ligne).",
-                    "bal_some_failed": "{n} réseau(x) sans réponse",
-                    "bal_max_favs": "Vous pouvez avoir jusqu'à {n} favoris. Retirez-en un pour en ajouter un autre.",
                     "settings_currency": "Devise d'affichage",
                     "settings_currency_desc": "Dans quelle devise afficher votre solde et le total des Soldes.",
                     "settings_show_balance": "Afficher le solde",

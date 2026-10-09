@@ -17,6 +17,18 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Balances ahora muestra todas tus redes**, no sólo 6 favoritas. Arriba va lo que tiene
+  saldo, de lo que más vale a lo que menos. Las redes en cero, las testnets y las que no
+  respondieron quedan plegadas abajo. Abre al instante con los últimos saldos conocidos y
+  se actualiza solo.
+- Con el **ojo** de cada fila ocultás una red o un token de Balances: deja de sumar al total
+  y pasa a **Ocultas**, desde donde lo volvés a mostrar.
+- Las **favoritas (★) ya no tienen tope**: vuelven a servir sólo para ordenar el selector de redes.
+- **Arreglo: la app ya no se recarga sola mientras la usás.** Cuando la red del chat andaba
+  lenta, la app creía que el chat se había colgado y recargaba la página entera, a veces
+  varias veces seguidas. Ahora distingue un chat lento de uno trabado. Si de verdad no
+  responde, te avisa con un botón para recargar en vez de hacerlo de golpe.
+
 ## 3.65 — 2026-10-08
 
 - Al **vincular una dApp** (MusicLog, Soberano Mail…) ahora le llega tu perfil: tu alias y tu
