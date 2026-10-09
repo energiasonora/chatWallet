@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.66 — 2026-10-09
+
 - **Balances ahora muestra todas tus redes**, no sólo 6 favoritas. Arriba va lo que tiene
   saldo, de lo que más vale a lo que menos. Las redes en cero, las testnets y las que no
   respondieron quedan plegadas abajo. Abre al instante con los últimos saldos conocidos y
