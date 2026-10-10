@@ -17,6 +17,20 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Si usabas ChatWallet en el navegador, ahora podés pasar tu cuenta a la app.** En la app
+  recién instalada, tocá «¿Ya la usabas en el navegador? Traer mi cuenta». Se abre el
+  navegador, confirmás ahí y la app queda con la misma cuenta: la misma dirección, los mismos
+  fondos, contactos y chats. Tu frase no pasa por ningún servidor: viaja cifrada de una app a
+  la otra, dentro del mismo celular. Al terminar, el navegador te ofrece borrar la cuenta de
+  ahí.
+- **En Android, la app se ofrece antes de crear la cuenta.** Si entrás desde el navegador
+  del celular, antes de crear tu billetera te proponemos instalar la app, que te avisa de
+  mensajes y pagos aunque la cierres. Si llegaste por una invitación, después de instalarla
+  tocás «Ya la tengo» y la invitación se abre en la app. También podés seguir en el navegador,
+  como antes.
+- Con la app recién instalada, abrir una invitación ya no intenta crear la billetera antes de
+  que la app termine de arrancar.
+
 ## 3.68 — 2026-10-09
 
 - **La ficha del QR de pago argentino se rehízo** (la que aparece al escanear el QR de un

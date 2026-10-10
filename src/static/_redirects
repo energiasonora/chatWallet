@@ -8,6 +8,9 @@
 # service worker, y el destino de los App Links del APK y los links de invitación.
 /               /index.html         200
 /dapp           /dapp.html          200
+# La app trae la cuenta del navegador (traspaso, ver cwTraspasoPedirDesdeApp). NO es App Link
+# a propósito: la abre el navegador, que es donde vive la cuenta.
+/traer          /dapp.html          200
 /book           /book.html          200
 /manifiesto     /manifiesto.html    200
 # /tools va con 301 a /tools/, NO con reescritura: las páginas de /tools se enlazan

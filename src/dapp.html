@@ -2304,6 +2304,10 @@
                             data-i18n-key="restore_wallet_button">
                             Restaurar Billetera
                         </button>
+                        <!-- Sólo en el APK: traer la cuenta que se venía usando en el navegador. -->
+                        <button id="traspasoTraerBtn" type="button"
+                            class="hidden w-full px-4 py-2 text-sm text-indigo-300 hover:text-white"
+                            data-i18n-key="traspaso_btn_app">¿Ya la usabas en el navegador? Traer mi cuenta</button>
                     </div>
                     <div id="initLoader" class="w-full max-w-xs flex justify-center items-center h-[106px]">
                         <!-- Loader horizontal -->
@@ -14303,11 +14307,18 @@
 
             // App Link: si la app se abrió desde https://chatwallet.org/dapp?address=...&pk=...
             // procesamos la URL igual que un QR escaneado (misma lógica de address + pk + abrir chat).
+            // Se llama mientras se parsea este script, antes de init() y de los módulos: un link
+            // de invitación con la app recién instalada (sin wallet) creaba la wallet con
+            // initializeWalletAndXmtp antes de que existiera Client. Ahora espera a init().
+            let cwInitTerminado;
+            const cwInitHecho = new Promise(r => { cwInitTerminado = r; });
             async function consumePendingDeepLink() {
                 if (!NativeKeepAlive || !NativeKeepAlive.consumePendingDeepLink) return;
+                await cwInitHecho;
                 try {
                     const res = await NativeKeepAlive.consumePendingDeepLink();
                     const url = res && res.url;
+                    if (url && cwEsTraspaso(url)) { await cwTraspasoRecibir(url); return; }
                     if (url) { try { await handleScannedData(url, { greet: 'link' }); } catch (e) { } }
                 } catch (e) { }
             }
@@ -19884,12 +19895,228 @@
                 });
             }
 
+            // ── En Android, la app antes que el navegador ──
+            // La PWA no recibe avisos con el navegador cerrado. Quien llega sin wallet (con o sin
+            // invitación) puede instalar la app ANTES de crear la cuenta, así no hay nada que
+            // mudar después. "Ya la tengo" abre la app por intent con el mismo link: el APK toma
+            // la invitación (consumePendingDeepLink). Sin la app, el intent cae a la descarga.
+            const CW_APK_PAQUETE = 'org.energiasonora.chatwallet';
+            const CW_APK_OFRECIDA_KEY = 'cw-apk-ofrecida';
+            function cwIntentApp(rutaYQuery) {
+                return `intent://chatwallet.org${rutaYQuery}#Intent;scheme=https;package=${CW_APK_PAQUETE};` +
+                    `S.browser_fallback_url=${encodeURIComponent(APK_MIGRACION_URL)};end`;
+            }
+            function cwConvieneLaApp() {
+                if (IS_NATIVE) return false;
+                const ua = navigator.userAgent || '';
+                if (!/Android/i.test(ua) || /Windows/i.test(ua)) return false;
+                try { return !sessionStorage.getItem(CW_APK_OFRECIDA_KEY); } catch (_) { return true; }
+            }
+            // Resuelve cuando elige seguir en el navegador; si se va a la app, esta pestaña ya no importa.
+            function cwOfrecerApk() {
+                return new Promise(resolve => {
+                    const q = new URLSearchParams(location.search);
+                    const conInvitacion = ['address', 'to', 'pay', 'wc'].some(k => q.has(k));
+                    const intent = cwIntentApp(conInvitacion ? location.pathname + location.search : '/dapp.html');
+                    const attr = (x) => escHtml(x).replace(/"/g, '&quot;');
+                    const el = document.createElement('div');
+                    el.id = 'cwOfrecerApk';
+                    el.className = 'fixed inset-0 z-[120] flex items-center justify-center p-5 bg-black/80';
+                    el.innerHTML = `
+                    <div class="bg-gray-800 rounded-xl p-5 w-full max-w-sm space-y-3 text-center">
+                        <p class="text-3xl">📲</p>
+                        <h3 class="text-lg font-bold text-white">${escHtml(t(conInvitacion ? 'apk_of_titulo_inv' : 'apk_of_titulo'))}</h3>
+                        <p class="text-sm text-gray-300 leading-relaxed">${escHtml(t('apk_of_texto'))}</p>
+                        <a id="cwApkBajar" href="${attr(APK_MIGRACION_URL)}" rel="noopener" class="block w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm">${escHtml(t('apk_of_bajar'))}</a>
+                        <p id="cwApkPasos" class="hidden text-xs text-gray-300 leading-relaxed text-left">${escHtml(t('apk_of_pasos'))}</p>
+                        <a id="cwApkAbrir" href="${attr(intent)}" class="block w-full py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm">${escHtml(t(conInvitacion ? 'apk_of_abrir_inv' : 'apk_of_abrir'))}</a>
+                        <button type="button" id="cwApkSeguir" class="w-full py-1.5 text-xs text-gray-400 hover:text-white">${escHtml(t('apk_of_seguir'))}</button>
+                    </div>`;
+                    document.body.appendChild(el);
+                    el.querySelector('#cwApkBajar').addEventListener('click', () => {
+                        el.querySelector('#cwApkPasos').classList.remove('hidden');
+                    });
+                    el.querySelector('#cwApkSeguir').onclick = () => {
+                        try { sessionStorage.setItem(CW_APK_OFRECIDA_KEY, '1'); } catch (_) { }
+                        el.remove(); resolve(true);
+                    };
+                });
+            }
+
+            // ── Traspaso de la cuenta: navegador → app, en el mismo celular ──
+            // La semilla NO pasa por XMTP ni por ningún servidor:
+            //  1. La app (sin wallet) crea una llave de un solo uso y abre en el navegador
+            //     chatwallet.org/traer#cw-traspaso=<pública>. El fragmento no viaja al servidor,
+            //     y /traer no es un App Link: lo abre el navegador, donde vive la cuenta.
+            //  2. El navegador, si el usuario confirma, cifra la cuenta (ECIES) para esa pública
+            //     y la devuelve por intent al paquete de la app (chatwallet.org/dapp?cw-traspaso=…).
+            //     El intent no carga nada en el navegador: lo cifrado no toca la red.
+            //  3. La app la descifra con la llave que sólo ella tiene, la guarda y recarga; el
+            //     historial y la agenda bajan del respaldo soberano como en cualquier restauración.
+            const CW_TRASPASO_LLAVE = 'cw-traspaso-llave';
+            const CW_TRASPASO_TTL = 15 * 60 * 1000;
+            const cwEsTraspaso = (url) => /[?&#]cw-traspaso=/.test(String(url || ''));
+
+            // App: paso 1.
+            function cwTraspasoPedirDesdeApp() {
+                const efimera = window.Wallet.createRandom();
+                localStorage.setItem(CW_TRASPASO_LLAVE, JSON.stringify({ k: efimera.privateKey, t: Date.now() }));
+                const pub = efimera.signingKey.compressedPublicKey.replace(/^0x/, '');
+                window.open(`https://chatwallet.org/traer#cw-traspaso=${pub}`, '_system');
+                statusEl.textContent = t('traspaso_app_esperando');
+            }
+
+            // Navegador: ¿la página vino a pedir la cuenta? Devuelve la pública y limpia la URL.
+            function cwTraspasoLeerPedido() {
+                if (IS_NATIVE) return null;
+                const m = /^#cw-traspaso=((?:02|03)[0-9a-fA-F]{64})$/.exec(location.hash || '');
+                if (!cwEsTraspaso(location.hash)) return null;
+                history.replaceState({}, document.title, '/dapp.html');
+                return m ? m[1] : null;
+            }
+
+            function cwTraspasoModal(html) {
+                let el = document.getElementById('cwTraspasoModal');
+                if (!el) {
+                    el = document.createElement('div');
+                    el.id = 'cwTraspasoModal';
+                    el.className = 'fixed inset-0 z-[120] flex items-center justify-center p-5 bg-black/80';
+                    document.body.appendChild(el);
+                }
+                el.innerHTML = `<div class="bg-gray-800 rounded-xl p-5 w-full max-w-sm space-y-3 text-center">${html}</div>`;
+                return el;
+            }
+            const CW_BTN_PRIMARIO = 'block w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm';
+            const CW_BTN_SECUNDARIO = 'w-full py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm';
+            const CW_BTN_TENUE = 'w-full py-1.5 text-xs text-gray-400 hover:text-white';
+
+            // Navegador: paso 2.
+            async function cwTraspasoOfrecer(pub) {
+                if (!currentWallet || !currentWallet.privateKey) {
+                    const link = `https://chatwallet.org/traer#cw-traspaso=${pub}`;
+                    const el = cwTraspasoModal(`
+                        <p class="text-3xl">🤔</p>
+                        <p class="text-sm text-gray-300 leading-relaxed">${escHtml(t('traspaso_sin_cuenta'))}</p>
+                        <button type="button" id="cwTrCopiar" class="${CW_BTN_SECUNDARIO}">${escHtml(t('traspaso_copiar'))}</button>
+                        <p id="cwTrCopiado" class="text-xs text-green-400 min-h-[1rem] break-all"></p>
+                        <button type="button" id="cwTrCerrar" class="${CW_BTN_TENUE}">${escHtml(t('traspaso_cerrar'))}</button>`);
+                    el.querySelector('#cwTrCopiar').onclick = async () => {
+                        let ok = false;
+                        try { await navigator.clipboard.writeText(link); ok = true; } catch (_) { }
+                        el.querySelector('#cwTrCopiado').textContent = ok ? t('traspaso_copiado') : link;
+                    };
+                    el.querySelector('#cwTrCerrar').onclick = () => el.remove();
+                    return;
+                }
+                if (!pub) { showToast(escHtml(t('traspaso_ilegible')), 'error', 8000); return; }
+                const cuenta = `${currentWallet.address.slice(0, 6)}…${currentWallet.address.slice(-4)}`;
+                const el = cwTraspasoModal(`
+                    <p class="text-3xl">📦</p>
+                    <h3 class="text-lg font-bold text-white">${escHtml(t('traspaso_titulo'))}</h3>
+                    <p class="text-sm text-gray-300 leading-relaxed">${escHtml(t('traspaso_texto', { cuenta }))}</p>
+                    <p class="cw-aviso-ambar text-xs rounded-lg p-2">${escHtml(t('traspaso_aviso'))}</p>
+                    <button type="button" id="cwTrSi" class="${CW_BTN_PRIMARIO}">${escHtml(t('traspaso_si'))}</button>
+                    <button type="button" id="cwTrNo" class="${CW_BTN_TENUE}">${escHtml(t('traspaso_cancelar'))}</button>`);
+                el.querySelector('#cwTrNo').onclick = () => el.remove();
+                el.querySelector('#cwTrSi').onclick = async () => {
+                    el.querySelector('#cwTrSi').disabled = true;
+                    el.querySelector('#cwTrSi').innerHTML = `<span class="spinner"></span> ${escHtml(t('traspaso_guardando'))}`;
+                    // Respaldo fresco: es lo que la app va a bajar. Si tarda o falla, se sigue igual
+                    // (queda el respaldo anterior y el que se suba desde la app).
+                    try { await withTimeout(chatBackupNow(), 25000, 'respaldo antes del traspaso'); }
+                    catch (e) { console.warn('traspaso: respaldo', e); }
+                    let cifrado;
+                    try {
+                        const redes = localStorage.getItem(NETWORKS_STORAGE_KEY) || '';
+                        const datos = {
+                            v: 1, a: currentWallet.address, k: currentWallet.privateKey,
+                            m: getStoredMnemonic() || '',
+                            o: localStorage.getItem(WALLET_ORIGIN_KEY) || '',
+                            b: localStorage.getItem(WALLET_BACKUP_DONE_KEY) ? 1 : 0,
+                            l: localStorage.getItem(LANGUAGE_STORAGE_KEY) || '',
+                            c: localStorage.getItem(CW_MONEDA_KEY) || '',
+                            n: redes.length < 12000 ? redes : '',
+                            s: localStorage.getItem(SELECTED_NETWORK_KEY) || '',
+                        };
+                        cifrado = EthCrypto.cipher.stringify(
+                            await EthCrypto.encryptWithPublicKey(toEncryptablePubKey(pub), JSON.stringify(datos)));
+                    } catch (e) {
+                        console.error('traspaso: cifrar', e);
+                        showToast(escHtml(t('traspaso_ilegible')), 'error', 8000);
+                        el.remove();
+                        return;
+                    }
+                    const intent = cwIntentApp(`/dapp.html?cw-traspaso=${cifrado}`);
+                    cwTraspasoModal(`
+                        <p class="text-3xl">✅</p>
+                        <p class="text-sm text-gray-300 leading-relaxed">${escHtml(t('traspaso_listo'))}</p>
+                        <a id="cwTrAbrir" href="${escHtml(intent).replace(/"/g, '&quot;')}" class="${CW_BTN_PRIMARIO}">${escHtml(t('traspaso_abrir'))}</a>`);
+                    // El intent se lleva la cuenta a la app; al volver acá, se ofrece borrarla.
+                    document.getElementById('cwTrAbrir').addEventListener('click', () => setTimeout(() => {
+                        const m = cwTraspasoModal(`
+                            <p class="text-sm text-gray-300 leading-relaxed">${escHtml(t('traspaso_borrar_q'))}</p>
+                            <button type="button" id="cwTrBorrar" class="${CW_BTN_SECUNDARIO}">${escHtml(t('traspaso_borrar'))}</button>
+                            <button type="button" id="cwTrDejar" class="${CW_BTN_TENUE}">${escHtml(t('traspaso_dejar'))}</button>`);
+                        m.querySelector('#cwTrDejar').onclick = () => m.remove();
+                        m.querySelector('#cwTrBorrar').onclick = () => {
+                            localStorage.removeItem(WALLET_STORAGE_KEY);
+                            localStorage.removeItem(WALLET_MNEMONIC_KEY);
+                            localStorage.removeItem(WALLET_BACKUP_DONE_KEY);
+                            showToast(escHtml(t('traspaso_borrada')), 'success', 4000);
+                            setTimeout(() => location.reload(), 1500);
+                        };
+                    }, 1500));
+                };
+            }
+
+            // App: paso 3.
+            async function cwTraspasoRecibir(url) {
+                let cifrado = null;
+                try { cifrado = new URL(url).searchParams.get('cw-traspaso'); } catch (_) { }
+                let guardada = null;
+                try { guardada = JSON.parse(localStorage.getItem(CW_TRASPASO_LLAVE) || 'null'); } catch (_) { }
+                if (!guardada || !cifrado || Date.now() - guardada.t > CW_TRASPASO_TTL) {
+                    localStorage.removeItem(CW_TRASPASO_LLAVE);
+                    showToast(escHtml(t('traspaso_vencido')), 'error', 10000);
+                    return;
+                }
+                let datos;
+                try {
+                    datos = JSON.parse(await EthCrypto.decryptWithPrivateKey(guardada.k, EthCrypto.cipher.parse(cifrado)));
+                    if (new ethers.Wallet(datos.k).address.toLowerCase() !== String(datos.a).toLowerCase()) throw new Error('la clave no es de esa cuenta');
+                } catch (e) {
+                    console.error('traspaso: descifrar', e);
+                    showToast(escHtml(t('traspaso_ilegible')), 'error', 10000);
+                    return;
+                }
+                localStorage.removeItem(CW_TRASPASO_LLAVE);   // un solo uso
+                if (currentWallet) {
+                    const misma = currentWallet.address.toLowerCase() === String(datos.a).toLowerCase();
+                    showToast(escHtml(t(misma ? 'traspaso_ya_esta' : 'traspaso_otra')), misma ? 'info' : 'error', 12000);
+                    return;
+                }
+                localStorage.setItem(WALLET_STORAGE_KEY, datos.k);
+                if (datos.m) localStorage.setItem(WALLET_MNEMONIC_KEY, datos.m); else localStorage.removeItem(WALLET_MNEMONIC_KEY);
+                if (datos.o) localStorage.setItem(WALLET_ORIGIN_KEY, datos.o);
+                if (datos.b) localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
+                if (datos.l) localStorage.setItem(LANGUAGE_STORAGE_KEY, datos.l);
+                if (datos.c) localStorage.setItem(CW_MONEDA_KEY, datos.c);
+                if (datos.n) { try { JSON.parse(datos.n); localStorage.setItem(NETWORKS_STORAGE_KEY, datos.n); } catch (_) { } }
+                if (datos.s) localStorage.setItem(SELECTED_NETWORK_KEY, datos.s);
+                // La cuenta ya vivió la migración de XMTP en el navegador: no contársela de nuevo.
+                if (!localStorage.getItem(MUDANZA_AVISADA_KEY)) localStorage.setItem(MUDANZA_AVISADA_KEY, 'traspaso');
+                showToast(escHtml(t('traspaso_ok')), 'success', 4000);
+                setTimeout(() => location.reload(), 1500);
+            }
+
             // --- Carga Inicial ---
             async function init() {
                 document.getElementById('fixXmtpErrorBtn')?.addEventListener('click', () => {
                     showRevokeModal('current_wallet');
                 });
                 loadNetworks();
+                // La app pidió traer la cuenta de este navegador (chatwallet.org/traer#cw-traspaso=…).
+                const traspasoPedido = cwTraspasoLeerPedido();
 
                 const savedNetworkIndex = localStorage.getItem(SELECTED_NETWORK_KEY);
                 if (savedNetworkIndex && parseInt(savedNetworkIndex) < optionsList.length) {
@@ -19930,10 +20157,17 @@
                     statusEl.textContent = "Crea o restaura una billetera para empezar.";
                     document.getElementById('initLoader').classList.add('hidden');
                     document.getElementById('initActions').classList.remove('hidden');
+                    if (IS_NATIVE) {
+                        const traer = document.getElementById('traspasoTraerBtn');
+                        traer.classList.remove('hidden');
+                        traer.onclick = cwTraspasoPedirDesdeApp;
+                    }
                     resetUI();
                     // Antes de que nazca una wallet: ¿estamos adentro de Instagram & cía.?
                     const embebido = cwNavegadorEmbebido();
                     if (embebido) await cwAvisarNavegadorEmbebido(embebido);
+                    // En Android, antes de crear la wallet acá: la app (con o sin invitación).
+                    else if (!traspasoPedido && cwConvieneLaApp()) await cwOfrecerApk();
                     // Acá nace la wallet de quien llega por un link: si algo falla, que se vea.
                     try { await handleUrlParameters(); }
                     catch (e) {
@@ -19945,6 +20179,8 @@
                 // Al final: si estrenás versión, contarle al usuario qué cambió. Va después de
                 // handleUrlParameters() para no taparle la pantalla a quien entra por un link.
                 try { mostrarNovedadesSiHayVersionNueva(); } catch (e) { console.warn('novedades:', e); }
+                // Traspaso navegador → app: la app abrió esta página con su llave de un solo uso.
+                if (traspasoPedido) await cwTraspasoOfrecer(traspasoPedido);
             }
 
             let toneJsReady = typeof Tone !== 'undefined';
@@ -20378,6 +20614,37 @@
                     "embebido_copiar": "Copiar el link",
                     "embebido_copiado": "Copiado: pegalo en Chrome o Safari.",
                     "embebido_seguir": "Seguir acá igual",
+                    "apk_of_titulo": "ChatWallet anda mejor como app",
+                    "apk_of_titulo_inv": "Te invitaron a ChatWallet",
+                    "apk_of_texto": "En Android, la app te avisa de mensajes y pagos aunque la cierres; el navegador no. Instalala antes de crear tu cuenta y no vas a tener que mudarla después.",
+                    "apk_of_bajar": "Descargar la app",
+                    "apk_of_pasos": "Cuando termine la descarga, abrí el archivo e instalalo (Android puede pedirte permiso para instalar apps de esta fuente). Después volvé acá y tocá el botón de abajo.",
+                    "apk_of_abrir": "Ya la tengo: abrir la app",
+                    "apk_of_abrir_inv": "Ya la tengo: abrir la invitación en la app",
+                    "apk_of_seguir": "Seguir en el navegador",
+                    "traspaso_btn_app": "¿Ya la usabas en el navegador? Traer mi cuenta",
+                    "traspaso_app_esperando": "Se abrió el navegador: confirmá ahí y la cuenta vuelve sola a la app.",
+                    "traspaso_titulo": "Llevar tu cuenta a la app",
+                    "traspaso_texto": "La cuenta {cuenta} pasa a la app ChatWallet de este celular: la misma dirección, los mismos fondos, contactos y chats.",
+                    "traspaso_aviso": "Hacelo solo si recién tocaste «Traer mi cuenta» en la app.",
+                    "traspaso_si": "Llevarla a la app",
+                    "traspaso_cancelar": "Cancelar",
+                    "traspaso_guardando": "Guardando tus chats…",
+                    "traspaso_listo": "Listo. Tocá para terminar en la app.",
+                    "traspaso_abrir": "Abrir la app",
+                    "traspaso_borrar_q": "¿La app ya abrió tu cuenta? Entonces podés borrarla de este navegador: la app queda con todo.",
+                    "traspaso_borrar": "Sí, borrarla de este navegador",
+                    "traspaso_dejar": "Dejarla también acá",
+                    "traspaso_borrada": "Listo: la cuenta quedó solo en la app.",
+                    "traspaso_sin_cuenta": "En este navegador no hay ninguna cuenta de ChatWallet. Si la usabas en otro navegador, copiá este link y abrilo ahí.",
+                    "traspaso_copiar": "Copiar el link",
+                    "traspaso_copiado": "Copiado.",
+                    "traspaso_cerrar": "Cerrar",
+                    "traspaso_vencido": "El pedido para traer tu cuenta venció o no salió de esta app. Tocá «Traer mi cuenta» otra vez.",
+                    "traspaso_ilegible": "No se pudo abrir la cuenta que llegó del navegador. Probá de nuevo.",
+                    "traspaso_ya_esta": "Esta cuenta ya está en la app.",
+                    "traspaso_otra": "La app ya tiene otra cuenta. Para traer la del navegador, primero olvidá la actual en Configuración (con su frase anotada).",
+                    "traspaso_ok": "Cuenta traída del navegador. Abriendo…",
                     "ars_qr_ok_note": "QR válido de Transferencias 3.0.",
                     "ars_qr_bad_note": "Este QR dice ser argentino pero el código de verificación no cierra. Puede estar dañado o mal fotografiado.",
                     "pay_qr_cost": "Equivale a",
@@ -20838,6 +21105,37 @@
                     "embebido_copiar": "Copy the link",
                     "embebido_copiado": "Copied: paste it in Chrome or Safari.",
                     "embebido_seguir": "Stay here anyway",
+                    "apk_of_titulo": "ChatWallet works better as an app",
+                    "apk_of_titulo_inv": "You've been invited to ChatWallet",
+                    "apk_of_texto": "On Android, the app notifies you of messages and payments even when closed; the browser doesn't. Install it before creating your account so you won't have to move it later.",
+                    "apk_of_bajar": "Download the app",
+                    "apk_of_pasos": "When the download finishes, open the file and install it (Android may ask permission to install apps from this source). Then come back here and tap the button below.",
+                    "apk_of_abrir": "I have it: open the app",
+                    "apk_of_abrir_inv": "I have it: open the invitation in the app",
+                    "apk_of_seguir": "Continue in the browser",
+                    "traspaso_btn_app": "Used it in the browser? Bring my account",
+                    "traspaso_app_esperando": "The browser opened: confirm there and the account comes back to the app.",
+                    "traspaso_titulo": "Move your account to the app",
+                    "traspaso_texto": "Account {cuenta} moves to the ChatWallet app on this phone: same address, same funds, contacts and chats.",
+                    "traspaso_aviso": "Only do this if you just tapped “Bring my account” in the app.",
+                    "traspaso_si": "Move it to the app",
+                    "traspaso_cancelar": "Cancel",
+                    "traspaso_guardando": "Saving your chats…",
+                    "traspaso_listo": "Done. Tap to finish in the app.",
+                    "traspaso_abrir": "Open the app",
+                    "traspaso_borrar_q": "Did the app open your account? Then you can delete it from this browser: the app keeps everything.",
+                    "traspaso_borrar": "Yes, delete it from this browser",
+                    "traspaso_dejar": "Keep it here too",
+                    "traspaso_borrada": "Done: the account now lives only in the app.",
+                    "traspaso_sin_cuenta": "There is no ChatWallet account in this browser. If you used another browser, copy this link and open it there.",
+                    "traspaso_copiar": "Copy the link",
+                    "traspaso_copiado": "Copied.",
+                    "traspaso_cerrar": "Close",
+                    "traspaso_vencido": "The request to bring your account expired or didn't come from this app. Tap “Bring my account” again.",
+                    "traspaso_ilegible": "Couldn't open the account sent by the browser. Try again.",
+                    "traspaso_ya_esta": "This account is already in the app.",
+                    "traspaso_otra": "The app already has another account. To bring the browser's one, first forget the current one in Settings (with its phrase written down).",
+                    "traspaso_ok": "Account brought from the browser. Opening…",
                     "ars_qr_ok_note": "Valid Transferencias 3.0 QR.",
                     "ars_qr_bad_note": "This QR claims to be Argentine but its checksum does not match. It may be damaged or badly photographed.",
                     "pay_qr_cost": "Equals",
@@ -21298,6 +21596,37 @@
                     "embebido_copiar": "Copier le lien",
                     "embebido_copiado": "Copié : colle-le dans Chrome ou Safari.",
                     "embebido_seguir": "Rester ici quand même",
+                    "apk_of_titulo": "ChatWallet marche mieux en app",
+                    "apk_of_titulo_inv": "On t'a invité sur ChatWallet",
+                    "apk_of_texto": "Sur Android, l'app te prévient des messages et paiements même fermée ; le navigateur, non. Installe-la avant de créer ton compte et tu n'auras pas à le déménager ensuite.",
+                    "apk_of_bajar": "Télécharger l'app",
+                    "apk_of_pasos": "Quand le téléchargement est fini, ouvre le fichier et installe-le (Android peut demander l'autorisation d'installer des apps de cette source). Puis reviens ici et touche le bouton ci-dessous.",
+                    "apk_of_abrir": "Je l'ai : ouvrir l'app",
+                    "apk_of_abrir_inv": "Je l'ai : ouvrir l'invitation dans l'app",
+                    "apk_of_seguir": "Continuer dans le navigateur",
+                    "traspaso_btn_app": "Tu l'utilisais dans le navigateur ? Récupérer mon compte",
+                    "traspaso_app_esperando": "Le navigateur s'est ouvert : confirme là-bas et le compte revient tout seul dans l'app.",
+                    "traspaso_titulo": "Emmener ton compte dans l'app",
+                    "traspaso_texto": "Le compte {cuenta} passe dans l'app ChatWallet de ce téléphone : même adresse, mêmes fonds, contacts et chats.",
+                    "traspaso_aviso": "Fais-le seulement si tu viens de toucher « Récupérer mon compte » dans l'app.",
+                    "traspaso_si": "L'emmener dans l'app",
+                    "traspaso_cancelar": "Annuler",
+                    "traspaso_guardando": "Sauvegarde de tes chats…",
+                    "traspaso_listo": "C'est prêt. Touche pour finir dans l'app.",
+                    "traspaso_abrir": "Ouvrir l'app",
+                    "traspaso_borrar_q": "L'app a ouvert ton compte ? Alors tu peux l'effacer de ce navigateur : l'app garde tout.",
+                    "traspaso_borrar": "Oui, l'effacer de ce navigateur",
+                    "traspaso_dejar": "Le garder ici aussi",
+                    "traspaso_borrada": "C'est fait : le compte n'est plus que dans l'app.",
+                    "traspaso_sin_cuenta": "Il n'y a aucun compte ChatWallet dans ce navigateur. Si tu l'utilisais dans un autre navigateur, copie ce lien et ouvre-le là-bas.",
+                    "traspaso_copiar": "Copier le lien",
+                    "traspaso_copiado": "Copié.",
+                    "traspaso_cerrar": "Fermer",
+                    "traspaso_vencido": "La demande pour récupérer ton compte a expiré ou ne vient pas de cette app. Touche « Récupérer mon compte » à nouveau.",
+                    "traspaso_ilegible": "Impossible d'ouvrir le compte envoyé par le navigateur. Réessaie.",
+                    "traspaso_ya_esta": "Ce compte est déjà dans l'app.",
+                    "traspaso_otra": "L'app a déjà un autre compte. Pour récupérer celui du navigateur, oublie d'abord l'actuel dans Réglages (avec sa phrase notée).",
+                    "traspaso_ok": "Compte récupéré du navigateur. Ouverture…",
                     "ars_qr_ok_note": "QR Transferencias 3.0 valide.",
                     "ars_qr_bad_note": "Ce QR se présente comme argentin mais sa somme de contrôle ne correspond pas. Il est peut-être abîmé ou mal photographié.",
                     "pay_qr_cost": "Équivaut à",
@@ -22396,10 +22725,12 @@
             // expuesto sus globals (window.Client, window.ReadReceiptCodec, window.API_BASE, etc.).
             // Este script clásico se ejecuta durante el parseo, ANTES que los módulos; llamar init()
             // sincrónico aquí provocaba "ReferenceError: Client/API_BASE is not defined".
+            // cwInitHecho libera los App Links del APK (consumePendingDeepLink) aunque init falle.
+            const arrancar = () => init().catch(e => console.error('[init]', e)).finally(() => cwInitTerminado());
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', init);
+                document.addEventListener('DOMContentLoaded', arrancar);
             } else {
-                init();
+                arrancar();
             }
         </script>
 

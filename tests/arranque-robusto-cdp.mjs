@@ -193,8 +193,14 @@ for (const [nombre, ua, android] of [['Android', UA_INSTAGRAM_ANDROID, true], ['
         console.log('\n── Chrome de Android ──');
         await B.rpc('Emulation.setUserAgentOverride', { userAgent: UA_CHROME_ANDROID });
         await B.rpc('Page.navigate', { url: `${BASE}?address=${INVITA}` });
+        // Chrome de verdad: sin aviso de embebido, pero antes de crear la wallet se ofrece la
+        // app (cwOfrecerApk). "Seguir en el navegador" sigue con el flujo de siempre.
+        const oferta = await B.listo(`!!document.getElementById('cwApkSeguir')`, 60);
+        ok(oferta && !(await B.ev(`!!document.getElementById('cwEmbebidoModal')`))
+            && !(await B.ev(`localStorage.getItem('xmtp-chat-wallet')`)), 'sin aviso de embebido: ofrece la app antes de crear la wallet');
+        await B.ev(`document.getElementById('cwApkSeguir').click()`);
         const w = await B.listo(`localStorage.getItem('xmtp-chat-wallet')`, 60);
-        ok(!!w && !(await B.ev(`!!document.getElementById('cwEmbebidoModal')`)), 'sin aviso: crea la wallet directo');
+        ok(!!w, '"Seguir en el navegador": crea la wallet');
         const casos = await B.ev(`({
             apk: (() => { const ua = '${UA_INSTAGRAM_ANDROID}'.replace(' Instagram 350.0.0.0.0 Android', ''); return cwNavegadorEmbebido(ua); })(),
             fb: cwNavegadorEmbebido('Mozilla/5.0 (iPhone) [FBAN/FBIOS;FBAV/450.0]'),
