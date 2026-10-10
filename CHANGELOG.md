@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Se terminó el aviso repetido de «este navegador borró los chats guardados».** No era el
+  navegador: pasaba al tener ChatWallet abierta dos veces a la vez (dos pestañas, o una
+  pestaña y la app instalada). La segunda arrancaba el chat por su cuenta y dejaba a la primera
+  fuera de sus conversaciones. Ahora el chat funciona en una sola ventana a la vez: la otra te
+  avisa, y arranca sola cuando cerrás la primera.
+- Si un dispositivo ya había quedado dado de baja del chat por ese problema, el aviso del chat
+  trae un botón **«Reconectar este dispositivo»** que lo vuelve a sumar y recupera tu respaldo.
+
 ## 3.70 — 2026-10-10
 
 - **Un chat que no puede sincronizar ya no esconde tus mensajes.** Antes, si la sincronización

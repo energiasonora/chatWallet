@@ -107,7 +107,7 @@ try {
     await ev(`(() => { window.__fis = Client.fetchInboxStates; Client.fetchInboxStates = async () => [{ installations: [{ id: 'otra-instalacion' }] }]; })()`);
     await abrirChat('Group is inactive');
     check('instalación dada de baja: lo dice', await pollFor(`/fue dado de baja/.test(document.getElementById('cwChatSinSync')?.textContent || '')`, 40));
-    check('…sin botón de reabrir', !await ev(`!!document.querySelector('#cwChatSinSync button')`));
+    check('…y ofrece reconectar este dispositivo', /Reconectar este dispositivo/.test(await ev(`document.querySelector('#cwChatSinSync button')?.textContent || ''`)));
     check('…y los mensajes siguen ahí', /hola guardado/.test(await textoChat()));
     await ev(`Client.fetchInboxStates = window.__fis`);
 
