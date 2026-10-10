@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.69 — 2026-10-10
+
 - **Si usabas ChatWallet en el navegador, ahora podés pasar tu cuenta a la app.** En la app
   recién instalada, tocá «¿Ya la usabas en el navegador? Traer mi cuenta». Se abre el
   navegador, confirmás ahí y la app queda con la misma cuenta: la misma dirección, los mismos
