@@ -17,6 +17,13 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Un chat que no puede sincronizar ya no esconde tus mensajes.** Antes, si la sincronización
+  fallaba, la pantalla quedaba en «No se pudieron cargar los mensajes» aunque los mensajes
+  estuvieran guardados en el dispositivo. Ahora se muestran igual, con un aviso arriba.
+- Si el motivo es que **este dispositivo quedó fuera de la conversación**, la app lo dice en
+  vez de ofrecer un «Reintentar» que no podía arreglarlo, y te deja intentar reabrir el chat.
+  Si el dispositivo fue dado de baja desde otro de los tuyos, también te lo avisa.
+
 ## 3.69 — 2026-10-10
 
 - **Si usabas ChatWallet en el navegador, ahora podés pasar tu cuenta a la app.** En la app

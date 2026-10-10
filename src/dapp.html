@@ -3689,6 +3689,14 @@
                     <p class="text-base font-semibold" data-i18n-key="pay_qr_with_value">USDC en la red Base</p>
                     <p id="payQrBalance" class="text-xs text-gray-400"></p>
                 </div>
+                <!-- Pago por P2P.me: por dónde va la orden, el botón (dos toques: pagar y confirmar)
+                     y el freno, que sólo existe mientras el QR todavía no salió. -->
+                <p id="payQrProgress" class="hidden rounded-lg p-3 text-sm"></p>
+                <button type="button" id="payQrPay"
+                    class="hidden w-full py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold disabled:opacity-40"></button>
+                <button type="button" id="payQrStop"
+                    class="hidden w-full py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm"
+                    data-i18n-key="pay_qr_stop">Frenar</button>
                 <p id="payQrNote" class="text-xs text-gray-400"></p>
                 <button type="button" id="payQrOk"
                     class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-bold"
@@ -11901,6 +11909,58 @@
                 </div>`;
             }
 
+            // ¿Esta instalación sigue dada de alta en la identidad? true / false / null (no se sabe).
+            // Por la red (fetchInboxStates): la copia local sigue listando las revocadas.
+            async function cwInstalacionViva() {
+                try {
+                    const yo = String(chatwalletxmtp.installationId || '');
+                    const estados = await withTimeout(Client.fetchInboxStates([chatwalletxmtp.inboxId], XMTP_ENV), 12000, 'fetchInboxStates');
+                    const vivas = (estados && estados[0] && estados[0].installations) || [];
+                    if (!yo || !vivas.length) return null;
+                    return vivas.some(i => String(i.id || '') === yo);
+                } catch (e) { return null; }
+            }
+
+            // Aviso arriba del hilo cuando el chat se muestra sin haber podido sincronizar.
+            //  - "inactive": este dispositivo quedó fuera de la conversación. Si la instalación
+            //    sigue viva se puede intentar reabrir (traer invitaciones nuevas + rearmar el DM);
+            //    si fue dada de baja, acá no entra nada más y se dice.
+            //  - cualquier otra falla: se muestra lo guardado y se ofrece reintentar.
+            let cwReabrirIntentado = null;   // id de la conversación que ya se intentó reabrir
+            async function cwAvisarChatSinSync(conv, error, token) {
+                const inactivo = /inactive/i.test(String((error && error.message) || error || ''));
+                const pintar = (texto, boton, accion) => {
+                    if (token !== chatOpenToken) return;
+                    document.getElementById('cwChatSinSync')?.remove();
+                    const el = document.createElement('div');
+                    el.id = 'cwChatSinSync';
+                    el.className = 'cw-aviso-ambar text-xs rounded-lg p-2 mb-3 text-center leading-relaxed';
+                    el.innerHTML = `<span>${escHtml(texto)}</span>` +
+                        (boton ? ` <button type="button" class="underline font-semibold ml-1">${escHtml(boton)}</button>` : '');
+                    if (boton) el.querySelector('button').onclick = accion;
+                    messagesContainer.prepend(el);
+                };
+                if (!inactivo) { pintar(t('chat_sin_sync'), t('reintentar'), () => window.reloadCurrentChat && window.reloadCurrentChat()); return; }
+                const esGrupo = convIsGroup(conv);
+                pintar(t(esGrupo ? 'chat_fuera_grupo' : 'chat_fuera'));
+                if (esGrupo) return;
+                const viva = await cwInstalacionViva();
+                if (viva === false) { pintar(t('chat_fuera_baja')); return; }
+                if (cwReabrirIntentado === conv.id) { pintar(t('chat_fuera_sigue')); return; }
+                pintar(t('chat_fuera'), t('chat_fuera_reabrir'), async (ev) => {
+                    const contacto = currentChatContact;
+                    if (!contacto) return;
+                    ev.currentTarget.disabled = true;
+                    ev.currentTarget.textContent = '…';
+                    cwReabrirIntentado = conv.id;
+                    // Si del otro lado ya volvieron a sumarnos, la invitación está esperando en la red.
+                    try { await withTimeout(chatwalletxmtp.conversations.syncAll(), 25000, 'syncAll (reabrir chat)'); }
+                    catch (e) { console.warn('reabrir chat: syncAll', e?.message || e); }
+                    await startOrLoadConversation(contacto.address);
+                    if (currentConversation && currentConversation.id !== conv.id) cwReabrirIntentado = null;
+                });
+            }
+
             // keepVisible: en una recarga manual (pull-to-refresh) no borramos el hilo hasta tener
             // los mensajes nuevos, así un fallo de red no deja la pantalla vacía.
             async function loadAndStreamMessages(conv, { keepVisible = false } = {}) {
@@ -11923,9 +11983,16 @@
                     console.log("Sincronizando mensajes para conversación...", conv.id);
                     // Con timeout: el worker WASM de XMTP puede quedar wedged y sync() no vuelve nunca
                     // (era la otra cara del "se cuelga y no muestra nada").
-                    await withTimeout(conv.sync(), 20000, 'conv.sync (cargar chat)');
+                    // Si sync() falla NO se tapa el hilo: lo guardado (base local + respaldo) se
+                    // muestra igual, con un aviso arriba. Antes un "Group is inactive" —este
+                    // dispositivo quedó fuera de la conversación— dejaba la pantalla en "No se
+                    // pudieron cargar los mensajes" con un Reintentar que no podía arreglar nada.
+                    let syncFallo = null;
+                    try { await withTimeout(conv.sync(), 20000, 'conv.sync (cargar chat)'); }
+                    catch (e) { syncFallo = e; console.warn('conv.sync falló, se muestra lo guardado:', e?.message || e); }
                     // limit alto: sin él, messages() trunca al default del SDK y se "pierde" historial viejo.
-                    const existingMessages = await conv.messages({ limit: 1000n });
+                    // Con timeout: si sync() se colgó, el worker puede no contestar tampoco esto.
+                    const existingMessages = await withTimeout(conv.messages({ limit: 1000n }), syncFallo ? 10000 : 30000, 'conv.messages (cargar chat)');
                     console.log(`✅ ${existingMessages.length} mensajes recuperados de la base de datos local.`);
 
                     // Respaldo soberano: los mensajes que XMTP ya no puede descifrar (instalación nueva)
@@ -11985,6 +12052,7 @@
                         </div>`;
                     }
                     for (const entry of entries) addMessageToUI(entry.message, entry.type);
+                    if (syncFallo) cwAvisarChatSinSync(conv, syncFallo, token);
                     // Los 📌 ya se reprodujeron junto con el hilo: el más reciente arriba.
                     pinBarIdx = 0; renderPinBar();
                     if (window.__updateRefreshBtn) window.__updateRefreshBtn();
@@ -16633,7 +16701,366 @@
             // USDC nativo de Circle en Base: el que usa el Diamond de P2P.me (ver CW_P2P_DIAMOND).
             const CW_P2P_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
+            // ── Motor de pago P2P.me (orden PAY) ───────────────────────────────────────
+            // Pagar el QR de un comercio: un comerciante del protocolo adelanta los pesos y cobra
+            // nuestro USDC. Son tres transacciones nuestras en Base y dos del comerciante:
+            //   1. placeOrder(tipo 2)          → la orden queda PLACED; todavía no se mueve USDC
+            //   2. approve(USDC → Diamond)     → por lo que el contrato va a tirar, comisión incluida
+            //      …un comerciante acepta (ACCEPTED) y publica su llave pública…
+            //   3. setSellOrderUpiWithFiat     → le mandamos el QR cifrado para él; recién acá el
+            //                                    Diamond se lleva el USDC en custodia (PAID)
+            //      …el comerciante paga el QR en pesos y cierra la orden (COMPLETED).
+            // Calcado de la app oficial (github.com/p2pdotme/user-app-client, 3.2.16) y del SDK 1.3.7,
+            // pero con ethers y WebCrypto en vez de viem: son ~200 líneas contra 210 KB.
+            // Probado contra el Diamond real en un fork de Base: tests/p2p-pago-fork.mjs.
+            const CW_P2P_SUBGRAPH = 'https://api.goldsky.com/api/public/project_cmq7kbyqt81p501xi7h0wdeuh/subgraphs/p2pme-subgraph/prod/gn';
+            // Si el subgraph no contesta: circle medido en cadena (10/10/2026, todas las órdenes ARS).
+            // Igual se valida contra el contrato antes de usarlo.
+            const CW_P2P_CIRCLE_REPUESTO = { ARS: 5n };
+            const CW_P2P_ORDEN = 'tuple(uint256 amount,uint256 fiatAmount,uint256 placedTimestamp,uint256 completedTimestamp,uint256 userCompletedTimestamp,address acceptedMerchant,address user,address recipientAddr,string pubkey,string encUpi,bool userCompleted,uint8 status,uint8 orderType,tuple(uint8 raisedBy,uint8 status,uint256 redactTransId,uint256 accountNumber) disputeInfo,uint256 id,string userPubKey,string encMerchantUpi,uint256 acceptedAccountNo,uint256[] assignedAccountNos,bytes32 currency,uint256 preferredPaymentChannelConfigId,uint256 circleId)';
+            const CW_P2P_PAGO_ABI = [
+                'function placeOrder(string _pubKey,uint256 _amount,address _recipientAddr,uint8 _orderType,string _userUpi,string _userPubKey,bytes32 _currency,uint256 preferredPaymentChannelConfigId,uint256 _circleId,uint256 _fiatAmountLimit)',
+                'function setSellOrderUpiWithFiat(uint256 _orderId,string _userEncUpi,uint256 _updatedFiatAmount)',
+                `function getOrdersById(uint256 orderId) view returns (${CW_P2P_ORDEN})`,
+                'function getAdditionalOrderDetails(uint256 orderId) view returns (tuple(uint64 fixedFeePaid,uint64 tipsPaid,uint128 acceptedTimestamp,uint128 paidTimestamp,uint128 reserved2,uint256 actualUsdtAmount,uint256 actualFiatAmount))',
+                'function getAssignableMerchantsFromCircle(uint256 circleId,uint256 assignUpto,bytes32 currency,address user,uint256 usdtAmount,uint256 fiatAmount,int256 orderType,uint256 preferredPCConfigId) view returns (address[])',
+                'function userTxLimit(address _user,bytes32 _nativeCurrency) view returns (uint256,uint256)',
+                'function getSmallOrderThreshold(bytes32 currency) view returns (uint256)',
+                'function getSmallOrderFixedFeePay(bytes32 currency) view returns (uint256)',
+                'function getPriceConfig(bytes32 _currency) view returns (tuple(uint256 buyPrice, uint256 sellPrice, int256 buyPriceOffset, uint256 baseSpread))',
+                `event OrderPlaced(uint256 indexed orderId,address indexed user,address indexed merchant,uint256 amount,uint8 orderType,uint256 placedTimestamp,${CW_P2P_ORDEN} _order)`,
+            ];
+            const CW_P2P_USDC_ABI = ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)', 'function balanceOf(address) view returns (uint256)'];
+            const CW_P2P_ESTADO = { PLACED: 0, ACCEPTED: 1, PAID: 2, COMPLETED: 3, CANCELLED: 4 };
+            const CW_P2P_MILLON = 1_000_000n;
+
+            function cwP2pError(codigo, detalle) {
+                const e = new Error(detalle ? `${codigo}: ${detalle}` : codigo);
+                e.codigo = codigo;
+                return e;
+            }
+
+            // ECIES con el formato de eth-crypto, que es el que descifra el comerciante:
+            // ECDH secp256k1 → SHA-512 → (llave AES-256-CBC | llave HMAC-SHA256); el sobre es
+            // hex(iv 16 ‖ efímera comprimida 33 ‖ mac 32 ‖ cifrado). La llave del otro llega
+            // como 128 hex: el punto sin comprimir y sin el "04".
+            async function cwP2pEciesLlaves(compartido65) {
+                const h = ethers.getBytes(ethers.sha512(ethers.getBytes(compartido65).slice(1, 33)));
+                return {
+                    aes: await crypto.subtle.importKey('raw', h.slice(0, 32), { name: 'AES-CBC' }, false, ['encrypt', 'decrypt']),
+                    mac: h.slice(32),
+                };
+            }
+            async function cwP2pCifrar(pubHex, texto) {
+                const efimera = new ethers.SigningKey(ethers.hexlify(crypto.getRandomValues(new Uint8Array(32))));
+                const k = await cwP2pEciesLlaves(efimera.computeSharedSecret('0x04' + String(pubHex).replace(/^0x(04)?/, '')));
+                const iv = crypto.getRandomValues(new Uint8Array(16));
+                const cifrado = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, k.aes, new TextEncoder().encode(texto)));
+                const mac = ethers.computeHmac('sha256', k.mac, ethers.concat([iv, efimera.publicKey, cifrado]));
+                return ethers.concat([iv, efimera.compressedPublicKey, mac, cifrado]).slice(2);
+            }
+            async function cwP2pDescifrar(priv, sobreHex) {
+                const b = ethers.getBytes('0x' + sobreHex);
+                if (b.length < 82) throw cwP2pError('SOBRE_CORTO');
+                const iv = b.slice(0, 16), cifrado = b.slice(81);
+                const efimera = ethers.SigningKey.computePublicKey(b.slice(16, 49), false);
+                const k = await cwP2pEciesLlaves(new ethers.SigningKey(priv).computeSharedSecret(efimera));
+                if (ethers.computeHmac('sha256', k.mac, ethers.concat([iv, efimera, cifrado])) !== ethers.hexlify(b.slice(49, 81))) throw cwP2pError('MAC');
+                return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, k.aes, cifrado));
+            }
+            // Lo que viaja adentro del sobre: el destino del pago y su firma con la llave de la
+            // orden (la misma cuya pública fue en placeOrder), para que el comerciante sepa que el
+            // QR lo puso quien abrió la orden.
+            function cwP2pSobreDestino(privOrden, destino) {
+                const firma = new ethers.SigningKey(privOrden).sign(ethers.keccak256(ethers.toUtf8Bytes(destino))).serialized;
+                return JSON.stringify({ message: destino, signature: firma });
+            }
+
+            // Cuánto USDC cuesta pagar `fiat6` (pesos con 6 decimales) y si esta wallet puede.
+            // El USDC se redondea para ARRIBA: la orden nunca puede valer menos pesos que el QR.
+            async function cwP2pCotizarPago(prov, iso, fiat6, usuario) {
+                const d = new ethers.Contract(CW_P2P_DIAMOND, CW_P2P_PAGO_ABI, prov);
+                const moneda = ethers.encodeBytes32String(iso);
+                const [precio, umbral, feeChica, limites] = await Promise.all([
+                    d.getPriceConfig(moneda), d.getSmallOrderThreshold(moneda), d.getSmallOrderFixedFeePay(moneda), d.userTxLimit(usuario, moneda)]);
+                const venta = precio.sellPrice;
+                if (!(venta > 0n)) throw cwP2pError('SIN_PRECIO', iso);
+                const usdc = (fiat6 * CW_P2P_MILLON + venta - 1n) / venta;
+                const fee = usdc <= umbral ? feeChica : 0n;
+                return { moneda, venta, usdc, fee, total: usdc + fee, umbral, feeChica, limite: limites[1] };
+            }
+
+            // Qué grupo de comerciantes ("circle") atiende la orden. La lista sale del subgraph y
+            // la palabra final la tiene el contrato: sólo vale un circle que hoy tenga a alguien
+            // asignable para ESTE usuario, monto y moneda.
+            async function cwP2pElegirCircle(prov, cot, fiat6, usuario) {
+                const d = new ethers.Contract(CW_P2P_DIAMOND, CW_P2P_PAGO_ABI, prov);
+                const iso = ethers.decodeBytes32String(cot.moneda);
+                let candidatos = [];
+                try {
+                    const r = await fetch(CW_P2P_SUBGRAPH, {
+                        method: 'POST', headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({
+                            query: 'query($c:Bytes!){circles(first:1000,where:{currency:$c,metrics_:{circleStatus_in:["active","bootstrap","paused"]}}){circleId metrics{circleScore circleStatus scoreState{availableMerchantsCount}}}}',
+                            variables: { c: cot.moneda }
+                        })
+                    });
+                    const peso = c => Number(c.metrics.circleScore) * (c.metrics.circleStatus === 'paused' ? 0.3 : 1) * Number(c.metrics.scoreState.availableMerchantsCount);
+                    candidatos = ((await r.json()).data?.circles || [])
+                        .filter(c => Number(c.metrics.scoreState.availableMerchantsCount) > 0)
+                        .sort((a, b) => peso(b) - peso(a)).map(c => BigInt(c.circleId));
+                } catch (e) { console.warn('cwP2pElegirCircle: subgraph', e); }
+                const repuesto = CW_P2P_CIRCLE_REPUESTO[iso];
+                if (repuesto !== undefined && !candidatos.includes(repuesto)) candidatos.push(repuesto);
+                for (const circle of candidatos.slice(0, 4)) {
+                    try {
+                        const m = await d.getAssignableMerchantsFromCircle(circle, 1n, cot.moneda, usuario, cot.usdc, fiat6, 2n, 0n);
+                        if (m.length >= 1) return circle;
+                    } catch (e) { console.warn('cwP2pElegirCircle: circle', circle, e.shortMessage || e.message); }
+                }
+                throw cwP2pError('SIN_COMERCIANTES', iso);
+            }
+
+            // El flujo entero. `firmante` es una Wallet de ethers ya conectada a Base.
+            // `onPaso(nombre, datos)` avisa por dónde va; `cortar()` devuelve true si el usuario
+            // pidió frenar: sólo se respeta ANTES de mandar el QR, que es cuando todavía no se
+            // movió plata. Frenar es NO seguir: el contrato no le deja al usuario cancelar una orden
+            // PAY (cancelOrder → NOT_AUTHORIZED, medido en el fork); la orden vence sola a los 180 s
+            // y la barre el protocolo. El USDC nunca salió de la wallet.
+            // Devuelve { orderId, estado: 'completada' | 'abandonada' | 'cancelada' | 'pendiente', usdc, fee }.
+            async function cwP2pPagarQr({ firmante, iso, qr, fiat6, onPaso = () => { }, cortar = () => false, cadaMs = 2000, esperaAceptarMs = 200000, esperaCierreMs = 600000 }) {
+                const prov = firmante.provider, yo = firmante.address;
+                const d = new ethers.Contract(CW_P2P_DIAMOND, CW_P2P_PAGO_ABI, firmante);
+                const usdc = new ethers.Contract(CW_P2P_USDC, CW_P2P_USDC_ABI, firmante);
+                const dormir = ms => new Promise(r => setTimeout(r, ms));
+
+                onPaso('cotizando');
+                const cot = await cwP2pCotizarPago(prov, iso, fiat6, yo);
+                if (cot.usdc > cot.limite) throw cwP2pError('SOBRE_LIMITE', ethers.formatUnits(cot.limite, 6));
+                const [saldo, gas] = await Promise.all([usdc.balanceOf(yo), prov.getBalance(yo)]);
+                if (saldo < cot.total) throw cwP2pError('SIN_SALDO', ethers.formatUnits(cot.total - saldo, 6));
+                // Son ~1,8 M de gas entre las tres (placeOrder solo gasta 1,4 M, medido en el fork).
+                const tarifa = await prov.getFeeData();
+                const reservaGas = (tarifa.maxFeePerGas ?? tarifa.gasPrice ?? 0n) * 2_200_000n;
+                if (gas === 0n || gas < reservaGas) throw cwP2pError('SIN_GAS', ethers.formatEther(reservaGas));
+                const circle = await cwP2pElegirCircle(prov, cot, fiat6, yo);
+
+                // Llave de un solo uso para esta orden: su pública va en la orden y con la privada
+                // se firma el QR. No es la de la wallet, así la orden no publica tu llave pública.
+                const llaveOrden = new ethers.SigningKey(ethers.hexlify(crypto.getRandomValues(new Uint8Array(32))));
+                onPaso('colocando', { usdc: cot.usdc, fee: cot.fee });
+                // _fiatAmountLimit = lo que dice el QR: si el precio se movió y la orden ya no
+                // llega a cubrirlo, el contrato la rechaza en vez de dejarnos pagar de menos.
+                const tx1 = await d.placeOrder('', cot.usdc, ethers.ZeroAddress, 2, '', llaveOrden.publicKey.slice(4), cot.moneda, 0n, circle, fiat6);
+                const rec1 = await tx1.wait();
+                let orderId = null;
+                for (const l of rec1.logs) {
+                    try {
+                        const ev = d.interface.parseLog(l);
+                        if (ev?.name === 'OrderPlaced' && ev.args.user.toLowerCase() === yo.toLowerCase()) orderId = ev.args.orderId;
+                    } catch (e) { }
+                }
+                if (orderId === null) throw cwP2pError('SIN_ORDEN', tx1.hash);
+                onPaso('colocada', { orderId, tx: tx1.hash });
+
+                const abandonar = (motivo) => {
+                    onPaso('abandonada', { orderId, motivo });
+                    return { orderId, estado: 'abandonada', motivo, usdc: 0n, fee: 0n };
+                };
+
+                // Cuánto va a tirar el contrato. Si la orden quedó por más pesos que el QR (por el
+                // redondeo del USDC), al mandar el QR se la fija en los pesos EXACTOS y el contrato
+                // recalcula el USDC con el precio de la orden, para arriba, más la comisión de orden
+                // chica vigente. Aprobar de menos no revierte: CANCELA la orden en silencio.
+                const [orden0, extra0] = await Promise.all([d.getOrdersById(orderId), d.getAdditionalOrderDetails(orderId)]);
+                let fiatFijo = 0n, tiron = extra0.actualUsdtAmount;
+                if (orden0.fiatAmount !== fiat6) {
+                    fiatFijo = fiat6;
+                    const precioOrden = orden0.fiatAmount * CW_P2P_MILLON / orden0.amount;
+                    const nuevo = (fiat6 * CW_P2P_MILLON + precioOrden - 1n) / precioOrden;
+                    const conFee = nuevo + (nuevo <= cot.umbral ? cot.feeChica : 0n);
+                    if (conFee > tiron) tiron = conFee;
+                }
+                if (tiron < orden0.amount) return abandonar('TIRON_RARO');
+                if (cortar()) return abandonar('USUARIO');
+                if (await usdc.allowance(yo, CW_P2P_DIAMOND) < tiron) {
+                    onPaso('aprobando', { orderId, tiron });
+                    await (await usdc.approve(CW_P2P_DIAMOND, tiron)).wait();
+                }
+
+                onPaso('esperando', { orderId });
+                let orden = null;
+                for (const t0 = Date.now(); ;) {
+                    orden = await d.getOrdersById(orderId).catch(() => null);
+                    const st = orden ? Number(orden.status) : -1;
+                    if (st === CW_P2P_ESTADO.ACCEPTED && orden.pubkey) break;
+                    if (st === CW_P2P_ESTADO.CANCELLED) { onPaso('cancelada', { orderId, motivo: 'PROTOCOLO' }); return { orderId, estado: 'cancelada', motivo: 'PROTOCOLO', usdc: 0n, fee: 0n }; }
+                    if (cortar()) return abandonar('USUARIO');
+                    if (Date.now() - t0 > esperaAceptarMs) return abandonar('NADIE_ACEPTO');
+                    await dormir(cadaMs);
+                }
+                onPaso('aceptada', { orderId, comerciante: orden.acceptedMerchant });
+                if (cortar()) return abandonar('USUARIO');
+
+                onPaso('enviando', { orderId });
+                const sobre = await cwP2pCifrar(orden.pubkey, cwP2pSobreDestino(llaveOrden.privateKey, qr));
+                const tx3 = await d.setSellOrderUpiWithFiat(orderId, sobre, fiatFijo);
+                await tx3.wait();
+                // El contrato atrapa su propio fallo al tirar el USDC y cancela: hay que mirar.
+                orden = await d.getOrdersById(orderId);
+                if (Number(orden.status) === CW_P2P_ESTADO.CANCELLED) { onPaso('cancelada', { orderId, motivo: 'AL_ENVIAR' }); return { orderId, estado: 'cancelada', motivo: 'AL_ENVIAR', usdc: 0n, fee: 0n }; }
+                const extra = await d.getAdditionalOrderDetails(orderId);
+                const res = { orderId, usdc: extra.actualUsdtAmount, fee: extra.fixedFeePaid, fiat: extra.actualFiatAmount };
+                onPaso('enviada', { ...res, tx: tx3.hash });
+
+                for (const t0 = Date.now(); Date.now() - t0 < esperaCierreMs;) {
+                    const o = await d.getOrdersById(orderId).catch(() => null);
+                    const st = o ? Number(o.status) : -1;
+                    if (st === CW_P2P_ESTADO.COMPLETED) { onPaso('completada', res); return { ...res, estado: 'completada' }; }
+                    if (st === CW_P2P_ESTADO.CANCELLED) { onPaso('cancelada', { orderId, motivo: 'DESPUES_DE_ENVIAR' }); return { ...res, estado: 'cancelada', motivo: 'DESPUES_DE_ENVIAR' }; }
+                    await dormir(cadaMs);
+                }
+                onPaso('pendiente', res);
+                return { ...res, estado: 'pendiente' };
+            }
+            window.cwP2pPagarQr = cwP2pPagarQr;
+            // ── fin del motor de pago P2P.me ──
+
+            // Interruptor del pago real. Apagado para todos hasta que haya un pago de verdad
+            // verificado; se prende y apaga con cinco toques sobre la bandera de la ficha.
+            const CW_P2P_PAGO_KEY = 'cw-p2p-pago';
+            const cwP2pPagoActivo = () => { try { return localStorage.getItem(CW_P2P_PAGO_KEY) === '1'; } catch (e) { return false; } };
+            // corriendo: hay una orden en curso · enviado: el QR ya salió (no hay vuelta atrás) ·
+            // armado: primer toque dado, falta confirmar · hecho: esta ficha ya pagó o lo intentó.
+            let cwPayQrPago = { corriendo: false, cortar: false, enviado: false, armado: false, hecho: false };
+
+            function cwPayQrFiatTxt(monto, info) {
+                try { return monto.toLocaleString(info.locale, { style: 'currency', currency: info.iso }); }
+                catch (e) { return '$ ' + monto; }
+            }
+
+            function pintarBotonPayQr() {
+                const b = document.getElementById('payQrPay');
+                if (!b) return;
+                const { info, precio, monto, saldo, valido } = cwPayQrEstado;
+                const visible = cwP2pPagoActivo() && !!valido && !!info?.listo && !!currentWallet && !cwPayQrPago.corriendo && !cwPayQrPago.hecho;
+                b.classList.toggle('hidden', !visible);
+                if (!visible) return;
+                const usdc = precio && monto !== null ? monto / precio.venta : null;
+                b.disabled = usdc === null || typeof saldo !== 'number' || usdc > saldo;
+                if (usdc === null) b.textContent = t('pay_qr_pay_btn_0');
+                else if (cwPayQrPago.armado) b.textContent = t('pay_qr_confirm_btn', { monto: cwPayQrFiatTxt(monto, info) });
+                else b.textContent = t('pay_qr_pay_btn', { n: usdc.toLocaleString(info.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
+            }
+
+            function cwPayQrProgreso(texto, tipo) {
+                const el = document.getElementById('payQrProgress');
+                if (!el) return;
+                el.textContent = texto || '';
+                el.className = !texto ? 'hidden' : 'rounded-lg p-3 text-sm ' +
+                    (tipo === 'rojo' ? 'cw-aviso-rojo' : tipo === 'ambar' ? 'cw-aviso-ambar' : tipo === 'ok' ? 'bg-gray-900/60 text-emerald-400 font-semibold' : 'bg-gray-900/60');
+            }
+
+            // Lo último que se pagó o intentó, por wallet: con el número de orden se reclama.
+            function cwP2pAnotarOrden(reg) {
+                try {
+                    const k = 'cw-p2p-ordenes-' + currentWallet.address.toLowerCase();
+                    const lista = JSON.parse(localStorage.getItem(k) || '[]');
+                    lista.unshift(reg);
+                    localStorage.setItem(k, JSON.stringify(lista.slice(0, 50)));
+                } catch (e) { }
+            }
+
+            async function cwPayQrPagar() {
+                const { info, monto, qr } = cwPayQrEstado;
+                if (cwPayQrPago.corriendo || cwPayQrPago.hecho || monto === null || !qr || !info || !currentWallet) return;
+                if (!cwPayQrPago.armado) { cwPayQrPago.armado = true; pintarBotonPayQr(); return; }
+                cwPayQrPago = { corriendo: true, cortar: false, enviado: false, armado: false, hecho: false };
+                pintarBotonPayQr();
+                const el = id => document.getElementById(id);
+                const freno = el('payQrStop'), entrada = el('payQrAmountInput');
+                if (entrada) entrada.disabled = true;
+                const u = v => Number(ethers.formatUnits(v, 6)).toLocaleString(info.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const montoTxt = cwPayQrFiatTxt(monto, info);
+                const comercio = (el('payQrMerchant')?.textContent || '').trim();
+                const reg = { cuando: Date.now(), comercio, moneda: info.iso, fiat: monto, orderId: null, estado: 'abierta' };
+                let fin = null;
+                try {
+                    const firmante = currentWallet.connect(cwProveedor(CW_P2P_RPC, 8453));
+                    fin = await cwP2pPagarQr({
+                        firmante, iso: info.iso, qr, fiat6: ethers.parseUnits(monto.toFixed(2), 6),
+                        cortar: () => cwPayQrPago.cortar,
+                        onPaso: (paso, d) => {
+                            if (d?.orderId != null) reg.orderId = String(d.orderId);
+                            if (paso === 'colocada' && freno) freno.classList.remove('hidden');
+                            if (paso === 'enviando') { cwPayQrPago.enviado = true; if (freno) freno.classList.add('hidden'); }
+                            const txt = {
+                                cotizando: () => t('pay_qr_p_cotizando'),
+                                colocando: () => t('pay_qr_p_colocando'),
+                                aprobando: () => t('pay_qr_p_aprobando', { n: u(d.tiron) }),
+                                esperando: () => t('pay_qr_p_esperando'),
+                                enviando: () => t('pay_qr_p_enviando'),
+                                enviada: () => t('pay_qr_p_enviada', { n: u(d.usdc), monto: montoTxt }),
+                            }[paso];
+                            if (txt) cwPayQrProgreso(txt());
+                        },
+                    });
+                } catch (e) {
+                    console.warn('cwPayQrPagar:', e);
+                    const porCodigo = {
+                        SIN_SALDO: () => t('pay_qr_e_saldo'), SIN_GAS: () => t('pay_qr_e_gas'),
+                        SOBRE_LIMITE: () => t('pay_qr_e_limite'), SIN_COMERCIANTES: () => t('pay_qr_e_comerciantes'),
+                    }[e.codigo];
+                    // Si la orden ya estaba abierta y el QR no salió, vence sola sin mover USDC. Si el
+                    // QR ya salió, lo que pasó no se sabe desde acá: se dice el número y que mire.
+                    const cola = cwPayQrPago.enviado ? ' ' + t('pay_qr_e_incierto', { id: reg.orderId }) : reg.orderId ? ' ' + t('pay_qr_e_sin_mover', { id: reg.orderId }) : '';
+                    cwPayQrProgreso((porCodigo ? porCodigo() : t('pay_qr_e_generico', { e: e.shortMessage || e.message || String(e) })) + cola, 'rojo');
+                    reg.estado = 'error:' + (e.codigo || e.code || 'desconocido');
+                }
+                if (fin) {
+                    reg.estado = fin.estado; reg.usdc = fin.usdc !== undefined ? ethers.formatUnits(fin.usdc, 6) : undefined;
+                    const id = String(fin.orderId);
+                    if (fin.estado === 'completada') { cwPayQrProgreso(t('pay_qr_p_completada', { monto: montoTxt, n: u(fin.usdc), id }), 'ok'); try { playQRscanned(); } catch (e) { } }
+                    else if (fin.estado === 'pendiente') cwPayQrProgreso(t('pay_qr_p_pendiente', { id }), 'ambar');
+                    else if (fin.estado === 'abandonada') cwPayQrProgreso(t(fin.motivo === 'USUARIO' ? 'pay_qr_p_frenada' : 'pay_qr_p_nadie', { id }), 'ambar');
+                    else cwPayQrProgreso(t(fin.motivo === 'DESPUES_DE_ENVIAR' ? 'pay_qr_p_cancelada_tarde' : 'pay_qr_p_cancelada', { id }), 'rojo');
+                }
+                if (reg.orderId) cwP2pAnotarOrden(reg);
+                // Sólo un pago que salió deja la ficha cerrada; lo demás se puede reintentar.
+                cwPayQrPago = { corriendo: false, cortar: false, enviado: false, armado: false, hecho: !!fin && (fin.estado === 'completada' || fin.estado === 'pendiente' || fin.motivo === 'DESPUES_DE_ENVIAR') };
+                if (freno) freno.classList.add('hidden');
+                if (entrada) entrada.disabled = false;
+                // Saldo nuevo, para que la ficha no siga mostrando el de antes de pagar.
+                const gen = cwPayQrEstado.gen;
+                cwSaldoDe({ TOKEN_CHAINID: '8453', API: CW_P2P_RPC, TOKEN_ADDRESS: CW_P2P_USDC, DECIMALS: 6 }, currentWallet.address)
+                    .then(v => { if (gen === cwPayQrGen) { cwPayQrEstado.saldo = v; pintarCostoPayQr(); } }).catch(() => { });
+                pintarBotonPayQr();
+            }
+            document.getElementById('payQrPay')?.addEventListener('click', cwPayQrPagar);
+            document.getElementById('payQrStop')?.addEventListener('click', () => {
+                if (!cwPayQrPago.corriendo || cwPayQrPago.enviado) return;
+                cwPayQrPago.cortar = true;
+                cwPayQrProgreso(t('pay_qr_p_frenando'));
+            });
+            // Cinco toques seguidos en la bandera: prende o apaga el pago experimental.
+            (function () {
+                let toques = 0, ultimo = 0;
+                document.getElementById('payQrFlag')?.addEventListener('click', () => {
+                    const ahora = Date.now();
+                    toques = ahora - ultimo < 600 ? toques + 1 : 1;
+                    ultimo = ahora;
+                    if (toques < 5 || cwPayQrPago.corriendo) return;
+                    toques = 0;
+                    const prender = !cwP2pPagoActivo();
+                    try { prender ? localStorage.setItem(CW_P2P_PAGO_KEY, '1') : localStorage.removeItem(CW_P2P_PAGO_KEY); } catch (e) { }
+                    showToast(t(prender ? 'pay_qr_exp_on' : 'pay_qr_exp_off'), 'info', 4000);
+                    if (cwPayQrEstado.valido) cwPayQrAviso(t(prender ? 'pay_qr_status_exp' : 'pay_qr_status_soon'), 'ambar');
+                    pintarBotonPayQr();
+                });
+            })();
+
             function pintarCostoPayQr() {
+                pintarBotonPayQr();
                 const { info, precio, monto, saldo } = cwPayQrEstado;
                 const elCosto = document.getElementById('payQrCost');
                 if (!elCosto || !precio || !info) return;
@@ -16667,10 +17094,17 @@
 
             document.getElementById('payQrAmountInput')?.addEventListener('input', e => {
                 cwPayQrEstado.monto = cwLeerMontoFiat(e.target.value);
+                cwPayQrPago.armado = false;   // cambió el monto: hay que volver a confirmar
                 pintarCostoPayQr();
             });
 
             async function handleIncomingPaymentQr(data, info) {
+                // Con una orden en curso la ficha es de ESA orden: otro QR no la pisa.
+                if (cwPayQrPago.corriendo) { showToast(t('pay_qr_busy'), 'info', 4000); return; }
+                cwPayQrPago = { corriendo: false, cortar: false, enviado: false, armado: false, hecho: false };
+                cwPayQrProgreso('');
+                document.getElementById('payQrStop')?.classList.add('hidden');
+                document.getElementById('payQrPay')?.classList.add('hidden');
                 playQRscanned();
                 const el = id => document.getElementById(id);
                 if (el('payQrFlag')) el('payQrFlag').textContent = info.bandera;
@@ -16707,9 +17141,9 @@
                 const montoFiat = (rawAmount && Number.isFinite(n) && n > 0) ? n : null;
                 const gen = ++cwPayQrGen;
                 // saldo: undefined = leyendo · null = no se pudo · 'sin' = no hay wallet que mirar
-                cwPayQrEstado = { gen, info, precio: null, monto: montoFiat, saldo: currentWallet ? undefined : 'sin' };
+                cwPayQrEstado = { gen, info, precio: null, monto: montoFiat, saldo: currentWallet ? undefined : 'sin', qr: data.trim(), valido };
                 // Arriba de todo, antes de tipear: ¿se puede pagar desde acá? (y si el QR es sano)
-                cwPayQrAviso(valido ? t('pay_qr_status_soon') : t('ars_qr_bad_note'), valido ? 'ambar' : 'rojo');
+                cwPayQrAviso(valido ? t(cwP2pPagoActivo() ? 'pay_qr_status_exp' : 'pay_qr_status_soon') : t('ars_qr_bad_note'), valido ? 'ambar' : 'rojo');
                 // Con qué se paga y cuánto tenés ahí. No bloquea la ficha.
                 const filaCon = el('payQrWithRow');
                 if (filaCon) filaCon.classList.toggle('hidden', !valido);
@@ -16775,6 +17209,9 @@
             }
 
             function closePayQrModal() {
+                // Cerrar con la orden abierta y el QR sin mandar es frenar: no se paga a ciegas.
+                // Si el QR ya salió, el pago sigue su curso y queda anotado con su número.
+                if (cwPayQrPago.corriendo && !cwPayQrPago.enviado) { cwPayQrPago.cortar = true; showToast(t('pay_qr_p_frenando'), 'info', 4000); }
                 const modal = document.getElementById('payQrModal');
                 if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
             }
@@ -20614,6 +21051,12 @@
                     "embebido_copiar": "Copiar el link",
                     "embebido_copiado": "Copiado: pegalo en Chrome o Safari.",
                     "embebido_seguir": "Seguir acá igual",
+                    "chat_sin_sync": "No se pudo sincronizar este chat: ves lo que estaba guardado.",
+                    "chat_fuera": "Este dispositivo quedó fuera de esta conversación: ves lo guardado, pero lo nuevo no llega acá.",
+                    "chat_fuera_grupo": "Ya no formás parte de este grupo en este dispositivo: ves lo que estaba guardado.",
+                    "chat_fuera_reabrir": "Reabrir el chat",
+                    "chat_fuera_sigue": "Sigue fuera de la conversación. Pedile a la otra persona que te escriba (o escribile desde otro de tus dispositivos): eso suele volver a sumar a este.",
+                    "chat_fuera_baja": "Este dispositivo fue dado de baja del chat desde otro de tus dispositivos. Ves lo guardado, pero acá ya no entran mensajes nuevos.",
                     "apk_of_titulo": "ChatWallet anda mejor como app",
                     "apk_of_titulo_inv": "Te invitaron a ChatWallet",
                     "apk_of_texto": "En Android, la app te avisa de mensajes y pagos aunque la cierres; el navegador no. Instalala antes de crear tu cuenta y no vas a tener que mudarla después.",
@@ -20659,6 +21102,34 @@
                     "pay_qr_rate": "1 USDC = {precio} {moneda} · spread del protocolo {spread} %",
                     "pay_qr_rate_old": "cotización de hace {min} min",
                     "pay_qr_rate_fail": "No pude traer la cotización ahora.",
+                    "pay_qr_status_exp": "Pago experimental por P2P.me: un comerciante del protocolo le paga al comercio en pesos y cobra tus USDC. Hace falta un poquito de ETH en Base para el gas.",
+                    "pay_qr_exp_on": "Pago de QR por P2P.me: activado (experimental)",
+                    "pay_qr_exp_off": "Pago de QR por P2P.me: desactivado",
+                    "pay_qr_busy": "Hay un pago en curso. Esperá a que termine.",
+                    "pay_qr_pay_btn_0": "Poné el monto para pagar",
+                    "pay_qr_pay_btn": "Pagar con {n} USDC",
+                    "pay_qr_confirm_btn": "Tocá de nuevo para confirmar: {monto}",
+                    "pay_qr_stop": "Frenar",
+                    "pay_qr_p_cotizando": "Revisando precio, saldo y comerciantes disponibles…",
+                    "pay_qr_p_colocando": "Abriendo la orden en Base…",
+                    "pay_qr_p_aprobando": "Orden abierta. Autorizando {n} USDC…",
+                    "pay_qr_p_esperando": "Esperando que un comerciante tome la orden (suele tardar unos 10 segundos)…",
+                    "pay_qr_p_enviando": "Un comerciante la tomó. Enviándole el QR cifrado…",
+                    "pay_qr_p_enviada": "QR enviado. Tus {n} USDC quedaron en custodia del protocolo y el comerciante está pagando {monto}…",
+                    "pay_qr_p_completada": "Pagado: {monto} por {n} USDC. Orden #{id}.",
+                    "pay_qr_p_pendiente": "El comerciante todavía no cerró la orden #{id}. Si al comercio no le llegó el pago, reclamá con ese número en t.me/p2pmeargentina.",
+                    "pay_qr_p_frenando": "Frenando: no se va a enviar el QR…",
+                    "pay_qr_p_frenada": "Frenado. El QR no se envió y tus USDC no se movieron. La orden #{id} vence sola en 3 minutos.",
+                    "pay_qr_p_nadie": "Ningún comerciante tomó la orden #{id}. Tus USDC no se movieron; podés probar de nuevo.",
+                    "pay_qr_p_cancelada": "El protocolo canceló la orden #{id} antes de cobrar. Tus USDC no se movieron.",
+                    "pay_qr_p_cancelada_tarde": "La orden #{id} se canceló después de enviar el QR. Revisá tu saldo de USDC en Base; si falta, reclamá con ese número en t.me/p2pmeargentina.",
+                    "pay_qr_e_saldo": "No te alcanza el USDC en Base para este pago.",
+                    "pay_qr_e_gas": "Falta ETH en Base para el gas: con 0,0001 ETH sobra.",
+                    "pay_qr_e_limite": "El monto supera el límite del protocolo para esta wallet.",
+                    "pay_qr_e_comerciantes": "No hay comerciantes disponibles ahora. Probá en un rato.",
+                    "pay_qr_e_generico": "No se pudo completar: {e}",
+                    "pay_qr_e_sin_mover": "El QR no llegó a enviarse y tus USDC no se movieron (orden #{id}, vence sola).",
+                    "pay_qr_e_incierto": "El QR ya había salido: revisá tu saldo y el comercio (orden #{id}).",
                     "chat_greeting_qr": "👋 Contacto iniciado escaneando el QR.",
                     "chat_greeting_link": "👋 Contacto iniciado desde el enlace de invitación.",
                     "pair_line_qr_mine": "Escaneaste su QR",
@@ -21105,6 +21576,12 @@
                     "embebido_copiar": "Copy the link",
                     "embebido_copiado": "Copied: paste it in Chrome or Safari.",
                     "embebido_seguir": "Stay here anyway",
+                    "chat_sin_sync": "Couldn't sync this chat: you're seeing what was saved.",
+                    "chat_fuera": "This device was left out of this conversation: you see what was saved, but new messages won't arrive here.",
+                    "chat_fuera_grupo": "You're no longer part of this group on this device: you're seeing what was saved.",
+                    "chat_fuera_reabrir": "Reopen the chat",
+                    "chat_fuera_sigue": "Still out of the conversation. Ask the other person to write to you (or write from another of your devices): that usually adds this one back.",
+                    "chat_fuera_baja": "This device was removed from the chat from another of your devices. You see what was saved, but new messages no longer arrive here.",
                     "apk_of_titulo": "ChatWallet works better as an app",
                     "apk_of_titulo_inv": "You've been invited to ChatWallet",
                     "apk_of_texto": "On Android, the app notifies you of messages and payments even when closed; the browser doesn't. Install it before creating your account so you won't have to move it later.",
@@ -21150,6 +21627,34 @@
                     "pay_qr_rate": "1 USDC = {precio} {moneda} · protocol spread {spread} %",
                     "pay_qr_rate_old": "quote is {min} min old",
                     "pay_qr_rate_fail": "Could not fetch the quote right now.",
+                    "pay_qr_status_exp": "Experimental payment via P2P.me: a protocol merchant pays the shop in pesos and takes your USDC. You need a little ETH on Base for gas.",
+                    "pay_qr_exp_on": "QR payment via P2P.me: on (experimental)",
+                    "pay_qr_exp_off": "QR payment via P2P.me: off",
+                    "pay_qr_busy": "A payment is in progress. Wait for it to finish.",
+                    "pay_qr_pay_btn_0": "Enter the amount to pay",
+                    "pay_qr_pay_btn": "Pay with {n} USDC",
+                    "pay_qr_confirm_btn": "Tap again to confirm: {monto}",
+                    "pay_qr_stop": "Stop",
+                    "pay_qr_p_cotizando": "Checking price, balance and available merchants…",
+                    "pay_qr_p_colocando": "Opening the order on Base…",
+                    "pay_qr_p_aprobando": "Order open. Approving {n} USDC…",
+                    "pay_qr_p_esperando": "Waiting for a merchant to take the order (usually about 10 seconds)…",
+                    "pay_qr_p_enviando": "A merchant took it. Sending the encrypted QR…",
+                    "pay_qr_p_enviada": "QR sent. Your {n} USDC are held by the protocol and the merchant is paying {monto}…",
+                    "pay_qr_p_completada": "Paid: {monto} for {n} USDC. Order #{id}.",
+                    "pay_qr_p_pendiente": "The merchant has not closed order #{id} yet. If the shop did not get paid, claim with that number at t.me/p2pmeargentina.",
+                    "pay_qr_p_frenando": "Stopping: the QR will not be sent…",
+                    "pay_qr_p_frenada": "Stopped. The QR was not sent and your USDC did not move. Order #{id} expires by itself in 3 minutes.",
+                    "pay_qr_p_nadie": "No merchant took order #{id}. Your USDC did not move; you can try again.",
+                    "pay_qr_p_cancelada": "The protocol cancelled order #{id} before charging. Your USDC did not move.",
+                    "pay_qr_p_cancelada_tarde": "Order #{id} was cancelled after the QR was sent. Check your USDC balance on Base; if it is short, claim with that number at t.me/p2pmeargentina.",
+                    "pay_qr_e_saldo": "Not enough USDC on Base for this payment.",
+                    "pay_qr_e_gas": "Not enough ETH on Base for gas: 0.0001 ETH is plenty.",
+                    "pay_qr_e_limite": "The amount is above the protocol limit for this wallet.",
+                    "pay_qr_e_comerciantes": "No merchants available right now. Try again later.",
+                    "pay_qr_e_generico": "Could not complete: {e}",
+                    "pay_qr_e_sin_mover": "The QR was never sent and your USDC did not move (order #{id}, it expires by itself).",
+                    "pay_qr_e_incierto": "The QR had already been sent: check your balance and the shop (order #{id}).",
                     "chat_greeting_qr": "👋 Contact started by scanning the QR.",
                     "chat_greeting_link": "👋 Contact started from the invitation link.",
                     "pair_line_qr_mine": "You scanned their QR",
@@ -21596,6 +22101,12 @@
                     "embebido_copiar": "Copier le lien",
                     "embebido_copiado": "Copié : colle-le dans Chrome ou Safari.",
                     "embebido_seguir": "Rester ici quand même",
+                    "chat_sin_sync": "Impossible de synchroniser ce chat : tu vois ce qui était enregistré.",
+                    "chat_fuera": "Cet appareil est resté hors de cette conversation : tu vois ce qui était enregistré, mais les nouveaux messages n'arrivent pas ici.",
+                    "chat_fuera_grupo": "Tu ne fais plus partie de ce groupe sur cet appareil : tu vois ce qui était enregistré.",
+                    "chat_fuera_reabrir": "Rouvrir le chat",
+                    "chat_fuera_sigue": "Toujours hors de la conversation. Demande à l'autre personne de t'écrire (ou écris-lui depuis un autre de tes appareils) : en général, cela réintègre celui-ci.",
+                    "chat_fuera_baja": "Cet appareil a été retiré du chat depuis un autre de tes appareils. Tu vois ce qui était enregistré, mais les nouveaux messages n'arrivent plus ici.",
                     "apk_of_titulo": "ChatWallet marche mieux en app",
                     "apk_of_titulo_inv": "On t'a invité sur ChatWallet",
                     "apk_of_texto": "Sur Android, l'app te prévient des messages et paiements même fermée ; le navigateur, non. Installe-la avant de créer ton compte et tu n'auras pas à le déménager ensuite.",
@@ -21641,6 +22152,34 @@
                     "pay_qr_rate": "1 USDC = {precio} {moneda} · spread du protocole {spread} %",
                     "pay_qr_rate_old": "cotation d'il y a {min} min",
                     "pay_qr_rate_fail": "Impossible de récupérer la cotation pour le moment.",
+                    "pay_qr_status_exp": "Paiement expérimental via P2P.me : un marchand du protocole paie le commerce en pesos et encaisse tes USDC. Il faut un peu d'ETH sur Base pour le gas.",
+                    "pay_qr_exp_on": "Paiement de QR via P2P.me : activé (expérimental)",
+                    "pay_qr_exp_off": "Paiement de QR via P2P.me : désactivé",
+                    "pay_qr_busy": "Un paiement est en cours. Attends qu'il se termine.",
+                    "pay_qr_pay_btn_0": "Saisis le montant à payer",
+                    "pay_qr_pay_btn": "Payer avec {n} USDC",
+                    "pay_qr_confirm_btn": "Touche encore pour confirmer : {monto}",
+                    "pay_qr_stop": "Arrêter",
+                    "pay_qr_p_cotizando": "Vérification du prix, du solde et des marchands disponibles…",
+                    "pay_qr_p_colocando": "Ouverture de l'ordre sur Base…",
+                    "pay_qr_p_aprobando": "Ordre ouvert. Autorisation de {n} USDC…",
+                    "pay_qr_p_esperando": "En attente qu'un marchand prenne l'ordre (environ 10 secondes)…",
+                    "pay_qr_p_enviando": "Un marchand l'a pris. Envoi du QR chiffré…",
+                    "pay_qr_p_enviada": "QR envoyé. Tes {n} USDC sont gardés par le protocole et le marchand paie {monto}…",
+                    "pay_qr_p_completada": "Payé : {monto} pour {n} USDC. Ordre #{id}.",
+                    "pay_qr_p_pendiente": "Le marchand n'a pas encore clos l'ordre #{id}. Si le commerce n'a pas été payé, réclame avec ce numéro sur t.me/p2pmeargentina.",
+                    "pay_qr_p_frenando": "Arrêt : le QR ne sera pas envoyé…",
+                    "pay_qr_p_frenada": "Arrêté. Le QR n'a pas été envoyé et tes USDC n'ont pas bougé. L'ordre #{id} expire tout seul dans 3 minutes.",
+                    "pay_qr_p_nadie": "Aucun marchand n'a pris l'ordre #{id}. Tes USDC n'ont pas bougé ; tu peux réessayer.",
+                    "pay_qr_p_cancelada": "Le protocole a annulé l'ordre #{id} avant d'encaisser. Tes USDC n'ont pas bougé.",
+                    "pay_qr_p_cancelada_tarde": "L'ordre #{id} a été annulé après l'envoi du QR. Vérifie ton solde USDC sur Base ; s'il manque, réclame avec ce numéro sur t.me/p2pmeargentina.",
+                    "pay_qr_e_saldo": "Pas assez d'USDC sur Base pour ce paiement.",
+                    "pay_qr_e_gas": "Il manque de l'ETH sur Base pour le gas : 0,0001 ETH suffit largement.",
+                    "pay_qr_e_limite": "Le montant dépasse la limite du protocole pour ce wallet.",
+                    "pay_qr_e_comerciantes": "Aucun marchand disponible pour l'instant. Réessaie plus tard.",
+                    "pay_qr_e_generico": "Impossible de terminer : {e}",
+                    "pay_qr_e_sin_mover": "Le QR n'a jamais été envoyé et tes USDC n'ont pas bougé (ordre #{id}, il expire tout seul).",
+                    "pay_qr_e_incierto": "Le QR était déjà parti : vérifie ton solde et le commerce (ordre #{id}).",
                     "chat_greeting_qr": "👋 Contact démarré en scannant le QR.",
                     "chat_greeting_link": "👋 Contact démarré depuis le lien d\u2019invitation.",
                     "pair_line_qr_mine": "Vous avez scanné son QR",
