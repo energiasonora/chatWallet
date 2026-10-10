@@ -17,6 +17,12 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.71 — 2026-10-10
+
+- **En prueba: pagar el QR de un comercio argentino con USDC.** Un comerciante de la red P2P.me
+  le paga al comercio en pesos y cobra tus USDC en Base. Todavía está apagado mientras lo
+  probamos con pagos reales; cuando esté listo lo vas a ver en la ficha que se abre al escanear
+  el QR.
 - **Se terminó el aviso repetido de «este navegador borró los chats guardados».** No era el
   navegador: pasaba al tener ChatWallet abierta dos veces a la vez (dos pestañas, o una
   pestaña y la app instalada). La segunda arrancaba el chat por su cuenta y dejaba a la primera
