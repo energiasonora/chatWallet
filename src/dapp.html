@@ -5895,6 +5895,33 @@
             }
             window.cwReintentarXmtp = cwReintentarXmtp;
 
+            // Una sola instancia del chat por navegador. La base de XMTP (OPFS) es de acceso
+            // exclusivo: una segunda pestaña o la PWA abierta a la vez NO la puede abrir y el SDK
+            // le arma otra instalación (medido 10/10/2026: a9b7… en la primera, ba6f… en la
+            // segunda). Eso se leía como "el navegador borró la base": salía el aviso y, peor,
+            // revocarInstalacionMuerta daba de baja la instalación VIVA de la otra ventana, que
+            // después veía "Group is inactive" en sus chats. El candado (Web Locks) se suelta
+            // solo al cerrar o recargar la página; la que espera arranca el chat cuando le toca.
+            let cwXmtpCandado = false, cwXmtpCandadoEnCola = false;
+            function cwTomarCandadoXmtp(wallet) {
+                if (cwXmtpCandado || !navigator.locks || !navigator.locks.request) return Promise.resolve(true);
+                const nombre = `cw-xmtp-${wallet.address.toLowerCase()}`;
+                const retener = () => new Promise(() => { });   // hasta que la página se vaya
+                return new Promise(resolve => {
+                    navigator.locks.request(nombre, { ifAvailable: true }, (candado) => {
+                        if (candado) { cwXmtpCandado = true; resolve(true); return retener(); }
+                        resolve(false);
+                        if (cwXmtpCandadoEnCola) return;
+                        cwXmtpCandadoEnCola = true;
+                        navigator.locks.request(nombre, () => {
+                            cwXmtpCandado = true;
+                            if (!chatwalletxmtp && !isXmtpInitializing && currentWallet) cwReintentarXmtp();
+                            return retener();
+                        }).catch(() => { });
+                    }).catch(() => resolve(true));
+                });
+            }
+
             // --- FUNCIÓN PARA INICIALIZAR XMTP EN SEGUNDO PLANO ---
             async function setupXmtpService(wallet) {
                 if (chatwalletxmtp || isXmtpInitializing) {
@@ -5911,6 +5938,8 @@
                         getIdentifier: () => ({ identifier: wallet.address, identifierKind: 0 }),
                         signMessage: async (message) => ethers.getBytes(await wallet.signMessage(message)),
                     };
+
+                    if (!(await cwTomarCandadoXmtp(wallet))) throw new Error(t('xmtp_otra_ventana'));
 
                     // Antes de crear la base: que el navegador se comprometa a no borrarla.
                     const persistente = await asegurarAlmacenamientoPersistente();
@@ -5978,7 +6007,10 @@
                     const forceRestore = localStorage.getItem('cw-link-force-restore') === '1';
                     await restoreChatBackupIfNeeded({ force: forceRestore || baseRehecha });
                     if (baseRehecha) {
-                        avisarBaseRehecha(persistente);
+                        // "Reconectar este dispositivo" cambia la base a propósito: no es un borrado.
+                        if (localStorage.getItem(CW_XMTP_RECONEXION_KEY) === '1') showToast(escHtml(t('chat_reconectado')), 'success', 8000);
+                        else avisarBaseRehecha(persistente);
+                        localStorage.removeItem(CW_XMTP_RECONEXION_KEY);
                         // El respaldo sólo trae lo que ESTE dispositivo alguna vez descifró.
                         // Lo que llegó mientras no estaba lo tiene el que lo escribió: se lo pedimos.
                         setTimeout(() => syncReconciliarTodo().catch(() => { }), 5000);
@@ -11926,6 +11958,15 @@
             //    sigue viva se puede intentar reabrir (traer invitaciones nuevas + rearmar el DM);
             //    si fue dada de baja, acá no entra nada más y se dice.
             //  - cualquier otra falla: se muestra lo guardado y se ofrece reintentar.
+            const CW_XMTP_RECONEXION_KEY = 'cw-xmtp-reconexion';
+            // La instalación de este dispositivo fue dada de baja: no hay nada que reabrir. Se
+            // estrena una base (y con ella una instalación nueva) y se baja el respaldo.
+            function cwReconectarDispositivo() {
+                if (!currentWallet) return;
+                localStorage.setItem(CW_XMTP_RECONEXION_KEY, '1');
+                bumpXmtpDbEpoch(currentWallet.address);
+                location.reload();
+            }
             let cwReabrirIntentado = null;   // id de la conversación que ya se intentó reabrir
             async function cwAvisarChatSinSync(conv, error, token) {
                 const inactivo = /inactive/i.test(String((error && error.message) || error || ''));
@@ -11945,7 +11986,7 @@
                 pintar(t(esGrupo ? 'chat_fuera_grupo' : 'chat_fuera'));
                 if (esGrupo) return;
                 const viva = await cwInstalacionViva();
-                if (viva === false) { pintar(t('chat_fuera_baja')); return; }
+                if (viva === false) { pintar(t('chat_fuera_baja'), t('chat_fuera_reconectar'), cwReconectarDispositivo); return; }
                 if (cwReabrirIntentado === conv.id) { pintar(t('chat_fuera_sigue')); return; }
                 pintar(t('chat_fuera'), t('chat_fuera_reabrir'), async (ev) => {
                     const contacto = currentChatContact;
@@ -21055,12 +21096,15 @@
                     "embebido_copiar": "Copiar el link",
                     "embebido_copiado": "Copiado: pegalo en Chrome o Safari.",
                     "embebido_seguir": "Seguir acá igual",
+                    "xmtp_otra_ventana": "ChatWallet ya está abierta en otra pestaña o ventana de este navegador. El chat funciona en una sola a la vez: cerrá la otra y acá arranca solo.",
+                    "chat_fuera_reconectar": "Reconectar este dispositivo",
+                    "chat_reconectado": "Dispositivo reconectado al chat. Se recuperó lo que había en tu respaldo.",
                     "chat_sin_sync": "No se pudo sincronizar este chat: ves lo que estaba guardado.",
                     "chat_fuera": "Este dispositivo quedó fuera de esta conversación: ves lo guardado, pero lo nuevo no llega acá.",
                     "chat_fuera_grupo": "Ya no formás parte de este grupo en este dispositivo: ves lo que estaba guardado.",
                     "chat_fuera_reabrir": "Reabrir el chat",
                     "chat_fuera_sigue": "Sigue fuera de la conversación. Pedile a la otra persona que te escriba (o escribile desde otro de tus dispositivos): eso suele volver a sumar a este.",
-                    "chat_fuera_baja": "Este dispositivo fue dado de baja del chat desde otro de tus dispositivos. Ves lo guardado, pero acá ya no entran mensajes nuevos.",
+                    "chat_fuera_baja": "Este dispositivo fue dado de baja del chat desde otro de tus dispositivos. Ves lo guardado, pero acá ya no entran mensajes nuevos hasta reconectarlo.",
                     "apk_of_titulo": "ChatWallet anda mejor como app",
                     "apk_of_titulo_inv": "Te invitaron a ChatWallet",
                     "apk_of_texto": "En Android, la app te avisa de mensajes y pagos aunque la cierres; el navegador no. Instalala antes de crear tu cuenta y no vas a tener que mudarla después.",
@@ -21580,12 +21624,15 @@
                     "embebido_copiar": "Copy the link",
                     "embebido_copiado": "Copied: paste it in Chrome or Safari.",
                     "embebido_seguir": "Stay here anyway",
+                    "xmtp_otra_ventana": "ChatWallet is already open in another tab or window of this browser. Chat works in one at a time: close the other one and it starts here by itself.",
+                    "chat_fuera_reconectar": "Reconnect this device",
+                    "chat_reconectado": "Device reconnected to chat. What was in your backup was recovered.",
                     "chat_sin_sync": "Couldn't sync this chat: you're seeing what was saved.",
                     "chat_fuera": "This device was left out of this conversation: you see what was saved, but new messages won't arrive here.",
                     "chat_fuera_grupo": "You're no longer part of this group on this device: you're seeing what was saved.",
                     "chat_fuera_reabrir": "Reopen the chat",
                     "chat_fuera_sigue": "Still out of the conversation. Ask the other person to write to you (or write from another of your devices): that usually adds this one back.",
-                    "chat_fuera_baja": "This device was removed from the chat from another of your devices. You see what was saved, but new messages no longer arrive here.",
+                    "chat_fuera_baja": "This device was removed from the chat from another of your devices. You see what was saved, but new messages won't arrive here until you reconnect it.",
                     "apk_of_titulo": "ChatWallet works better as an app",
                     "apk_of_titulo_inv": "You've been invited to ChatWallet",
                     "apk_of_texto": "On Android, the app notifies you of messages and payments even when closed; the browser doesn't. Install it before creating your account so you won't have to move it later.",
@@ -22105,12 +22152,15 @@
                     "embebido_copiar": "Copier le lien",
                     "embebido_copiado": "Copié : colle-le dans Chrome ou Safari.",
                     "embebido_seguir": "Rester ici quand même",
+                    "xmtp_otra_ventana": "ChatWallet est déjà ouverte dans un autre onglet ou une autre fenêtre de ce navigateur. Le chat marche dans une seule à la fois : ferme l'autre et il démarre ici tout seul.",
+                    "chat_fuera_reconectar": "Reconnecter cet appareil",
+                    "chat_reconectado": "Appareil reconnecté au chat. Ce qu'il y avait dans ta sauvegarde a été récupéré.",
                     "chat_sin_sync": "Impossible de synchroniser ce chat : tu vois ce qui était enregistré.",
                     "chat_fuera": "Cet appareil est resté hors de cette conversation : tu vois ce qui était enregistré, mais les nouveaux messages n'arrivent pas ici.",
                     "chat_fuera_grupo": "Tu ne fais plus partie de ce groupe sur cet appareil : tu vois ce qui était enregistré.",
                     "chat_fuera_reabrir": "Rouvrir le chat",
                     "chat_fuera_sigue": "Toujours hors de la conversation. Demande à l'autre personne de t'écrire (ou écris-lui depuis un autre de tes appareils) : en général, cela réintègre celui-ci.",
-                    "chat_fuera_baja": "Cet appareil a été retiré du chat depuis un autre de tes appareils. Tu vois ce qui était enregistré, mais les nouveaux messages n'arrivent plus ici.",
+                    "chat_fuera_baja": "Cet appareil a été retiré du chat depuis un autre de tes appareils. Tu vois ce qui était enregistré, mais les nouveaux messages n'arriveront plus ici tant que tu ne le reconnectes pas.",
                     "apk_of_titulo": "ChatWallet marche mieux en app",
                     "apk_of_titulo_inv": "On t'a invité sur ChatWallet",
                     "apk_of_texto": "Sur Android, l'app te prévient des messages et paiements même fermée ; le navigateur, non. Installe-la avant de créer ton compte et tu n'auras pas à le déménager ensuite.",
