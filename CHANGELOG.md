@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.70 — 2026-10-10
+
 - **Un chat que no puede sincronizar ya no esconde tus mensajes.** Antes, si la sincronización
   fallaba, la pantalla quedaba en «No se pudieron cargar los mensajes» aunque los mensajes
   estuvieran guardados en el dispositivo. Ahora se muestran igual, con un aviso arriba.
