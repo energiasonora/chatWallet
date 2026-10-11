@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.73 — 2026-10-11
+
 - El enlace del libro ahora muestra la tapa cuando lo compartís en redes.
 
 ## 3.72 — 2026-10-10
