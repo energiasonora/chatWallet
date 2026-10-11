@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ChatWallet · uso</title>
+<style>
+    :root { --fondo:#0f1218; --tarjeta:#181c25; --borde:#262c39; --texto:#e6e9ef; --tenue:#8b93a5; --acento:#818cf8; --ok:#34d399; --mal:#f87171; }
+    @media (prefers-color-scheme: light) {
+        :root { --fondo:#f4f5f8; --tarjeta:#fff; --borde:#dfe3ea; --texto:#171a21; --tenue:#667085; --acento:#4f46e5; --ok:#059669; --mal:#dc2626; }
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--fondo); color:var(--texto); font:15px/1.45 system-ui,-apple-system,sans-serif; }
+    main { max-width:980px; margin:0 auto; padding:20px 16px 48px; }
+    header { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+    h1 { font-size:20px; margin:0; }
+    h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--tenue); margin:26px 0 10px; font-weight:600; }
+    .tenue { color:var(--tenue); font-size:13px; }
+    .rejilla { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+    .dato { background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:12px 14px; }
+    .dato b { display:block; font-size:26px; font-weight:650; font-variant-numeric:tabular-nums; }
+    .dato span { color:var(--tenue); font-size:13px; }
+    .caja { background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:14px; }
+    .barras { display:flex; align-items:flex-end; gap:3px; height:110px; }
+    .barras i { flex:1; background:var(--acento); border-radius:3px 3px 0 0; min-height:2px; opacity:.85; }
+    .barras i.cero { background:var(--borde); }
+    .eje { display:flex; justify-content:space-between; margin-top:6px; }
+    table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+    th, td { text-align:right; padding:6px 8px; border-bottom:1px solid var(--borde); font-size:14px; }
+    th { color:var(--tenue); font-weight:500; font-size:12px; }
+    th:first-child, td:first-child { text-align:left; }
+    .falla { color:var(--mal); font-size:13px; }
+    button { font:inherit; padding:10px 16px; border-radius:10px; border:0; background:var(--acento); color:#fff; font-weight:600; cursor:pointer; }
+    button.suave { background:transparent; color:var(--tenue); border:1px solid var(--borde); padding:6px 12px; font-weight:500; }
+    #puerta { max-width:420px; margin:14vh auto 0; text-align:center; }
+    #puerta p { color:var(--tenue); }
+    [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+    <section id="puerta" hidden>
+        <h1>ChatWallet · uso</h1>
+        <p id="puertaTexto">Panel privado. Se entra firmando con la wallet autorizada.</p>
+        <p><button id="entrarBtn" hidden>Entrar con la wallet de este navegador</button></p>
+        <p class="tenue">Desde ChatWallet: tocá el logo → «Panel de uso». La app firma y abre esta página ya adentro.</p>
+        <p id="puertaError" class="falla"></p>
+    </section>
+
+    <section id="panel" hidden>
+        <header>
+            <h1>ChatWallet · uso</h1>
+            <div><span id="generado" class="tenue"></span> <button id="recargar" class="suave">Actualizar</button> <button id="salir" class="suave">Salir</button></div>
+        </header>
+        <div id="cuerpo"></div>
+    </section>
+</main>
+<script>
+const LLAVE = 'cw-uso-sesion';
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const num = (v) => v == null ? '—' : Number(v).toLocaleString('es-AR');
+const dato = (valor, etiqueta) => `<div class="dato"><b>${esc(typeof valor === 'number' ? num(valor) : valor)}</b><span>${esc(etiqueta)}</span></div>`;
+const falla = (f) => `<p class="falla">No disponible: ${esc(f.error)}</p>`;
+
+function barras(pares, pie) {
+    const max = Math.max(1, ...pares.map(p => p[1]));
+    const cols = pares.map(([d, n]) => `<i class="${n ? '' : 'cero'}" style="height:${Math.round(n / max * 100)}%" title="${esc(d)}: ${esc(num(n))}"></i>`).join('');
+    return `<div class="caja"><div class="barras">${cols}</div>
+        <div class="eje tenue"><span>${esc(pares[0]?.[0] || '')}</span><span>${esc(pie)}</span><span>${esc(pares.at(-1)?.[0] || '')}</span></div></div>`;
+}
+
+function pintar(d) {
+    $('generado').textContent = 'al ' + new Date(d.generado).toLocaleString('es-AR');
+    let h = '';
+
+    h += '<h2>Wallets con chat (respaldos en el nodo propio)</h2>';
+    const r = d.respaldos;
+    if (r.error) h += falla(r);
+    else {
+        h += `<div class="rejilla">${dato(r.wallets, 'wallets con respaldo, en total')}${dato(r.activas24h, 'activas en 24 h')}
+            ${dato(r.activas7d, 'activas en 7 días')}${dato(r.activas30d, 'activas en 30 días')}
+            ${dato(r.dormidas90d, 'sin volver hace 90 días o más')}${dato(r.conAlMenos10Mensajes, 'con 10 mensajes o más')}
+            ${dato(r.mensajesRespaldados, 'mensajes respaldados')}</div>`;
+        h += '<p class="tenue">«Activa» = hizo su último respaldo de chat en ese plazo. Cuenta wallets que chatearon, no instalaciones: quien sólo usa la billetera no aparece.</p>';
+        h += barras(Object.entries(r.ultimoRespaldoPorDia), 'wallets según el día de su último respaldo (30 días)');
+    }
+
+    if (d.historial?.length > 1) {
+        h += '<h2>Evolución (una foto por día desde que existe el panel)</h2>';
+        h += barras(d.historial.map(f => [f.dia, f.activas7d]), 'wallets activas en 7 días');
+        h += '<div style="height:10px"></div>' + barras(d.historial.map(f => [f.dia, f.wallets]), 'wallets con respaldo, acumulado');
+    }
+
+    h += '<h2>Descargas del APK (GitHub)</h2>';
+    const g = d.descargas;
+    if (g.error) h += falla(g);
+    else {
+        h += `<div class="rejilla">${dato(g.totalFirmada, 'descargas de la APK firmada, en total')}${dato(g.totalPuente, 'descargas de la APK puente')}</div>`;
+        h += `<div class="caja" style="margin-top:10px"><table><tr><th>Versión</th><th>Fecha</th><th>Firmada</th><th>Puente</th></tr>
+            ${g.ultimas.map(v => `<tr><td>${esc(v.version)}</td><td>${esc(v.fecha)}</td><td>${num(v.firmada)}</td><td>${num(v.puente)}</td></tr>`).join('')}</table></div>`;
+        h += '<p class="tenue">Son descargas, no personas: incluye las actualizaciones automáticas y tus propias pruebas.</p>';
+    }
+
+    h += '<h2>Visitas a chatwallet.org (Cloudflare)</h2>';
+    const v = d.visitas;
+    if (v.error) h += falla(v);
+    else if (v.sinToken) h += '<p class="tenue">Sin conectar: falta un token de Cloudflare con permiso de lectura de analítica en el servidor del panel.</p>';
+    else {
+        const suma = (c) => v.dias.reduce((a, x) => a + x[c], 0);
+        h += `<div class="rejilla">${dato(suma('unicos'), 'visitantes únicos-día, 30 días')}${dato(suma('paginas'), 'páginas vistas, 30 días')}</div><div style="height:10px"></div>`;
+        h += barras(v.dias.map(x => [x.dia, x.unicos]), 'visitantes únicos por día');
+        h += `<p class="tenue">${esc(v.nota)}</p>`;
+    }
+
+    h += '<h2>Relayer (pagos sin gas)</h2>';
+    const l = d.relayer;
+    if (l.error) h += falla(l);
+    else if (l.sinLibro) h += '<p class="tenue">Todavía no hay operaciones registradas.</p>';
+    else h += `<div class="rejilla">${dato(l.total.operaciones, 'operaciones, en total')}${dato(l.ultimos30d.operaciones, 'operaciones, 30 días')}
+        ${dato(l.total.movidoUsdc, 'USDC movidos')}${dato(l.total.ganadoUsdc, 'USDC de comisión')}${dato(l.total.rechazadas, 'rechazadas')}</div>
+        <p class="tenue">Desde ${esc(l.desde || '—')}. Gas gastado: ${esc(l.total.gastadoEth)} ETH.</p>`;
+
+    h += '<h2>Nodo propio</h2><div class="rejilla">';
+    const s = d.subidas, a = d.avisos;
+    if (s.error) h += `</div>${falla(s)}<div class="rejilla">`;
+    else h += dato(s.subidas, `subidas en ${s.desdeHaceDias} días`) + dato(s.megas, 'MB subidos') + dato(s.respaldosPublicados, 'respaldos publicados');
+    if (!a.error) h += dato(a.enCache, 'avisos de despertar en caché');
+    h += '</div>';
+
+    h += '<h2>Lo que este panel no puede ver</h2><p class="tenue">Wallets que no usan el chat, pagos de QR por P2P.me (en cadena no se distinguen de los de la app oficial) y cuántos teléfonos tienen la app instalada.</p>';
+    $('cuerpo').innerHTML = h;
+}
+
+async function cargar() {
+    const token = sessionStorage.getItem(LLAVE);
+    if (!token) return puerta();
+    const r = await fetch('/api/uso/datos', { headers: { authorization: 'Bearer ' + token } });
+    if (r.status === 401) { sessionStorage.removeItem(LLAVE); return puerta('La sesión venció.'); }
+    if (!r.ok) return puerta('El servidor respondió ' + r.status + '.');
+    $('puerta').hidden = true; $('panel').hidden = false;
+    pintar(await r.json());
+}
+
+function puerta(error) {
+    $('panel').hidden = true; $('puerta').hidden = false;
+    $('puertaError').textContent = error || '';
+    $('entrarBtn').hidden = !window.ethereum;
+}
+
+async function entrar(address, ts, signature) {
+    const r = await fetch('/api/uso/entrar', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ address, ts, signature }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return puerta(d.error || 'No se pudo entrar.');
+    sessionStorage.setItem(LLAVE, d.token);
+    cargar();
+}
+
+$('entrarBtn').onclick = async () => {
+    try {
+        const [address] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const ts = Date.now();
+        const signature = await window.ethereum.request({ method: 'personal_sign', params: ['chatwallet-panel:' + ts, address] });
+        entrar(address, ts, signature);
+    } catch (e) { puerta(e.message || 'Firma cancelada.'); }
+};
+$('recargar').onclick = cargar;
+$('salir').onclick = () => { sessionStorage.removeItem(LLAVE); puerta(); };
+
+// La app llega con la firma en el fragmento: no viaja al servidor en la URL ni queda en logs.
+const frag = new URLSearchParams(location.hash.slice(1));
+if (frag.get('a') && frag.get('t') && frag.get('s')) {
+    history.replaceState(null, '', location.pathname);
+    entrar(frag.get('a'), Number(frag.get('t')), frag.get('s'));
+} else cargar();
+</script>
+</body>
+</html>

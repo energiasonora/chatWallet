@@ -1913,6 +1913,9 @@
                 </svg>
                 <span data-i18n-key="changelog_btn">Novedades</span>
             </button>
+            <!-- Sólo lo ve la wallet de administración (ver cwUsoPanel). Sin i18n a propósito. -->
+            <a id="usoPanelBtn" target="_blank" rel="noopener noreferrer"
+                class="hidden mt-1 items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">Panel de uso</a>
             <p id="updateStatus" class="text-xs text-gray-400 min-h-[1rem]"></p>
             <div class="space-y-2 pt-2">
                 <!-- Apoyar = comprar el libro. No hay token ni preventa: el proyecto se financia
@@ -22564,10 +22567,30 @@
                 brandModal.classList.add('hidden');
                 brandModal.classList.remove('flex');
             };
+            // Panel de uso (uso.chatwallet.org): la app firma con la wallet y el panel deja entrar
+            // sólo a las de su lista. La firma se arma al abrir el modal y viaja en el fragmento
+            // del enlace: firmar recién en el clic abriría la ventana fuera del gesto y el
+            // navegador la bloquea. Vale 5 minutos; reabrir el modal la renueva.
+            const CW_USO_ADMINS = ['0xe14f241b23ac40487faedf68fff2a6c693780f82'];
+            const cwUsoPanel = async () => {
+                const boton = document.getElementById('usoPanelBtn');
+                if (!boton) return;
+                const yo = (currentWallet && currentWallet.address || '').toLowerCase();
+                const admin = CW_USO_ADMINS.includes(yo);
+                boton.classList.toggle('hidden', !admin);
+                boton.classList.toggle('inline-flex', admin);
+                if (!admin) { boton.removeAttribute('href'); return; }
+                try {
+                    const ts = Date.now();
+                    const firma = await currentWallet.signMessage('chatwallet-panel:' + ts);
+                    boton.href = `https://uso.chatwallet.org/#a=${yo}&t=${ts}&s=${firma}`;
+                } catch (e) { boton.classList.add('hidden'); }
+            };
             brandTag.addEventListener('click', (e) => {
                 e.preventDefault();
                 brandModal.classList.remove('hidden');
                 brandModal.classList.add('flex');
+                cwUsoPanel();
             });
             closeBrandModal.addEventListener('click', hideBrandModal);
             // Cerrar al clickear fuera del contenido (en el backdrop del modal).
