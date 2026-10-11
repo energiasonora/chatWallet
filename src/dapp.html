@@ -1372,6 +1372,7 @@
            en los dos temas: con utilidades sueltas de Tailwind el ámbar claro sobre blanco no se lee. */
         .cw-aviso-ambar { background-color: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.45); color: #fcd34d; }
         .cw-aviso-rojo { background-color: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.45); color: #fca5a5; }
+        .cw-aviso-verde { background-color: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.5); color: #6ee7b7; }
 
         /* ═══════════ TEMA CLARO ═══════════
            Activado con body.theme-light (toggle en el modal de marca, persistido en
@@ -1396,6 +1397,7 @@
         body.theme-light .text-emerald-400 { color: #047857 !important; }
         body.theme-light .cw-aviso-ambar { background-color: #fffbeb; border-color: #f59e0b; color: #92400e; }
         body.theme-light .cw-aviso-rojo { background-color: #fef2f2; border-color: #ef4444; color: #991b1b; }
+        body.theme-light .cw-aviso-verde { background-color: #ecfdf5; border-color: #10b981; color: #065f46; }
         body.theme-light .bg-gray-800\/50 { background-color: #f9fafb !important; }
         body.theme-light .bg-gray-700\/50 { background-color: #f3f4f6 !important; }
         /* indigo-400 nació para leerse sobre fondo oscuro: sobre blanco da ~3:1, por debajo del
@@ -3680,6 +3682,7 @@
                 <div id="payQrCostRow" class="bg-gray-900/60 rounded-lg p-4 space-y-1 hidden">
                     <p class="text-xs text-gray-400" data-i18n-key="pay_qr_cost">Equivale a</p>
                     <p id="payQrCost" class="text-2xl font-bold text-emerald-400">—</p>
+                    <p id="payQrFee" class="hidden text-xs text-gray-400"></p>
                     <p id="payQrRate" class="text-xs text-gray-400"></p>
                 </div>
                 <!-- Con qué se paga y cuánto tenés ahí: sin esto no había forma de saber si te
@@ -16945,8 +16948,21 @@
 
                 onPaso('enviando', { orderId });
                 const sobre = await cwP2pCifrar(orden.pubkey, cwP2pSobreDestino(llaveOrden.privateKey, qr));
-                const tx3 = await d.setSellOrderUpiWithFiat(orderId, sobre, fiatFijo);
-                await tx3.wait();
+                // Es el único paso con reloj (la orden aceptada vence): un tropiezo de red se reintenta.
+                // Un revert del contrato o la falta de gas no: esos no se arreglan insistiendo.
+                let tx3 = null;
+                for (let intento = 0; !tx3; intento++) {
+                    try { tx3 = await d.setSellOrderUpiWithFiat(orderId, sobre, fiatFijo); }
+                    catch (e) {
+                        if (intento >= 3 || e.code === 'CALL_EXCEPTION' || e.code === 'INSUFFICIENT_FUNDS') throw e;
+                        console.warn('cwP2pPagarQr: reintento del envío', e.shortMessage || e.message);
+                        await dormir(1500);
+                        // ¿Y si la anterior sí había salido? Entonces la orden ya no está en ACCEPTED.
+                        const o = await d.getOrdersById(orderId).catch(() => null);
+                        if (o && Number(o.status) !== CW_P2P_ESTADO.ACCEPTED) break;
+                    }
+                }
+                if (tx3) await tx3.wait();
                 // El contrato atrapa su propio fallo al tirar el USDC y cancela: hay que mirar.
                 orden = await d.getOrdersById(orderId);
                 if (Number(orden.status) === CW_P2P_ESTADO.CANCELLED) { onPaso('cancelada', { orderId, motivo: 'AL_ENVIAR' }); return { orderId, estado: 'cancelada', motivo: 'AL_ENVIAR', usdc: 0n, fee: 0n }; }
@@ -16980,6 +16996,36 @@
                 catch (e) { return '$ ' + monto; }
             }
 
+            // Comisión fija de orden chica del protocolo (hoy 0,05 USDC hasta 10 USDC en ARS). Se lee
+            // del contrato para que la ficha muestre lo que de verdad va a salir: en el primer pago
+            // real (10/10/2026, orden 786641) la ficha decía 0,3161, el botón 0,32 y salieron 0,37.
+            const cwP2pComisionMem = {};
+            async function cwP2pComision(iso) {
+                if (cwP2pComisionMem[iso]) return cwP2pComisionMem[iso];
+                const m = ethers.encodeBytes32String(iso);
+                let ultimo = null;
+                for (const url of [CW_P2P_RPC, CW_RPC_REPUESTO['8453']]) {
+                    try {
+                        const d = new ethers.Contract(CW_P2P_DIAMOND, CW_P2P_PAGO_ABI, cwProveedor(url, 8453));
+                        const [umbral, fee] = await Promise.all([d.getSmallOrderThreshold(m), d.getSmallOrderFixedFeePay(m)]);
+                        return cwP2pComisionMem[iso] = { umbral: Number(ethers.formatUnits(umbral, 6)), fee: Number(ethers.formatUnits(fee, 6)) };
+                    } catch (e) { ultimo = e; }
+                }
+                throw ultimo;
+            }
+            // Una sola cuenta y un solo formato para la ficha, el botón y los avisos.
+            function cwPayQrCuenta() {
+                const { precio, monto, comision } = cwPayQrEstado;
+                if (!precio || monto === null || monto === undefined) return null;
+                const usdc = monto / precio.venta;
+                const fee = comision && usdc <= comision.umbral ? comision.fee : 0;
+                return { usdc, fee, total: usdc + fee };
+            }
+            function cwPayQrUsdcTxt(v, info) {
+                const d = v < 1 ? 4 : 2;
+                return v.toLocaleString(info.locale, { minimumFractionDigits: d, maximumFractionDigits: d });
+            }
+
             function pintarBotonPayQr() {
                 const b = document.getElementById('payQrPay');
                 if (!b) return;
@@ -16987,11 +17033,12 @@
                 const visible = cwP2pPagoActivo() && !!valido && !!info?.listo && !!currentWallet && !cwPayQrPago.corriendo && !cwPayQrPago.hecho;
                 b.classList.toggle('hidden', !visible);
                 if (!visible) return;
-                const usdc = precio && monto !== null ? monto / precio.venta : null;
+                const cuenta = cwPayQrCuenta();
+                const usdc = cuenta ? cuenta.total : null;
                 b.disabled = usdc === null || typeof saldo !== 'number' || usdc > saldo;
                 if (usdc === null) b.textContent = t('pay_qr_pay_btn_0');
                 else if (cwPayQrPago.armado) b.textContent = t('pay_qr_confirm_btn', { monto: cwPayQrFiatTxt(monto, info) });
-                else b.textContent = t('pay_qr_pay_btn', { n: usdc.toLocaleString(info.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
+                else b.textContent = t('pay_qr_pay_btn', { n: cwPayQrUsdcTxt(usdc, info) });
             }
 
             function cwPayQrProgreso(texto, tipo) {
@@ -17023,13 +17070,18 @@
                 const el = id => document.getElementById(id);
                 const freno = el('payQrStop'), entrada = el('payQrAmountInput');
                 if (entrada) entrada.disabled = true;
-                const u = v => Number(ethers.formatUnits(v, 6)).toLocaleString(info.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const u = v => cwPayQrUsdcTxt(Number(ethers.formatUnits(v, 6)), info);
                 const montoTxt = cwPayQrFiatTxt(monto, info);
                 const comercio = (el('payQrMerchant')?.textContent || '').trim();
                 const reg = { cuando: Date.now(), comercio, moneda: info.iso, fiat: monto, orderId: null, estado: 'abierta' };
                 let fin = null;
                 try {
-                    const firmante = currentWallet.connect(cwProveedor(CW_P2P_RPC, 8453));
+                    // El RPC oficial de Base corta por cantidad de pedidos (visto el 10/10/2026): se
+                    // arranca con el primero que conteste.
+                    let prov = cwProveedor(CW_P2P_RPC, 8453);
+                    try { await withTimeout(prov.getBlockNumber(), 5000, 'rpc'); }
+                    catch (e) { prov = cwProveedor(CW_RPC_REPUESTO['8453'], 8453); }
+                    const firmante = currentWallet.connect(prov);
                     fin = await cwP2pPagarQr({
                         firmante, iso: info.iso, qr, fiat6: ethers.parseUnits(monto.toFixed(2), 6),
                         cortar: () => cwPayQrPago.cortar,
@@ -17098,7 +17150,7 @@
                     const prender = !cwP2pPagoActivo();
                     try { prender ? localStorage.setItem(CW_P2P_PAGO_KEY, '1') : localStorage.removeItem(CW_P2P_PAGO_KEY); } catch (e) { }
                     showToast(t(prender ? 'pay_qr_exp_on' : 'pay_qr_exp_off'), 'info', 4000);
-                    if (cwPayQrEstado.valido) cwPayQrAviso(t(prender ? 'pay_qr_status_exp' : 'pay_qr_status_soon'), 'ambar');
+                    if (cwPayQrEstado.valido) cwPayQrAviso(t(prender ? 'pay_qr_status_exp' : 'pay_qr_status_soon'), prender ? 'verde' : 'ambar');
                     pintarBotonPayQr();
                 });
             })();
@@ -17108,8 +17160,15 @@
                 const { info, precio, monto, saldo } = cwPayQrEstado;
                 const elCosto = document.getElementById('payQrCost');
                 if (!elCosto || !precio || !info) return;
-                const fmt = (v) => { const d = v < 1 ? 4 : 2; return v.toLocaleString(info.locale, { minimumFractionDigits: d, maximumFractionDigits: d }); };
-                const usdc = monto === null ? null : monto / precio.venta;
+                const fmt = (v) => cwPayQrUsdcTxt(v, info);
+                // Lo que se muestra y contra lo que se compara el saldo es el TOTAL, comisión incluida.
+                const cuenta = cwPayQrCuenta();
+                const usdc = cuenta ? cuenta.total : null;
+                const elFee = document.getElementById('payQrFee');
+                if (elFee) {
+                    elFee.textContent = cuenta && cuenta.fee ? t('pay_qr_fee', { usdc: fmt(cuenta.usdc), fee: fmt(cuenta.fee) }) : '';
+                    elFee.classList.toggle('hidden', !(cuenta && cuenta.fee));
+                }
                 if (usdc === null) {
                     // Un guion verde no le decía nada a nadie: se dice qué hacer.
                     elCosto.textContent = t('pay_qr_cost_hint');
@@ -17133,7 +17192,7 @@
                 const el = document.getElementById('payQrStatus');
                 if (!el) return;
                 el.textContent = texto || '';
-                el.className = texto ? `rounded-lg p-3 text-sm ${tipo === 'rojo' ? 'cw-aviso-rojo' : 'cw-aviso-ambar'}` : 'hidden';
+                el.className = texto ? `rounded-lg p-3 text-sm ${tipo === 'rojo' ? 'cw-aviso-rojo' : tipo === 'verde' ? 'cw-aviso-verde' : 'cw-aviso-ambar'}` : 'hidden';
             }
 
             document.getElementById('payQrAmountInput')?.addEventListener('input', e => {
@@ -17188,7 +17247,8 @@
                 // saldo: undefined = leyendo · null = no se pudo · 'sin' = no hay wallet que mirar
                 cwPayQrEstado = { gen, info, precio: null, monto: montoFiat, saldo: currentWallet ? undefined : 'sin', qr: data.trim(), valido };
                 // Arriba de todo, antes de tipear: ¿se puede pagar desde acá? (y si el QR es sano)
-                cwPayQrAviso(valido ? t(cwP2pPagoActivo() ? 'pay_qr_status_exp' : 'pay_qr_status_soon') : t('ars_qr_bad_note'), valido ? 'ambar' : 'rojo');
+                // Activo va en verde: en ámbar era el mismo color del "todavía no se puede" y no se notaba.
+                cwPayQrAviso(valido ? t(cwP2pPagoActivo() ? 'pay_qr_status_exp' : 'pay_qr_status_soon') : t('ars_qr_bad_note'), !valido ? 'rojo' : cwP2pPagoActivo() ? 'verde' : 'ambar');
                 // Con qué se paga y cuánto tenés ahí. No bloquea la ficha.
                 const filaCon = el('payQrWithRow');
                 if (filaCon) filaCon.classList.toggle('hidden', !valido);
@@ -17233,6 +17293,8 @@
                     }
                     cwPayQrEstado.precio = precio;
                     pintarCostoPayQr();
+                    cwP2pComision(info.iso).then(c => { if (gen === cwPayQrGen) { cwPayQrEstado.comision = c; pintarCostoPayQr(); } })
+                        .catch(e => console.warn('cwP2pComision:', e));
                     if (elTasa) {
                         let linea = t('pay_qr_rate', {
                             precio: precio.venta.toLocaleString(info.locale, { maximumFractionDigits: 2 }),
@@ -21141,6 +21203,7 @@
                     "pay_qr_cost": "Equivale a",
                     "pay_qr_status_soon": "Todavía no se puede pagar este QR desde ChatWallet. Te mostramos cuánto sería en USDC y si te alcanza.",
                     "pay_qr_cost_hint": "Poné el monto arriba para ver cuántos USDC son.",
+                    "pay_qr_fee": "{usdc} USDC + {fee} de comisión fija del protocolo por pago chico",
                     "pay_qr_with": "Se pagaría con",
                     "pay_qr_with_value": "USDC en la red Base",
                     "pay_qr_balance": "Tenés {n} USDC en Base",
@@ -21150,7 +21213,7 @@
                     "pay_qr_rate": "1 USDC = {precio} {moneda} · spread del protocolo {spread} %",
                     "pay_qr_rate_old": "cotización de hace {min} min",
                     "pay_qr_rate_fail": "No pude traer la cotización ahora.",
-                    "pay_qr_status_exp": "Pago experimental por P2P.me: un comerciante del protocolo le paga al comercio en pesos y cobra tus USDC. Hace falta un poquito de ETH en Base para el gas.",
+                    "pay_qr_status_exp": "Podés pagar este QR (experimental, por P2P.me): un comerciante del protocolo le paga al comercio en pesos y cobra tus USDC. Hace falta un poquito de ETH en Base para el gas.",
                     "pay_qr_exp_on": "Pago de QR por P2P.me: activado (experimental)",
                     "pay_qr_exp_off": "Pago de QR por P2P.me: desactivado",
                     "pay_qr_busy": "Hay un pago en curso. Esperá a que termine.",
@@ -21669,6 +21732,7 @@
                     "pay_qr_cost": "Equals",
                     "pay_qr_status_soon": "This QR can't be paid from ChatWallet yet. We show you how much it would be in USDC and whether you have enough.",
                     "pay_qr_cost_hint": "Enter the amount above to see how many USDC it is.",
+                    "pay_qr_fee": "{usdc} USDC + {fee} fixed protocol fee for small payments",
                     "pay_qr_with": "It would be paid with",
                     "pay_qr_with_value": "USDC on the Base network",
                     "pay_qr_balance": "You have {n} USDC on Base",
@@ -21678,7 +21742,7 @@
                     "pay_qr_rate": "1 USDC = {precio} {moneda} · protocol spread {spread} %",
                     "pay_qr_rate_old": "quote is {min} min old",
                     "pay_qr_rate_fail": "Could not fetch the quote right now.",
-                    "pay_qr_status_exp": "Experimental payment via P2P.me: a protocol merchant pays the shop in pesos and takes your USDC. You need a little ETH on Base for gas.",
+                    "pay_qr_status_exp": "You can pay this QR (experimental, via P2P.me): a protocol merchant pays the shop in pesos and takes your USDC. You need a little ETH on Base for gas.",
                     "pay_qr_exp_on": "QR payment via P2P.me: on (experimental)",
                     "pay_qr_exp_off": "QR payment via P2P.me: off",
                     "pay_qr_busy": "A payment is in progress. Wait for it to finish.",
@@ -22197,6 +22261,7 @@
                     "pay_qr_cost": "Équivaut à",
                     "pay_qr_status_soon": "Ce QR ne peut pas encore être payé depuis ChatWallet. Nous te montrons combien ce serait en USDC et si tu as assez.",
                     "pay_qr_cost_hint": "Saisis le montant ci-dessus pour voir combien d'USDC cela fait.",
+                    "pay_qr_fee": "{usdc} USDC + {fee} de commission fixe du protocole pour petit paiement",
                     "pay_qr_with": "Se paierait avec",
                     "pay_qr_with_value": "USDC sur le réseau Base",
                     "pay_qr_balance": "Tu as {n} USDC sur Base",
@@ -22206,7 +22271,7 @@
                     "pay_qr_rate": "1 USDC = {precio} {moneda} · spread du protocole {spread} %",
                     "pay_qr_rate_old": "cotation d'il y a {min} min",
                     "pay_qr_rate_fail": "Impossible de récupérer la cotation pour le moment.",
-                    "pay_qr_status_exp": "Paiement expérimental via P2P.me : un marchand du protocole paie le commerce en pesos et encaisse tes USDC. Il faut un peu d'ETH sur Base pour le gas.",
+                    "pay_qr_status_exp": "Tu peux payer ce QR (expérimental, via P2P.me) : un marchand du protocole paie le commerce en pesos et encaisse tes USDC. Il faut un peu d'ETH sur Base pour le gas.",
                     "pay_qr_exp_on": "Paiement de QR via P2P.me : activé (expérimental)",
                     "pay_qr_exp_off": "Paiement de QR via P2P.me : désactivé",
                     "pay_qr_busy": "Un paiement est en cours. Attends qu'il se termine.",

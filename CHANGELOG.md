@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Pago de QR en prueba: la ficha ahora dice exactamente lo que sale.** El total incluye la
+  comisión fija del protocolo para pagos chicos, y el botón y los avisos repiten ese mismo número.
+- Cuando el pago está activado, el aviso de arriba de la ficha pasa a verde.
+- Si la red tropieza justo al enviarle el QR al comerciante, la app reintenta sola.
+
 ## 3.71 — 2026-10-10
 
 - **En prueba: pagar el QR de un comercio argentino con USDC.** Un comerciante de la red P2P.me

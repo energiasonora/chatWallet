@@ -74,7 +74,7 @@ async function esperarEstado(orderId, estado, tope = 120000) {
         const o = await d.getOrdersById(orderId);
         if (Number(o.status) === estado) return o;
     }
-    throw new Error(`la orden ${orderId} no llegó al estado ${estado}`);
+    throw new Error(`la orden ${orderId} no llegó al estado ${estado}: quedó en ${Number((await d.getOrdersById(orderId)).status)} · ${JSON.stringify(await dev.eval(ficha)).slice(0, 400)}`);
 }
 
 // ── CDP mínimo ──
@@ -134,8 +134,8 @@ class Dev {
 
 const ficha = `(() => {
     const el = id => document.getElementById(id), visto = id => !!el(id) && !el(id).classList.contains('hidden');
-    return { abierta: visto('payQrModal'), estado: el('payQrStatus').textContent, costo: el('payQrCost').textContent, saldo: el('payQrBalance').textContent,
-        pagar: visto('payQrPay'), pagarTxt: el('payQrPay').textContent, pagarOff: el('payQrPay').disabled,
+    return { abierta: visto('payQrModal'), estado: el('payQrStatus').textContent, estadoClase: el('payQrStatus').className, costo: el('payQrCost').textContent, saldo: el('payQrBalance').textContent,
+        fee: visto('payQrFee') ? el('payQrFee').textContent : '', pagar: visto('payQrPay'), pagarTxt: el('payQrPay').textContent, pagarOff: el('payQrPay').disabled,
         frenar: visto('payQrStop'), progreso: visto('payQrProgress') ? el('payQrProgress').textContent : '', progresoClase: el('payQrProgress').className };
 })()`;
 
@@ -165,7 +165,7 @@ try {
     {
         for (let i = 0; i < 5; i++) await tocar('payQrFlag');
         const f = await hasta(x => x.pagar, 5000);
-        ok(f.pagar && /experimental/i.test(f.estado), 'aparece el botón y el aviso de experimental', f.pagarTxt);
+        ok(f.pagar && /experimental/i.test(f.estado) && /cw-aviso-verde/.test(f.estadoClase), 'aparece el botón y el aviso pasa a verde', f.pagarTxt);
         ok(await dev.eval(`localStorage.getItem('cw-p2p-pago')`) === '1', 'queda guardado para la próxima');
     }
 
@@ -216,6 +216,25 @@ try {
         ok(/Frenado\. El QR no se envió y tus USDC no se movieron/.test(f.progreso) && f.pagar, 'frenar: lo dice claro y deja reintentar', f.progreso.slice(0, 80));
         const o = await d.getOrdersById(orderId);
         ok(o.encUpi === '' && await usdc.balanceOf(wallet.address) === antes, 'el QR no salió y no se movió ni un USDC');
+        await tocar('payQrOk');
+    }
+
+    console.log('\n▶ pago chico: la ficha, el botón y lo que sale dicen el mismo número');
+    {
+        await escanear(QR); await tipear('500');
+        const f = await hasta(x => x.pagar && /\+/.test(x.fee), 30000);
+        const n = (f.costo.match(/^(0,\d{4}) USDC$/) || [])[1];
+        ok(!!n && f.pagarTxt === 'Pagar con ' + n + ' USDC' && /0,0500 de comisión/.test(f.fee), 'el total incluye la comisión y el botón repite el mismo número', f.costo + ' · ' + f.pagarTxt + ' · ' + f.fee);
+        const antes = await usdc.balanceOf(wallet.address);
+        await tocar('payQrPay'); await tocar('payQrPay');
+        const orderId = await ordenNueva(vistas);
+        const { m } = await comercianteAcepta(orderId);
+        await esperarEstado(orderId, 2);
+        const salio = Number(ethers.formatUnits(antes - await usdc.balanceOf(wallet.address), 6)).toLocaleString('es-AR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+        const g = await hasta(x => /custodia/.test(x.progreso), 20000);
+        ok(salio === n && g.progreso.includes(n + ' USDC'), 'y es exactamente lo que sale de la wallet', salio + ' · ' + g.progreso.slice(0, 40));
+        await enviar(m, d.interface.encodeFunctionData('completeOrder', [orderId, '']));
+        await hasta(x => /Pagado/.test(x.progreso), 30000);
         await tocar('payQrOk');
     }
 
