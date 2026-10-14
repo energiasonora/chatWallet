@@ -126,6 +126,20 @@ try {
     const gid = await A.eval(`(async () => { const r = await createGroupChat('Casa prueba', [${JSON.stringify(addrB)}]); return r.conv.id; })()`);
     check('A crea el grupo con B', !!gid);
     check('a B le aparece el grupo', !!await pollFor(B, GRUPO_EN_B(gid), 40));
+    check('…como invitación', await B.eval(`!!contacts.find(c => c.groupId === ${JSON.stringify(gid)})?.invitacion`));
+    check('para A (que lo creó) no es invitación', !await A.eval(`!!contacts.find(c => c.groupId === ${JSON.stringify(gid)})?.invitacion`));
+    check('la lista de B marca «Invitación»', await B.eval(`(renderContacts(), /Invitación/.test(document.getElementById('contactsListSidebar')?.innerText || ''))`));
+
+    // B abre la invitación: franja visible y no se puede escribir.
+    await B.eval(`(async () => { await startChatWithContact(contacts.find(c => c.groupId === ${JSON.stringify(gid)})); })()`);
+    await sleep(1500);
+    check('al abrirla, sale la franja con Aceptar/Rechazar', await B.eval(`!document.getElementById('groupInviteBar').classList.contains('hidden')`));
+    check('…y el campo de texto está apagado', await B.eval(`document.getElementById('messageInput').disabled`));
+    await B.eval(`document.getElementById('groupInviteAccept').click()`);
+    await sleep(2500);
+    check('Aceptar: deja de ser invitación', !await B.eval(`!!contacts.find(c => c.groupId === ${JSON.stringify(gid)})?.invitacion`));
+    check('…la franja se va y se puede escribir', await B.eval(`document.getElementById('groupInviteBar').classList.contains('hidden') && !document.getElementById('messageInput').disabled`));
+    check('…y en XMTP queda permitido', await B.eval(`(async () => Number(await (await chatwalletxmtp.conversations.getConversationById(${JSON.stringify(gid)})).consentState()))()`) === 1);
 
     // B sale (el botón «Salir del grupo» llama a esto).
     await B.eval(`(async () => { const c = contacts.find(c => c.groupId === ${JSON.stringify(gid)}); await leaveGroupChat(c); })()`);
@@ -157,11 +171,25 @@ try {
     const volvio = await pollFor(B, GRUPO_EN_B(gid), 45);
     check('a B le reaparece el grupo tras la reinvitación', !!volvio);
     check('…y se levantó la marca de salida', !await B.eval(`!!tombstones['group:${gid}'.toLowerCase()]`));
+    check('…y vuelve como invitación (aunque antes lo había aceptado)', await B.eval(`!!contacts.find(c => c.groupId === ${JSON.stringify(gid)})?.invitacion`));
+    await B.eval(`(async () => { await cwAceptarInvitacion(contacts.find(c => c.groupId === ${JSON.stringify(gid)})); })()`);
 
     await A.eval(`(async () => { const c = await chatwalletxmtp.conversations.getConversationById(${JSON.stringify(gid)}); await c.sendText('bienvenido de nuevo'); })()`);
     await B.eval(`(async () => { const c = contacts.find(c => c.groupId === ${JSON.stringify(gid)}); if (c) await startChatWithContact(c); })()`);
     const msg = await pollFor(B, `/bienvenido de nuevo/.test(document.getElementById('messagesContainer')?.innerText || '')`, 30);
     check('B abre el grupo y ve el mensaje nuevo', !!msg);
+
+    // ── Rechazar: un segundo grupo que B rechaza no vuelve con los mensajes siguientes ──
+    const gid2 = await A.eval(`(async () => { const r = await createGroupChat('Spam', [${JSON.stringify(addrB)}]); return r.conv.id; })()`);
+    check('A crea un segundo grupo con B', !!gid2);
+    check('a B le llega como invitación', !!await pollFor(B, `!!contacts.find(c => c.groupId === ${JSON.stringify(gid2)})?.invitacion`, 40));
+    await B.eval(`(async () => { await cwRechazarInvitacion(contacts.find(c => c.groupId === ${JSON.stringify(gid2)})); })()`);
+    check('Rechazar: el grupo sale de la lista', !await B.eval(GRUPO_EN_B(gid2)));
+    check('…y en XMTP queda rechazado', await B.eval(`(async () => Number(await (await chatwalletxmtp.conversations.getConversationById(${JSON.stringify(gid2)})).consentState()))()`) === 2);
+    await A.eval(`(async () => { const c = await chatwalletxmtp.conversations.getConversationById(${JSON.stringify(gid2)}); await c.sendText('compren ya'); })()`);
+    await sleep(12000);
+    await B.eval(`(async () => { await syncGroupsFromXmtp(); })()`);
+    check('un mensaje nuevo del grupo rechazado no lo trae de vuelta', !await B.eval(GRUPO_EN_B(gid2)));
 } catch (e) {
     check('sin excepciones', false, e.message);
 } finally {

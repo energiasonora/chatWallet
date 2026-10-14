@@ -2567,6 +2567,14 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                     </div>
+                    <!-- Invitación a un grupo: hasta que la aceptes, el grupo no suena ni deja escribir. -->
+                    <div id="groupInviteBar" class="hidden flex-col gap-2 bg-indigo-900/60 border border-indigo-500/50 rounded-xl px-3 py-2.5 mb-2 flex-shrink-0">
+                        <p id="groupInviteText" class="text-sm text-indigo-100"></p>
+                        <div class="flex gap-2">
+                            <button id="groupInviteAccept" type="button" class="flex-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-semibold">Aceptar</button>
+                            <button id="groupInviteReject" type="button" class="flex-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Rechazar</button>
+                        </div>
+                    </div>
                     <div id="messagesContainer"
                         class="flex-grow overflow-y-auto bg-gray-900/50 p-4 rounded-lg flex flex-col space-y-4 w-full mb-4">
                     </div>
@@ -10104,6 +10112,100 @@
                 return contacts.find(c => c.isGroup && c.address.toLowerCase() === key);
             }
 
+            // ── Invitaciones a grupos ───────────────────────────────────────
+            // Un grupo al que te agrega OTRO entra como invitación (`invitacion: true`) hasta que lo
+            // aceptes o rechaces. La decisión vive en el consentimiento de XMTP (0 sin decidir,
+            // 1 permitido, 2 rechazado), que se sincroniza entre tus dispositivos. Los grupos que
+            // creaste vos o en los que ya escribiste vienen permitidos; los que ya estaban en la lista
+            // antes de esto no se tocan.
+            const CW_CONSENT = { sinDecidir: 0, permitido: 1, rechazado: 2 };
+            async function cwConsentimiento(conv) {
+                try { return Number(await conv.consentState()); } catch (e) { return null; }
+            }
+
+            // Puerta de entrada de un grupo AJENO a la lista (stream, resync, reinvitación). Devuelve
+            // el contacto, o null si ya lo rechazaste. `reinvitado`: te volvieron a agregar después de
+            // salir; vale como invitación nueva aunque antes lo hubieras aceptado.
+            async function cwEntrarGrupo(conv, extra = {}, { reinvitado = false } = {}) {
+                if (!convIsGroup(conv)) return null;
+                if (!findGroupContact(conv.id)) {
+                    const yo = chatwalletxmtp?.inboxId;
+                    const deOtro = !!conv.addedByInboxId && conv.addedByInboxId !== yo;
+                    if (reinvitado) {
+                        try { await conv.updateConsentState(CW_CONSENT.sinDecidir); } catch (e) { }
+                        extra = { ...extra, invitacion: true, invitadoPor: conv.addedByInboxId || '' };
+                    } else {
+                        const cs = await cwConsentimiento(conv);
+                        if (cs === CW_CONSENT.rechazado) return null;
+                        if (cs === CW_CONSENT.sinDecidir && deOtro) extra = { ...extra, invitacion: true, invitadoPor: conv.addedByInboxId };
+                    }
+                }
+                return upsertGroupContact(conv, extra);
+            }
+
+            // Una invitación pendiente que se decidió en OTRO dispositivo de esta misma cuenta.
+            async function cwRevisarInvitacion(conv, c) {
+                if (!c || !c.invitacion) return false;
+                const cs = await cwConsentimiento(conv);
+                if (cs === CW_CONSENT.permitido) { delete c.invitacion; delete c.invitadoPor; return true; }
+                if (cs === CW_CONSENT.rechazado) { await removeContactByAddress(c.address, { left: true, name: c.name }); return true; }
+                return false;
+            }
+
+            async function cwAceptarInvitacion(contact) {
+                if (!contact || !contact.invitacion) return;
+                try {
+                    const conv = await chatwalletxmtp.conversations.getConversationById(contact.groupId);
+                    if (conv) await conv.updateConsentState(CW_CONSENT.permitido);
+                } catch (e) { console.warn('aceptar invitación (consentimiento):', e); }
+                delete contact.invitacion; delete contact.invitadoPor;
+                await saveContacts();
+                renderContacts();
+                if (currentGroup && currentGroup.groupId === contact.groupId) cwPintarInvitacion(contact);
+                showToast(`Te uniste a "${contact.name}".`, 'success');
+            }
+
+            async function cwRechazarInvitacion(contact) {
+                if (!contact) return;
+                try {
+                    const conv = await chatwalletxmtp?.conversations.getConversationById(contact.groupId);
+                    if (conv) await conv.updateConsentState(CW_CONSENT.rechazado);
+                } catch (e) { console.warn('rechazar invitación (consentimiento):', e); }
+                await leaveGroupChat(contact);
+                if (currentGroup && currentGroup.groupId === contact.groupId) {
+                    currentGroup = null; currentConversation = null; currentChatContact = null;
+                    showView('walletView');
+                    openSidebar();
+                }
+                renderContacts();
+                showToast(`Rechazaste la invitación a "${contact.name}".`, 'info');
+            }
+
+            // Franja de arriba del chat + campo de texto: mientras sea invitación, no se escribe.
+            function cwPintarInvitacion(contact) {
+                const bar = document.getElementById('groupInviteBar');
+                const input = document.getElementById('messageInput');
+                const pendiente = !!(contact && contact.isGroup && contact.invitacion);
+                if (bar) {
+                    bar.classList.toggle('hidden', !pendiente);
+                    bar.classList.toggle('flex', pendiente);
+                }
+                if (pendiente) {
+                    const quien = contact.invitadoPor ? groupSenderLabel(contact.invitadoPor) : '';
+                    document.getElementById('groupInviteText').textContent = quien
+                        ? `${quien} te invitó a "${contact.name}". Mientras no aceptes, no vas a recibir avisos de este grupo.`
+                        : `Te invitaron a "${contact.name}". Mientras no aceptes, no vas a recibir avisos de este grupo.`;
+                }
+                if (input) {
+                    input.disabled = pendiente;
+                    input.placeholder = pendiente ? 'Aceptá la invitación para escribir' : 'Escribe un mensaje...';
+                }
+            }
+            document.getElementById('groupInviteAccept')?.addEventListener('click', () => { if (currentGroup) cwAceptarInvitacion(currentGroup); });
+            document.getElementById('groupInviteReject')?.addEventListener('click', () => {
+                if (currentGroup && confirm(`¿Rechazar la invitación a "${currentGroup.name}"?`)) cwRechazarInvitacion(currentGroup);
+            });
+
             // Crea/actualiza el pseudo-contacto a partir de una conversación de grupo de XMTP.
             // Es la ÚNICA puerta de entrada de un grupo a la lista de chats: cualquier camino
             // nuevo (stream, reconcile, creación local, resync) tiene que pasar por acá.
@@ -10194,11 +10296,17 @@
                     if (!convIsGroup(conv)) continue;
                     // Grupos de los que te fuiste / te sacaron: no se resucitan solos, salvo que
                     // alguien te haya vuelto a agregar después.
-                    if (isSuppressedContact(groupKeyOf(conv.id)) && !(await cwLevantarSalidaSiMeReagregaron(conv))) continue;
+                    let reinvitado = false;
+                    if (isSuppressedContact(groupKeyOf(conv.id))) {
+                        if (!(await cwLevantarSalidaSiMeReagregaron(conv))) continue;
+                        reinvitado = true;
+                    }
                     try { if (!(await conv.isActive())) continue; } catch (e) { }
                     const before = findGroupContact(conv.id);
                     const beforeName = before?.name, beforeCount = before?.memberCount;
-                    const c = upsertGroupContact(conv);
+                    if (before && await cwRevisarInvitacion(conv, before)) { changed = true; if (!findGroupContact(conv.id)) continue; }
+                    const c = await cwEntrarGrupo(conv, {}, { reinvitado });
+                    if (!c) continue;
                     // Cantidad de miembros para la fila de la lista: sin esto solo se sabía al
                     // abrir el grupo (la fila mostraba 👥 pelado hasta la primera visita).
                     try { c.memberCount = (await conv.members()).length; } catch (e) { }
@@ -10511,7 +10619,8 @@
                         // repetirlo acá abajo es ruido: queda el punto de color.
                         const aliasAbajo = localAlias && localAlias !== contactOwnName(contact) ? localAlias : '';
                         const statusBit = isG
-                            ? `<span class="text-indigo-400">👥${contact.memberCount ? ' ' + contact.memberCount : ''}</span> · `
+                            ? (contact.invitacion ? `<span class="px-1.5 rounded bg-indigo-600 text-white text-[11px] font-semibold">Invitación</span> ` : '')
+                              + `<span class="text-indigo-400">👥${contact.memberCount ? ' ' + contact.memberCount : ''}</span> · `
                             : (aliasAbajo
                                 ? `<span class="${statusColor} font-medium">${escHtml(aliasAbajo)}</span> · `
                                 : `<span class="${statusColor}">●</span> `);
@@ -10886,6 +10995,7 @@
                 // y los botones de pagar/solicitar no aplican a un chat de varios.
                 currentGroup = contact.isGroup ? contact : null;
                 applyGroupChatChrome(contact);
+                cwPintarInvitacion(contact);
                 if (!contact.isGroup) updateChatHeaderStatus(contact);
 
                 // ── Grupo: sin modo offline (el circuito por QR es 1:1). ──
@@ -11594,13 +11704,18 @@
                                 const chatKey = await resolveChatKey(message, isSentByMe);
                                 const contactAddress = chatKey.key;
                                 const inGroup = chatKey.isGroup;
-                                // Te volvieron a agregar a un grupo del que habías salido: vuelve.
+                                // Te volvieron a agregar a un grupo del que habías salido: vuelve, como invitación.
+                                let reinvitado = false;
                                 if (inGroup && cwMeReagregaron(contactAddress, message.content, messageTimestamp)) {
                                     await clearTombstone(contactAddress);
+                                    reinvitado = true;
                                 }
                                 // Un grupo nuevo (te acaban de agregar) entra a la lista de chats acá.
                                 if (inGroup && chatKey.conv && !isSuppressedContact(contactAddress, messageTimestamp)) {
-                                    upsertGroupContact(chatKey.conv);
+                                    const nuevo = !findGroupContact(chatKey.conv.id);
+                                    const gc = await cwEntrarGrupo(chatKey.conv, {}, { reinvitado });
+                                    if (!gc) return;   // un grupo que rechazaste: ni lista ni aviso
+                                    if (nuevo && gc.invitacion) showToast(`👥 Te invitaron al grupo "${gc.name}". Abrilo para aceptar o rechazar.`, 'info');
                                 }
 
                                 if (contactAddress && isBlockedContact(contactAddress)) {
@@ -11670,7 +11785,9 @@
                                     console.log("⚠️ Mensaje recibido pero no se pudo determinar la dirección del remitente. No se añadirá a la lista.");
                                 }
 
-                                if (!isSentByMe) {
+                                // Una invitación sin aceptar no suena ni notifica: queda marcada en la lista.
+                                const esInvitacion = inGroup && !!findGroupContact(chatKey.conv?.id || groupIdFromKey(contactAddress))?.invitacion;
+                                if (!isSentByMe && !esInvitacion) {
                                     playNewMessageSound();
                                     // En un grupo la notificación se titula con el grupo (y el cuerpo
                                     // lleva el autor): "Nuevo mensaje de <fulano>" a secas no diría
@@ -11700,12 +11817,21 @@
                                 console.log("✅ Nueva conversación sincronizada.");
                                 // Grupo al que me acaban de agregar: entra a la lista de chats YA,
                                 // sin esperar a que alguien escriba en él.
-                                if (convIsGroup(conversation) && (!isSuppressedContact(groupKeyOf(conversation.id))
-                                    || await cwLevantarSalidaSiMeReagregaron(conversation))) {
-                                    const gc = upsertGroupContact(conversation, { lastMessageTimestamp: Date.now() });
-                                    try { gc.memberCount = (await conversation.members()).length; } catch (e) { }
-                                    await saveContacts();
-                                    showToast(`👥 Te agregaron al grupo "${conversation.name || 'Grupo'}"`, 'info');
+                                let reinvitado = false;
+                                if (convIsGroup(conversation) && isSuppressedContact(groupKeyOf(conversation.id))) {
+                                    reinvitado = await cwLevantarSalidaSiMeReagregaron(conversation);
+                                }
+                                if (convIsGroup(conversation) && !isSuppressedContact(groupKeyOf(conversation.id))) {
+                                    const nuevo = !findGroupContact(conversation.id);
+                                    const gc = await cwEntrarGrupo(conversation, { lastMessageTimestamp: Date.now() }, { reinvitado });
+                                    if (gc) {
+                                        try { gc.memberCount = (await conversation.members()).length; } catch (e) { }
+                                        await saveContacts();
+                                        renderContacts();
+                                        if (nuevo) showToast(gc.invitacion
+                                            ? `👥 Te invitaron al grupo "${gc.name}". Abrilo para aceptar o rechazar.`
+                                            : `👥 Te agregaron al grupo "${gc.name}"`, 'info');
+                                    }
                                 }
                             } catch (e) {
                                 console.warn("Error sincronizando nueva conversación:", e);
@@ -19535,6 +19661,8 @@
             // to handle the modal context correctly.
             if (sendMessageForm) {
                 sendMessageForm.addEventListener('submit', async (e) => {
+                    // Un grupo sin aceptar no se escribe (el campo ya viene apagado; esto cubre el Enter).
+                    if (currentGroup && currentGroup.invitacion) { e.preventDefault(); return; }
                     e.preventDefault();
                     const messageText = messageInput.value.trim();
                     if (!messageText) return;

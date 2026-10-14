@@ -17,7 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
-- **Si salís de un grupo y te vuelven a invitar, el grupo reaparece.** Antes, después de tocar «Salir del grupo», el grupo quedaba oculto para siempre aunque un administrador te agregara de nuevo. Ahora una invitación posterior a tu salida lo trae de vuelta a la lista, con los mensajes nuevos. Los mensajes comunes del grupo siguen sin hacerlo reaparecer.
+- **Las invitaciones a grupos ahora se aceptan o se rechazan.** Cuando alguien te agrega a un grupo, aparece en tu lista marcado como «Invitación». Al abrirlo podés **Aceptar** o **Rechazar**. Hasta que decidas, sus mensajes no suenan ni te notifican y no podés escribir. Si lo rechazás, sale de tu lista y no vuelve con los mensajes siguientes. La decisión vale para todos tus dispositivos. Los grupos que ya tenías y los que creás vos no cambian.
+- **Si salís de un grupo y te vuelven a invitar, te llega la invitación.** Antes, después de tocar «Salir del grupo», el grupo quedaba oculto para siempre aunque un administrador te agregara de nuevo.
 
 ## 3.75 — 2026-10-14
 
