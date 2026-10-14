@@ -225,7 +225,8 @@ app.get('/api/uso/datos', soloAdmin, async (req, res) => {
     catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// realpath: si la carpeta es un enlace, argv[1] y la URL del módulo no coinciden letra por letra.
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
     app.listen(PORT, '127.0.0.1', () => console.log(`panel de uso en http://127.0.0.1:${PORT}`));
     // Una foto por día aunque nadie abra el panel.
     setInterval(() => juntar().catch(() => {}), 6 * 3600000);

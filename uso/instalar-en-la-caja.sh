@@ -31,8 +31,16 @@ if [ ! -f .env ]; then umask 077; echo "USO_SECRET=$(head -c 32 /dev/urandom | o
 # Si ya corría una versión anterior, se reemplaza por su PID exacto (nunca por patrón).
 VIEJO=$(ss -ltnpH 'sport = :3300' 2>/dev/null | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -1)
 [ -n "$VIEJO" ] && kill "$VIEJO" && sleep 1
-~/start-uso.sh; sleep 2
-echo "── salud ──";      curl -s -m 5 http://127.0.0.1:3300/api/uso/salud; echo
+~/start-uso.sh
+# La caja es lenta cargando módulos: se espera hasta 20 s, y si no levanta se muestra por qué.
+for i in $(seq 20); do (exec 3<>/dev/tcp/127.0.0.1/3300) 2>/dev/null && break; sleep 1; done
+echo "── salud ──"
+curl -s -m 5 http://127.0.0.1:3300/api/uso/salud || echo "NO LEVANTÓ"; echo
+echo "── registro (últimas líneas) ──"
+tail -n 15 ~/chatwallet-node/uso/uso.log 2>/dev/null || true
+echo "── módulos a la vista ──"
+ls -d ~/chatwallet-node/node_modules/express ~/chatwallet-node/node_modules/ethers 2>&1 || true
+ls -ld ~/chatwallet-node
 echo "── túnel (sólo nombres y destinos) ──"
 grep -E '^\s*(tunnel|- hostname|hostname|service):' ~/.cloudflared-gateway/config.yml || true
 echo "── arranque al encender ──"
