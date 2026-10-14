@@ -21,8 +21,8 @@ Las versiones anteriores a la 3.00 están en los
   lista pública de redes al día (la misma que muestra chainlist.org), así que encuentra redes
   nuevas como Arc. Sin conexión sigue usando la copia incluida, que ahora se renueva con cada
   versión.
-- Al autocompletar, la app prueba los nodos de esa red y te deja el oficial de la red si responde,
-  con los demás de repuesto. Antes ponía el primero de la lista, aunque estuviera caído.
+- Al autocompletar, la app prueba los nodos de esa red y te deja el oficial de la red si responde
+  rápido (si no, el más veloz), con los demás de repuesto. Antes ponía el primero de la lista, aunque estuviera caído.
 - Si el RPC que vas a guardar pertenece a otra red, la app te avisa y no lo guarda.
 
 ## 3.73 — 2026-10-11

@@ -16,7 +16,7 @@ const ok = (c, m, x = '') => { console.log(`${c ? '✅' : '❌'} ${m}${x !== '' 
 const INICIO = `
 try { localStorage.setItem('xmtp-chat-wallet', '${ethers.Wallet.createRandom().privateKey}'); localStorage.setItem('chatwallet-lang', 'es'); } catch (e) {}
 window.__vivo = true; window.__pedidosVivos = 0;
-const NODOS = { 'rpc-lento.test': [0, 400], 'rpc-rapido.test': [0, 30], 'rpc-otra.test': [1, 20], 'solo.test': [777002, 20] };
+const NODOS = { 'rpc-lento.test': [0, 400], 'rpc-rapido.test': [0, 30], 'rpc-tortuga.test': [0, 2200], 'rpc-otra.test': [1, 20], 'solo.test': [777002, 20] };
 const fetchReal = window.fetch.bind(window);
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 window.fetch = async (url, opts) => {
@@ -28,6 +28,7 @@ window.fetch = async (url, opts) => {
         return new Response(JSON.stringify([...copia,
             { name: 'Red Nueva', chainId: 777001, infoURL: 'https://www.rpc-lento.test', nativeCurrency: { symbol: 'NUE', decimals: 18 }, explorers: [{ url: 'https://explora.test' }],
               rpc: ['http://inseguro.test', 'https://rpc-muerto.test', 'wss://rpc-rapido.test', 'https://rpc-lento.test', 'https://rpc-otra.test', 'https://rpc-rapido.test', 'https://con-llave.test/\${API_KEY}'] },
+            { name: 'Red Oficial Lenta', chainId: 777005, infoURL: 'https://rpc-tortuga.test', nativeCurrency: { symbol: 'LEN', decimals: 18 }, rpc: ['https://rpc-tortuga.test', 'https://rpc-lento.test', 'https://rpc-rapido.test'] },
             { name: 'Red Sin Sitio', chainId: 777004, nativeCurrency: { symbol: 'SIN', decimals: 18 }, rpc: ['https://rpc-muerto.test', 'https://rpc-lento.test', 'https://rpc-rapido.test'] },
             { name: 'Red Muerta', chainId: 777003, nativeCurrency: { symbol: 'MUE', decimals: 18 }, rpc: ['https://rpc-muerto.test', 'https://rpc-otra.test'] }]));
     }
@@ -145,7 +146,14 @@ try {
     await dev.eval(`openAddNetworkModal()`);
     await tipear(777004);
     f = await hasta(x => /Responden/.test(x.estado));
-    ok(f.rpc === 'https://rpc-lento.test' && /primero de la lista/.test(f.estado) && /2 de 3/.test(f.estado), 'sin nodo oficial queda el primero sano de la lista, no el más rápido', `${f.rpc} · ${f.estado}`);
+    ok(f.rpc === 'https://rpc-rapido.test' && /más rápido/.test(f.estado) && /2 de 3/.test(f.estado), 'sin nodo oficial queda el más rápido de los sanos', `${f.rpc} · ${f.estado}`);
+
+    // ── 6c. El oficial responde, pero lentísimo: queda el más rápido y el oficial de repuesto ──
+    await dev.eval(`openAddNetworkModal()`);
+    await tipear(777005);
+    f = await hasta(x => /Responden/.test(x.estado));
+    ok(f.rpc === 'https://rpc-rapido.test' && f.alt === JSON.stringify(['https://rpc-rapido.test', 'https://rpc-lento.test', 'https://rpc-tortuga.test']) && /más rápido/.test(f.estado),
+        'un oficial que tarda más de 1,5 s cede el lugar al más rápido y queda último de repuesto', f.alt);
 
     // ── 7. Tipear rápido: gana el último ──
     await dev.eval(`openAddNetworkModal()`);
