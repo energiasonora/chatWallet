@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **El aviso de «este dispositivo quedó fuera de la conversación» ahora queda fijo arriba del chat.** Antes aparecía arriba de todo de los mensajes y en un chat largo quedaba escondido, junto con el botón que lo arregla («Reconectar este dispositivo» o «Reabrir el chat»). También aparece si el problema salta recién al enviar un mensaje.
+
 ## 3.76 — 2026-10-14
 
 - **Las invitaciones a grupos ahora se aceptan o se rechazan.** Cuando alguien te agrega a un grupo, aparece en tu lista marcado como «Invitación». Al abrirlo podés **Aceptar** o **Rechazar**. Hasta que decidas, sus mensajes no suenan ni te notifican y no podés escribir. Si lo rechazás, sale de tu lista y no vuelve con los mensajes siguientes. La decisión vale para todos tus dispositivos. Los grupos que ya tenías y los que creás vos no cambian.

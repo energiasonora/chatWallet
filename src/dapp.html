@@ -10996,6 +10996,7 @@
                 currentGroup = contact.isGroup ? contact : null;
                 applyGroupChatChrome(contact);
                 cwPintarInvitacion(contact);
+                document.getElementById('cwChatSinSync')?.remove();
                 if (!contact.isGroup) updateChatHeaderStatus(contact);
 
                 // ── Grupo: sin modo offline (el circuito por QR es 1:1). ──
@@ -12146,11 +12147,13 @@
                     document.getElementById('cwChatSinSync')?.remove();
                     const el = document.createElement('div');
                     el.id = 'cwChatSinSync';
-                    el.className = 'cw-aviso-ambar text-xs rounded-lg p-2 mb-3 text-center leading-relaxed';
+                    el.className = 'cw-aviso-ambar text-xs rounded-lg p-2 mb-2 text-center leading-relaxed flex-shrink-0';
                     el.innerHTML = `<span>${escHtml(texto)}</span>` +
                         (boton ? ` <button type="button" class="underline font-semibold ml-1">${escHtml(boton)}</button>` : '');
                     if (boton) el.querySelector('button').onclick = accion;
-                    messagesContainer.prepend(el);
+                    // Fijo ARRIBA del hilo, fuera de la lista: adentro se iba con el scroll y en un
+                    // chat largo nadie veía el botón que lo arregla.
+                    messagesContainer.parentNode.insertBefore(el, messagesContainer);
                 };
                 if (!inactivo) { pintar(t('chat_sin_sync'), t('reintentar'), () => window.reloadCurrentChat && window.reloadCurrentChat()); return; }
                 const esGrupo = convIsGroup(conv);
@@ -12187,6 +12190,7 @@
                     processedMessages.clear();
                 }
                 renderPinBar();   // sin burbujas en pantalla → la barra del chat anterior se va
+                document.getElementById('cwChatSinSync')?.remove();
                 handshakeShownInChat = false;
                 cancelReply();
                 hideReactionPicker();
@@ -19733,6 +19737,10 @@
                     } catch (error) {
                         console.error("Error al enviar mensaje:", error);
                         statusEl.textContent = `Error al enviar: ${error.message}`;
+                        // Dispositivo fuera de la conversación: el aviso con la salida va arriba del chat.
+                        if (/inactive/i.test(String(error && error.message || '')) && currentConversation) {
+                            cwAvisarChatSinSync(currentConversation, error, chatOpenToken).catch(() => { });
+                        }
                     } finally {
                         messageInput.disabled = false;
                         if (submitButton) submitButton.disabled = false;

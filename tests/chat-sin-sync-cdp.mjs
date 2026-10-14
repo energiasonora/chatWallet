@@ -55,7 +55,8 @@ const abrirChat = (falla, extra = '') => ev(`(async () => {
     showView('chatView');
     await loadAndStreamMessages(window.__conv);
 })()`);
-const textoChat = () => ev(`document.getElementById('messagesContainer')?.innerText || messagesContainer.innerText`);
+// El aviso va fijo arriba, fuera de la lista: se lee junto con el hilo.
+const textoChat = () => ev(`(document.getElementById('cwChatSinSync')?.innerText || '') + '\\n' + (document.getElementById('messagesContainer')?.innerText || '')`);
 
 try {
     for (let i = 0; i < 60 && !ws; i++) {
@@ -94,7 +95,9 @@ try {
     check('…sin el cartel "No se pudieron cargar los mensajes"', !/No se pudieron cargar/.test(txt));
     check('…con el aviso de que este dispositivo quedó fuera', /quedó fuera de esta conversación/.test(txt));
     check('…y ofrece reabrir (la instalación sigue viva)', await pollFor(`!!document.querySelector('#cwChatSinSync button')`, 40));
-    check('…el aviso va arriba del hilo', await ev(`messagesContainer.firstElementChild?.id`) === 'cwChatSinSync');
+    check('…el aviso va fijo arriba del hilo, fuera de la lista', await ev(`messagesContainer.previousElementSibling?.id === 'cwChatSinSync' && !messagesContainer.querySelector('#cwChatSinSync')`));
+    check('…y sigue a la vista con el chat bajado hasta el final', await ev(`(() => { messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        const r = document.getElementById('cwChatSinSync').getBoundingClientRect(); return r.height > 0 && r.top >= 0 && r.bottom <= innerHeight; })()`));
 
     // ── Ya se intentó reabrir y sigue igual: se dice cómo se arregla ──
     await ev(`cwReabrirIntentado = 'conv-falsa'`);
