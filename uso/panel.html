@@ -35,6 +35,8 @@
     button.suave { background:transparent; color:var(--tenue); border:1px solid var(--borde); padding:6px 12px; font-weight:500; }
     #puerta { max-width:420px; margin:14vh auto 0; text-align:center; }
     #puerta p { color:var(--tenue); }
+    #cwQr svg { width:240px; height:240px; background:#fff; border-radius:12px; }
+    a.suave { display:inline-block; padding:8px 14px; border-radius:10px; border:1px solid var(--borde); color:var(--texto); text-decoration:none; }
     [hidden] { display:none !important; }
 </style>
 </head>
@@ -43,8 +45,14 @@
     <section id="puerta" hidden>
         <h1>ChatWallet · uso</h1>
         <p id="puertaTexto">Panel privado. Se entra firmando con la wallet autorizada.</p>
-        <p><button id="entrarBtn" hidden>Entrar con la wallet de este navegador</button></p>
-        <p class="tenue">Desde ChatWallet: tocá el logo → «Panel de uso». La app firma y abre esta página ya adentro.</p>
+        <p><button id="cwBtn">Entrar con ChatWallet</button></p>
+        <div id="cwPaso" hidden>
+            <div id="cwQr"></div>
+            <p id="cwEstado" class="tenue"></p>
+            <p><a id="cwLink" class="suave" hidden>Abrir en ChatWallet (este teléfono)</a></p>
+        </div>
+        <p><button id="entrarBtn" class="suave" hidden>Entrar con la wallet de este navegador</button></p>
+        <p class="tenue">También desde ChatWallet: tocá el logo → «Panel de uso». La app firma y abre esta página ya adentro.</p>
         <p id="puertaError" class="falla"></p>
     </section>
 
@@ -56,7 +64,7 @@
         <div id="cuerpo"></div>
     </section>
 </main>
-<script>
+<script type="module">
 const LLAVE = 'cw-uso-sesion';
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -165,6 +173,27 @@ $('entrarBtn').onclick = async () => {
         const signature = await window.ethereum.request({ method: 'personal_sign', params: ['chatwallet-panel:' + ts, address] });
         entrar(address, ts, signature);
     } catch (e) { puerta(e.message || 'Firma cancelada.'); }
+};
+// Con ChatWallet en otro dispositivo (o en este teléfono por el enlace): QR cw:1 por XMTP.
+let cwEnCurso = false;
+$('cwBtn').onclick = async () => {
+    if (cwEnCurso) return;
+    cwEnCurso = true; $('cwBtn').hidden = true; $('cwPaso').hidden = false; $('puertaError').textContent = '';
+    try {
+        const { firmarConChatWallet, qrSvg } = await import('/js/cw-firma.js');
+        let ts = 0;
+        const { address, signature } = await firmarConChatWallet(() => 'chatwallet-panel:' + (ts = Date.now()), async (texto, uri) => {
+            $('cwEstado').textContent = texto;
+            if (uri) { $('cwQr').innerHTML = await qrSvg(uri); $('cwLink').href = uri; $('cwLink').hidden = false; }
+            else { $('cwQr').innerHTML = ''; $('cwLink').hidden = true; }
+        });
+        $('cwEstado').textContent = 'Firmado. Entrando…';
+        await entrar(address, ts, signature);
+    } catch (e) {
+        puerta(e.message || String(e));
+    } finally {
+        cwEnCurso = false; $('cwBtn').hidden = false; $('cwPaso').hidden = true;
+    }
 };
 $('recargar').onclick = cargar;
 $('salir').onclick = () => { sessionStorage.removeItem(LLAVE); puerta(); };

@@ -205,6 +205,14 @@ async function juntar() {
 export const app = express();
 app.use(express.json({ limit: '4kb' }));
 
+// XMTP en el navegador (entrar firmando con ChatWallet por QR) pide aislamiento de origen, como
+// en Soberano Mail. js/ trae el bundle XMTP (copiado de Soberano Mail al instalar) y cw-firma.js.
+app.use((req, res, next) => {
+    res.set('Cross-Origin-Opener-Policy', 'same-origin');
+    res.set('Cross-Origin-Embedder-Policy', 'require-corp');
+    next();
+});
+app.use('/js', express.static(aqui('./js'), { maxAge: '1h' }));
 app.get('/', (req, res) => res.sendFile(aqui('./panel.html')));
 app.get('/api/uso/salud', (req, res) => res.json({ ok: true }));
 

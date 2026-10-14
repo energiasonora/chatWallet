@@ -8,8 +8,13 @@ set -euo pipefail
 cd "$(dirname "$0")"
 CAJA="${CAJA_HOST:-caja}"
 
-ssh -o ConnectTimeout=8 "$CAJA" 'mkdir -p ~/chatwallet-node/uso'
+ssh -o ConnectTimeout=8 "$CAJA" 'mkdir -p ~/chatwallet-node/uso/js'
 rsync -az -e "ssh -o ConnectTimeout=8" uso-server.mjs panel.html "$CAJA:~/chatwallet-node/uso/"
+# Entrar con ChatWallet por QR: el módulo propio (js/cw-firma.js, de cw-firma.mjs) y el bundle XMTP
+# para el navegador que ya construye Soberano Mail (npm run build:xmtp allá), con su wasm.
+XMTP_JS="${XMTP_JS:-$HOME/xunserver/soberano-mail/public/js}"
+[ -f "$XMTP_JS/xmtp-bundle.js" ] || { echo "Falta el bundle XMTP en $XMTP_JS (npm run build:xmtp en soberano-mail)"; exit 1; }
+rsync -az -e "ssh -o ConnectTimeout=8" js/cw-firma.js "$XMTP_JS/xmtp-bundle.js" "$XMTP_JS/assets" "$CAJA:~/chatwallet-node/uso/js/"
 
 ssh "$CAJA" 'bash -s' <<'REMOTO'
 set -e
