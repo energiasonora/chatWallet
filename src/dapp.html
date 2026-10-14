@@ -11724,7 +11724,8 @@
                     return;
                 }
                 if (!chatwalletxmtp) {
-                    showChatLoadError('El chat no está listo.', new Error('XMTP no inicializado'));
+                    // El motivo real (otra ventana con el chat, fallo al arrancar…), como en un chat de a dos.
+                    showChatLoadError(t('chat_no_listo'), cwXmtpUltimoError ? new Error(cwTextoError(cwXmtpUltimoError)) : new Error('XMTP no inicializado'));
                     return;
                 }
                 try {
@@ -12280,7 +12281,9 @@
                         resyncMessages();
                     } else {
                         // No hay conversación: es justo el caso del chat en blanco. Se rearma desde cero.
-                        await startOrLoadConversation(contact.address);
+                        // Un grupo se abre por su id: como DM buscaba la "dirección" group:… y nunca volvía.
+                        if (contact.groupId) await startOrLoadGroupConversation(contact.groupId);
+                        else await startOrLoadConversation(contact.address);
                     }
                 } catch (e) {
                     console.warn('reloadCurrentChat:', e);

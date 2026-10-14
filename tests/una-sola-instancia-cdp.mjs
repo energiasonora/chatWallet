@@ -62,6 +62,11 @@ try {
     check('primera pestaña: chat conectado', !!instA, String(instA).slice(0, 16));
     if (!instA) throw new Error('sin XMTP no se puede probar');
 
+    // Un grupo creado en la primera: la segunda lo va a abrir sin tener el chat.
+    const grupoId = await A.ev(`(async () => { const r = await createGroupChat("Casa prueba", []); return r && r.contact && r.contact.groupId; })()`);
+    check('primera pestaña: grupo creado', !!grupoId, String(grupoId).slice(0, 16));
+    await sleep(1500);
+
     // Segunda pestaña, misma cuenta, mismo perfil.
     const nueva = await (await fetch(`http://127.0.0.1:${PORT}/json/new?${encodeURIComponent(BASE)}`, { method: 'PUT' })).json();
     const B = await conectar(nueva.webSocketDebuggerUrl);
@@ -75,11 +80,20 @@ try {
         await B.ev(`Object.keys(localStorage).filter(k => k.startsWith('cw-xmtp-instalacion')).map(k => localStorage.getItem(k)).join(',')`) === instA);
     check('la primera sigue con su instalación', await A.ev(INST) === instA);
 
+    // El grupo abierto en la segunda tiene que decir POR QUÉ no carga (antes: "XMTP no inicializado").
+    await B.ev(`(async () => { const c = contacts.find(x => x.groupId === ${JSON.stringify(grupoId)}); if (c) await startChatWithContact(c); return !!c; })()`);
+    const textoGrupo = await B.pollFor(`(() => { const t = document.getElementById('messagesContainer')?.innerText || ''; return /otra pestaña o ventana/.test(t) && t; })()`, 20);
+    check('segunda pestaña: el grupo dice que el chat está en otra pestaña', !!textoGrupo,
+        !textoGrupo ? await B.ev(`document.getElementById('messagesContainer')?.innerText`) : '');
+
     // Se cierra la primera: la segunda arranca sola, con la MISMA base.
     await A.rpc('Page.navigate', { url: 'about:blank' });
     const instB = await B.pollFor(INST, 300);
     check('al cerrar la primera, la segunda arranca sola', !!instB);
     check('…con la misma instalación (misma base, nada rehecho)', instB === instA, `${String(instB).slice(0, 16)} vs ${instA.slice(0, 16)}`);
+    const grupoCargado = await B.pollFor(`window.currentConversation && currentConversation.id === ${JSON.stringify(grupoId)}`, 60);
+    check('…y el grupo que estaba abierto carga solo (antes quedaba en el error)', !!grupoCargado,
+        !grupoCargado ? await B.ev(`document.getElementById('messagesContainer')?.innerText`) : '');
     await sleep(12000);   // el margen en que antes salía el aviso y se revocaba la "muerta"
     check('…y sin el aviso de base borrada', !/borró los chats/.test(await B.ev(`document.body.innerText`)));
 } catch (e) {
