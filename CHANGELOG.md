@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Si salís de un grupo y te vuelven a invitar, el grupo reaparece.** Antes, después de tocar «Salir del grupo», el grupo quedaba oculto para siempre aunque un administrador te agregara de nuevo. Ahora una invitación posterior a tu salida lo trae de vuelta a la lista, con los mensajes nuevos. Los mensajes comunes del grupo siguen sin hacerlo reaparecer.
+
 ## 3.75 — 2026-10-14
 
 - **Los chats grupales ya no se quedan en «El chat no está listo».** Si abrías un grupo con ChatWallet abierta también en otra pestaña o ventana, el grupo mostraba un error sin explicación y, al cerrar la otra, no cargaba nunca. Ahora dice que el chat está abierto en otra ventana, y cuando la cerrás el grupo carga solo, igual que los chats de a dos. «Reintentar» también vuelve a abrir el grupo.

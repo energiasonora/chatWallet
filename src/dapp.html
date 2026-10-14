@@ -7900,6 +7900,37 @@
                 return !(msgTs > (t.at || 0)); // borrado: solo lo posterior al borrado resucita
             }
 
+            // ¿Este aviso de grupo te vuelve a agregar DESPUÉS de que saliste? Una invitación nueva de
+            // otro miembro vale más que la salida: sin esto, el grupo quedaba oculto para siempre aunque
+            // el admin te reinvitara (la baja la procesa el admin; al reagregarte llega un group_updated).
+            function cwMeReagregaron(key, content, ts) {
+                const tomb = key && tombstones[key.toLowerCase()];
+                if (!tomb || !tomb.left || !(ts > (tomb.at || 0)) || !chatwalletxmtp) return false;
+                let g = content;
+                if (typeof g === 'string') { try { g = JSON.parse(g); } catch (e) { return false; } }
+                const yo = chatwalletxmtp.inboxId;
+                return !!(g && Array.isArray(g.addedInboxes) && g.initiatedByInboxId !== yo
+                    && g.addedInboxes.some(x => x && x.inboxId === yo));
+            }
+
+            // Lo mismo mirando el hilo del grupo (arranque, resync, conversación que reaparece).
+            async function cwLevantarSalidaSiMeReagregaron(conv) {
+                const key = groupKeyOf(conv.id);
+                const tomb = tombstones[key.toLowerCase()];
+                if (!tomb || !tomb.left) return false;
+                try {
+                    const msgs = await conv.messages({ sentAfterNs: BigInt(tomb.at || 0) * 1000000n });
+                    for (const m of msgs) {
+                        if (m.contentType?.typeId !== 'group_updated') continue;
+                        if (cwMeReagregaron(key, m.content, m.sentAt ? m.sentAt.getTime() : 0)) {
+                            await clearTombstone(key);
+                            return true;
+                        }
+                    }
+                } catch (e) { console.warn('¿me volvieron a agregar al grupo?', e); }
+                return false;
+            }
+
             function isBlockedContact(address) {
                 return !!(address && tombstones[address.toLowerCase()]?.blocked);
             }
@@ -10161,8 +10192,9 @@
                 let changed = false;
                 for (const conv of convs) {
                     if (!convIsGroup(conv)) continue;
-                    // Grupos de los que te fuiste / te sacaron: no se resucitan solos.
-                    if (isSuppressedContact(groupKeyOf(conv.id))) continue;
+                    // Grupos de los que te fuiste / te sacaron: no se resucitan solos, salvo que
+                    // alguien te haya vuelto a agregar después.
+                    if (isSuppressedContact(groupKeyOf(conv.id)) && !(await cwLevantarSalidaSiMeReagregaron(conv))) continue;
                     try { if (!(await conv.isActive())) continue; } catch (e) { }
                     const before = findGroupContact(conv.id);
                     const beforeName = before?.name, beforeCount = before?.memberCount;
@@ -11562,6 +11594,10 @@
                                 const chatKey = await resolveChatKey(message, isSentByMe);
                                 const contactAddress = chatKey.key;
                                 const inGroup = chatKey.isGroup;
+                                // Te volvieron a agregar a un grupo del que habías salido: vuelve.
+                                if (inGroup && cwMeReagregaron(contactAddress, message.content, messageTimestamp)) {
+                                    await clearTombstone(contactAddress);
+                                }
                                 // Un grupo nuevo (te acaban de agregar) entra a la lista de chats acá.
                                 if (inGroup && chatKey.conv && !isSuppressedContact(contactAddress, messageTimestamp)) {
                                     upsertGroupContact(chatKey.conv);
@@ -11664,7 +11700,8 @@
                                 console.log("✅ Nueva conversación sincronizada.");
                                 // Grupo al que me acaban de agregar: entra a la lista de chats YA,
                                 // sin esperar a que alguien escriba en él.
-                                if (convIsGroup(conversation) && !isSuppressedContact(groupKeyOf(conversation.id))) {
+                                if (convIsGroup(conversation) && (!isSuppressedContact(groupKeyOf(conversation.id))
+                                    || await cwLevantarSalidaSiMeReagregaron(conversation))) {
                                     const gc = upsertGroupContact(conversation, { lastMessageTimestamp: Date.now() });
                                     try { gc.memberCount = (await conversation.members()).length; } catch (e) { }
                                     await saveContacts();
