@@ -29,6 +29,11 @@ else
   python3 scripts/changelog.py check
 fi
 
+# ── 0b. Lista de redes al día ──
+# La copia que viaja con la app (y dentro del APK) se renueva en cada publicación; si la
+# descarga falla, cadenas.py deja la que había y el deploy sigue.
+python3 scripts/cadenas.py || true
+
 # ── 1. Bump de la versión visible: "v 1.04 alpha" -> "v 1.05 alpha" ──
 CUR_NUM=$(grep -oE 'v [0-9]+\.[0-9]+ alpha' "$DAPP" | head -1 | grep -oE '[0-9]+\.[0-9]+')
 MAJOR=${CUR_NUM%.*}

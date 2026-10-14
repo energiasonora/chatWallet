@@ -4368,6 +4368,7 @@
                             class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
                         <input type="url" id="networkRpcUrl" placeholder="URL del RPC" required
                             class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <p id="networkRpcStatus" class="hidden text-xs text-gray-400 -mt-1 px-1"></p>
                         <input type="url" id="networkExplorerUrl" placeholder="URL del Explorador (Opcional)"
                             class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
                         <input type="text" id="nativeSymbol" placeholder="Símbolo Nativo (e.g. ETH)" required
@@ -18039,19 +18040,97 @@
             // --- FIN: LÓGICA DE BOTONES DE ACCIÓN EN HEADER DE CHAT ---
 
             // --- INICIO: GESTIÓN DE REDES ---
+            // El diccionario tiene dos fuentes. La copia incluida (chainsv1.json) carga al instante
+            // y anda sin conexión, pero envejece: en un año le faltaban mil redes, Arc entre ellas.
+            // Por eso además se pide la lista viva (ethereum-lists/chains, la que muestra
+            // chainlist.org) y, cuando llega bien, la reemplaza por esta sesión.
+            const CADENAS_VIVAS_URL = 'https://chainid.network/chains.json';
+            let cadenasVivas = null;       // promesa del pedido en vivo; se hace una vez por sesión
+            function pedirCadenasVivas() {
+                if (cadenasVivas) return cadenasVivas;
+                cadenasVivas = (async () => {
+                    const corte = new AbortController();
+                    const reloj = setTimeout(() => corte.abort(), 12000);
+                    try {
+                        const r = await fetch(CADENAS_VIVAS_URL, { signal: corte.signal });
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        const lista = (await r.json()).filter(c => c && Number.isInteger(c.chainId) && typeof c.name === 'string');
+                        // Una lista corta es una respuesta rota, no una novedad: no pisa la buena.
+                        if (lista.length < 1500 || lista.length < allChainsData.length * 0.9) throw new Error('lista incompleta');
+                        allChainsData = lista;
+                        return true;
+                    } catch (e) {
+                        console.warn('[redes] sin lista viva, queda la copia incluida:', e.message || e);
+                        cadenasVivas = null;       // se reintenta la próxima vez que se abra el formulario
+                        return false;
+                    } finally { clearTimeout(reloj); }
+                })();
+                return cadenasVivas;
+            }
+
             async function loadAllChainsData() {
-                if (allChainsData.length > 0) return;
-                try {
-                    const response = await fetch("chainsv1.json");
-                    if (!response.ok) {
-                        console.warn("Could not fetch chainsv1.json. Autocomplete will be disabled.");
-                        return;
+                if (allChainsData.length === 0) {
+                    try {
+                        const response = await fetch("chainsv1.json");
+                        if (response.ok) allChainsData = await response.json();
+                        else console.warn("Could not fetch chainsv1.json.");
+                    } catch (error) {
+                        console.error("Error fetching or parsing chainsv1.json:", error);
                     }
-                    allChainsData = await response.json();
-                } catch (error) {
-                    console.error("Error fetching or parsing chainsv1.json:", error);
-                    allChainsData = [];
                 }
+                pedirCadenasVivas();               // sin esperar: el formulario no se frena por la red
+            }
+
+            // ¿Este nodo atiende de verdad a esta cadena? Se le pregunta su chain ID desde el
+            // navegador, que es desde donde lo va a usar la app: un nodo que no admite pedidos
+            // del navegador (CORS) falla acá igual que fallaría después.
+            // Devuelve { ok, ms } si coincide, { otra: id } si es de otra cadena, {} si no contesta.
+            async function probarRpc(url, chainId, esperaMs = 5000) {
+                const corte = new AbortController();
+                const reloj = setTimeout(() => corte.abort(), esperaMs);
+                const t0 = Date.now();
+                try {
+                    const r = await fetch(url, { method: 'POST', signal: corte.signal,
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_chainId', params: [] }) });
+                    const d = await r.json();
+                    const id = parseInt(d && d.result, 16);
+                    if (!Number.isFinite(id)) return {};
+                    return id === Number(chainId) ? { ok: true, ms: Date.now() - t0 } : { otra: id };
+                } catch (_) { return {}; }
+                finally { clearTimeout(reloj); }
+            }
+
+            function rpcEstado(texto, tipo) {
+                const el = document.getElementById('networkRpcStatus');
+                if (!el) return;
+                el.textContent = texto || '';
+                el.classList.toggle('hidden', !texto);
+                el.classList.toggle('text-green-400', tipo === 'ok');
+                el.classList.toggle('text-amber-400', tipo === 'mal');
+                el.classList.toggle('text-gray-400', !tipo);
+            }
+
+            // Prueba los nodos que el diccionario trae para la cadena y deja en el formulario el
+            // más rápido de los que contestan bien; los demás sanos quedan de repuesto. El turno
+            // evita que una prueba vieja (el usuario siguió tipeando) pise a la nueva.
+            let rpcTurno = 0;
+            async function elegirRpcSano(chainId, candidatos) {
+                const turno = ++rpcTurno;
+                rpcEstado(t('net_rpc_probando'));
+                const medidos = await Promise.all(candidatos.map(async u => ({ u, ...(await probarRpc(u, chainId)) })));
+                if (turno !== rpcTurno || networkChainIdInput.value.trim() !== String(chainId)) return;
+                const sanos = medidos.filter(m => m.ok).sort((a, b) => a.ms - b.ms).map(m => m.u);
+                if (!sanos.length) {
+                    rpcEstado(t(navigator.onLine === false ? 'net_rpc_sin_red' : 'net_rpc_ninguno'), 'mal');
+                    return;
+                }
+                // Si mientras tanto el usuario escribió su propio RPC, no se lo pisa.
+                if (candidatos.includes(networkRpcUrlInput.value.trim()) || !networkRpcUrlInput.value.trim()) {
+                    networkRpcUrlInput.value = sanos[0];
+                }
+                networkRpcUrlInput.dataset.alternativas = JSON.stringify(sanos.slice(0, 6));
+                rpcEstado(t('net_rpc_sanos', { n: sanos.length, total: candidatos.length }), 'ok');
             }
 
             async function handleAutocomplete(e) {
@@ -18065,8 +18144,13 @@
                 let foundChain = null;
 
                 if (input.id === 'networkChainId') {
+                    rpcTurno++; rpcEstado('');
                     if (!isNaN(value) && value !== '') {
-                        foundChain = allChainsData.find(chain => chain.chainId === parseInt(value));
+                        const buscar = () => allChainsData.find(chain => chain.chainId === parseInt(value));
+                        foundChain = buscar();
+                        // La copia incluida no la conoce: puede ser una red nueva que sí está en la
+                        // lista viva. Se espera ese pedido, salvo que el usuario haya seguido tipeando.
+                        if (!foundChain && await pedirCadenasVivas() && input.value.trim() === value) foundChain = buscar();
                     }
                 } else if (input.id === 'networkName') {
                     // El usuario está escribiendo el Nombre a mano → deja de ser "autocompletado",
@@ -18081,7 +18165,10 @@
                     // Autocompletar los datos técnicos de la cadena…
                     if (input.id !== 'networkChainId') networkChainIdInput.value = foundChain.chainId || '';
 
-                    const utiles = (foundChain.rpc || []).filter(url => url && !url.includes('${') && !url.startsWith('ws'));
+                    // Sólo https: desde una página segura un nodo http queda bloqueado por el navegador.
+                    const sinLlave = (foundChain.rpc || []).filter(url => url && !url.includes('${') && !url.startsWith('ws'));
+                    const seguros = sinLlave.filter(url => url.startsWith('https://'));
+                    const utiles = seguros.length ? seguros : sinLlave;
                     const rpc = utiles[0] || foundChain.rpc?.[0] || '';
                     networkRpcUrlInput.value = rpc;
                     // Los otros RPC de esa cadena viajan con la red: sin ellos, cuando el primero
@@ -18103,6 +18190,9 @@
                         networkNameInput.value = foundChain.name || '';
                         networkNameInput.dataset.autofilled = 'true';
                     }
+
+                    // El primero de la lista no siempre está vivo: se prueban y queda el mejor.
+                    if (input.id === 'networkChainId' && utiles.length) elegirRpcSano(foundChain.chainId, utiles.slice(0, 8));
                 }
             }
 
@@ -18228,7 +18318,7 @@
                 });
             }
 
-            function handleAddNewNetwork(e) {
+            async function handleAddNewNetwork(e) {
                 e.preventDefault();
                 const name = document.getElementById('networkName').value.trim();
                 const chainId = document.getElementById('networkChainId').value.trim();
@@ -18251,6 +18341,20 @@
                     showToast("La URL del RPC no es válida. Asegúrate de que incluya http:// o https://", 'error');
                     return;
                 }
+
+                // El RPC tiene que ser de ESTA cadena. Uno que contesta otro chain ID mostraría saldos
+                // de otra red con el nombre de esta, y firmaría transacciones para la equivocada.
+                // Uno que no contesta se deja pasar con aviso: puede ser un nodo privado o no haber red.
+                const guardarBtn = addNetworkForm.querySelector('button[type="submit"]');
+                if (guardarBtn) guardarBtn.disabled = true;
+                const prueba = await probarRpc(rpcUrl, chainId, 6000);
+                if (guardarBtn) guardarBtn.disabled = false;
+                if (prueba.otra !== undefined) {
+                    rpcEstado(t('net_rpc_otra', { otra: prueba.otra, esta: chainId }), 'mal');
+                    showToast(t('net_rpc_otra', { otra: prueba.otra, esta: chainId }), 'error');
+                    return;
+                }
+                if (!prueba.ok) showToast(t('net_rpc_mudo'), 'error');
 
                 const isToken = tokenAddress && ethers.isAddress(tokenAddress);
                 const tokenSym = tokenSymbol.trim();
@@ -18496,6 +18600,7 @@
                 document.getElementById('editNetworkIndex').value = "-1";
                 addNetworkForm.reset();
                 networkNameInput.dataset.autofilled = ''; // reset() no toca dataset
+                rpcTurno++; rpcEstado('');
             }
 
             function closeAddNetworkModal() {
@@ -21409,6 +21514,12 @@
                     "settings_version_label": "Versión",
                     "changelog_title": "Novedades",
                     "changelog_btn": "Novedades",
+                    "net_rpc_probando": "Probando los nodos de esta red…",
+                    "net_rpc_sanos": "Responden {n} de {total} nodos. Quedó el más rápido; los demás son de repuesto.",
+                    "net_rpc_ninguno": "Ningún nodo de la lista respondió. Podés pegar otro RPC a mano.",
+                    "net_rpc_sin_red": "Sin conexión: no se pudieron probar los nodos.",
+                    "net_rpc_otra": "Ese RPC es de otra red (chain ID {otra}, no {esta}). Revisalo antes de guardar.",
+                    "net_rpc_mudo": "El RPC no respondió. La red se guardó igual; si el saldo no carga, cambialo.",
                     "changelog_link": "Ver qué cambió en esta versión",
                     "changelog_all": "Ver todas las versiones en GitHub",
                     "changelog_current": "estás acá",
@@ -21938,6 +22049,12 @@
                     "settings_version_label": "Version",
                     "changelog_title": "What's new",
                     "changelog_btn": "What's new",
+                    "net_rpc_probando": "Testing this network's nodes…",
+                    "net_rpc_sanos": "{n} of {total} nodes respond. The fastest one is set; the rest are kept as backups.",
+                    "net_rpc_ninguno": "None of the listed nodes responded. You can paste another RPC by hand.",
+                    "net_rpc_sin_red": "Offline: the nodes could not be tested.",
+                    "net_rpc_otra": "That RPC belongs to another network (chain ID {otra}, not {esta}). Check it before saving.",
+                    "net_rpc_mudo": "The RPC did not respond. The network was saved anyway; change it if the balance does not load.",
                     "changelog_link": "See what changed in this version",
                     "changelog_all": "See every version on GitHub",
                     "changelog_current": "you are here",
@@ -22467,6 +22584,12 @@
                     "settings_version_label": "Version",
                     "changelog_title": "Nouveautés",
                     "changelog_btn": "Nouveautés",
+                    "net_rpc_probando": "Test des nœuds de ce réseau…",
+                    "net_rpc_sanos": "{n} nœuds sur {total} répondent. Le plus rapide est retenu ; les autres servent de secours.",
+                    "net_rpc_ninguno": "Aucun nœud de la liste n'a répondu. Vous pouvez coller un autre RPC à la main.",
+                    "net_rpc_sin_red": "Hors ligne : les nœuds n'ont pas pu être testés.",
+                    "net_rpc_otra": "Ce RPC appartient à un autre réseau (chain ID {otra}, pas {esta}). Vérifiez-le avant d'enregistrer.",
+                    "net_rpc_mudo": "Le RPC n'a pas répondu. Le réseau a été enregistré quand même ; changez-le si le solde ne se charge pas.",
                     "changelog_link": "Voir ce qui a changé dans cette version",
                     "changelog_all": "Voir toutes les versions sur GitHub",
                     "changelog_current": "vous êtes ici",

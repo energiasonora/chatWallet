@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Agregar una red ya no depende de una lista vieja.** Al poner el Chain ID, la app consulta la
+  lista pública de redes al día (la misma que muestra chainlist.org), así que encuentra redes
+  nuevas como Arc. Sin conexión sigue usando la copia incluida, que ahora se renueva con cada
+  versión.
+- Al autocompletar, la app prueba los nodos de esa red y te deja el que responde más rápido, con
+  los demás de repuesto. Antes ponía el primero de la lista, aunque estuviera caído.
+- Si el RPC que vas a guardar pertenece a otra red, la app te avisa y no lo guarda.
+
 ## 3.73 — 2026-10-11
 
 - El enlace del libro ahora muestra la tapa cuando lo compartís en redes.
