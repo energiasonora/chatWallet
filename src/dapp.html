@@ -18111,16 +18111,27 @@
                 el.classList.toggle('text-gray-400', !tipo);
             }
 
-            // Prueba los nodos que el diccionario trae para la cadena y deja en el formulario el
-            // más rápido de los que contestan bien; los demás sanos quedan de repuesto. El turno
-            // evita que una prueba vieja (el usuario siguió tipeando) pise a la nueva.
+            // Dominio de un sitio sin subdominios ("rpc.mainnet.arc.io" → "arc.io"). Aproximado a
+            // propósito: sólo se usa para reconocer qué nodos son de la propia red.
+            function dominioBase(url) {
+                try { return new URL(url).hostname.split('.').slice(-2).join('.'); } catch (_) { return ''; }
+            }
+
+            // Prueba los nodos que el diccionario trae para la cadena y deja en el formulario uno
+            // que contesta bien; los demás sanos quedan de repuesto. Primero van los de la propia
+            // red (mismo dominio que su sitio) y después el resto en el orden de la lista. No se
+            // elige por velocidad: el más rápido del momento puede ser un nodo de cualquiera.
+            // El turno evita que una prueba vieja (el usuario siguió tipeando) pise a la nueva.
             let rpcTurno = 0;
-            async function elegirRpcSano(chainId, candidatos) {
+            async function elegirRpcSano(chainId, candidatos, sitio) {
                 const turno = ++rpcTurno;
                 rpcEstado(t('net_rpc_probando'));
                 const medidos = await Promise.all(candidatos.map(async u => ({ u, ...(await probarRpc(u, chainId)) })));
                 if (turno !== rpcTurno || networkChainIdInput.value.trim() !== String(chainId)) return;
-                const sanos = medidos.filter(m => m.ok).sort((a, b) => a.ms - b.ms).map(m => m.u);
+                const propio = dominioBase(sitio || '');
+                const vivos = medidos.filter(m => m.ok).map(m => m.u);
+                const oficiales = propio ? vivos.filter(u => dominioBase(u) === propio) : [];
+                const sanos = [...oficiales, ...vivos.filter(u => !oficiales.includes(u))];
                 if (!sanos.length) {
                     rpcEstado(t(navigator.onLine === false ? 'net_rpc_sin_red' : 'net_rpc_ninguno'), 'mal');
                     return;
@@ -18130,7 +18141,7 @@
                     networkRpcUrlInput.value = sanos[0];
                 }
                 networkRpcUrlInput.dataset.alternativas = JSON.stringify(sanos.slice(0, 6));
-                rpcEstado(t('net_rpc_sanos', { n: sanos.length, total: candidatos.length }), 'ok');
+                rpcEstado(t(oficiales.length ? 'net_rpc_sanos_oficial' : 'net_rpc_sanos', { n: sanos.length, total: candidatos.length }), 'ok');
             }
 
             async function handleAutocomplete(e) {
@@ -18192,7 +18203,7 @@
                     }
 
                     // El primero de la lista no siempre está vivo: se prueban y queda el mejor.
-                    if (input.id === 'networkChainId' && utiles.length) elegirRpcSano(foundChain.chainId, utiles.slice(0, 8));
+                    if (input.id === 'networkChainId' && utiles.length) elegirRpcSano(foundChain.chainId, utiles.slice(0, 8), foundChain.infoURL);
                 }
             }
 
@@ -21515,7 +21526,8 @@
                     "changelog_title": "Novedades",
                     "changelog_btn": "Novedades",
                     "net_rpc_probando": "Probando los nodos de esta red…",
-                    "net_rpc_sanos": "Responden {n} de {total} nodos. Quedó el más rápido; los demás son de repuesto.",
+                    "net_rpc_sanos": "Responden {n} de {total} nodos. Quedó el primero de la lista; los demás son de repuesto.",
+                    "net_rpc_sanos_oficial": "Responden {n} de {total} nodos. Quedó el oficial de la red; los demás son de repuesto.",
                     "net_rpc_ninguno": "Ningún nodo de la lista respondió. Podés pegar otro RPC a mano.",
                     "net_rpc_sin_red": "Sin conexión: no se pudieron probar los nodos.",
                     "net_rpc_otra": "Ese RPC es de otra red (chain ID {otra}, no {esta}). Revisalo antes de guardar.",
@@ -22050,7 +22062,8 @@
                     "changelog_title": "What's new",
                     "changelog_btn": "What's new",
                     "net_rpc_probando": "Testing this network's nodes…",
-                    "net_rpc_sanos": "{n} of {total} nodes respond. The fastest one is set; the rest are kept as backups.",
+                    "net_rpc_sanos": "{n} of {total} nodes respond. The first one on the list is set; the rest are kept as backups.",
+                    "net_rpc_sanos_oficial": "{n} of {total} nodes respond. The network's official one is set; the rest are kept as backups.",
                     "net_rpc_ninguno": "None of the listed nodes responded. You can paste another RPC by hand.",
                     "net_rpc_sin_red": "Offline: the nodes could not be tested.",
                     "net_rpc_otra": "That RPC belongs to another network (chain ID {otra}, not {esta}). Check it before saving.",
@@ -22585,7 +22598,8 @@
                     "changelog_title": "Nouveautés",
                     "changelog_btn": "Nouveautés",
                     "net_rpc_probando": "Test des nœuds de ce réseau…",
-                    "net_rpc_sanos": "{n} nœuds sur {total} répondent. Le plus rapide est retenu ; les autres servent de secours.",
+                    "net_rpc_sanos": "{n} nœuds sur {total} répondent. Le premier de la liste est retenu ; les autres servent de secours.",
+                    "net_rpc_sanos_oficial": "{n} nœuds sur {total} répondent. Le nœud officiel du réseau est retenu ; les autres servent de secours.",
                     "net_rpc_ninguno": "Aucun nœud de la liste n'a répondu. Vous pouvez coller un autre RPC à la main.",
                     "net_rpc_sin_red": "Hors ligne : les nœuds n'ont pas pu être testés.",
                     "net_rpc_otra": "Ce RPC appartient à un autre réseau (chain ID {otra}, pas {esta}). Vérifiez-le avant d'enregistrer.",

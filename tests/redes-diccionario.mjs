@@ -16,7 +16,7 @@ const ok = (c, m, x = '') => { console.log(`${c ? '✅' : '❌'} ${m}${x !== '' 
 const INICIO = `
 try { localStorage.setItem('xmtp-chat-wallet', '${ethers.Wallet.createRandom().privateKey}'); localStorage.setItem('chatwallet-lang', 'es'); } catch (e) {}
 window.__vivo = true; window.__pedidosVivos = 0;
-const NODOS = { 'rpc-lento.test': [777001, 400], 'rpc-rapido.test': [777001, 30], 'rpc-otra.test': [1, 20], 'solo.test': [777002, 20] };
+const NODOS = { 'rpc-lento.test': [0, 400], 'rpc-rapido.test': [0, 30], 'rpc-otra.test': [1, 20], 'solo.test': [777002, 20] };
 const fetchReal = window.fetch.bind(window);
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 window.fetch = async (url, opts) => {
@@ -26,8 +26,9 @@ window.fetch = async (url, opts) => {
         if (!window.__vivo) throw new TypeError('Failed to fetch');
         const copia = await (await fetchReal('chainsv1.json')).json();
         return new Response(JSON.stringify([...copia,
-            { name: 'Red Nueva', chainId: 777001, nativeCurrency: { symbol: 'NUE', decimals: 18 }, explorers: [{ url: 'https://explora.test' }],
+            { name: 'Red Nueva', chainId: 777001, infoURL: 'https://www.rpc-lento.test', nativeCurrency: { symbol: 'NUE', decimals: 18 }, explorers: [{ url: 'https://explora.test' }],
               rpc: ['http://inseguro.test', 'https://rpc-muerto.test', 'wss://rpc-rapido.test', 'https://rpc-lento.test', 'https://rpc-otra.test', 'https://rpc-rapido.test', 'https://con-llave.test/\${API_KEY}'] },
+            { name: 'Red Sin Sitio', chainId: 777004, nativeCurrency: { symbol: 'SIN', decimals: 18 }, rpc: ['https://rpc-muerto.test', 'https://rpc-lento.test', 'https://rpc-rapido.test'] },
             { name: 'Red Muerta', chainId: 777003, nativeCurrency: { symbol: 'MUE', decimals: 18 }, rpc: ['https://rpc-muerto.test', 'https://rpc-otra.test'] }]));
     }
     const m = u.match(/^https?:\\/\\/([a-z.-]+\\.test)/);
@@ -35,7 +36,9 @@ window.fetch = async (url, opts) => {
         const nodo = NODOS[m[1]];
         if (!nodo) throw new TypeError('Failed to fetch');
         await esperar(nodo[1]);
-        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: '0x' + nodo[0].toString(16) }));
+        // Los nodos con 0 atienden a la cadena que el formulario tenga escrita en ese momento.
+        const id = nodo[0] || Number(document.getElementById('networkChainId').value);
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: '0x' + id.toString(16) }));
     }
     return fetchReal(url, opts);
 };`;
@@ -107,16 +110,18 @@ try {
     await tipear(777001);
     f = await hasta(x => /Responden/.test(x.estado));
     ok(f.nombre === 'Red Nueva' && f.simbolo === 'NUE' && f.exp === 'https://explora.test', 'la lista viva suma una red que la copia no tiene', f.nombre);
-    ok(f.rpc === 'https://rpc-rapido.test', 'queda el nodo sano más rápido, no el primero de la lista', f.rpc);
-    ok(f.alt === JSON.stringify(['https://rpc-rapido.test', 'https://rpc-lento.test']), 'de repuesto quedan sólo los sanos, sin el muerto ni el de otra cadena', f.alt);
+    ok(f.rpc === 'https://rpc-lento.test' && /oficial/.test(f.estado), 'queda el nodo de la propia red aunque otro sea más rápido', f.rpc);
+    ok(f.alt === JSON.stringify(['https://rpc-lento.test', 'https://rpc-rapido.test']), 'de repuesto quedan sólo los sanos, sin el muerto ni el de otra cadena', f.alt);
     ok(/Responden 2 de 4/.test(f.estado) && /text-green-400/.test(f.color), 'avisa cuántos responden (http, ws y con llave ni se prueban)', f.estado);
+
+    const pedidosTrasExito = await dev.eval(`window.__pedidosVivos`);
 
     // ── 3. Guardar ──
     const antes = f.redes;
     await guardar();
     f = await dev.eval(form);
     const guardada = await dev.eval(`(() => { const r = optionsList.find(n => n.TOKEN_CHAINID === '777001'); return r ? { api: r.API, rpc: r.rpc, sim: r.NATIVE_SYMBOL } : null; })()`);
-    ok(f.redes === antes + 1 && guardada?.api === 'https://rpc-rapido.test' && guardada.rpc?.length === 2, 'la red se guarda con su nodo y el repuesto', JSON.stringify(guardada));
+    ok(f.redes === antes + 1 && guardada?.api === 'https://rpc-lento.test' && guardada.rpc?.length === 2, 'la red se guarda con su nodo y el repuesto', JSON.stringify(guardada));
 
     // ── 4. RPC de otra cadena: no se guarda ──
     await dev.eval(`openAddNetworkModal(); networkChainIdInput.value = '777009'; networkNameInput.value = 'Trucha'; networkRpcUrlInput.value = 'https://rpc-otra.test'; document.getElementById('nativeSymbol').value = 'TRU'`);
@@ -136,12 +141,18 @@ try {
     f = await hasta(x => /Ningún/.test(x.estado));
     ok(/Ningún nodo/.test(f.estado) && /text-amber-400/.test(f.color) && f.nombre === 'Red Muerta', 'si ninguno responde lo dice, y deja completar a mano', f.estado);
 
+    // ── 6b. Sin nodo de la propia red: el primero sano en el orden de la lista ──
+    await dev.eval(`openAddNetworkModal()`);
+    await tipear(777004);
+    f = await hasta(x => /Responden/.test(x.estado));
+    ok(f.rpc === 'https://rpc-lento.test' && /primero de la lista/.test(f.estado) && /2 de 3/.test(f.estado), 'sin nodo oficial queda el primero sano de la lista, no el más rápido', `${f.rpc} · ${f.estado}`);
+
     // ── 7. Tipear rápido: gana el último ──
     await dev.eval(`openAddNetworkModal()`);
     await tipear(777001); await tipear(8453);
     f = await hasta(x => /Responden|Ningún/.test(x.estado), 20000);
     ok(/base/i.test(f.nombre) && !/\.test/.test(f.rpc), 'una prueba vieja no pisa a la red que quedó escrita', `${f.nombre} · ${f.rpc}`);
-    ok(await dev.eval(`window.__pedidosVivos`) <= 3, 'la lista viva se pide una vez por sesión (más el reintento tras la falla)', await dev.eval(`window.__pedidosVivos`));
+    ok(await dev.eval(`window.__pedidosVivos`) === pedidosTrasExito, 'una vez que la lista viva llegó, no se vuelve a pedir en la sesión', pedidosTrasExito);
 
     // ── 8. Al reabrir, el aviso se limpia ──
     await dev.eval(`openAddNetworkModal()`);

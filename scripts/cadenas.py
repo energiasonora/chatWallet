@@ -11,7 +11,7 @@ import json, sys, urllib.request
 
 ORIGEN = 'https://chainid.network/chains.json'
 DESTINO = 'src/static/chainsv1.json'
-CAMPOS = ('name', 'chainId', 'shortName', 'nativeCurrency', 'rpc', 'explorers')
+CAMPOS = ('name', 'chainId', 'shortName', 'nativeCurrency', 'rpc', 'explorers', 'infoURL')
 
 def main():
     try:
