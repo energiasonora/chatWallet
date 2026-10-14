@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.77 — 2026-10-14
+
 - **El aviso de «este dispositivo quedó fuera de la conversación» ahora queda fijo arriba del chat.** Antes aparecía arriba de todo de los mensajes y en un chat largo quedaba escondido, junto con el botón que lo arregla («Reconectar este dispositivo» o «Reabrir el chat»). También aparece si el problema salta recién al enviar un mensaje.
 
 ## 3.76 — 2026-10-14
