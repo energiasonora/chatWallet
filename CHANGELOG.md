@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.74 — 2026-10-13
+
 - **Agregar una red ya no depende de una lista vieja.** Al poner el Chain ID, la app consulta la
   lista pública de redes al día (la misma que muestra chainlist.org), así que encuentra redes
   nuevas como Arc. Sin conexión sigue usando la copia incluida, que ahora se renueva con cada
