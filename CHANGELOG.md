@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.75 — 2026-10-14
+
 - **Los chats grupales ya no se quedan en «El chat no está listo».** Si abrías un grupo con ChatWallet abierta también en otra pestaña o ventana, el grupo mostraba un error sin explicación y, al cerrar la otra, no cargaba nunca. Ahora dice que el chat está abierto en otra ventana, y cuando la cerrás el grupo carga solo, igual que los chats de a dos. «Reintentar» también vuelve a abrir el grupo.
 
 ## 3.74 — 2026-10-13
