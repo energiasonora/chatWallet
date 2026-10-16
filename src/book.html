@@ -2337,7 +2337,9 @@
                 getIdentifier: () => ({ identifier, identifierKind: 0 }),
                 signMessage: async (msg) => ethers.getBytes(await cwEphemeralWallet.signMessage(msg)),
             };
-            cwXmtpClient = await window.XmtpClient.create(xmtpSigner, { env: 'production', dbEncryptionKey: ethers.randomBytes(32) });
+            cwXmtpClient = await window.XmtpClient.create(xmtpSigner, {
+                env: 'production', dbEncryptionKey: ethers.randomBytes(32), codecs: [new window.CwConnect.CwCodec()],
+            });
             return cwXmtpClient;
         }
 
@@ -2435,6 +2437,8 @@
                 value: ethAmountWei.toString(), memo: 'Cripto para Soberanos — Digital',
                 format: snapshot.format, lang: snapshot.lang, country: snapshot.country,
                 reply: cwEphemeralWallet.address, ref,
+                // CW Connect v2: la billetera muestra quién cobra y no deja este canal como contacto.
+                v: '2', app: location.hostname, name: 'Libro Cripto para Soberanos',
             });
             if (snapshot.code) params.set('code', snapshot.code);
             const payUrl = `https://chatwallet.org/dapp?${params.toString()}`;
@@ -2453,9 +2457,8 @@
 
             const listenPromise = (async () => {
                 for await (const msg of stream) {
-                    if (!msg || typeof msg.content !== 'string') continue;
-                    let data;
-                    try { data = JSON.parse(msg.content); } catch (_) { continue; }
+                    // Texto (billetera vieja) o el tipo chatwallet.org/cw (v2): el módulo lee los dos.
+                    const data = window.CwConnect.leerMensaje(msg)?.m;
                     if (data?.cw === 2 && data?.type === 'payment_result' && data?.ref === ref) return { kind: 'message', data };
                 }
                 return { kind: 'ended' };
@@ -2758,7 +2761,9 @@
     <!-- Pagar con ChatWallet (cw:2 sobre XMTP) — mismo patrón de import que dapp.html -->
     <script type="module">
         import { Client } from '@xmtp/browser-sdk';
+        import * as CwConnect from '../cw-connect/cw-connect.mjs';
         window.XmtpClient = Client;
+        window.CwConnect = CwConnect;   // CW Connect v2 (cw-connect/SPEC.md §6): tipo propio + quién cobra
     </script>
 
     <!-- PWA Install Banner -->

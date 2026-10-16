@@ -3987,12 +3987,16 @@
                     wallet con tu frase semilla: el historial vuelve solo de este respaldo.</p>
 
                 <hr class="border-gray-600">
-                <h2 class="text-md text-center font-semibold text-indigo-300" data-i18n-key="wc_conn_title">
-                    Conexiones activas</h2>
+                <h2 id="wcConnTitle" class="text-md text-center font-semibold text-indigo-300" data-i18n-key="wc_conn_title">
+                    Apps conectadas</h2>
                 <p class="text-xs text-gray-500 text-center -mt-2" data-i18n-key="wc_conn_desc">Apps vinculadas a tu
-                    wallet por XMTP para pedirte firmas. Tu llave privada nunca sale de acá.</p>
+                    wallet por XMTP para pedirte firmas. No son contactos: no aparecen entre tus chats. Tu llave
+                    privada nunca sale de acá.</p>
                 <div id="wcSessionsList"
-                    class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-40 overflow-y-auto"></div>
+                    class="bg-gray-900/50 p-3 rounded-lg text-sm space-y-2 max-h-56 overflow-y-auto"></div>
+                <button id="wcArchivarViejas" type="button" data-i18n-key="wc_apps_archive_old"
+                    class="hidden w-full px-3 py-1.5 text-xs font-semibold text-gray-300 bg-gray-700/60 rounded-lg hover:bg-gray-600">
+                    Archivar las que no usás hace una semana</button>
                 <h3 class="text-xs text-center font-semibold text-gray-400 mt-2" data-i18n-key="wc_activity_title">
                     Pedidos recientes</h3>
                 <div id="wcActivityList"
@@ -4559,6 +4563,10 @@
             window.ReplyCodec = ReplyCodec;
             window.TextCodec = TextCodec;
             window.ContentTypeText = ContentTypeText;
+            // CW Connect (vincular apps por XMTP): la MISMA implementación que usan las apps, para
+            // que la billetera no tenga una segunda versión del protocolo. Ver cw-connect/SPEC.md.
+            import * as CwConnect from '../cw-connect/cw-connect.mjs';
+            window.CwConnect = CwConnect;
 
             import EthCrypto from 'eth-crypto';
             window.EthCrypto = EthCrypto;
@@ -5962,7 +5970,7 @@
                     console.log("Iniciando XMTP (Background)...");
                     chatwalletxmtp = await Client.create(walletSigner, {
                         env: XMTP_ENV,
-                        codecs: [new PresenceCodec(), new ProfileCodec(), new window.ReadReceiptCodec(), new window.ReactionCodec(), new window.ReplyCodec()],
+                        codecs: [new PresenceCodec(), new ProfileCodec(), new window.ReadReceiptCodec(), new window.ReactionCodec(), new window.ReplyCodec(), new window.CwConnect.CwCodec()],
                         // El sufijo de época sólo aparece si esta wallet se vinculó al inbox de
                         // otra: la base vieja apuntaba al inbox propio. Ver bumpXmtpDbEpoch.
                         // OJO: el env va en el nombre. Sin esto, al pasar a producción el cliente
@@ -8895,6 +8903,8 @@
                             try { addr = await getAddressFromInboxId(await conv.peerInboxId()); } catch (e) { }
                         }
                         if (!addr) continue;
+                        // Una app vinculada no es un contacto (cw-connect/SPEC.md §8).
+                        if (!isG && window.cwEsApp?.(addr)) continue;
 
                         let msgs = [];
                         try { msgs = await conv.messages({ limit: 1000n }); } catch (e) { continue; }
@@ -8909,14 +8919,28 @@
                             : (tombstones[addr.toLowerCase()]?.at || 0);
 
                         let newest = 0, newestText = null, unread = 0;
+                        // Mensajes de protocolo de apps (canales 1 y 2) vs. mensajes de personas: un DM
+                        // que sólo tiene de los primeros es de una app, aunque no haya sesión registrada
+                        // (las vinculaciones previas al registro, o hechas desde otro dispositivo).
+                        let proto = 0, humanos = 0, protoUltimo = 0, protoMeta = null;
                         for (const m of msgs) {
                             if (SKIP.has(m.contentType?.typeId)) continue;
+                            const pr = window.CwConnect?.leerMensaje(m);
+                            if (pr) {
+                                proto++;
+                                const pts = m.sentAt ? m.sentAt.getTime() : 0;
+                                if (pts > protoUltimo) protoUltimo = pts;
+                                if (pr.m.type === 'connect') protoMeta = pr.m;
+                                if (pr.m.cw === 2) protoMeta = protoMeta || { kind: 'once' };
+                                continue;
+                            }
                             // Preview legible: las respuestas muestran su texto anidado, no el JSON del sobre.
                             const content = xmtpMessagePreview(m);
                             // Los mensajes de sistema (creación del DM / "Contacto iniciado por…") no cuentan
                             // como no-leídos ni sirven de preview en la lista.
                             if (isHandshakeMessage(content)) continue;
                             if (esMensajeDeSincronia(content)) continue;
+                            humanos++;
                             const ts = m.sentAt ? m.sentAt.getTime() : 0;
                             if (ts > newest) {
                                 newest = ts;
@@ -8924,6 +8948,18 @@
                             }
                             const inbound = m.senderInboxId !== chatwalletxmtp.inboxId;
                             if (inbound && ts > watermark) unread++;
+                        }
+
+                        if (!isG && proto > 0 && humanos === 0) {
+                            const pm = protoMeta || {};
+                            window.wcRegistrarApp?.(addr, {
+                                app: pm.app, name: pm.name, v: pm.v || 1, lastAt: protoUltimo,
+                                kind: pm.kind || (pm.v >= 2 ? 'once' : 'session'),
+                            });
+                            // Una app sin sesión que la atienda: llega archivada si ya venció.
+                            window.wcArchivarInactivas?.();
+                            summary.changed = true;
+                            continue;
                         }
 
                         // Borrado/bloqueado: no revivirlo por recorrer sus conversaciones viejas.
@@ -9537,6 +9573,7 @@
                 for (const bc of (data.contacts || [])) {
                     if (!bc.address) continue;
                     if (isSuppressedContact(bc.address, bc.lastMessageTimestamp || 0)) continue;
+                    if (!bc.isGroup && window.cwEsApp?.(bc.address)) continue;   // las apps no son contactos
                     const idx = contacts.findIndex(c => c.address.toLowerCase() === bc.address.toLowerCase());
                     if (idx === -1) {
                         const bcIsGroup = !!bc.isGroup && !!bc.groupId;
@@ -10755,6 +10792,17 @@
                     });
                 });
 
+                // Las apps vinculadas no son chats: una sola fila al final las nombra y lleva a
+                // Configuración → Apps conectadas (cw-connect/SPEC.md §8).
+                const filaApps = document.createElement('button');
+                filaApps.type = 'button';
+                filaApps.id = 'appsConectadasRow';
+                filaApps.className = 'hidden w-full flex items-center gap-2 px-3 py-2 mt-1 text-left text-xs text-gray-400 rounded-lg border border-dashed border-gray-700 hover:bg-gray-700/40';
+                filaApps.innerHTML = '<span>🔗</span><span id="appsConectadasTexto" class="flex-grow"></span><span class="text-gray-600">›</span>';
+                filaApps.addEventListener('click', (e) => { e.stopPropagation(); window.abrirAppsConectadas?.(); });
+                contactsListSidebar.appendChild(filaApps);
+                window.actualizarFilaApps?.();
+
                 // Update total unread badge in header if needed
                 const headerUnreadBadge = document.getElementById('headerUnreadBadge');
                 if (totalUnread > 0) {
@@ -11599,9 +11647,20 @@
                                 // Intercept RPC-style messages BEFORE they reach the chat UI.
                                 // Fire-and-forget so a pending user approval never blocks the
                                 // chat message stream.
+                                // Canales 1 y 2, en texto (v1) o con su tipo propio (v2). Los PROPIOS también se
+                                // cortan acá: el `connect` que mandó otro dispositivo de esta cuenta llegaba
+                                // hasta "contacto nuevo" y así se llenaba la lista de chats con apps.
+                                const __proto = window.CwConnect && window.CwConnect.leerMensaje(message);
+                                if (__proto) {
+                                    if (message.senderInboxId !== chatwalletxmtp.inboxId) {
+                                        if (__proto.m.cw === 1) handleWalletConnectRpc(message, __proto.m, __proto.version).catch(e => console.warn('[cw-bridge]', e));
+                                    } else {
+                                        wcAppDesdeMensajePropio(message, __proto.m).catch(e => console.warn('[cw-bridge] propio:', e));
+                                    }
+                                    return;
+                                }
                                 if (typeof message.content === 'string' && message.senderInboxId !== chatwalletxmtp.inboxId) {
                                     let __cw; try { __cw = JSON.parse(message.content); } catch (_) { __cw = null; }
-                                    if (__cw && __cw.cw === 1) { handleWalletConnectRpc(message, __cw).catch(e => console.warn('[cw-bridge]', e)); return; }
                                     // cw:3 — aviso de pago stealth. Llega antes que la UI del
                                     // chat: es un dato de protocolo, no un mensaje para leer.
                                     if (__cw && __cw.cw === 3 && __cw.type === 'stealth_payment') {
@@ -11728,6 +11787,8 @@
                                     // Borrado: mensaje anterior al borrado (backfill/resync) → sigue oculto.
                                     return;
                                 }
+                                // Una app vinculada no es un contacto (cw-connect/SPEC.md §8).
+                                if (contactAddress && !String(contactAddress).startsWith('group:') && window.cwEsApp?.(contactAddress)) return;
                                 if (contactAddress) {
                                     // Mensaje POSTERIOR al borrado: el contacto vuelve. Se levanta la lápida
                                     // para que el reconcile no lo vuelva a filtrar.
@@ -13123,6 +13184,7 @@
                 }
                 // cw:1 — la respuesta a un pedido no trae `type`, sólo `result` o `error`.
                 if (o.type === 'connect') return '🔗 ' + t('proto_connect');
+                if (o.type === 'bye') return '🔗 ' + t('proto_bye');
                 if (o.type === 'rpc') return '🔗 ' + t('proto_rpc');
                 if (o.error !== undefined) return '🔗 ' + t('proto_rejected');
                 if (o.result !== undefined) return '🔗 ' + t('proto_answered');
@@ -15382,24 +15444,11 @@
             // La forma 3 lleva prefijo (como CWT1/CWS1/CWC1) y no es una dirección pelada a propósito:
             // un 0x… suelto ya significa "agregar contacto" en el escáner, y adivinar cuál de las dos
             // quiso el usuario sería peor que pedirle el prefijo.
+            // Desde CW Connect v2 (cw-connect/SPEC.md §3) el pedido además trae quién dice ser la
+            // app (`app` = dominio, `name`), si es de un solo uso (`kind`) y qué versión habla (`v`).
+            // El parser es el del módulo común: el mismo que usan las apps para armarlo.
             function parseWcRequestFromString(data) {
-                if (typeof data !== 'string') return null;
-                const txt = data.trim();
-                let inbox = '', chainId = 0;
-                const corto = txt.match(/^CWW1\|(0x[0-9a-fA-F]{40})(?:\|(\d+))?$/);
-                if (corto) {
-                    inbox = corto[1].toLowerCase();
-                    chainId = Number(corto[2] || '0');
-                } else {
-                    if (!/^chatwallet:\/\/wc/i.test(txt) && !/[?&]wc=1(&|$)/.test(txt)) return null;
-                    try {
-                        const q = new URLSearchParams(txt.split('?')[1] || '');
-                        inbox = (q.get('inbox') || '').toLowerCase();
-                        chainId = Number(q.get('chain') || '0');
-                    } catch (_) { return null; }
-                }
-                if (!/^0x[0-9a-fA-F]{40}$/.test(inbox)) return null;
-                return { inbox, chainId };
+                return window.CwConnect ? window.CwConnect.leerUriVinculacion(data) : null;
             }
 
             // libxmtp devuelve como ERROR el resumen de una sincronización a la que algo le
@@ -15425,13 +15474,25 @@
                 }
             }
 
-            async function cwEnviarTextoDapp(dm, texto) {
-                try { await dm.sendText(texto); }
+            // v1 = JSON en un texto; v2 = tipo de contenido chatwallet.org/cw (SPEC §4).
+            async function cwEnviarDapp(dm, obj, version) {
+                try { await window.CwConnect.enviar(dm, obj, version); }
                 catch (e) {
                     // El mensaje se publica antes del sync que produce el resumen: está enviado.
                     if (!cwEsResumenSyncXmtp(e)) throw e;
-                    console.warn('[dApp] sendText devolvió un resumen de sync:', e?.message || e);
+                    console.warn('[dApp] send devolvió un resumen de sync:', e?.message || e);
                 }
+            }
+
+            // El cuerpo del aviso de vincular. Nombre y dominio los escribe la app: se dicen como
+            // declarados, el dominio antes que el nombre (SPEC §3.1).
+            function wcTextoVincular(req) {
+                const inbox = req.inbox.slice(0, 10) + '…' + req.inbox.slice(-6);
+                const quien = req.app
+                    ? t('wc_connect_who', { app: req.app, name: req.name || req.app })
+                    : req.name ? t('wc_connect_who_name', { name: req.name }) : t('wc_connect_who_unknown');
+                const uso = req.v >= 2 ? (req.kind === 'session' ? t('wc_connect_kind_session') : t('wc_connect_kind_once')) : '';
+                return quien + '\n\n' + t('wc_connect_body', { inbox, chain: req.chainId || '?' }) + (uso ? '\n\n' + uso : '');
             }
 
             // → true si el pedido quedó atendido (vinculado o rechazado por el usuario) y el
@@ -15442,23 +15503,31 @@
                 const req = parseWcRequestFromString(uri);
                 if (!req) { alert(t('wc_bad_qr')); return true; }
                 const inbox = req.inbox, chainId = req.chainId;
+                // La sesión habla la versión más alta que entienden las dos puntas (SPEC §4.2).
+                const v = Math.min(req.v || 1, window.CwConnect.VERSION);
+                const kind = v >= 2 ? req.kind : 'session';   // v1 no declara; StealthPay reusa su identidad
 
-                const ok = await wcApprove(t('wc_connect_title'),
-                    t('wc_connect_body', { inbox: inbox.slice(0, 10) + '…' + inbox.slice(-6), chain: chainId || '?' }),
-                    t('wc_connect_cta'), 'vincular');
+                const ok = await wcApprove(t('wc_connect_title'), wcTextoVincular(req), t('wc_connect_cta'), 'vincular');
                 if (!ok) return true;
 
                 try {
                     const dm = await cwAbrirDmCon(inbox);
                     let peerInboxId = null;
                     try { peerInboxId = await dm.peerInboxId(); } catch (_) {}
+                    // Es una app, no un contacto: queda registrada ANTES del primer mensaje, que si
+                    // no el stream lo convierte en un chat más (cw-connect/SPEC.md §8).
+                    wcRegistrarApp(inbox, { app: req.app, name: req.name, kind, v, reactivar: true });
                     // Persistir la sesión (sobrevive recargas/reinicios del worker) + registrarla.
                     if (peerInboxId) {
-                        wcAddSession({ ethInbox: inbox, peerInboxId, chainId });
-                        wcLogActivity({ kind: 'connect', peerInboxId, summary: wcShortId(inbox), result: 'approved' });
+                        wcAddSession({ ethInbox: inbox, peerInboxId, chainId, v });
+                        wcLogActivity({ kind: 'connect', peerInboxId, summary: wcNombreApp(inbox), result: 'approved' });
                     }
-                    // browser-sdk v6: texto plano va con sendText() — send() espera EncodedContent
-                    await cwEnviarTextoDapp(dm, JSON.stringify({ cw: 1, type: 'connect', address: currentWallet.address, chainId }));
+                    // `app`/`name`/`kind` van de vuelta: los otros dispositivos de esta misma cuenta ven
+                    // el mensaje enviado y así saben que este DM es de una app (SPEC §5.1).
+                    const hola = v >= 2
+                        ? { cw: 1, type: 'connect', v, address: currentWallet.address, chainId, app: req.app, name: req.name, kind }
+                        : { cw: 1, type: 'connect', address: currentWallet.address, chainId };
+                    await cwEnviarDapp(dm, hola, v);
                     // Perfil soberano (alias + avatar firmados por el DID) a la dApp recién vinculada,
                     // para que muestre tu avatar sin esperar a que edites el perfil (broadcastProfile).
                     // Best-effort: si falla, la vinculación ya está hecha. El aviso de vincular lo dice.
@@ -15676,9 +15745,15 @@
             }
             window.cwSimularTx = cwSimularTx;
 
-            async function handleWalletConnectRpc(message, data) {
+            async function handleWalletConnectRpc(message, data, version = 1) {
                 // Only serve inboxes the user explicitly connected to.
                 if (!wcApprovedInboxes.has(message.senderInboxId)) return;
+                // La app cerró la sesión: no se le atiende nada más (SPEC §5.4).
+                if (data.type === 'bye') {
+                    const ses = wcLoadSessions().find(x => x.peerInboxId === message.senderInboxId);
+                    if (ses) wcArchivarApp(ses.ethInbox, { avisar: false });
+                    return;
+                }
                 if (data.type !== 'rpc') return;
                 // El stream y el barrido de pendientes pueden traer el MISMO mensaje: se atiende
                 // una sola vez, o el usuario vería dos modales para un solo pedido.
@@ -15689,16 +15764,19 @@
                 // GRUPO no vale: bastaría con meter a la dApp aprobada en un grupo para pedir
                 // firmas desde un canal que el usuario nunca aprobó.
                 if (convIsGroup(conv)) return;
-                const reply = (obj) => conv && conv.sendText(JSON.stringify(Object.assign({ cw: 1, id }, obj)));
-
                 const pid = message.senderInboxId;
+                const ses = wcLoadSessions().find(x => x.peerInboxId === pid);
+                // Se contesta en la versión de la sesión; la del pedido, si es una sesión anterior a v2.
+                const ver = (ses && ses.v) || version;
+                const reply = (obj) => conv && cwEnviarDapp(conv, Object.assign({ cw: 1, id }, obj), ver);
+                if (ses) wcRegistrarApp(ses.ethInbox, { lastAt: Date.now() });
                 try {
                     if (data.method === 'personal_sign') {
                         const msg = data.params?.[0] ?? '';
                         const resumen = String(msg).replace(/\s+/g, ' ').slice(0, 60);
                         const ok = await wcApprove(t('wc_sign_title'),
                             t('wc_sign_body', { msg: String(msg).slice(0, 180) }), t('wc_sign_cta'), 'firma');
-                        if (!ok) { wcLogActivity({ kind: 'sign', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected' }); }
+                        if (!ok) { wcLogActivity({ kind: 'sign', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected', code: 4001 }); }
                         const sig = await currentWallet.signMessage(msg);
                         wcLogActivity({ kind: 'sign', peerInboxId: pid, summary: resumen, result: 'approved' });
                         return reply({ type: 'result', result: sig });
@@ -15712,7 +15790,7 @@
                         if (tx.chainId && Number(tx.chainId) !== walletChainId) {
                             wcToast(t('wc_wrong_net', { req: tx.chainId, cur: walletChainId }));
                             wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: t('wc_wrong_net_log', { chain: tx.chainId }), result: 'error' });
-                            return reply({ type: 'error', error: `wrong network: wallet on chain ${walletChainId}, dApp requested ${tx.chainId}` });
+                            return reply({ type: 'error', error: `wrong network: wallet on chain ${walletChainId}, dApp requested ${tx.chainId}`, code: 4901 });
                         }
                         const red = optionsList[currentTokenIndex];
                         // Un envío pelado de moneda nativa ya se describe entero; lo que lleva datos
@@ -15725,13 +15803,13 @@
                         const resumen = desc.resumen;
                         const cuerpo = sim ? desc.cuerpo + '\n\n' + cwTextoSimulacion(sim, (red && red.NATIVE_SYMBOL) || 'ETH') : desc.cuerpo;
                         const ok = await wcApprove(t('wc_tx_title'), cuerpo, t('wc_tx_cta'), 'pago');
-                        if (!ok) { wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected' }); }
+                        if (!ok) { wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: resumen, result: 'rejected' }); return reply({ type: 'error', error: 'user rejected', code: 4001 }); }
                         const s = currentWallet.connect(provider);
                         const resp = await s.sendTransaction({ to: tx.to, data: tx.data || '0x', value: tx.value ? BigInt(tx.value) : 0n });
                         wcLogActivity({ kind: 'tx', peerInboxId: pid, summary: resumen, result: 'approved' });
                         return reply({ type: 'result', result: resp.hash });
                     }
-                    return reply({ type: 'error', error: 'unsupported method ' + data.method });
+                    return reply({ type: 'error', error: 'unsupported method ' + data.method, code: 4200 });
                 } catch (e) {
                     wcLogActivity({ kind: (data.method === 'eth_sendTransaction' ? 'tx' : 'sign'), peerInboxId: pid, summary: String(e.message || e).slice(0, 60), result: 'error' });
                     return reply({ type: 'error', error: String(e.message || e) });
@@ -15807,7 +15885,7 @@
             function wcShortId(x) { x = String(x || ''); return x.length > 14 ? x.slice(0, 8) + '…' + x.slice(-4) : x; }
             function wcAddSession(s) {
                 const list = wcLoadSessions().filter(x => x.peerInboxId !== s.peerInboxId);
-                list.unshift({ ethInbox: s.ethInbox, peerInboxId: s.peerInboxId, chainId: s.chainId, connectedAt: Date.now() });
+                list.unshift({ ethInbox: s.ethInbox, peerInboxId: s.peerInboxId, chainId: s.chainId, v: s.v || 1, connectedAt: Date.now() });
                 wcSaveSessions(list);
                 if (s.peerInboxId) { wcApprovedInboxes.add(s.peerInboxId); wcSessionChain.set(s.peerInboxId, s.chainId); }
                 renderWcSessions();
@@ -15846,11 +15924,11 @@
                         await dm.sync().catch(() => { });
                         const recientes = await dm.messages({ sentAfterNs: desde }).catch(() => []);
                         for (const m of recientes) {
-                            if (m.senderInboxId === chatwalletxmtp.inboxId || typeof m.content !== 'string' || wcRpcVistos.has(m.id)) continue;
-                            let d; try { d = JSON.parse(m.content); } catch (_) { continue; }
-                            if (!d || d.cw !== 1 || d.type !== 'rpc') continue;
-                            console.log('[cw-bridge] pedido que el stream no entregó, lo atiende el barrido:', d.method);
-                            handleWalletConnectRpc(m, d).catch(e => console.warn('[cw-bridge]', e));
+                            if (m.senderInboxId === chatwalletxmtp.inboxId || wcRpcVistos.has(m.id)) continue;
+                            const p = window.CwConnect.leerMensaje(m);
+                            if (!p || p.m.cw !== 1 || p.m.type !== 'rpc') continue;
+                            console.log('[cw-bridge] pedido que el stream no entregó, lo atiende el barrido:', p.m.method);
+                            handleWalletConnectRpc(m, p.m, p.version).catch(e => console.warn('[cw-bridge]', e));
                         }
                     }
                 } catch (e) { console.warn('[cw-bridge] barrido:', e); }
@@ -15860,10 +15938,122 @@
 
             function wcRestoreSessions() {
                 try {
+                    // Sesiones anteriores al registro de apps: también son apps (v1, sin nombre).
+                    const apps = wcCargarApps();
+                    for (const s of wcLoadSessions()) {
+                        const k = String(s.ethInbox || '').toLowerCase();
+                        if (k && !apps[k]) wcRegistrarApp(k, { kind: 'session', v: s.v || 1, lastAt: s.connectedAt || Date.now(), sinPintar: true });
+                    }
+                    wcArchivarInactivas();
                     for (const s of wcLoadSessions()) {
                         if (s.peerInboxId) { wcApprovedInboxes.add(s.peerInboxId); wcSessionChain.set(s.peerInboxId, s.chainId); }
                     }
-                } catch (_) { }
+                    for (const k of Object.keys(wcCargarApps())) wcSacarAppDeContactos(k);
+                } catch (e) { console.warn('[cw-bridge] restaurar sesiones:', e); }
+                renderWcSessions();
+            }
+
+            // ── Apps: no son contactos (cw-connect/SPEC.md §8) ─────────────────────────
+            // Cada inicio de sesión en una app (Soberano Mail, el panel, StealthPay, la tienda del
+            // libro) abre un DM con una identidad descartable. Antes cada uno terminaba en la lista
+            // de chats como un "contacto" hexadecimal con mensajes de protocolo adentro. Este
+            // registro dice qué direcciones son apps; ninguna vía que crea contactos las deja pasar,
+            // y la lista de apps se muestra aparte, en Configuración → Apps conectadas.
+            // Es por dispositivo: en otro, el `connect` enviado (SPEC §5.1) y la regla de "todo el
+            // DM es protocolo" las reconocen igual.
+            const WC_APPS_KEY = 'chatwallet-wc-apps';
+            const WC_APP_ONCE_MS = 24 * 3600 * 1000;
+            const WC_APP_SESSION_MS = 30 * 24 * 3600 * 1000;
+            const WC_APP_VIEJA_MS = 7 * 24 * 3600 * 1000;
+            function wcCargarApps() { try { return JSON.parse(localStorage.getItem(WC_APPS_KEY) || '{}') || {}; } catch (_) { return {}; } }
+            function wcGuardarApps(a) { try { localStorage.setItem(WC_APPS_KEY, JSON.stringify(a)); } catch (_) { } }
+            function cwEsApp(addr) {
+                if (!addr) return false;
+                const k = String(addr).toLowerCase();
+                return !!wcCargarApps()[k] || wcLoadSessions().some(s => String(s.ethInbox || '').toLowerCase() === k);
+            }
+            window.cwEsApp = cwEsApp;
+            function wcNombreApp(addr) {
+                const a = wcCargarApps()[String(addr || '').toLowerCase()];
+                return (a && (a.name || a.app)) || wcShortId(addr);
+            }
+            // meta: { app, name, kind, v, lastAt, reactivar, sinPintar }
+            function wcRegistrarApp(addr, meta = {}) {
+                const k = String(addr || '').toLowerCase();
+                if (!/^0x[0-9a-f]{40}$/.test(k)) return;
+                const apps = wcCargarApps();
+                const prev = apps[k] || {};
+                apps[k] = {
+                    app: meta.app || prev.app || '',
+                    name: meta.name || prev.name || '',
+                    kind: meta.kind || prev.kind || 'session',
+                    v: meta.v || prev.v || 1,
+                    firstAt: prev.firstAt || meta.lastAt || Date.now(),
+                    lastAt: Math.max(prev.lastAt || 0, meta.lastAt || 0) || Date.now(),
+                    archivada: meta.reactivar ? false : !!prev.archivada,
+                };
+                wcGuardarApps(apps);
+                if (meta.sinPintar) return;
+                wcSacarAppDeContactos(k);
+                renderWcSessions();
+            }
+            window.wcRegistrarApp = wcRegistrarApp;
+            // Fin de una sesión: deja de atenderse, pero la dirección sigue registrada como app
+            // (si no, el próximo recorrido de conversaciones la volvería a hacer contacto).
+            async function wcArchivarApp(addr, { avisar = true } = {}) {
+                const k = String(addr || '').toLowerCase();
+                const apps = wcCargarApps();
+                if (apps[k]) { apps[k].archivada = true; wcGuardarApps(apps); }
+                for (const s of wcLoadSessions().filter(x => String(x.ethInbox || '').toLowerCase() === k)) {
+                    wcRemoveSession(s.peerInboxId);
+                    // `bye` sólo existe en v2 (SPEC §9). De mejor esfuerzo: la sesión ya terminó acá.
+                    if (avisar && (s.v || 1) >= 2 && chatwalletxmtp) {
+                        try {
+                            const dm = await chatwalletxmtp.conversations.getDmByInboxId(s.peerInboxId);
+                            if (dm) await cwEnviarDapp(dm, { cw: 1, type: 'bye' }, 2);
+                        } catch (e) { console.warn('[cw-bridge] bye:', e); }
+                    }
+                }
+                renderWcSessions();
+            }
+            window.wcArchivarApp = wcArchivarApp;
+            // `once` vence a las 24 h sin actividad, `session` a los 30 días (SPEC §8).
+            // `masDe` fuerza un plazo propio: el botón «Archivar las viejas» usa 7 días.
+            function wcArchivarInactivas(masDe) {
+                const apps = wcCargarApps(), ahora = Date.now();
+                let n = 0;
+                for (const [k, a] of Object.entries(apps)) {
+                    if (a.archivada) continue;
+                    const plazo = masDe || (a.kind === 'once' ? WC_APP_ONCE_MS : WC_APP_SESSION_MS);
+                    if (ahora - (a.lastAt || 0) > plazo) { wcArchivarApp(k, { avisar: false }); n++; }
+                }
+                return n;
+            }
+            window.wcArchivarInactivas = wcArchivarInactivas;
+            window.wcToast = wcToast;
+            function wcSacarAppDeContactos(k) {
+                if (typeof contacts === 'undefined' || !Array.isArray(contacts)) return;
+                const idx = contacts.findIndex(c => c && !c.isGroup && String(c.address || '').toLowerCase() === k);
+                if (idx === -1) return;
+                // Si se le había puesto un nombre a mano, que la app lo conserve.
+                const c = contacts[idx];
+                if (c.name && !isPlaceholderContactName(c.name, c.address)) {
+                    const apps = wcCargarApps();
+                    if (apps[k] && !apps[k].name) { apps[k].name = c.name; wcGuardarApps(apps); }
+                }
+                contacts.splice(idx, 1);
+                saveContacts().catch(() => { });
+                if (typeof renderContacts === 'function') renderContacts();
+            }
+            // Un mensaje de protocolo que mandó ESTA cuenta (desde este u otro dispositivo): dice
+            // que ese DM es de una app. El `connect` v2 trae además cómo se llama (SPEC §5.1).
+            async function wcAppDesdeMensajePropio(message, m) {
+                const { key } = await resolveChatKey(message, true);
+                if (!key || String(key).startsWith('group:')) return;
+                const ts = message.sentAtNs ? Number(BigInt(message.sentAtNs) / 1000000n) : Date.now();
+                if (m.cw === 1 && m.type === 'connect') wcRegistrarApp(key, { app: m.app, name: m.name, kind: m.kind || (m.v >= 2 ? 'once' : 'session'), v: m.v || 1, lastAt: ts });
+                else if (m.cw === 1 && m.type === 'bye') { wcRegistrarApp(key, { lastAt: ts }); wcArchivarApp(key, { avisar: false }); }
+                else wcRegistrarApp(key, { kind: m.cw === 2 ? 'once' : undefined, lastAt: ts });
             }
             function wcLogActivity(entry) {
                 try {
@@ -15874,23 +16064,52 @@
                 renderWcActivity();
             }
             function renderWcSessions() {
+                actualizarFilaApps();
                 const el = document.getElementById('wcSessionsList'); if (!el) return;
-                const list = wcLoadSessions();
+                const apps = Object.entries(wcCargarApps()).filter(([, a]) => !a.archivada)
+                    .sort((x, y) => (y[1].lastAt || 0) - (x[1].lastAt || 0));
+                const viejas = document.getElementById('wcArchivarViejas');
+                if (viejas) viejas.classList.toggle('hidden', !apps.some(([, a]) => Date.now() - (a.lastAt || 0) > WC_APP_VIEJA_MS));
                 el.innerHTML = '';
-                if (!list.length) { el.innerHTML = '<p class="text-gray-500 text-xs">' + t('wc_conn_none') + '</p>'; return; }
-                for (const s of list) {
+                if (!apps.length) { el.innerHTML = '<p class="text-gray-500 text-xs">' + t('wc_conn_none') + '</p>'; return; }
+                for (const [dir, a] of apps) {
                     const row = document.createElement('div'); row.className = 'flex items-center justify-between gap-2';
+                    row.dataset.app = dir;
                     const info = document.createElement('div'); info.className = 'min-w-0';
-                    const a = document.createElement('div'); a.className = 'font-mono text-xs text-indigo-300 truncate'; a.textContent = wcShortId(s.ethInbox);
-                    const b = document.createElement('div'); b.className = 'text-[10px] text-gray-500'; b.textContent = 'chainId ' + (s.chainId || '?') + ' · ' + new Date(s.connectedAt).toLocaleString();
-                    info.appendChild(a); info.appendChild(b);
+                    // Todo con textContent: nombre y dominio los escribe la app.
+                    const n = document.createElement('div'); n.className = 'text-sm text-gray-100 truncate';
+                    n.textContent = '🔗 ' + (a.name || a.app || t('wc_app_unnamed'));
+                    const d = document.createElement('div'); d.className = 'text-[10px] text-gray-500 truncate';
+                    const dominio = a.app ? t('wc_app_declares', { app: a.app }) : wcShortId(dir);
+                    const uso = a.kind === 'once' ? t('wc_app_once') : t('wc_app_session');
+                    d.textContent = dominio + ' · ' + uso + ' · ' + new Date(a.lastAt || a.firstAt || Date.now()).toLocaleString();
+                    info.appendChild(n); info.appendChild(d);
                     const btn = document.createElement('button');
                     btn.className = 'px-2 py-1 text-xs font-semibold text-red-300 bg-red-900/40 border border-red-800 rounded hover:bg-red-800/50 flex-none';
                     btn.textContent = t('wc_disconnect');
-                    btn.onclick = () => { wcRemoveSession(s.peerInboxId); wcLogActivity({ kind: 'disconnect', peerInboxId: s.peerInboxId, result: 'approved' }); wcToast('🔌 ' + t('wc_disconnect')); };
+                    btn.onclick = () => {
+                        const ses = wcLoadSessions().find(x => String(x.ethInbox || '').toLowerCase() === dir);
+                        wcArchivarApp(dir);
+                        if (ses) wcLogActivity({ kind: 'disconnect', peerInboxId: ses.peerInboxId, summary: a.name || a.app || '', result: 'approved' });
+                        wcToast('🔌 ' + t('wc_disconnect'));
+                    };
                     row.appendChild(info); row.appendChild(btn); el.appendChild(row);
                 }
             }
+            // La fila de la lista de chats que reemplaza a los "contactos" de las apps.
+            function actualizarFilaApps() {
+                const fila = document.getElementById('appsConectadasRow'); if (!fila) return;
+                const n = Object.values(wcCargarApps()).filter(a => !a.archivada).length;
+                fila.classList.toggle('hidden', n === 0);
+                const txt = document.getElementById('appsConectadasTexto');
+                if (txt) txt.textContent = t(n === 1 ? 'wc_apps_row_one' : 'wc_apps_row', { n });
+            }
+            window.actualizarFilaApps = actualizarFilaApps;
+            function abrirAppsConectadas() {
+                document.getElementById('settingsBtn')?.click();
+                setTimeout(() => document.getElementById('wcConnTitle')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+            }
+            window.abrirAppsConectadas = abrirAppsConectadas;
             function renderWcActivity() {
                 const el = document.getElementById('wcActivityList'); if (!el) return;
                 let list = []; try { list = JSON.parse(localStorage.getItem(WC_ACTIVITY_KEY) || '[]'); } catch (_) { }
@@ -16008,6 +16227,8 @@
                     country: q.get('country') || '',
                     code: q.get('code') || '',
                     ref: q.get('ref') || '',
+                    // CW Connect v2 (SPEC §6): versión y quién dice ser el comercio.
+                    ...(window.CwConnect ? window.CwConnect.leerMetaDePago(q) : { v: 1, app: '', name: '', kind: 'once' }),
                 };
             }
 
@@ -16023,7 +16244,10 @@
                     return false;
                 }
                 if (alAbrirCanal) alAbrirCanal();
-                const reply = (obj) => conv && cwEnviarTextoDapp(conv, JSON.stringify(Object.assign({ cw: 2, type: 'payment_result', ref: payReq.ref }, obj)));
+                // El que cobra es una app, no un contacto (SPEC §8): y es de un solo uso.
+                wcRegistrarApp(payReq.reply, { app: payReq.app, name: payReq.name, kind: 'once', v: payReq.v, reactivar: true });
+                const verPago = Math.min(payReq.v || 1, window.CwConnect.VERSION);
+                const reply = (obj) => conv && cwEnviarDapp(conv, Object.assign({ cw: 2, type: 'payment_result', ref: payReq.ref }, obj), verPago);
 
                 // Si ChatWallet está en otra red, buscar la entrada nativa (sin TOKEN_ADDRESS,
                 // no un token) que coincida con el chainId pedido y cambiar. Si no está
@@ -19958,6 +20182,10 @@
             }
 
             document.getElementById('resetScannerCameraBtn')?.addEventListener('click', resetScannerCamera);
+            document.getElementById('wcArchivarViejas')?.addEventListener('click', () => {
+                const n = window.wcArchivarInactivas(7 * 24 * 3600 * 1000);
+                window.wcToast?.(t('wc_apps_archived', { n }));
+            });
 
             // Respaldo soberano de chats: acciones manuales desde Configuración.
             const chatBackupNowBtn = document.getElementById('chatBackupNowBtn');
@@ -21554,9 +21782,23 @@
                     "settings_coldtx_button": "❄ Preparar transacción fría",
                     "settings_networks_title": "Redes y Tokens",
                     "settings_networks_button": "Administrar redes y tokens",
-                    "wc_conn_title": "Conexiones activas",
-                    "wc_conn_desc": "Apps vinculadas a tu wallet por XMTP para pedirte firmas. Tu llave privada nunca sale de acá.",
-                    "wc_conn_none": "No hay conexiones activas.",
+                    "wc_conn_title": "Apps conectadas",
+                    "wc_conn_desc": "Apps vinculadas a tu wallet por XMTP para pedirte firmas. No son contactos: no aparecen entre tus chats. Tu llave privada nunca sale de acá.",
+                    "wc_conn_none": "No hay apps conectadas.",
+                    "wc_app_unnamed": "App sin nombre",
+                    "wc_app_declares": "dice ser {app}",
+                    "wc_app_once": "un solo uso",
+                    "wc_app_session": "sesión",
+                    "wc_apps_row": "{n} apps conectadas",
+                    "wc_apps_row_one": "1 app conectada",
+                    "wc_apps_archive_old": "Archivar las que no usás hace una semana",
+                    "wc_apps_archived": "Archivadas: {n}",
+                    "wc_connect_who": "Dice ser «{name}», desde {app}. Lo declara la app: no está verificado.",
+                    "wc_connect_who_name": "Dice ser «{name}» (no dice desde qué sitio). Lo declara la app: no está verificado.",
+                    "wc_connect_who_unknown": "La app no dice quién es (versión anterior del protocolo).",
+                    "wc_connect_kind_once": "Es de un solo uso: la sesión se cierra sola cuando termine.",
+                    "wc_connect_kind_session": "Queda conectada hasta que la desconectes en Configuración → Apps conectadas.",
+                    "proto_bye": "La sesión con la app terminó",
                     "wc_disconnect": "Desconectar",
                     "wc_activity_title": "Pedidos recientes",
                     "wc_activity_none": "Sin actividad todavía.",
@@ -22090,9 +22332,23 @@
                     "settings_coldtx_button": "❄ Prepare cold transaction",
                     "settings_networks_title": "Networks & Tokens",
                     "settings_networks_button": "Manage networks & tokens",
-                    "wc_conn_title": "Active connections",
-                    "wc_conn_desc": "Apps linked to your wallet over XMTP to request signatures. Your private key never leaves here.",
-                    "wc_conn_none": "No active connections.",
+                    "wc_conn_title": "Connected apps",
+                    "wc_conn_desc": "Apps linked to your wallet over XMTP to request signatures. They are not contacts: they don't show up among your chats. Your private key never leaves here.",
+                    "wc_conn_none": "No connected apps.",
+                    "wc_app_unnamed": "Unnamed app",
+                    "wc_app_declares": "claims to be {app}",
+                    "wc_app_once": "one-time",
+                    "wc_app_session": "session",
+                    "wc_apps_row": "{n} connected apps",
+                    "wc_apps_row_one": "1 connected app",
+                    "wc_apps_archive_old": "Archive the ones unused for a week",
+                    "wc_apps_archived": "Archived: {n}",
+                    "wc_connect_who": "Claims to be “{name}”, from {app}. Declared by the app: not verified.",
+                    "wc_connect_who_name": "Claims to be “{name}” (doesn't say from which site). Declared by the app: not verified.",
+                    "wc_connect_who_unknown": "The app doesn't say who it is (older protocol version).",
+                    "wc_connect_kind_once": "One-time use: the session closes on its own when it's done.",
+                    "wc_connect_kind_session": "Stays connected until you disconnect it in Settings → Connected apps.",
+                    "proto_bye": "The session with the app ended",
                     "wc_disconnect": "Disconnect",
                     "wc_activity_title": "Recent requests",
                     "wc_activity_none": "No activity yet.",
@@ -22626,9 +22882,23 @@
                     "settings_coldtx_button": "❄ Préparer une transaction à froid",
                     "settings_networks_title": "Réseaux et jetons",
                     "settings_networks_button": "Gérer réseaux et jetons",
-                    "wc_conn_title": "Connexions actives",
-                    "wc_conn_desc": "Apps liées à votre portefeuille via XMTP pour demander des signatures. Votre clé privée ne quitte jamais cet appareil.",
-                    "wc_conn_none": "Aucune connexion active.",
+                    "wc_conn_title": "Apps connectées",
+                    "wc_conn_desc": "Apps liées à votre portefeuille via XMTP pour demander des signatures. Ce ne sont pas des contacts : elles n'apparaissent pas parmi vos discussions. Votre clé privée ne quitte jamais cet appareil.",
+                    "wc_conn_none": "Aucune app connectée.",
+                    "wc_app_unnamed": "App sans nom",
+                    "wc_app_declares": "se dit {app}",
+                    "wc_app_once": "usage unique",
+                    "wc_app_session": "session",
+                    "wc_apps_row": "{n} apps connectées",
+                    "wc_apps_row_one": "1 app connectée",
+                    "wc_apps_archive_old": "Archiver celles inutilisées depuis une semaine",
+                    "wc_apps_archived": "Archivées : {n}",
+                    "wc_connect_who": "Se présente comme « {name} », depuis {app}. Déclaré par l'app : non vérifié.",
+                    "wc_connect_who_name": "Se présente comme « {name} » (sans dire depuis quel site). Déclaré par l'app : non vérifié.",
+                    "wc_connect_who_unknown": "L'app ne dit pas qui elle est (ancienne version du protocole).",
+                    "wc_connect_kind_once": "Usage unique : la session se ferme d'elle-même à la fin.",
+                    "wc_connect_kind_session": "Reste connectée jusqu'à ce que vous la déconnectiez dans Paramètres → Apps connectées.",
+                    "proto_bye": "La session avec l'app est terminée",
                     "wc_disconnect": "Déconnecter",
                     "wc_activity_title": "Demandes récentes",
                     "wc_activity_none": "Aucune activité pour l'instant.",

@@ -1,24 +1,10 @@
-// Firmar con ChatWallet desde otro dispositivo, por el puente cw:1 ("WalletConnect sobre XMTP"),
-// el mismo que usan Soberano Mail y StealthPay: la página abre una identidad XMTP efímera, muestra
-// chatwallet://wc?inbox=… como QR, ChatWallet se conecta y contesta un personal_sign que el usuario
-// aprueba en el teléfono. Se empaqueta a js/cw-firma.js (ver instalar-en-la-caja.sh).
+// Firmar con ChatWallet desde otro dispositivo, por CW Connect (cw-connect/SPEC.md): la página abre
+// una identidad XMTP descartable, muestra el URI como QR, ChatWallet se conecta y contesta un
+// personal_sign que el usuario aprueba en el teléfono. El protocolo es el del módulo común; acá sólo
+// queda lo propio del panel. Se empaqueta a js/cw-firma.js (ver instalar-en-la-caja.sh).
 import { Wallet, getAddress } from 'ethers';
 import QRCode from 'qrcode';
-
-const CW_PROTO = 1;
-const ESPERA_PAREO_MS = 300000;
-const ESPERA_FIRMA_MS = 180000;
-
-function firmanteEfimero(wallet) {
-    return {
-        type: 'EOA',
-        getIdentifier: async () => ({ identifier: wallet.address.toLowerCase(), identifierKind: 'Ethereum' }),
-        signMessage: async (msg) => {
-            const hex = (await wallet.signMessage(msg)).slice(2);
-            return new Uint8Array(hex.match(/.{2}/g).map(b => parseInt(b, 16)));
-        },
-    };
-}
+import { conectarConChatWallet } from '../cw-connect/cw-connect.mjs';
 
 export const qrSvg = (texto) => QRCode.toString(texto, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' });
 
@@ -27,47 +13,21 @@ export const qrSvg = (texto) => QRCode.toString(texto, { type: 'svg', margin: 2,
 export async function firmarConChatWallet(armarMensaje, onEstado) {
     onEstado('Cargando XMTP…');
     const { Client } = await import('/js/xmtp-bundle.js');
-    const efimera = Wallet.createRandom();
-    // Base local nueva cada vez: la identidad se descarta al terminar.
-    const llave = crypto.getRandomValues(new Uint8Array(32));
-    onEstado('Abriendo sesión…');
-    const cliente = await Client.create(firmanteEfimero(efimera), {
-        env: 'production', dbEncryptionKey: llave, appVersion: 'ChatWallet-Uso/1',
+    const sesion = await conectarConChatWallet({
+        // Del módulo sólo se usan Wallet y getAddress: así no entra ethers entero al bundle.
+        Client, ethers: { Wallet, getAddress },
+        app: location.host, name: 'Panel de uso', kind: 'once', chainId: 1,
+        appVersion: 'ChatWallet-Uso/2',
+        onUri: (uri) => onEstado('Escaneá con ChatWallet', uri),
+        onEstado: (texto) => { if (texto !== 'Escaneá con ChatWallet') onEstado(texto); },
     });
-    onEstado('Escaneá con ChatWallet', `chatwallet://wc?inbox=${efimera.address.toLowerCase()}&chain=1&v=${CW_PROTO}`);
-
-    await cliente.conversations.sync();
-    const stream = await cliente.conversations.streamAllMessages();
-    const corte = (ms, motivo) => new Promise((_, no) => setTimeout(() => no(new Error(motivo)), ms));
-
-    let dm = null, direccion = null, idPedido = null, mensaje = null;
-    const escuchar = (async () => {
-        for await (const m of stream) {
-            if (!m || m.senderInboxId === cliente.inboxId || typeof m.content !== 'string') continue;
-            let d; try { d = JSON.parse(m.content); } catch { continue; }
-            if (!d || d.cw !== CW_PROTO) continue;
-            if (d.type === 'connect' && !dm) {
-                direccion = getAddress(d.address);
-                onEstado('ChatWallet conectada. Aprobá la firma en el teléfono…');
-                const id = { identifier: direccion.toLowerCase(), identifierKind: 'Ethereum' };
-                await cliente.conversations.sync();
-                try { dm = await cliente.conversations.newDmWithIdentifier(id); }
-                catch { await cliente.conversations.sync(); dm = await cliente.conversations.newDmWithIdentifier(id); }
-                idPedido = crypto.randomUUID();
-                mensaje = armarMensaje();
-                await dm.send(JSON.stringify({ cw: CW_PROTO, id: idPedido, type: 'rpc', method: 'personal_sign',
-                    params: [mensaje, direccion.toLowerCase()], ttl: ESPERA_FIRMA_MS }));
-            } else if (idPedido && d.id === idPedido) {
-                if (d.type === 'result') return { address: direccion, signature: d.result, mensaje };
-                if (d.type === 'error') throw new Error(d.error || 'firma rechazada en ChatWallet');
-            }
-        }
-        throw new Error('se cortó la conexión con XMTP');
-    })();
     try {
-        return await Promise.race([escuchar, corte(ESPERA_PAREO_MS + ESPERA_FIRMA_MS, 'se acabó el tiempo: volvé a intentar')]);
+        onEstado('ChatWallet conectada. Aprobá la firma en el teléfono…');
+        const mensaje = armarMensaje();
+        const signature = await sesion.firmar(mensaje);
+        return { address: sesion.address, signature, mensaje };
     } finally {
-        try { stream.return?.(); } catch {}
-        try { cliente.close?.(); } catch {}
+        // Un solo uso: cerrar avisa a ChatWallet (bye) y la sesión deja de aparecer como activa.
+        await sesion.cerrar();
     }
 }

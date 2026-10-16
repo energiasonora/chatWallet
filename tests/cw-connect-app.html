@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>App de prueba CW Connect</title></head>
+<body>
+<p>App de prueba para tests/cw-connect-cdp.mjs: hace de app (v2 con el módulo, v1 a mano) y de persona.</p>
+<script type="module">
+    import { Client } from '@xmtp/browser-sdk';
+    import * as ethers from 'ethers';
+    import * as Cw from '../cw-connect/cw-connect.mjs';
+
+    const firmante = (w) => ({
+        type: 'EOA',
+        getIdentifier: async () => ({ identifier: w.address.toLowerCase(), identifierKind: 0 }),
+        signMessage: async (m) => ethers.getBytes(await w.signMessage(m)),
+    });
+    window.__estado = {};
+
+    // v2: tal cual lo usaría una app real.
+    window.conectarV2 = (opts) => {
+        window.__estado.v2 = { estados: [] };
+        const p = Cw.conectarConChatWallet({
+            Client, ethers, ...opts,
+            onUri: (uri) => { window.__estado.v2.uri = uri; },
+            onEstado: (t) => window.__estado.v2.estados.push(t),
+        });
+        p.then(s => { window.__sesionV2 = s; s.alCerrar(m => { window.__estado.v2.cerrada = m; }); },
+               e => { window.__estado.v2.error = String(e.message || e); });
+        return true;
+    };
+
+    // v1: lo que hacían StealthPay / Soberano Mail antes de la v2 (URI sin v, JSON en texto).
+    window.conectarV1 = async () => {
+        const w = ethers.Wallet.createRandom();
+        const c = await Client.create(firmante(w), { env: 'production', dbEncryptionKey: crypto.getRandomValues(new Uint8Array(32)) });
+        const est = window.__estado.v1 = { uri: `chatwallet://wc?inbox=${w.address.toLowerCase()}&chain=8453&v=1`, inbox: w.address.toLowerCase() };
+        await c.conversations.sync();
+        const stream = await c.conversations.streamAllMessages();
+        (async () => {
+            for await (const m of stream) {
+                if (!m || m.senderInboxId === c.inboxId) continue;
+                est.tipos = (est.tipos || []).concat(m.contentType?.typeId);
+                if (typeof m.content !== 'string') continue;
+                let d; try { d = JSON.parse(m.content); } catch { continue; }
+                if (d.cw !== 1) continue;
+                if (d.type === 'connect') {
+                    est.connect = d;
+                    const dm = await c.conversations.getConversationById(m.conversationId);
+                    est.dm = dm;
+                    await dm.sendText(JSON.stringify({ cw: 1, id: 'v1-firma', type: 'rpc', method: 'personal_sign', params: ['firma v1', d.address.toLowerCase()] }));
+                } else if (d.id === 'v1-firma') est.respuesta = d;
+            }
+        })();
+        return est.uri;
+    };
+
+    // Una persona que le escribe a la billetera: tiene que seguir siendo un contacto.
+    window.escribirComoPersona = async (destino, texto) => {
+        const w = ethers.Wallet.createRandom();
+        const c = await Client.create(firmante(w), { env: 'production', dbEncryptionKey: crypto.getRandomValues(new Uint8Array(32)) });
+        await c.conversations.sync();
+        const dm = await c.conversations.createDmWithIdentifier({ identifier: destino.toLowerCase(), identifierKind: 0 });
+        await dm.sendText(texto);
+        return w.address.toLowerCase();
+    };
+    // Cobro (canal 2), como la tienda del libro: identidad descartable, link de pago v2, espera el resultado.
+    window.pedirPago = async (to) => {
+        const w = ethers.Wallet.createRandom();
+        const c = await Client.create(firmante(w), { env: 'production', dbEncryptionKey: crypto.getRandomValues(new Uint8Array(32)), codecs: [new Cw.CwCodec()] });
+        await c.conversations.sync();
+        const stream = await c.conversations.streamAllMessages();
+        const ref = 'prueba-' + Date.now();
+        const q = new URLSearchParams({ pay: '1', to, chainId: '42161', value: '1000', reply: w.address, ref, memo: 'Prueba', v: '2', app: 'libro.chatwallet.org', name: 'Libro de prueba' });
+        const est = window.__estado.pago = { url: 'https://chatwallet.org/dapp?' + q, reply: w.address.toLowerCase() };
+        (async () => { for await (const m of stream) {
+            const p = Cw.leerMensaje(m);
+            if (p && p.m.cw === 2 && p.m.ref === ref) { est.resultado = p.m; est.version = p.version; return; }
+        } })();
+        return est.url;
+    };
+    window.verificarFirma = (msg, firma) => ethers.verifyMessage(msg, firma).toLowerCase();
+    window.listo = true;
+</script>
+</body>
+</html>

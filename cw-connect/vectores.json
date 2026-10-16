@@ -1,0 +1,242 @@
+{
+  "spec": "CW Connect v2, borrador 1",
+  "uris": [
+    {
+      "entrada": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 8453,
+        "app": "mail.energiasonora.org",
+        "name": "Soberano Mail",
+        "kind": "once"
+      },
+      "uri": "chatwallet://wc?v=2&inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=8453&app=mail.energiasonora.org&name=Soberano%20Mail&kind=once"
+    },
+    {
+      "entrada": {
+        "inbox": "0x8BA1F109551BD432803012645AC136DDD64DBA72",
+        "chainId": 0,
+        "app": "Panel.ChatWallet.org",
+        "name": "",
+        "kind": "session"
+      },
+      "uri": "chatwallet://wc?v=2&inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=0&app=panel.chatwallet.org&kind=session"
+    },
+    {
+      "entrada": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 1,
+        "app": "evil.com/x",
+        "name": "Nombre larguísimo que supera los cuarenta caracteres permitidos",
+        "kind": "otra"
+      },
+      "uri": "chatwallet://wc?v=2&inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=1&kind=once"
+    }
+  ],
+  "lecturas": [
+    {
+      "texto": "chatwallet://wc?v=2&inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=8453&app=mail.energiasonora.org&name=Soberano%20Mail&kind=once",
+      "resultado": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 8453,
+        "v": 2,
+        "app": "mail.energiasonora.org",
+        "name": "Soberano Mail",
+        "kind": "once"
+      }
+    },
+    {
+      "texto": "chatwallet://wc?inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=8453&v=1",
+      "resultado": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 8453,
+        "v": 1,
+        "app": "",
+        "name": "",
+        "kind": "once"
+      }
+    },
+    {
+      "texto": "https://chatwallet.org/dapp?wc=1&inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=8453&v=2&app=uso.chatwallet.org&name=Panel%20de%20uso&kind=once",
+      "resultado": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 8453,
+        "v": 2,
+        "app": "uso.chatwallet.org",
+        "name": "Panel de uso",
+        "kind": "once"
+      }
+    },
+    {
+      "texto": "CWW2|0x8ba1f109551bd432803012645ac136ddd64dba72|8453",
+      "resultado": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 8453,
+        "v": 2,
+        "app": "",
+        "name": "",
+        "kind": "once"
+      }
+    },
+    {
+      "texto": "CWW1|0x8ba1f109551bd432803012645ac136ddd64dba72",
+      "resultado": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 0,
+        "v": 1,
+        "app": "",
+        "name": "",
+        "kind": "once"
+      }
+    },
+    {
+      "texto": "chatwallet://wc?inbox=0x123&chain=1",
+      "resultado": null
+    },
+    {
+      "texto": "chatwallet://wc?inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&v=2&app=a%20b&name=%0Aoculto",
+      "resultado": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 0,
+        "v": 2,
+        "app": "",
+        "name": "",
+        "kind": "once"
+      }
+    },
+    {
+      "texto": "0x1111111111111111111111111111111111111111",
+      "resultado": null
+    }
+  ],
+  "mensajes": [
+    {
+      "mensaje": {
+        "cw": 1,
+        "type": "connect",
+        "v": 2,
+        "address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+        "chainId": 8453,
+        "app": "mail.energiasonora.org",
+        "name": "Soberano Mail",
+        "kind": "once"
+      },
+      "tipo": {
+        "authorityId": "chatwallet.org",
+        "typeId": "cw",
+        "versionMajor": 2,
+        "versionMinor": 0
+      },
+      "fallback": "ChatWallet: vinculación con una app",
+      "contentHex": "7b226377223a312c2274797065223a22636f6e6e656374222c2276223a322c2261646472657373223a22307838626131663130393535316244343332383033303132363435416331333664646436344442413732222c22636861696e4964223a383435332c22617070223a226d61696c2e656e6572676961736f6e6f72612e6f7267222c226e616d65223a22536f626572616e6f204d61696c222c226b696e64223a226f6e6365227d"
+    },
+    {
+      "mensaje": {
+        "cw": 1,
+        "type": "rpc",
+        "id": "7d3c1a8e-0000-4000-8000-000000000001",
+        "method": "personal_sign",
+        "params": [
+          "hola",
+          "0x8ba1f109551bd432803012645ac136ddd64dba72"
+        ],
+        "ttl": 180000
+      },
+      "tipo": {
+        "authorityId": "chatwallet.org",
+        "typeId": "cw",
+        "versionMajor": 2,
+        "versionMinor": 0
+      },
+      "fallback": "ChatWallet: pedido de firma de una app",
+      "contentHex": "7b226377223a312c2274797065223a22727063222c226964223a2237643363316138652d303030302d343030302d383030302d303030303030303030303031222c226d6574686f64223a22706572736f6e616c5f7369676e222c22706172616d73223a5b22686f6c61222c22307838626131663130393535316264343332383033303132363435616331333664646436346462613732225d2c2274746c223a3138303030307d"
+    },
+    {
+      "mensaje": {
+        "cw": 1,
+        "type": "rpc",
+        "id": "7d3c1a8e-0000-4000-8000-000000000002",
+        "method": "eth_sendTransaction",
+        "params": [
+          {
+            "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "data": "0x",
+            "value": "0x0",
+            "chainId": 8453
+          }
+        ]
+      },
+      "tipo": {
+        "authorityId": "chatwallet.org",
+        "typeId": "cw",
+        "versionMajor": 2,
+        "versionMinor": 0
+      },
+      "fallback": "ChatWallet: pedido de transacción de una app",
+      "contentHex": "7b226377223a312c2274797065223a22727063222c226964223a2237643363316138652d303030302d343030302d383030302d303030303030303030303032222c226d6574686f64223a226574685f73656e645472616e73616374696f6e222c22706172616d73223a5b7b22746f223a22307838333335383966434436654462364530386634633743333244346637316235346264413032393133222c2264617461223a223078222c2276616c7565223a22307830222c22636861696e4964223a383435337d5d7d"
+    },
+    {
+      "mensaje": {
+        "cw": 1,
+        "type": "result",
+        "id": "7d3c1a8e-0000-4000-8000-000000000001",
+        "result": "0x1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "tipo": {
+        "authorityId": "chatwallet.org",
+        "typeId": "cw",
+        "versionMajor": 2,
+        "versionMinor": 0
+      },
+      "fallback": "ChatWallet: respuesta a una app",
+      "contentHex": "7b226377223a312c2274797065223a22726573756c74222c226964223a2237643363316138652d303030302d343030302d383030302d303030303030303030303031222c22726573756c74223a22307831313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131227d"
+    },
+    {
+      "mensaje": {
+        "cw": 1,
+        "type": "error",
+        "id": "7d3c1a8e-0000-4000-8000-000000000001",
+        "error": "user rejected",
+        "code": 4001
+      },
+      "tipo": {
+        "authorityId": "chatwallet.org",
+        "typeId": "cw",
+        "versionMajor": 2,
+        "versionMinor": 0
+      },
+      "fallback": "ChatWallet: respuesta a una app",
+      "contentHex": "7b226377223a312c2274797065223a226572726f72222c226964223a2237643363316138652d303030302d343030302d383030302d303030303030303030303031222c226572726f72223a22757365722072656a6563746564222c22636f6465223a343030317d"
+    },
+    {
+      "mensaje": {
+        "cw": 1,
+        "type": "bye"
+      },
+      "tipo": {
+        "authorityId": "chatwallet.org",
+        "typeId": "cw",
+        "versionMajor": 2,
+        "versionMinor": 0
+      },
+      "fallback": "ChatWallet: fin de la sesión con una app",
+      "contentHex": "7b226377223a312c2274797065223a22627965227d"
+    },
+    {
+      "mensaje": {
+        "cw": 2,
+        "type": "payment_result",
+        "ref": "abc",
+        "txHash": "0xabababababababababababababababababababababababababababababababab",
+        "address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72"
+      },
+      "tipo": {
+        "authorityId": "chatwallet.org",
+        "typeId": "cw",
+        "versionMajor": 2,
+        "versionMinor": 0
+      },
+      "fallback": "ChatWallet: resultado de un pago",
+      "contentHex": "7b226377223a322c2274797065223a227061796d656e745f726573756c74222c22726566223a22616263222c22747848617368223a22307861626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162222c2261646472657373223a22307838626131663130393535316244343332383033303132363435416331333664646436344442413732227d"
+    }
+  ]
+}

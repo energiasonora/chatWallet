@@ -1,6 +1,8 @@
-// E2E: entrar al panel de uso firmando con ChatWallet por QR (cw:1 sobre XMTP de PRODUCCIÓN).
-// Una pestaña es el panel; la otra hace de ChatWallet con una wallet nueva: lee el QR, manda
-// `connect` y contesta el personal_sign igual que dapp.html. El panel tiene que terminar adentro.
+// E2E: entrar al panel de uso firmando con ChatWallet por QR (CW Connect sobre XMTP de PRODUCCIÓN).
+// Una pestaña es el panel; la otra hace de ChatWallet VIEJA (v1: JSON en texto) con una wallet nueva:
+// lee el QR, manda `connect` y contesta el personal_sign. El panel tiene que terminar adentro.
+// Si existe dist-cwconnect-test/ (./tests/run-cw-connect.sh lo arma), una segunda vuelta usa la
+// ChatWallet REAL: v2 con el tipo propio, entre el XMTP v5 del panel y el v6 de la billetera.
 //
 //   unset NODE_OPTIONS; node tests/uso-chatwallet-cdp.mjs
 // Necesita el bundle XMTP de Soberano Mail en uso/js (lo copia solo) y Chrome.
@@ -56,10 +58,20 @@ async function pestaña() {
     const ws = new WebSocket(t.webSocketDebuggerUrl);
     await new Promise(r => ws.onopen = r);
     let n = 0; const esperando = new Map();
-    ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && esperando.has(m.id)) { esperando.get(m.id)(m); esperando.delete(m.id); } };
+    ws.onmessage = (e) => {
+        const m = JSON.parse(e.data);
+        if (m.id && esperando.has(m.id)) { esperando.get(m.id)(m); esperando.delete(m.id); }
+        // Un alert/confirm congela la página y CDP: se anota y se acepta.
+        if (m.method === 'Page.javascriptDialogOpening') {
+            console.log('    (diálogo: ' + m.params.message.slice(0, 200) + ')');
+            ws.send(JSON.stringify({ id: 999999 + Math.floor(Math.random() * 1e6), method: 'Page.handleJavaScriptDialog', params: { accept: true } }));
+        }
+        if (m.method === 'Inspector.targetCrashed') console.log('    (la pestaña se cayó)');
+    };
     const rpc = (method, params = {}) => new Promise(r => { const id = ++n; esperando.set(id, r); ws.send(JSON.stringify({ id, method, params })); });
     const evaluar = async (expr) => {
-        const r = await rpc('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
+        const r = await Promise.race([rpc('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }),
+            dormir(90000).then(() => ({ result: { exceptionDetails: { text: 'evaluate sin respuesta en 90 s: ' + expr.slice(0, 80) } } }))]);
         if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || r.result.exceptionDetails.text);
         return r.result?.result?.value;
     };
@@ -77,7 +89,7 @@ try {
 
     let uri = null;
     for (let i = 0; i < 90 && !uri; i++) { await dormir(1000); uri = await panel.evaluar(`document.getElementById('cwLink').hidden ? null : document.getElementById('cwLink').getAttribute('href')`); }
-    chequear(!!uri && /^chatwallet:\/\/wc\?inbox=0x[0-9a-f]{40}&chain=1&v=1$/.test(uri), 'aparece el enlace chatwallet://wc… ' + (uri || await panel.evaluar(`document.getElementById('cwEstado').textContent + ' / ' + document.getElementById('puertaError').textContent`)));
+    chequear(!!uri && /^chatwallet:\/\/wc\?v=2&inbox=0x[0-9a-f]{40}&chain=1&name=Panel%20de%20uso&kind=once$/.test(uri), 'aparece el enlace chatwallet://wc… ' + (uri || await panel.evaluar(`document.getElementById('cwEstado').textContent + ' / ' + document.getElementById('puertaError').textContent`)));
     chequear(await panel.evaluar(`!!document.querySelector('#cwQr svg')`), 'se dibuja el QR');
     if (!uri) throw new Error('sin QR no sigo');
     const inbox = new URLSearchParams(uri.split('?')[1]).get('inbox');
@@ -116,10 +128,58 @@ try {
     chequear(/^chatwallet-panel:\d{13}$/.test(pedido || ''), 'ChatWallet recibe el pedido de firma: ' + pedido);
     chequear(adentro, 'el panel queda adentro con la firma de ChatWallet' + (adentro ? '' : ' — ' + await panel.evaluar(`document.getElementById('cwEstado').textContent + ' / ' + document.getElementById('puertaError').textContent`)));
     chequear(await panel.evaluar(`!!sessionStorage.getItem('cw-uso-sesion')`), 'la sesión queda guardada');
+
+    // ── Segunda vuelta: la ChatWallet de verdad (v2) ──
+    const DIST = path.join(RAIZ, 'dist-cwconnect-test');
+    if (fs.existsSync(path.join(DIST, 'dapp.html'))) {
+        console.log('  — con la ChatWallet real (v2) —');
+        const web = spawn('python3', ['-m', 'http.server', '8854', '--bind', '127.0.0.1', '--directory', DIST], { stdio: 'ignore' });
+        globalThis.__web = web;
+        await dormir(1000);
+        const W = await pestaña();
+        await W.rpc('Page.bringToFront');
+        await W.rpc('Page.navigate', { url: 'http://127.0.0.1:8854/dapp.html' });
+        await dormir(2500);
+        await W.evaluar(`localStorage.setItem('xmtp-chat-wallet', ${JSON.stringify(llaveCw.privateKey)}); true`);
+        await W.rpc('Page.reload');
+        let listo = false;
+        for (let i = 0; i < 200 && !listo; i++) { await dormir(1000); listo = await W.evaluar(`!!(window.chatwalletxmtp && chatwalletxmtp.inboxId)`).catch(() => false); }
+        chequear(listo, 'la billetera real arranca con la misma cuenta admin' + (listo ? '' : ' — ' + await W.evaluar(`String(window.cwXmtpUltimoError || '') + ' / ' + (document.getElementById('status')?.textContent || '')`)));
+
+        await panel.evaluar(`sessionStorage.clear(); true`);
+        await panel.rpc('Page.reload'); await dormir(2000);
+        await panel.evaluar(`document.getElementById('cwBtn').click()`);
+        let uri2 = null;
+        for (let i = 0; i < 90 && !uri2; i++) { await dormir(1000); uri2 = await panel.evaluar(`document.getElementById('cwLink').hidden ? null : document.getElementById('cwLink').getAttribute('href')`); }
+        const inbox2 = uri2 && new URLSearchParams(uri2.split('?')[1]).get('inbox');
+        // Un alert() congela CDP: se anotan en vez de mostrarse.
+        await W.evaluar(`window.__alertas = []; window.alert = m => { window.__alertas.push(String(m)); }; true`);
+        W.evaluar(`handleScannedData(${JSON.stringify(uri2)})`).catch(() => {});
+        const aprobar = async () => {
+            let txt = null;
+            for (let i = 0; i < 90 && !txt; i++) { await dormir(1000); txt = await W.evaluar(`document.getElementById('wc-body')?.textContent || null`); }
+            if (txt) await W.evaluar(`document.getElementById('wc-yes').click(); true`);
+            return txt || '';
+        };
+        const vincular = await aprobar();
+        chequear(/«Panel de uso»/.test(vincular), 'la billetera muestra «Panel de uso» al vincular' + (vincular ? '' : ' — uri: ' + uri2 + ' / ' +
+            await W.evaluar(`JSON.stringify({ alertas: window.__alertas, cw: typeof window.CwConnect, parse: window.CwConnect && window.CwConnect.leerUriVinculacion(${JSON.stringify(uri2)}), visible: document.visibilityState })`)));
+        const firmaTxt = await aprobar();
+        chequear(/chatwallet-panel:\d{13}/.test(firmaTxt), 'la billetera muestra el texto a firmar' + (firmaTxt ? '' : ' — ' +
+            await W.evaluar(`JSON.stringify({ alertas: window.__alertas, ses: localStorage.getItem('chatwallet-wc-sessions') })`) + ' / panel: ' +
+            await panel.evaluar(`document.getElementById('cwEstado').textContent + ' / ' + document.getElementById('puertaError').textContent`)));
+        let adentro2 = false;
+        for (let i = 0; i < 120 && !adentro2; i++) { await dormir(1000); adentro2 = await panel.evaluar(`!document.getElementById('panel').hidden`); }
+        chequear(adentro2, 'el panel queda adentro con la ChatWallet real (v2, XMTP v5 ↔ v6)');
+        let archivada = false;
+        for (let i = 0; i < 60 && !archivada; i++) { await dormir(1000); archivada = await W.evaluar(`JSON.parse(localStorage.getItem('chatwallet-wc-apps') || '{}')[${JSON.stringify(inbox2)}]?.archivada === true`); }
+        chequear(archivada, 'el panel cierra la sesión (bye) y la billetera la archiva');
+        chequear(!(await W.evaluar(`contacts.some(c => String(c.address).toLowerCase() === ${JSON.stringify(inbox2)})`)), 'el panel no quedó como contacto');
+    } else console.log('  (sin dist-cwconnect-test: no hay vuelta con la ChatWallet real)');
 } catch (e) {
     mal++; console.log('  ✗ ' + e.message);
 } finally {
-    chrome.kill(); servidor.close();
+    chrome.kill(); servidor.close(); try { globalThis.__web?.kill(); } catch {}
     for (const c of copiados) fs.rmSync(c, { recursive: true, force: true });
     await dormir(800); try { fs.rmSync(perfil, { recursive: true, force: true }); } catch {}
 }

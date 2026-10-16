@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Las apps en las que firmás ya no se mezclan con tus contactos.** Cada vez que entrabas con ChatWallet a una app (Soberano Mail, StealthPay, el panel, la tienda del libro) aparecía un "contacto" más en tus chats, con un nombre hexadecimal. Ahora las apps se listan aparte: al final de la lista de chats hay una sola fila («🔗 N apps conectadas») que lleva a **Configuración → Apps conectadas**. Ahí ves cada app con su nombre, cuándo la usaste por última vez y el botón para desconectarla. Las que ya tenías mezcladas salen solas de tus chats la próxima vez que abras la app; tus contactos reales no se tocan.
+- **Al vincular, ChatWallet te dice quién dice ser la app.** Las apps nuevas se presentan con su nombre y su sitio, por ejemplo «Panel de uso» desde uso.chatwallet.org, y avisan si son de un solo uso o si quedan conectadas. Lo declara la propia app y no está verificado, así que se muestra como tal. Lo que firmás y lo que pagás se sigue mostrando entero antes de aprobar.
+- **Las sesiones de un solo uso se cierran solas.** Cuando una app termina, por ejemplo después de firmar para entrar, le avisa a ChatWallet y deja de figurar como conectada. Las que quedan sin uso se archivan solas: a las 24 horas las de un solo uso, a los 30 días las demás. «Desconectar» ahora también le avisa a la app.
+- **Protocolo abierto: CW Connect.** El mecanismo con el que una página web le pide firmas a ChatWallet por XMTP quedó escrito como especificación pública (`cw-connect/SPEC.md` en el repositorio de ChatWallet), con una implementación de referencia y vectores de prueba, para que cualquier sitio pueda sumar «Entrar con ChatWallet». Las apps viejas siguen funcionando igual.
+
 ## 3.77 — 2026-10-14
 
 - **El aviso de «este dispositivo quedó fuera de la conversación» ahora queda fijo arriba del chat.** Antes aparecía arriba de todo de los mensajes y en un chat largo quedaba escondido, junto con el botón que lo arregla («Reconectar este dispositivo» o «Reabrir el chat»). También aparece si el problema salta recién al enviar un mensaje.
