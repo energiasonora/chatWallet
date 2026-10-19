@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.79 — 2026-10-19
+
 - **La ficha de la versión ahora se abre con animación.** Al tocar la pestaña «CHATWALLET» del costado, la ficha sale de la pestaña, se despliega y su contenido entra en cascada. Al cerrarla se pliega y vuelve a la pestaña. **Novedades** también sube con una animación. Si en tu teléfono pediste reducir el movimiento, las fichas se abren sin animación, como antes.
 
 ## 3.78 — 2026-10-19
