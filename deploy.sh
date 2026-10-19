@@ -74,7 +74,7 @@ fi
 python3 scripts/changelog.py inject
 
 # ── 3. Build (Node 22) ──
-nvm use 22.22.3 >/dev/null
+nvm use 22 >/dev/null
 echo "✦ Build con Node $(node -v)…"
 # Las páginas de /tools son didácticas y se copian verbatim desde src/static/tools
 # (vía parcel-reporter-static-files-copy), NO como entries de Parcel: así no se les

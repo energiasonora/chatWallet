@@ -41,7 +41,8 @@ sed -i '' "s/const XMTP_ENV = '[a-z]*';/const XMTP_ENV = '${ENV_XMTP}';/" "$DAPP
 echo "✦ XMTP_ENV = ${ENV_XMTP} (el árbol vuelve a '${ORIG_ENV}' al terminar)"
 
 # ── 1. Build web ──
-export PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH"
+NODE22=$(ls -d "$HOME"/.nvm/versions/node/v22.* | sort -V | tail -1)
+export PATH="$NODE22/bin:$PATH"
 unset NODE_OPTIONS
 echo "✦ Parcel con Node $(node -v)…"
 # Parcel no borra dist-apk: sin esto, cada build dejaba adentro los pedazos de los builds
