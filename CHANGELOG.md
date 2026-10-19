@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **La ficha de la versión ahora se abre con animación.** Al tocar la pestaña «CHATWALLET» del costado, la ficha sale de la pestaña, se despliega y su contenido entra en cascada. Al cerrarla se pliega y vuelve a la pestaña. **Novedades** también sube con una animación. Si en tu teléfono pediste reducir el movimiento, las fichas se abren sin animación, como antes.
+
 ## 3.78 — 2026-10-19
 
 - **Las apps en las que firmás ya no se mezclan con tus contactos.** Cada vez que entrabas con ChatWallet a una app (Soberano Mail, StealthPay, el panel, la tienda del libro) aparecía un "contacto" más en tus chats, con un nombre hexadecimal. Ahora las apps se listan aparte: al final de la lista de chats hay una sola fila («🔗 N apps conectadas») que lleva a **Configuración → Apps conectadas**. Ahí ves cada app con su nombre, cuándo la usaste por última vez y el botón para desconectarla. Las que ya tenías mezcladas salen solas de tus chats la próxima vez que abras la app; tus contactos reales no se tocan.

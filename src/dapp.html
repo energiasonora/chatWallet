@@ -135,6 +135,82 @@
             animation: coldPulse 2.6s ease-in-out infinite;
         }
 
+
+        /* --- Ficha de versión (pestaña CHATWALLET) y Novedades: abrir y cerrar ---
+           La ficha sale de la pestaña del costado como una tira índigo, se despliega con un
+           rebote y su contenido entra en cascada; al cerrar se pliega y vuelve a la pestaña.
+           --cw-dx/--cw-dy (la distancia a la pestaña) y --cw-i/--cw-l (el turno de cada
+           elemento y letra) los pone cwModalAbrir(). */
+        #brandModal, #changelogModal { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+        #brand-tag { transition: background-color .2s, opacity .25s ease; }
+        #brand-tag.cw-oculto { opacity: 0; pointer-events: none; }
+        .cw-entrando { animation: cwVeloIn .4s ease both; }
+        .cw-saliendo { animation: cwVeloOut .4s ease both; }
+        @keyframes cwVeloIn { from { background-color: rgba(0,0,0,0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); } }
+        @keyframes cwVeloOut { to { background-color: rgba(0,0,0,0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); } }
+
+        #brandModal.cw-entrando > div { animation: cwDesplegar .8s both; }
+        #brandModal.cw-saliendo > div { animation: cwPlegar .4s both; }
+        #brandModal.cw-entrando > div::after,
+        #brandModal.cw-saliendo > div::after {
+            content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
+            border-radius: inherit; background: linear-gradient(180deg, #818cf8, #4f46e5);
+        }
+        #brandModal.cw-entrando > div::after { animation: cwTapaSale .8s both; }
+        #brandModal.cw-saliendo > div::after { animation: cwTapaEntra .4s both; }
+        @keyframes cwDesplegar {
+            0%   { opacity: 0; transform: translate(var(--cw-dx, 0), var(--cw-dy, 0)) scale(.04, .3);
+                   animation-timing-function: cubic-bezier(.5, 0, .2, 1); }
+            10%  { opacity: 1; }
+            42%  { opacity: 1; transform: translate(0, 0) scale(.04, 1);
+                   animation-timing-function: cubic-bezier(.2, .9, .3, 1.25); }
+            100% { opacity: 1; transform: none; }
+        }
+        @keyframes cwPlegar {
+            0%   { transform: none; animation-timing-function: cubic-bezier(.6, 0, .8, .4); }
+            45%  { opacity: 1; transform: scale(.04, 1); animation-timing-function: cubic-bezier(.5, 0, .9, .6); }
+            100% { opacity: 0; transform: translate(var(--cw-dx, 0), var(--cw-dy, 0)) scale(.04, .3); }
+        }
+        @keyframes cwTapaSale { 0%, 45% { opacity: 1; } 80%, 100% { opacity: 0; } }
+        @keyframes cwTapaEntra { 0% { opacity: 0; } 35%, 100% { opacity: 1; } }
+
+        /* El contenido entra en cascada cuando la ficha ya está abierta. */
+        #brandModal.cw-entrando > div > * {
+            animation: cwSubir .5s cubic-bezier(.16, 1, .3, 1) both;
+            animation-delay: calc(.5s + var(--cw-i, 0) * 55ms);
+        }
+        #brandModal.cw-entrando > div > img {
+            animation: cwLogo .9s cubic-bezier(.34, 1.4, .64, 1) both;
+            animation-delay: .42s;
+        }
+        #brandModal.cw-entrando > div > h2[data-cw-letras] { animation: none; }
+        .cw-letra { display: inline-block; }
+        #brandModal.cw-entrando .cw-letra {
+            animation: cwLetra .55s cubic-bezier(.34, 1.5, .64, 1) both;
+            animation-delay: calc(.6s + var(--cw-l, 0) * 38ms);
+        }
+        @keyframes cwSubir { from { opacity: 0; transform: translateY(12px); } }
+        @keyframes cwLogo {
+            0%   { opacity: 0; transform: scale(.2) rotate(-220deg); filter: drop-shadow(0 0 0 rgba(129,140,248,0)); }
+            60%  { opacity: 1; filter: drop-shadow(0 0 22px rgba(129,140,248,.9)); }
+            100% { transform: none; filter: drop-shadow(0 0 0 rgba(129,140,248,0)); }
+        }
+        @keyframes cwLetra { from { opacity: 0; transform: translateY(-18px) rotate(-12deg) scale(.6); } }
+
+        /* Novedades: la ficha sube y cada versión entra detrás de la anterior. */
+        #changelogModal.cw-entrando > div { animation: cwFichaSube .55s cubic-bezier(.16, 1, .3, 1) both; }
+        #changelogModal.cw-saliendo > div { animation: cwFichaBaja .3s cubic-bezier(.5, 0, .75, 0) both; }
+        #changelogModal.cw-entrando [data-cw-lista] > * {
+            animation: cwSubir .5s cubic-bezier(.16, 1, .3, 1) both;
+            animation-delay: calc(.15s + var(--cw-i, 0) * 70ms);
+        }
+        @keyframes cwFichaSube { from { opacity: 0; transform: translateY(48px) scale(.92); } }
+        @keyframes cwFichaBaja { to { opacity: 0; transform: translateY(32px) scale(.96); } }
+
+        @media (prefers-reduced-motion: reduce) {
+            #brandModal, #brandModal *, #brandModal *::after, #changelogModal, #changelogModal * { animation: none !important; }
+        }
+
         @keyframes coldSplashIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -1878,12 +1954,65 @@
                 <button type="button" id="closeChangelogModal"
                     class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
             </div>
-            <div id="changelogList" class="flex-1 overflow-y-auto min-h-0 -ml-1 pl-1 pr-2 space-y-4"></div>
+            <div id="changelogList" data-cw-lista class="flex-1 overflow-y-auto min-h-0 -ml-1 pl-1 pr-2 space-y-4"></div>
             <a href="https://github.com/energiasonora/chatWallet/releases" target="_blank" rel="noopener noreferrer"
                 class="block text-center text-xs text-indigo-400 hover:underline pt-1"
                 data-i18n-key="changelog_all">Ver todas las versiones en GitHub</a>
         </div>
     </div>
+
+
+    <!-- Abrir y cerrar con animación la ficha de versión y Novedades (el estilo está en el CSS,
+         «Ficha de versión … abrir y cerrar»). Script clásico propio para que lo usen los dos scopes. -->
+    <script>
+        (function () {
+            const quieto = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+            window.cwModalAbrir = function (modal, desde) {
+                if (!modal) return;
+                clearTimeout(modal._cwFin);
+                modal.classList.remove('hidden', 'cw-saliendo', 'cw-entrando');
+                modal.classList.add('flex');
+                if (quieto()) return;
+                const ficha = modal.firstElementChild;
+                if (ficha) {
+                    // Distancia del centro de la ficha a la pestaña de donde sale (o a ningún lado).
+                    let dx = 0, dy = 0;
+                    if (desde) {
+                        const a = desde.getBoundingClientRect(), b = ficha.getBoundingClientRect();
+                        dx = (a.left + a.width / 2) - (b.left + b.width / 2);
+                        dy = (a.top + a.height / 2) - (b.top + b.height / 2);
+                    }
+                    ficha.style.setProperty('--cw-dx', dx + 'px');
+                    ficha.style.setProperty('--cw-dy', dy + 'px');
+                    Array.from(ficha.children).forEach((el, i) => el.style.setProperty('--cw-i', i));
+                }
+                modal.querySelectorAll('[data-cw-letras]').forEach(h => {
+                    if (h.querySelector('.cw-letra')) return;
+                    const txt = h.textContent.trim();
+                    h.setAttribute('aria-label', txt);
+                    h.innerHTML = Array.from(txt).map((c, i) =>
+                        `<span class="cw-letra" aria-hidden="true" style="--cw-l:${i}">${c === ' ' ? '&nbsp;' : c.replace(/[&<>]/g, '')}</span>`).join('');
+                });
+                modal.querySelectorAll('[data-cw-lista]').forEach(l =>
+                    Array.from(l.children).forEach((el, i) => el.style.setProperty('--cw-i', Math.min(i, 8))));
+                void modal.offsetWidth;   // reinicia la animación si se reabre al toque
+                modal.classList.add('cw-entrando');
+            };
+            window.cwModalCerrar = function (modal, despues) {
+                if (!modal || modal.classList.contains('hidden') || modal.classList.contains('cw-saliendo')) return;
+                const fin = () => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex', 'cw-entrando', 'cw-saliendo');
+                    if (despues) despues();
+                };
+                clearTimeout(modal._cwFin);
+                if (quieto()) return fin();
+                modal.classList.remove('cw-entrando');
+                modal.classList.add('cw-saliendo');
+                modal._cwFin = setTimeout(fin, 400);
+            };
+        })();
+    </script>
 
     <!-- Modal de Marca -->
     <div id="brandModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
@@ -1892,7 +2021,7 @@
                 class="absolute top-2 right-2 p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
             <img src="apple-touch-icon.png" alt="ChatWallet Icon"
                 class="w-24 h-24 mx-auto rounded-full shadow-indigo-500/50 shadow-lg">
-            <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;">CHATWALLET</h2>
+            <h2 class="text-2xl font-bold" style="font-family: 'Major Mono Display', monospace;" data-cw-letras>CHATWALLET</h2>
             <p class="text-sm text-gray-400">v 3.78 alpha</p>
             <button id="checkUpdatesBtn"
                 class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition">
@@ -14431,15 +14560,14 @@
                         lista.appendChild(bloque);
                     }
                 }
-                modal.classList.remove('hidden'); modal.classList.add('flex');
+                window.cwModalAbrir(modal);
                 lista.scrollTop = 0;
                 // Verla cuenta como enterarse: no vuelve a salir sola hasta la próxima versión.
                 try { localStorage.setItem(NOVEDADES_VISTAS_KEY, actual); } catch (e) { }
             }
 
             function cerrarNovedades() {
-                const m = document.getElementById('changelogModal');
-                if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+                window.cwModalCerrar(document.getElementById('changelogModal'));
             }
 
             // Al estrenar una versión se AVISA, no se interrumpe: sale una notificación y el
@@ -23150,10 +23278,8 @@
             const cancelOfflineModeBtn = document.getElementById('cancelOfflineModeBtn');
             const confirmOfflineModeBtn = document.getElementById('confirmOfflineModeBtn');
 
-            const hideBrandModal = () => {
-                brandModal.classList.add('hidden');
-                brandModal.classList.remove('flex');
-            };
+            // Se pliega de vuelta hacia la pestaña, que reaparece cuando la ficha termina de entrar.
+            const hideBrandModal = () => window.cwModalCerrar(brandModal, () => brandTag.classList.remove('cw-oculto'));
             // Panel de uso (uso.chatwallet.org): la app firma con la wallet y el panel deja entrar
             // sólo a las de su lista. La firma se arma al abrir el modal y viaja en el fragmento
             // del enlace: firmar recién en el clic abriría la ventana fuera del gesto y el
@@ -23175,8 +23301,8 @@
             };
             brandTag.addEventListener('click', (e) => {
                 e.preventDefault();
-                brandModal.classList.remove('hidden');
-                brandModal.classList.add('flex');
+                window.cwModalAbrir(brandModal, brandTag);   // se despliega desde la pestaña
+                brandTag.classList.add('cw-oculto');
                 cwUsoPanel();
             });
             closeBrandModal.addEventListener('click', hideBrandModal);
