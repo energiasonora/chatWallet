@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Mensajes de voz.** Con el campo de texto vacío, el botón de enviar pasa a ser un micrófono: lo tocás, hablás y lo mandás (o lo descartás con el tachito). Hasta 2 minutos por mensaje. El audio viaja cifrado de punta a punta dentro del mismo mensaje, como un texto: no se sube a ningún servidor. Del otro lado se ve con su duración y su onda, se escucha ahí mismo y se puede acelerar a 1,5× o 2×. También se pueden reenviar. Quien te escuche tiene que tener esta versión o una más nueva: en las anteriores el audio no se ve bien. En la app de Android, la primera vez te pide permiso para usar el micrófono.
+
 ## 3.79 — 2026-10-19
 
 - **La ficha de la versión ahora se abre con animación.** Al tocar la pestaña «CHATWALLET» del costado, la ficha sale de la pestaña, se despliega y su contenido entra en cascada. Al cerrarla se pliega y vuelve a la pestaña. **Novedades** también sube con una animación. Si en tu teléfono pediste reducir el movimiento, las fichas se abren sin animación, como antes.

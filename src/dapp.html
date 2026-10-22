@@ -406,6 +406,50 @@
             align-self: flex-start;
         }
 
+
+        /* ── Mensajes de voz ──────────────────────────────────────────────────
+           Reproductor dentro de la burbuja: play, onda (barras) y tiempo. Los colores salen
+           de currentColor, así sirve en las dos burbujas y en los dos temas. */
+        .voz { display: flex; align-items: center; gap: .6rem; min-width: 210px; padding: .1rem 0; }
+        .voz-play {
+            flex-shrink: 0; width: 2.4rem; height: 2.4rem; border-radius: 999px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255, 255, 255, .16); color: inherit; transition: transform .15s, background .2s;
+        }
+        .voz-play:active { transform: scale(.9); }
+        .voz-play svg { width: 18px; height: 18px; }
+        .voz-onda { flex: 1; display: flex; align-items: center; gap: 2px; height: 2rem; cursor: pointer; min-width: 0; }
+        .voz-onda i {
+            flex: 1; min-width: 2px; max-width: 4px; border-radius: 2px; background: currentColor;
+            opacity: .35; transition: opacity .15s, transform .25s; transform-origin: center;
+        }
+        .voz-onda i.on { opacity: 1; }
+        .voz.sonando .voz-onda i.on:last-of-type { transform: scaleY(1.15); }
+        .voz-pie { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+        .voz-tiempo { font-size: .72rem; font-variant-numeric: tabular-nums; opacity: .85; }
+        .voz-vel {
+            font-size: .65rem; font-weight: 700; padding: 0 .35rem; border-radius: 999px;
+            background: rgba(255, 255, 255, .16); color: inherit; line-height: 1.1rem;
+        }
+        body.theme-light .sent .voz-play, body.theme-light .sent .voz-vel { background: rgba(0, 0, 0, .12); }
+        body.theme-light #vozBarra { background: #e5e7eb; }
+        body.theme-light #vozReloj { color: #111827; }
+        .adjunto-otro { display: inline-flex; align-items: center; gap: .4rem; font-size: .9rem; }
+        .adjunto-img { max-width: 100%; max-height: 18rem; border-radius: .75rem; display: block; }
+
+        /* Barra de grabación: reemplaza al campo de texto mientras se graba. */
+        #vozBarra { display: none; }
+        #vozBarra.activa { display: flex; }
+        #vozBarra .voz-rec-punto {
+            width: .7rem; height: .7rem; border-radius: 999px; background: #ef4444; flex-shrink: 0;
+            animation: vozLatido 1s ease-in-out infinite;
+        }
+        @keyframes vozLatido { 50% { opacity: .25; transform: scale(.8); } }
+        #vozVivo { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 2px; height: 2rem; overflow: hidden; min-width: 0; }
+        #vozVivo i { width: 3px; flex-shrink: 0; border-radius: 2px; background: #f87171; }
+        #vozMicBtn.grabando { background: #dc2626; }
+        @media (prefers-reduced-motion: reduce) { #vozBarra .voz-rec-punto { animation: none; } }
+
         /* --- NUEVOS ESTILOS PARA METADATOS DEL MENSAJE --- */
         .message-metadata {
             align-self: flex-end;
@@ -2775,11 +2819,45 @@
                                 <line x1="7" y1="12" x2="17" y2="12" />
                             </svg>
                         </button>
+                        <!-- Grabando un mensaje de voz: ocupa el lugar del campo de texto. -->
+                        <div id="vozBarra" class="flex-grow min-w-0 items-center gap-2 bg-gray-700 rounded-full pl-1 pr-1 py-1">
+                            <button type="button" id="vozCancelar" title="Descartar"
+                                class="p-2 rounded-full text-gray-300 hover:text-red-400 hover:bg-gray-600 flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                    <path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                                </svg>
+                            </button>
+                            <span class="voz-rec-punto"></span>
+                            <span id="vozReloj" class="text-sm tabular-nums text-gray-200 flex-shrink-0">0:00</span>
+                            <div id="vozVivo" aria-hidden="true"></div>
+                            <button type="button" id="vozEnviar" title="Enviar"
+                                class="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-full flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="m22 2-7 20-4-9-9-4Z" />
+                                    <path d="m22 2-11 11" />
+                                </svg>
+                            </button>
+                        </div>
                         <form id="sendMessageForm" class="flex-grow flex items-center space-x-2">
                             <input type="text" id="messageInput" placeholder="Escribe un mensaje..."
                                 class="flex-grow bg-gray-700 border-0 text-white rounded-full px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
                                 required>
-                            <button type="submit"
+                            <!-- Con el campo vacío se ve el micrófono; al escribir, el botón de enviar. -->
+                            <button type="button" id="vozMicBtn" title="Mensaje de voz"
+                                class="hidden bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-full flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <rect x="9" y="2" width="6" height="12" rx="3" />
+                                    <path d="M5 10v1a7 7 0 0 0 14 0v-1" />
+                                    <line x1="12" y1="18" x2="12" y2="22" />
+                                </svg>
+                            </button>
+                            <button type="submit" id="sendMessageBtn"
                                 class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold p-3 rounded-full flex-shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -9358,7 +9436,8 @@
             function msgRecordFromXmtp(message, peerAddr, isSentByMe) {
                 const typeId = message.contentType?.typeId || 'text';
                 if (MSGSTORE_SKIP_TYPES.has(typeId)) return null;
-                const content = typeof message.content === 'string' ? message.content : jsonConBigInt(message.content);
+                const content = typeId === 'attachment' ? cwAdjuntoParaGuardar(message)
+                    : (typeof message.content === 'string' ? message.content : jsonConBigInt(message.content));
                 if (!content || content === '{}' || content === 'null') return null;
                 // Los handshakes (creación del grupo MLS) referencian inboxIds de ESTA conversación;
                 // en un dispositivo nuevo la conversación genera los suyos. No se respaldan.
@@ -11511,7 +11590,7 @@
             async function syncResumenDe(peerAddr, direccion) {
                 const desde = Date.now() - SYNC_VENTANA_DIAS * 86400000;
                 const regs = (await msgStoreGetByPeer(peerAddr))
-                    .filter(r => r.dir === direccion && r.ts >= desde && !esMensajeDeSincronia(r.content));
+                    .filter(r => r.dir === direccion && r.ts >= desde && r.typeId !== 'attachment' && !esMensajeDeSincronia(r.content));
                 const porDia = {};
                 for (const r of regs) {
                     const dia = syncDia(r.ts);
@@ -11629,7 +11708,7 @@
 
                 const desde = Date.now() - SYNC_VENTANA_DIAS * 86400000;
                 const regs = (await msgStoreGetByPeer(clave))
-                    .filter(r => r.dir === 'sent' && r.ts >= desde && faltan.indexOf(syncDia(r.ts)) > -1 && !esMensajeDeSincronia(r.content))
+                    .filter(r => r.dir === 'sent' && r.ts >= desde && r.typeId !== 'attachment' && faltan.indexOf(syncDia(r.ts)) > -1 && !esMensajeDeSincronia(r.content))
                     .slice(-SYNC_MAX_LOTE);
                 if (!regs.length) return;
 
@@ -11872,7 +11951,7 @@
 
                                 if (isChatOpen) {
                                     addMessageToUI(message, type);
-                                    if (!isSentByMe && (message.contentType.typeId === 'text' || message.contentType.typeId === 'reply')) {
+                                    if (!isSentByMe && (message.contentType.typeId === 'text' || message.contentType.typeId === 'reply' || message.contentType.typeId === 'attachment')) {
                                         // Send read receipt ONLY for text messages to avoid loops
                                         try {
                                             const codec = new window.ReadReceiptCodec();
@@ -12785,9 +12864,220 @@
                 try { return JSON.parse(message.content); } catch (e) { return null; }
             }
 
+
+            // ── Mensajes de voz y adjuntos ───────────────────────────────────────────────
+            // El audio viaja ENTERO dentro del mensaje de XMTP (content type estándar
+            // `attachment`): va cifrado de punta a punta entre los participantes, igual que un
+            // texto, y no se sube a ningún servidor ni nodo. Por eso hay tope: un mensaje de
+            // XMTP no puede pasar de ~1 MB (2 min a 32 kbps son ~480 KB).
+            const VOZ_MAX_SEG = 120;
+            const VOZ_MAX_BYTES = 900000;
+            const VOZ_BARRAS = 34;
+            const ICONO_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
+            const ICONO_PAUSA = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
+
+            function cwB64(bytes) {
+                let bin = '';
+                for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+                return btoa(bin);
+            }
+            function cwDeB64(b64) {
+                const bin = atob(b64), u = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+                return u;
+            }
+            function cwBytesDe(x) {
+                if (!x) return null;
+                if (x instanceof Uint8Array) return x;
+                if (x instanceof ArrayBuffer) return new Uint8Array(x);
+                if (Array.isArray(x)) return Uint8Array.from(x);
+                if (typeof x === 'object') {   // un Uint8Array que pasó por JSON: {"0":12,"1":34,…}
+                    const v = Object.values(x);
+                    if (v.length && v.every(n => typeof n === 'number')) return Uint8Array.from(v);
+                }
+                return null;
+            }
+            function cwFmtSeg(s) {
+                s = Math.max(0, Math.floor(s || 0));
+                return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+            }
+            // La duración va en el nombre del archivo (mensaje-de-voz-12s.webm): el audio que
+            // graba Chrome no la trae en su cabecera, y así la burbuja la muestra sin decodificar.
+            function cwVozDurDeNombre(n) {
+                const m = /-(\d+)s\.[a-z0-9]+$/i.exec(String(n || ''));
+                return m ? Number(m[1]) : 0;
+            }
+            // Mensaje (del SDK, o rearmado del almacén local) → { mimeType, filename, bytes, dur }.
+            function cwAdjuntoDe(message) {
+                const typeId = message && message.contentType && message.contentType.typeId;
+                if (typeId === 'remoteStaticAttachment' || typeId === 'multiRemoteStaticAttachment')
+                    return { remoto: true, mimeType: '', filename: '' };
+                if (typeId !== 'attachment') return null;
+                let c = message.content;
+                if (typeof c === 'string') { try { c = JSON.parse(c); } catch (e) { return null; } }
+                if (!c || typeof c !== 'object') return null;
+                const bytes = c.b64 ? cwDeB64(c.b64) : cwBytesDe(c.content || c.data);
+                return {
+                    mimeType: String(c.mimeType || '').toLowerCase(),
+                    filename: String(c.filename || ''),
+                    bytes,
+                    dur: cwVozDurDeNombre(c.filename),
+                };
+            }
+            function cwAdjuntoEtiqueta(a) {
+                if (!a) return '';
+                if (a.remoto) return t('adj_remoto');
+                if (a.mimeType.startsWith('audio/')) return a.dur ? t('voz_preview_dur', { d: cwFmtSeg(a.dur) }) : t('voz_preview');
+                if (/^image\/(png|jpe?g|gif|webp)$/.test(a.mimeType)) return t('adj_foto');
+                return '📎 ' + (a.filename || t('adj_archivo'));
+            }
+            // Para el almacén local y el respaldo (los dos cifrados con tu clave): el audio en base64.
+            function cwAdjuntoParaGuardar(message) {
+                const a = cwAdjuntoDe(message);
+                if (!a || a.remoto) return null;
+                const o = { mimeType: a.mimeType, filename: a.filename };
+                if (a.bytes && a.bytes.length <= 1500000) o.b64 = cwB64(a.bytes);
+                return JSON.stringify(o);
+            }
+
+            // La onda se saca del audio mismo. Se decodifica de a uno (un hilo largo con muchos
+            // audios no traba el scroll) y con un contexto sin salida, que no pide permiso de sonido.
+            let cwOndaCola = Promise.resolve();
+            let cwOndaCtx = null;
+            function cwVozOnda(bytes, n) {
+                const tarea = cwOndaCola.then(async () => {
+                    const Off = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+                    if (!Off) throw new Error('sin OfflineAudioContext');
+                    cwOndaCtx = cwOndaCtx || new Off(1, 44100, 44100);
+                    const buf = await cwOndaCtx.decodeAudioData(bytes.slice().buffer);
+                    const d = buf.getChannelData(0), paso = Math.max(1, Math.floor(d.length / n)), picos = [];
+                    for (let i = 0; i < n; i++) {
+                        let m = 0;
+                        for (let j = i * paso, fin = Math.min(d.length, (i + 1) * paso); j < fin; j += 16) m = Math.max(m, Math.abs(d[j]));
+                        picos.push(m);
+                    }
+                    const tope = Math.max(...picos) || 1;
+                    return { picos: picos.map(x => x / tope), dur: buf.duration };
+                });
+                cwOndaCola = tarea.catch(() => { });
+                return tarea;
+            }
+
+            let cwVozSonando = null;   // el reproductor que suena: uno a la vez
+            function cwReproductorVoz(a) {
+                const cont = document.createElement('div');
+                cont.className = 'voz';
+                cont.innerHTML = `<button type="button" class="voz-play">${ICONO_PLAY}</button>
+                    <div class="voz-onda"></div>
+                    <div class="voz-pie"><span class="voz-tiempo"></span><button type="button" class="voz-vel">1×</button></div>`;
+                const btn = cont.querySelector('.voz-play'), onda = cont.querySelector('.voz-onda');
+                const tiempo = cont.querySelector('.voz-tiempo'), vel = cont.querySelector('.voz-vel');
+                btn.setAttribute('aria-label', t('voz_play'));
+                const barras = [];
+                for (let i = 0; i < VOZ_BARRAS; i++) {
+                    const b = document.createElement('i');
+                    // Mientras se decodifica: una onda inventada con los bytes, para que no salte.
+                    b.style.height = (22 + ((a.bytes[(i * 97) % a.bytes.length] || 0) % 50)) + '%';
+                    onda.appendChild(b); barras.push(b);
+                }
+                let dur = a.dur || 0;
+                tiempo.textContent = cwFmtSeg(dur);
+                cwVozOnda(a.bytes, VOZ_BARRAS).then(({ picos, dur: d }) => {
+                    picos.forEach((p, i) => { barras[i].style.height = Math.max(12, Math.round(p * 100)) + '%'; });
+                    if (!dur && d && isFinite(d)) { dur = d; if (!audio || audio.paused) tiempo.textContent = cwFmtSeg(dur); }
+                }).catch(() => { });
+
+                let audio = null;
+                const vels = [1, 1.5, 2];
+                let vi = 0;
+                const duracion = () => (audio && isFinite(audio.duration) && audio.duration) || dur || 0;
+                const pintar = () => {
+                    const d = duracion();
+                    const k = audio && d ? Math.round((audio.currentTime / d) * VOZ_BARRAS) : 0;
+                    barras.forEach((b, i) => b.classList.toggle('on', i < k));
+                    tiempo.textContent = cwFmtSeg(audio && audio.currentTime > 0 ? audio.currentTime : dur);
+                };
+                const ctrl = {
+                    pausar() {
+                        if (audio && !audio.paused) audio.pause();
+                        cont.classList.remove('sonando');
+                        btn.innerHTML = ICONO_PLAY;
+                    }
+                };
+                const asegurar = () => {
+                    if (audio) return audio;
+                    audio = new Audio(URL.createObjectURL(new Blob([a.bytes], { type: a.mimeType || 'audio/webm' })));
+                    audio.playbackRate = vels[vi];
+                    audio.ontimeupdate = pintar;
+                    audio.onended = () => {
+                        ctrl.pausar();
+                        audio.currentTime = 0;
+                        pintar();
+                        if (cwVozSonando === ctrl) cwVozSonando = null;
+                    };
+                    return audio;
+                };
+                // Los toques del reproductor no son gestos de la burbuja (mantener = reaccionar,
+                // doble toque = reaccionar): pausar y seguir rápido abría el selector de emojis.
+                for (const el of [btn, onda, vel]) {
+                    el.addEventListener('pointerdown', e => e.stopPropagation());
+                    el.addEventListener('dblclick', e => e.stopPropagation());
+                }
+                btn.onclick = async (e) => {
+                    e.stopPropagation();
+                    const au = asegurar();
+                    if (!au.paused) { ctrl.pausar(); return; }
+                    if (cwVozSonando && cwVozSonando !== ctrl) cwVozSonando.pausar();
+                    cwVozSonando = ctrl;
+                    try {
+                        await au.play();
+                        cont.classList.add('sonando');
+                        btn.innerHTML = ICONO_PAUSA;
+                    } catch (err) {
+                        console.warn('[voz] no se pudo reproducir', err);
+                        showToast(t('voz_no_reproduce'), 'error');
+                    }
+                };
+                onda.onclick = (e) => {
+                    e.stopPropagation();
+                    const au = asegurar(), d = duracion();
+                    if (!d) return;
+                    const r = onda.getBoundingClientRect();
+                    au.currentTime = Math.max(0, Math.min(d - 0.05, ((e.clientX - r.left) / r.width) * d));
+                    pintar();
+                };
+                vel.onclick = (e) => {
+                    e.stopPropagation();
+                    vi = (vi + 1) % vels.length;
+                    vel.textContent = String(vels[vi]).replace('.', ',') + '×';
+                    if (audio) audio.playbackRate = vels[vi];
+                };
+                return cont;
+            }
+
+            // Lo que va adentro de la burbuja de un adjunto.
+            function cwVistaAdjunto(a) {
+                if (a && !a.remoto && a.bytes && a.bytes.length) {
+                    if (a.mimeType.startsWith('audio/')) return cwReproductorVoz(a);
+                    if (/^image\/(png|jpe?g|gif|webp)$/.test(a.mimeType)) {
+                        const img = new Image();
+                        img.className = 'adjunto-img';
+                        img.alt = a.filename || '';
+                        img.src = URL.createObjectURL(new Blob([a.bytes], { type: a.mimeType }));
+                        return img;
+                    }
+                }
+                const s = document.createElement('span');
+                s.className = 'adjunto-otro';
+                s.textContent = cwAdjuntoEtiqueta(a);   // textContent: el nombre lo eligió la otra punta
+                return s;
+            }
+
             // Preview de un mensaje para lista de contactos / notificaciones (las respuestas muestran su texto).
             function xmtpMessagePreview(message) {
                 const typeId = message.contentType?.typeId;
+                const adjunto = cwAdjuntoDe(message);
+                if (adjunto) return cwAdjuntoEtiqueta(adjunto);
                 if (typeId === 'reply') {
                     const rep = parseMsgObjContent(message);
                     if (rep) return typeof rep.content === 'string' ? rep.content : '↩️ Respuesta';
@@ -13102,7 +13392,7 @@
             // ── Copiar ───────────────────────────────────────────────────────
             async function copiarMensaje(msgId) {
                 const info = msgTextById.get(msgId);
-                if (!info || !info.text) { showToast(t('msg_copy_err'), 'info'); return; }
+                if (!info || !info.text || info.adjunto) { showToast(t('msg_copy_err'), 'info'); return; }
                 try {
                     await navigator.clipboard.writeText(info.text);
                 } catch (e) {
@@ -13152,11 +13442,13 @@
 
             // ── Reenviar ─────────────────────────────────────────────────────
             let reenviarTexto = null;
+            let reenviarAdjunto = null;   // un mensaje de voz se reenvía como audio, no como su etiqueta
             function abrirReenviar(msgId) {
                 const info = msgTextById.get(msgId);
                 if (!info || !info.text) { showToast(t('msg_copy_err'), 'info'); return; }
                 if (isOffline) { showToast(t('fwd_offline'), 'info'); return; }
                 reenviarTexto = info.text;
+                reenviarAdjunto = info.adjunto || null;
                 const lista = document.getElementById('forwardList');
                 const modal = document.getElementById('forwardModal');
                 if (!lista || !modal) return;
@@ -13183,16 +13475,19 @@
                 const m = document.getElementById('forwardModal');
                 if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
                 reenviarTexto = null;
+                reenviarAdjunto = null;
             }
             async function reenviarA(contacto) {
                 const texto = reenviarTexto;
+                const adjunto = reenviarAdjunto;
                 cerrarReenviar();
                 if (!texto) return;
                 try {
                     showToast(t('fwd_sending'), 'info');
                     const conv = await conversacionDeContacto(contacto);
                     if (!conv) { showToast(t('fwd_err'), 'error'); return; }
-                    await conv.sendText(texto);
+                    if (adjunto) await conv.sendAttachment({ filename: adjunto.filename, mimeType: adjunto.mimeType, content: adjunto.bytes });
+                    else await conv.sendText(texto);
                     if (convIsGroup(conv)) pingWakeGroup(conv); else pingWake(conv);
                     // El aviso es tocable: reenviar sin salir del chat está bien, pero después
                     // casi siempre querés ver cómo quedó allá. Dura más que un toast común para
@@ -13342,7 +13637,10 @@
                         replyInfo.reference = replyInfo.referenceId;
                 }
 
-                let messageContent = replyInfo
+                // Mensaje de voz (o adjunto): la burbuja lleva el reproductor; el texto es la
+                // etiqueta, que es lo que usan las citas, el fijado y la vista previa.
+                const adjunto = replyInfo ? null : cwAdjuntoDe(message);
+                let messageContent = adjunto ? cwAdjuntoEtiqueta(adjunto) : replyInfo
                     ? (typeof replyInfo.content === 'string' ? replyInfo.content : JSON.stringify(replyInfo.content))
                     : (typeof message.content === 'object' ? JSON.stringify(message.content) : message.content);
 
@@ -13531,7 +13829,8 @@
                     }
 
                     const contentSpan = document.createElement('span');
-                    renderTextWithLinks(contentSpan, messageContent);
+                    if (adjunto) contentSpan.appendChild(cwVistaAdjunto(adjunto));
+                    else renderTextWithLinks(contentSpan, messageContent);
 
                     const metadataDiv = document.createElement('div');
                     metadataDiv.className = 'message-metadata';
@@ -13561,7 +13860,7 @@
 
                     // Registrar el texto (para citas de futuras respuestas) y habilitar gestos:
                     // long-press / doble tap → reacciones; swipe horizontal → responder.
-                    msgTextById.set(message.id, { text: messageContent, type, sender: message.senderInboxId || null });
+                    msgTextById.set(message.id, { text: messageContent, type, sender: message.senderInboxId || null, adjunto: adjunto && !adjunto.remoto ? adjunto : null });
                     attachMessageGestures(messageRow, messageContainer, message.id);
                 }
 
@@ -14828,7 +15127,7 @@
                 if (!NativeKeepAlive || !document.hidden) return;
                 try {
                     let title = 'Nuevo mensaje';
-                    let body = (typeof message.content === 'string' || message.contentType?.typeId === 'reply')
+                    let body = (typeof message.content === 'string' || message.contentType?.typeId === 'reply' || cwAdjuntoDe(message))
                         ? xmtpMessagePreview(message)
                         : 'Mensaje (multimedia)';
                     let address = null;
@@ -15087,7 +15386,7 @@
             // contacto y al tocarla abre la conversación.
             async function showNotification(message, groupCtx = null) {
                 if (!message) return;
-                const preview = (typeof message.content === 'string' || message.contentType?.typeId === 'reply')
+                const preview = (typeof message.content === 'string' || message.contentType?.typeId === 'reply' || cwAdjuntoDe(message))
                     ? xmtpMessagePreview(message)
                     : 'Mensaje (Multimedia/Sistema)';
 
@@ -20101,6 +20400,156 @@
                 });
             }
 
+
+            // ── Grabar y mandar un mensaje de voz ────────────────────────────────────────
+            // Tocar el micrófono empieza a grabar; la barra roja reemplaza al campo de texto
+            // con el reloj y la onda en vivo. Enviar o tachito. A los 2 minutos se manda solo.
+            const vozMicBtn = document.getElementById('vozMicBtn');
+            const vozBarra = document.getElementById('vozBarra');
+            const vozReloj = document.getElementById('vozReloj');
+            const vozVivo = document.getElementById('vozVivo');
+            const sendMessageBtn = document.getElementById('sendMessageBtn');
+            let vozRec = null;
+
+            function vozPuedeGrabar() {
+                return typeof MediaRecorder !== 'undefined' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+            }
+            // Campo vacío → micrófono; con texto → enviar. En modo frío no hay voz (va por QR).
+            function vozActualizarBoton() {
+                if (!vozMicBtn || !sendMessageBtn || !messageInput) return;
+                const mic = !messageInput.value.trim() && !isOffline && vozPuedeGrabar();
+                vozMicBtn.classList.toggle('hidden', !mic);
+                sendMessageBtn.classList.toggle('hidden', mic);
+                vozMicBtn.disabled = !!messageInput.disabled;
+            }
+            function vozMime() {
+                const opciones = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/webm'];
+                for (const m of opciones) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) { } }
+                return '';
+            }
+            async function vozEmpezar() {
+                if (vozRec) return;
+                if (currentGroup && currentGroup.invitacion) return;
+                if (!currentConversation) { showToast(t('voz_chat_no_listo'), 'info'); return; }
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                    });
+                } catch (e) {
+                    console.warn('[voz] micrófono:', e);
+                    showToast(t(e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? 'voz_sin_permiso' : 'voz_sin_mic'), 'error', 8000);
+                    return;
+                }
+                const mime = vozMime();
+                let rec;
+                try {
+                    rec = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 });
+                } catch (e) {
+                    stream.getTracks().forEach(tr => tr.stop());
+                    showToast(t('voz_sin_mic'), 'error');
+                    return;
+                }
+                const chunks = [];
+                rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+                rec.start(250);
+                vozRec = { rec, stream, chunks, t0: Date.now(), conv: currentConversation, mime: rec.mimeType || mime || 'audio/webm' };
+                try {
+                    const Ctx = window.AudioContext || window.webkitAudioContext;
+                    const ctx = new Ctx();
+                    const an = ctx.createAnalyser();
+                    an.fftSize = 512;
+                    ctx.createMediaStreamSource(stream).connect(an);
+                    vozRec.ctx = ctx; vozRec.an = an;
+                } catch (e) { /* sin onda en vivo: se graba igual */ }
+                vozVivo.innerHTML = '';
+                vozReloj.textContent = '0:00';
+                vozRec.timer = setInterval(vozTic, 100);
+                sendMessageForm.classList.add('hidden');
+                vozBarra.classList.add('activa');
+                vibrar(15);
+            }
+            function vozTic() {
+                const v = vozRec;
+                if (!v) return;
+                // Cambiaste de chat con el micrófono abierto: lo grabado era para el otro.
+                if (currentConversation !== v.conv) { vozTerminar(false); return; }
+                const seg = (Date.now() - v.t0) / 1000;
+                vozReloj.textContent = cwFmtSeg(seg);
+                if (v.an) {
+                    const d = new Uint8Array(v.an.fftSize);
+                    v.an.getByteTimeDomainData(d);
+                    let m = 0;
+                    for (let i = 0; i < d.length; i++) m = Math.max(m, Math.abs(d[i] - 128));
+                    const b = document.createElement('i');
+                    b.style.height = Math.max(8, Math.min(100, Math.round((m / 128) * 260))) + '%';
+                    vozVivo.appendChild(b);
+                    while (vozVivo.children.length > 80) vozVivo.firstChild.remove();
+                }
+                if (seg >= VOZ_MAX_SEG) {
+                    showToast(t('voz_limite'), 'info');
+                    vozTerminar(true);
+                }
+            }
+            async function vozTerminar(enviar) {
+                const v = vozRec;
+                if (!v) return;
+                vozRec = null;
+                clearInterval(v.timer);
+                const seg = (Date.now() - v.t0) / 1000;
+                const parado = new Promise(r => { v.rec.onstop = r; });
+                try { if (v.rec.state !== 'inactive') v.rec.stop(); } catch (e) { }
+                await Promise.race([parado, new Promise(r => setTimeout(r, 1500))]);
+                v.stream.getTracks().forEach(tr => tr.stop());
+                try { if (v.ctx) v.ctx.close(); } catch (e) { }
+                vozBarra.classList.remove('activa');
+                sendMessageForm.classList.remove('hidden');
+                vozActualizarBoton();
+                if (!enviar) return;
+                if (seg < 1) { showToast(t('voz_corto'), 'info'); return; }
+                const tipo = v.mime.split(';')[0].trim() || 'audio/webm';
+                const ext = tipo.includes('mp4') ? 'm4a' : (tipo.includes('ogg') ? 'ogg' : 'webm');
+                const bytes = new Uint8Array(await new Blob(v.chunks, { type: tipo }).arrayBuffer());
+                if (!bytes.length) { showToast(t('voz_sin_mic'), 'error'); return; }
+                if (bytes.length > VOZ_MAX_BYTES) { showToast(t('voz_grande'), 'error'); return; }
+                await vozMandar(v.conv, { filename: `mensaje-de-voz-${Math.round(seg)}s.${ext}`, mimeType: tipo, content: bytes });
+            }
+            async function vozMandar(conv, adjunto) {
+                if (!conv) { showToast(t('voz_chat_no_listo'), 'info'); return; }
+                vozMicBtn.disabled = true;
+                try {
+                    // La burbuja la dibuja el stream al volver el eco del mensaje, igual que un texto.
+                    await conv.sendAttachment(adjunto);
+                    if (convIsGroup(conv)) pingWakeGroup(conv);
+                    else { pingWake(conv); maybeSendProfile(conv, conv.peerAddress); }
+                    const chatKey = convIsGroup(conv) ? groupKeyOf(conv.id) : conv.peerAddress;
+                    const i = chatKey ? contacts.findIndex(c => c.address.toLowerCase() === chatKey.toLowerCase()) : -1;
+                    if (i > -1) {
+                        contacts[i].lastMessage = cwAdjuntoEtiqueta({ mimeType: adjunto.mimeType, dur: cwVozDurDeNombre(adjunto.filename) });
+                        contacts[i].lastMessageTimestamp = Date.now();
+                        saveContacts();
+                    }
+                } catch (error) {
+                    console.error('[voz] no se pudo enviar:', error);
+                    showToast(t('voz_error'), 'error');
+                    if (/inactive/i.test(String(error && error.message || '')) && currentConversation) {
+                        cwAvisarChatSinSync(currentConversation, error, chatOpenToken).catch(() => { });
+                    }
+                } finally {
+                    vozMicBtn.disabled = false;
+                }
+            }
+            if (vozMicBtn && vozBarra) {
+                vozMicBtn.addEventListener('click', () => { vozEmpezar().catch(e => console.warn('[voz]', e)); });
+                document.getElementById('vozCancelar')?.addEventListener('click', () => vozTerminar(false));
+                document.getElementById('vozEnviar')?.addEventListener('click', () => vozTerminar(true));
+                messageInput?.addEventListener('input', vozActualizarBoton);
+                // El campo también cambia por código (al enviar, al abrir otro chat, el modo frío):
+                // un vistazo cada tanto es más simple que enganchar cada uno de esos lugares.
+                setInterval(vozActualizarBoton, 700);
+                vozActualizarBoton();
+            }
+
             // Modals
             if (addContactBtn) {
                 addContactBtn.addEventListener('click', openAddContactModal);
@@ -21620,6 +22069,20 @@
                     "fwd_ok": "Reenviado a {quien}",
                     "fwd_ok_open": "Tocá para abrir el chat.",
                     "fwd_err": "No se pudo reenviar",
+                    "voz_preview": "🎤 Mensaje de voz",
+                    "voz_preview_dur": "🎤 Mensaje de voz ({d})",
+                    "voz_play": "Reproducir",
+                    "adj_foto": "📷 Foto",
+                    "adj_archivo": "Archivo",
+                    "adj_remoto": "📎 Adjunto (ChatWallet todavía no lo puede abrir)",
+                    "voz_sin_permiso": "ChatWallet no tiene permiso para usar el micrófono. Habilitalo en los ajustes del teléfono o del navegador.",
+                    "voz_sin_mic": "No se pudo usar el micrófono.",
+                    "voz_corto": "El audio fue demasiado corto.",
+                    "voz_grande": "El audio quedó demasiado pesado para enviarlo.",
+                    "voz_error": "No se pudo enviar el mensaje de voz.",
+                    "voz_chat_no_listo": "El chat todavía no está listo. Probá en un momento.",
+                    "voz_no_reproduce": "Este audio no se puede reproducir en este dispositivo.",
+                    "voz_limite": "Llegaste a los 2 minutos: el audio se envía.",
                     "fwd_offline": "Reenviar necesita conexión.",
                     "quick_edit_title": "Editar los emojis rápidos",
                     "quick_edit_prompt": "Emojis de la barrita rápida, separados por espacios (hasta 8). Dejalo vacío para volver a los de fábrica.",
@@ -22170,6 +22633,20 @@
                     "fwd_ok": "Forwarded to {quien}",
                     "fwd_ok_open": "Tap to open the chat.",
                     "fwd_err": "Could not forward",
+                    "voz_preview": "🎤 Voice message",
+                    "voz_preview_dur": "🎤 Voice message ({d})",
+                    "voz_play": "Play",
+                    "adj_foto": "📷 Photo",
+                    "adj_archivo": "File",
+                    "adj_remoto": "📎 Attachment (ChatWallet can't open it yet)",
+                    "voz_sin_permiso": "ChatWallet isn't allowed to use the microphone. Enable it in your phone or browser settings.",
+                    "voz_sin_mic": "Couldn't use the microphone.",
+                    "voz_corto": "The recording was too short.",
+                    "voz_grande": "The recording is too large to send.",
+                    "voz_error": "Couldn't send the voice message.",
+                    "voz_chat_no_listo": "The chat isn't ready yet. Try again in a moment.",
+                    "voz_no_reproduce": "This audio can't be played on this device.",
+                    "voz_limite": "You reached 2 minutes: the recording is being sent.",
                     "fwd_offline": "Forwarding needs a connection.",
                     "quick_edit_title": "Edit the quick emojis",
                     "quick_edit_prompt": "Quick-bar emojis, separated by spaces (up to 8). Leave empty to restore the defaults.",
@@ -22720,6 +23197,20 @@
                     "fwd_ok": "Transféré à {quien}",
                     "fwd_ok_open": "Touchez pour ouvrir la discussion.",
                     "fwd_err": "Transfert impossible",
+                    "voz_preview": "🎤 Message vocal",
+                    "voz_preview_dur": "🎤 Message vocal ({d})",
+                    "voz_play": "Lire",
+                    "adj_foto": "📷 Photo",
+                    "adj_archivo": "Fichier",
+                    "adj_remoto": "📎 Pièce jointe (ChatWallet ne peut pas encore l'ouvrir)",
+                    "voz_sin_permiso": "ChatWallet n'a pas accès au micro. Autorisez-le dans les réglages du téléphone ou du navigateur.",
+                    "voz_sin_mic": "Impossible d'utiliser le micro.",
+                    "voz_corto": "L'enregistrement était trop court.",
+                    "voz_grande": "L'enregistrement est trop lourd pour être envoyé.",
+                    "voz_error": "Impossible d'envoyer le message vocal.",
+                    "voz_chat_no_listo": "La conversation n'est pas encore prête. Réessayez dans un instant.",
+                    "voz_no_reproduce": "Cet audio ne peut pas être lu sur cet appareil.",
+                    "voz_limite": "2 minutes atteintes : l'enregistrement est envoyé.",
                     "fwd_offline": "Le transfert nécessite une connexion.",
                     "quick_edit_title": "Modifier les emojis rapides",
                     "quick_edit_prompt": "Emojis de la barre rapide, séparés par des espaces (8 maximum). Laissez vide pour revenir aux emojis par défaut.",
