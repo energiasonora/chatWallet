@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.81 — 2026-10-22
+
 - **Vistos: ahora sabés si leyeron tu mensaje.** Cada mensaje que mandás lleva un tilde gris (✓) cuando sale, y pasa a dos tildes celestes (✓✓) cuando la otra persona abre el chat y lo ve, como en WhatsApp. El aviso viaja cifrado como cualquier mensaje. Antes había siempre dos tildes grises que no querían decir nada. Si no querés que sepan cuándo leíste, apagá **Configuración → Confirmaciones de lectura**; igual que en WhatsApp, entonces tampoco ves las de los demás. Por ahora solo en chats de a dos.
 
 ## 3.80 — 2026-10-22
