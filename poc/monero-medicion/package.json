@@ -1,0 +1,17 @@
+{
+  "name": "monero-medicion",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "assert": "^2.1.0",
+    "ethers": "^6.17.0",
+    "monero-ts": "^0.11.20"
+  }
+}
