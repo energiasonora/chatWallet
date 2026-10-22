@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.83 — 2026-10-22
+
 - **Ya podés mandar Monero.** Con Monero elegido, **Enviar** abre «Mandar Monero». Pegás la dirección (o escaneás un QR de Monero, que llena dirección y monto) y ponés cuánto, o tocás **Todo**. Con **Revisar**, la billetera se pone al día y arma la transacción en tu teléfono, sin mandarla todavía. Ves cuánto mandás, a quién, la comisión de la red y el total; recién con **Mandar** sale. Si algo no da, te dice por qué: la dirección no es válida, no alcanza contando la comisión, o la plata todavía espera confirmaciones (Monero la deja gastar a los ~20 minutos). Cada envío queda anotado en tu teléfono con su clave de transacción, que sirve para probar el pago más adelante.
 
 ## 3.82 — 2026-10-22
