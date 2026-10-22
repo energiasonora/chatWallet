@@ -106,7 +106,8 @@ try {
     await A.ev(`document.getElementById('receiveModal').classList.add('hidden'); true`);
     await clic(A, '#sendBtn');
     await sleep(500);
-    ok(await A.ev(`document.body.innerText.includes('próxima versión')`), 'Enviar avisa que mandar llega después (no abre el envío EVM)');
+    ok(await A.ev(`/Mandar Monero/.test(document.getElementById('xmrModal')?.innerText || '') && document.getElementById('sendModal')?.classList.contains('hidden') !== false`), 'Enviar abre Mandar Monero (no el envío EVM)');
+    await A.ev(`document.getElementById('xmrModal').remove(); true`);
 
     console.log('\n── las 25 palabras ──');
     await clic(A, '#xmrPalabrasBtn');

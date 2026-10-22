@@ -14727,6 +14727,28 @@
             var XMR_NODO_KEY = 'cw-xmr-nodo';
             var xmrSincronizando = null;
             var xmrInfo = null;          // { progreso, faltan } | { espera: 'wifi' } | { error }
+            // Una sola operación de Monero a la vez: todas comparten el worker y cada una lo cierra
+            // al terminar. turnoXmr() espera su turno y devuelve la función para soltarlo.
+            var xmrCola = Promise.resolve();
+            function turnoXmr() {
+                let soltar;
+                const listo = new Promise(r => { soltar = r; });
+                const antes = xmrCola;
+                xmrCola = antes.then(() => listo);
+                return antes.then(() => soltar);
+            }
+            // Sólo para pruebas: red de juguete local (monerod --regtest). Ver tests/monero-envio-e2e.mjs.
+            function regtestXmr() { return localStorage.getItem('cw-xmr-regtest') === '1'; }
+            function esDireccionXmr(s) { return /^[48][1-9A-HJ-NP-Za-km-z]{94}$/.test(s || '') || /^4[1-9A-HJ-NP-Za-km-z]{105}$/.test(s || ''); }
+            // "monero:4…?tx_amount=1.5" o una dirección suelta → { direccion, monto }
+            function leerQrXmr(texto) {
+                const t = String(texto || '').trim();
+                const m = /^monero:([1-9A-HJ-NP-Za-km-z]+)(\?.*)?$/i.exec(t);
+                const dir = m ? m[1] : t;
+                if (!esDireccionXmr(dir)) return null;
+                const q = new URLSearchParams((m && m[2]) || '');
+                return { direccion: dir, monto: q.get('tx_amount') || '' };
+            }
 
             function redXmrActiva() {
                 return !!currentWallet && localStorage.getItem(claveRedXmr()) === '1';
@@ -14927,6 +14949,7 @@
                 // Todo lo de esta vuelta queda atado a ESTA billetera, aunque mientras tanto se cambie.
                 const dir = currentWallet.address, priv = currentWallet.privateKey;
                 xmrSincronizando = (async () => {
+                    const soltar = await turnoXmr();
                     try {
                         xmrInfo = { progreso: 0, faltan: 0 };
                         renderInfoXmr();
@@ -14936,7 +14959,7 @@
                         const alProgreso = (f, faltan) => { xmrInfo = { progreso: f, faltan }; if (currentWallet?.address === dir) renderInfoXmr(); };
                         const nodo = nodoXmr();
                         let r;
-                        try { r = await M.sincronizar({ privEvm: priv, nodo, nacimiento: est.nacimiento, datos, alProgreso }); }
+                        try { r = await M.sincronizar({ privEvm: priv, nodo, nacimiento: est.nacimiento, datos, alProgreso, regtest: regtestXmr() }); }
                         catch (e) {
                             // Con el nodo por defecto caído se prueba el otro. Uno elegido a mano no se cambia.
                             if (localStorage.getItem(XMR_NODO_KEY)) throw e;
@@ -14957,6 +14980,7 @@
                         console.warn('[monero] poner al día:', e?.message || e);
                         xmrInfo = { error: e?.message || String(e) };
                     } finally {
+                        soltar();
                         xmrSincronizando = null;
                         if (currentWallet?.address === dir) renderInfoXmr();
                     }
@@ -15060,6 +15084,154 @@
             document.getElementById('xmrPalabrasBtn')?.addEventListener('click', (e) => { e.stopPropagation(); abrirPalabrasXmr(); });
             document.getElementById('xmrAjustesBtn')?.addEventListener('click', (e) => { e.stopPropagation(); abrirAjustesXmr(); });
 
+            // ── Mandar Monero ──
+            // 1) destino y monto  2) se pone al día y arma la transacción SIN mandarla  3) muestra
+            // comisión y total  4) recién con «Mandar» sale. La billetera queda abierta entre 2 y 4
+            // (con turno tomado, para que nada más use el worker) y se cierra pase lo que pase.
+            function claveEnviosXmr(dir) { return `cw-xmr-envios-${String(dir).toLowerCase()}`; }
+            function errorEnvioXmr(e) {
+                const c = e && e.codigo;
+                if (c === 'bloqueado') return t('xmr_err_bloqueado');
+                if (c === 'sin_fondos') return t('xmr_err_sin_fondos');
+                if (c === 'direccion') return t('xmr_err_direccion');
+                if (c === 'monto') return t('xmr_err_monto');
+                if (c === 'vencido') return t('xmr_err_vencido');
+                return t('xmr_err', { e: e?.message || e });
+            }
+            async function abrirEnvioXmr({ destino = '', monto = '' } = {}) {
+                if (!currentWallet || !currentWallet.privateKey) return;
+                if (!estadoXmr()) { await activarRedXmr(); if (!estadoXmr()) return; }
+                const dir = currentWallet.address, priv = currentWallet.privateKey;
+                let sesion = null, soltar = null, enviado = false;
+                const liberar = async () => {
+                    const s = sesion; sesion = null;
+                    if (s && !enviado) { try { await s.cancelar(); } catch (e) { } }
+                    if (soltar) { const f = soltar; soltar = null; f(); }
+                };
+                const modal = modalXmr(t('xmr_mandar_titulo'), (caja, cerrar) => {
+                    const est = estadoXmr();
+                    const disp = parrafoXmr(t('xmr_disponible', { monto: formatoXmr(est.desbloqueado) }), 'text-sm text-gray-300');
+                    caja.appendChild(disp);
+                    let pend = 0n; try { pend = BigInt(est.total) - BigInt(est.desbloqueado); } catch (e) { }
+                    if (pend > 0n) caja.appendChild(parrafoXmr(t('xmr_disponible_pend', { monto: formatoXmr(pend) }), 'text-xs text-gray-400'));
+                    const form = document.createElement('div');
+                    form.className = 'space-y-3';
+                    const dest = document.createElement('textarea');
+                    dest.rows = 3; dest.spellcheck = false; dest.autocapitalize = 'off';
+                    dest.placeholder = t('xmr_destino_ph');
+                    dest.className = 'w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs break-all';
+                    dest.value = destino;
+                    const filaMonto = document.createElement('div');
+                    filaMonto.className = 'flex gap-2';
+                    const cant = document.createElement('input');
+                    cant.type = 'text'; cant.inputMode = 'decimal'; cant.placeholder = '0,00 XMR';
+                    cant.className = 'flex-1 min-w-0 bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500';
+                    cant.value = monto;
+                    let todo = false;
+                    const btnTodo = botonXmr(t('xmr_todo'), 'bg-gray-600 hover:bg-gray-500 text-sm', () => {
+                        todo = !todo;
+                        btnTodo.classList.toggle('bg-indigo-600', todo);
+                        cant.disabled = todo;
+                        cant.value = todo ? formatoXmr(estadoXmr().desbloqueado, 12) : '';
+                    });
+                    filaMonto.append(cant, btnTodo);
+                    form.append(dest, filaMonto);
+                    caja.appendChild(form);
+                    const estado = parrafoXmr('', 'text-sm min-h-[1.25rem]');
+                    const resumen = document.createElement('div');
+                    resumen.className = 'hidden bg-gray-900/60 rounded-lg p-3 text-sm space-y-1';
+                    caja.append(resumen, estado);
+                    const fila = document.createElement('div');
+                    fila.className = 'flex justify-end gap-3';
+                    const btnCancelar = botonXmr(t('g1_cancel'), 'bg-gray-600 hover:bg-gray-500', async () => { await liberar(); cerrar(); });
+                    const btnSeguir = botonXmr(t('xmr_revisar'), 'bg-indigo-600 hover:bg-indigo-700', null);
+                    fila.append(btnCancelar, btnSeguir);
+                    caja.appendChild(fila);
+                    const decir = (txt, clase = 'text-gray-300') => { estado.className = `text-sm min-h-[1.25rem] ${clase}`; estado.textContent = txt; };
+                    let paso = 1;
+                    btnSeguir.onclick = async () => {
+                        if (paso === 1) {
+                            const q = leerQrXmr(dest.value);
+                            if (!q) { decir(t('xmr_err_direccion'), 'text-red-400'); return; }
+                            if (q.monto && !cant.value && !todo) cant.value = q.monto;
+                            const atom = todo ? null : aAtomicasXmr(cant.value);
+                            if (!todo && !atom) { decir(t('xmr_err_monto'), 'text-red-400'); return; }
+                            paso = 2;
+                            btnSeguir.disabled = true; dest.disabled = true; cant.disabled = true; btnTodo.disabled = true;
+                            decir(t('xmr_armando'));
+                            try {
+                                soltar = await turnoXmr();
+                                const M = await window.cwCargarMonero();
+                                let datos = null;
+                                try { datos = await leerDatosXmr(dir); } catch (e) { }
+                                sesion = await M.prepararEnvio({
+                                    privEvm: priv, nodo: nodoXmr(), nacimiento: estadoXmr().nacimiento, datos, regtest: regtestXmr(),
+                                    destino: q.direccion, monto: atom, todo,
+                                    alProgreso: (f) => decir(t('xmr_sincronizando_corto', { pct: Math.floor(f * 100) })),
+                                });
+                                resumen.replaceChildren(
+                                    parrafoXmr(t('xmr_conf_monto', { monto: formatoXmr(sesion.monto, 12) }), 'text-gray-200'),
+                                    parrafoXmr(t('xmr_conf_destino', { dir: `${q.direccion.slice(0, 10)}…${q.direccion.slice(-8)}` }), 'text-gray-300 font-mono text-xs'),
+                                    parrafoXmr(t('xmr_conf_comision', { monto: formatoXmr(sesion.comision, 12) }), 'text-gray-400'),
+                                    parrafoXmr(t('xmr_conf_total', { monto: formatoXmr(BigInt(sesion.monto) + BigInt(sesion.comision), 12) }), 'text-gray-100 font-semibold'));
+                                resumen.classList.remove('hidden');
+                                form.classList.add('hidden');
+                                decir(t('xmr_conf_aviso'), 'text-yellow-300');
+                                btnSeguir.textContent = t('xmr_mandar');
+                                btnSeguir.disabled = false;
+                                paso = 3;
+                                // La billetera arma la transacción para 5 minutos: después hay que rehacerla.
+                                setTimeout(() => { if (paso === 3 && modal.isConnected) { liberar(); decir(t('xmr_err_vencido'), 'text-red-400'); btnSeguir.disabled = true; } }, 5 * 60 * 1000 - 5000);
+                            } catch (e) {
+                                console.warn('[monero] preparar envío:', e);
+                                await liberar();
+                                decir(errorEnvioXmr(e), 'text-red-400');
+                                paso = 1;
+                                btnSeguir.disabled = false; dest.disabled = false; cant.disabled = todo; btnTodo.disabled = false;
+                            }
+                        } else if (paso === 3) {
+                            paso = 4;
+                            btnSeguir.disabled = true; btnCancelar.disabled = true;
+                            decir(t('xmr_enviando'));
+                            try {
+                                const s = sesion;
+                                const r = await s.confirmar();
+                                enviado = true;
+                                try { await guardarDatosXmr(dir, r.datos); } catch (e) { }
+                                const antes = leerJSONLocal(claveEstadoXmr(dir)) || {};
+                                localStorage.setItem(claveEstadoXmr(dir), JSON.stringify({ ...antes, total: r.total, desbloqueado: r.desbloqueado, altura: r.altura, t: Date.now() }));
+                                const envios = leerJSONLocal(claveEnviosXmr(dir)) || [];
+                                envios.unshift({ hashes: r.hashes, claves: r.claves, destino: leerQrXmr(dest.value).direccion, monto: s.monto, comision: s.comision, t: Date.now() });
+                                localStorage.setItem(claveEnviosXmr(dir), JSON.stringify(envios.slice(0, 200)));
+                                await liberar();
+                                decir(t('xmr_enviado', { monto: formatoXmr(s.monto) }), 'text-green-400');
+                                resumen.appendChild(parrafoXmr(`tx ${r.hashes[0].slice(0, 16)}…`, 'text-xs text-gray-500 font-mono'));
+                                btnSeguir.classList.add('hidden');
+                                btnCancelar.disabled = false;
+                                btnCancelar.textContent = t('g1_cancel_close');
+                                if (currentWallet?.address === dir && redXmrActiva()) { setBalanceText('main', `${formatoXmr(r.total)} XMR`); renderInfoXmr(); }
+                                showToast(t('xmr_enviado', { monto: formatoXmr(s.monto) }), 'success', 5000);
+                            } catch (e) {
+                                console.warn('[monero] mandar:', e);
+                                await liberar();
+                                decir(errorEnvioXmr(e), 'text-red-400');
+                                btnCancelar.disabled = false;
+                            }
+                        }
+                    };
+                });
+                // Cerrar tocando afuera también suelta la billetera.
+                modal.addEventListener('click', (e) => { if (e.target === modal) liberar(); });
+            }
+            // "1,5" / "1.5" → piconero (string), o null.
+            function aAtomicasXmr(texto) {
+                const s = String(texto || '').trim().replace(/\s/g, '').replace(',', '.');
+                if (!/^\d+(\.\d{0,12})?$/.test(s)) return null;
+                const [ent, frac = ''] = s.split('.');
+                const n = BigInt(ent) * 1000000000000n + BigInt((frac + '000000000000').slice(0, 12));
+                return n > 0n ? String(n) : null;
+            }
+
             // Enviar, Recibir y copiar con Monero elegido: no van al flujo EVM (igual que Ğ1).
             function desvioXmr(id, fn) {
                 document.getElementById(id)?.addEventListener('click', (e) => {
@@ -15069,7 +15241,7 @@
                     fn(e);
                 }, true);
             }
-            desvioXmr('sendBtn', () => showToast(t('xmr_mandar_pronto'), 'info', 5000));
+            desvioXmr('sendBtn', () => abrirEnvioXmr({}));
             desvioXmr('qrAddressBtn', () => {
                 const est = estadoXmr();
                 if (est) navigator.clipboard.writeText(est.direccion).then(() => showToast(t('xmr_copiada'), 'success')).catch(() => { });
@@ -18765,6 +18937,13 @@
                 if (address) {
                     playQRscanned();
                     await handleScannedAddress(address, extractPubKeyFromData(data), { greet: opts.greet || 'qr' });
+                    return;
+                }
+                // ¿Es de Monero? (monero:4…?tx_amount=…, o una dirección suelta): abre Mandar Monero.
+                const xmrQr = leerQrXmr(data);
+                if (xmrQr) {
+                    playQRscanned();
+                    abrirEnvioXmr({ destino: xmrQr.direccion, monto: xmrQr.monto });
                     return;
                 }
                 // ¿Es de Ğ1? (g1…, june://…, g1://…, duniter:key/…, clave v1). Va último: el
@@ -23076,8 +23255,28 @@
                     "xmr_solo_wifi": "Ponerse al día solo con wifi",
                     "xmr_solo_wifi_desc": "Cada día sin abrir Monero son unos 28 MB de bloques. Con esto prendido, en datos móviles espera al wifi.",
                     "xmr_guardar": "Guardar",
-                    "xmr_mandar_pronto": "Mandar Monero llega en la próxima versión. Por ahora podés recibir y ver tu saldo.",
                     "xmr_copiada": "Dirección de Monero copiada",
+                    "xmr_mandar_titulo": "Mandar Monero",
+                    "xmr_disponible": "Podés mandar: {monto} XMR",
+                    "xmr_disponible_pend": "Además, {monto} XMR esperan confirmaciones: Monero los deja gastar a los ~20 minutos.",
+                    "xmr_destino_ph": "Dirección de Monero (4… u 8…)",
+                    "xmr_todo": "Todo",
+                    "xmr_revisar": "Revisar",
+                    "xmr_armando": "Poniéndose al día y armando la transacción…",
+                    "xmr_sincronizando_corto": "Poniéndose al día… {pct} %",
+                    "xmr_conf_monto": "Mandás {monto} XMR",
+                    "xmr_conf_destino": "a {dir}",
+                    "xmr_conf_comision": "Comisión de la red: {monto} XMR",
+                    "xmr_conf_total": "Total: {monto} XMR",
+                    "xmr_conf_aviso": "Revisá la dirección: en Monero un envío no se puede deshacer.",
+                    "xmr_mandar": "Mandar",
+                    "xmr_enviando": "Mandando…",
+                    "xmr_enviado": "Mandaste {monto} XMR",
+                    "xmr_err_bloqueado": "Ese dinero todavía no se puede gastar: Monero pide 10 confirmaciones (unos 20 minutos).",
+                    "xmr_err_sin_fondos": "No alcanza, contando la comisión.",
+                    "xmr_err_direccion": "Esa dirección de Monero no es válida.",
+                    "xmr_err_monto": "Poné un monto válido.",
+                    "xmr_err_vencido": "Pasaron 5 minutos: volvé a revisar el envío.",
                     "settings_read_receipts_desc": "Le avisás a quien te escribe que viste su mensaje (✓✓ celeste). Si las apagás, tampoco ves las de los demás. Solo en chats de a dos.",
                     "tilde_enviado": "Enviado",
                     "tilde_visto": "Visto",
@@ -23677,8 +23876,28 @@
                     "xmr_solo_wifi": "Catch up on wifi only",
                     "xmr_solo_wifi_desc": "Each day without opening Monero is about 28 MB of blocks. With this on, it waits for wifi when on mobile data.",
                     "xmr_guardar": "Save",
-                    "xmr_mandar_pronto": "Sending Monero comes in the next version. For now you can receive and see your balance.",
                     "xmr_copiada": "Monero address copied",
+                    "xmr_mandar_titulo": "Send Monero",
+                    "xmr_disponible": "You can send: {monto} XMR",
+                    "xmr_disponible_pend": "Also, {monto} XMR are waiting for confirmations: Monero lets you spend them after ~20 minutes.",
+                    "xmr_destino_ph": "Monero address (4… or 8…)",
+                    "xmr_todo": "All",
+                    "xmr_revisar": "Review",
+                    "xmr_armando": "Catching up and building the transaction…",
+                    "xmr_sincronizando_corto": "Catching up… {pct}%",
+                    "xmr_conf_monto": "You send {monto} XMR",
+                    "xmr_conf_destino": "to {dir}",
+                    "xmr_conf_comision": "Network fee: {monto} XMR",
+                    "xmr_conf_total": "Total: {monto} XMR",
+                    "xmr_conf_aviso": "Check the address: a Monero transfer can't be undone.",
+                    "xmr_mandar": "Send",
+                    "xmr_enviando": "Sending…",
+                    "xmr_enviado": "You sent {monto} XMR",
+                    "xmr_err_bloqueado": "That money can't be spent yet: Monero needs 10 confirmations (about 20 minutes).",
+                    "xmr_err_sin_fondos": "Not enough, counting the fee.",
+                    "xmr_err_direccion": "That Monero address isn't valid.",
+                    "xmr_err_monto": "Enter a valid amount.",
+                    "xmr_err_vencido": "5 minutes passed: review the transfer again.",
                     "settings_read_receipts_desc": "Let people know you saw their message (light-blue ✓✓). If you turn them off, you won’t see theirs either. One-to-one chats only.",
                     "tilde_enviado": "Sent",
                     "tilde_visto": "Seen",
@@ -24278,8 +24497,28 @@
                     "xmr_solo_wifi": "Se mettre à jour uniquement en wifi",
                     "xmr_solo_wifi_desc": "Chaque jour sans ouvrir Monero représente environ 28 Mo de blocs. Activé, il attend le wifi en données mobiles.",
                     "xmr_guardar": "Enregistrer",
-                    "xmr_mandar_pronto": "L'envoi de Monero arrive dans la prochaine version. Pour l'instant, vous pouvez recevoir et voir votre solde.",
                     "xmr_copiada": "Adresse Monero copiée",
+                    "xmr_mandar_titulo": "Envoyer des Monero",
+                    "xmr_disponible": "Vous pouvez envoyer : {monto} XMR",
+                    "xmr_disponible_pend": "De plus, {monto} XMR attendent des confirmations : Monero permet de les dépenser après ~20 minutes.",
+                    "xmr_destino_ph": "Adresse Monero (4… ou 8…)",
+                    "xmr_todo": "Tout",
+                    "xmr_revisar": "Vérifier",
+                    "xmr_armando": "Mise à jour et préparation de la transaction…",
+                    "xmr_sincronizando_corto": "Mise à jour… {pct} %",
+                    "xmr_conf_monto": "Vous envoyez {monto} XMR",
+                    "xmr_conf_destino": "à {dir}",
+                    "xmr_conf_comision": "Frais du réseau : {monto} XMR",
+                    "xmr_conf_total": "Total : {monto} XMR",
+                    "xmr_conf_aviso": "Vérifiez l'adresse : un envoi Monero est irréversible.",
+                    "xmr_mandar": "Envoyer",
+                    "xmr_enviando": "Envoi…",
+                    "xmr_enviado": "Vous avez envoyé {monto} XMR",
+                    "xmr_err_bloqueado": "Cet argent n'est pas encore dépensable : Monero demande 10 confirmations (environ 20 minutes).",
+                    "xmr_err_sin_fondos": "Pas assez, frais compris.",
+                    "xmr_err_direccion": "Cette adresse Monero n'est pas valide.",
+                    "xmr_err_monto": "Indiquez un montant valide.",
+                    "xmr_err_vencido": "5 minutes sont passées : vérifiez à nouveau l'envoi.",
                     "settings_read_receipts_desc": "Indique à qui vous écrit que vous avez vu son message (✓✓ bleu clair). Si vous les désactivez, vous ne voyez pas non plus celles des autres. Seulement dans les discussions à deux.",
                     "tilde_enviado": "Envoyé",
                     "tilde_visto": "Vu",

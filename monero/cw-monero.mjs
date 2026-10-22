@@ -75,35 +75,120 @@ export async function cuenta(privEvm) {
     } finally { await liberar(w); }
 }
 
+// Abre la billetera (desde lo guardado, o la crea desde `nacimiento`) y la pone al día.
+async function abrirAlDia({ privEvm, nodo, nacimiento, datos, alProgreso, regtest }) {
+    // regtest (sólo pruebas): sin worker, porque al reabrir desde lo guardado el proxy del worker
+    // no le pasa la marca regtest a wallet2 (monero-ts 0.11.20) y falla con bloques nuevos.
+    // En el navegador el WASM sólo vive en el worker: en regtest se rehace desde cero cada vez.
+    const enNode = typeof window === 'undefined';
+    const base = { networkType: RED, password: contrasena(privEvm), server: { uri: nodo }, ...(regtest ? { regtest: true, ...(enNode ? { proxyToWorker: false } : {}) } : {}) };
+    if (regtest && !enNode) datos = null;
+    let w = null;
+    if (datos && datos.keys && datos.keys.length) {
+        try { w = await moneroTs.openWalletFull({ ...base, keysData: datos.keys, cacheData: datos.cache }); }
+        catch (e) { console.warn('[monero] estado guardado ilegible, se rehace:', e?.message || e); w = null; }
+    }
+    if (!w) w = await moneroTs.createWalletFull({ ...base, privateSpendKey: llaveDeGasto(privEvm), restoreHeight: nacimiento });
+    try {
+        await w.sync(new class extends moneroTs.MoneroWalletListener {
+            async onSyncProgress(h, inicio, fin, fraccion) {
+                if (alProgreso) { try { alProgreso(fraccion, Math.max(0, fin - h)); } catch (e) { } }
+            }
+        });
+    } catch (e) { await liberar(w); throw e; }
+    return w;
+}
+
+async function foto(w) {
+    const [keys, cache] = await w.getData();
+    return {
+        total: String(await w.getBalance()),
+        desbloqueado: String(await w.getUnlockedBalance()),
+        altura: await w.getHeight(),
+        direccion: await w.getPrimaryAddress(),
+        datos: { keys: aBytes(keys), cache: aBytes(cache) },
+    };
+}
+
 /**
  * Pone la billetera al día contra `nodo`.
  *   datos: { keys, cache } guardados de la vez anterior (o null: se crea desde `nacimiento`).
  *   alProgreso(fraccion, faltan): durante la sincronización.
  * → { total, desbloqueado (strings en piconero), altura, direccion, datos: { keys, cache } }
  */
-export async function sincronizar({ privEvm, nodo, nacimiento, datos, alProgreso }) {
-    let w;
+export async function sincronizar(opciones) {
+    const w = await abrirAlDia(opciones);
+    try { return await foto(w); } finally { await liberar(w); }
+}
+
+// Los errores de wallet2 vienen en inglés técnico: se les pone un código para traducirlos.
+function conCodigo(e) {
+    const m = String(e?.message || e);
+    const err = new Error(m);
+    err.codigo = /unlocked/i.test(m) ? 'bloqueado'
+        : /not enough money|not enough outputs|balance/i.test(m) ? 'sin_fondos'
+        : /invalid.*address|address.*invalid|Invalid destination/i.test(m) ? 'direccion'
+        : /dust|amount.*(zero|0)|too small/i.test(m) ? 'monto'
+        : 'otro';
+    return err;
+}
+
+/**
+ * Prepara un envío SIN mandarlo: abre la billetera, la pone al día y arma (y firma) la
+ * transacción. Devuelve lo que hay que mostrar para confirmar y dos funciones:
+ *   confirmar() → la manda al nodo y devuelve { hashes, claves, ...foto }
+ *   cancelar()  → la descarta.
+ * La billetera queda abierta mientras se decide (5 minutos como mucho).
+ *   monto: piconero (string) — o todo: true para mandar todo lo desbloqueado.
+ */
+export async function prepararEnvio({ destino, monto, todo, ...opciones }) {
+    if (!esDireccion(destino) && !opciones.regtest) { const e = new Error('dirección inválida'); e.codigo = 'direccion'; throw e; }
+    const w = await abrirAlDia(opciones);
+    let txs;
     try {
-        const base = { networkType: RED, password: contrasena(privEvm), server: { uri: nodo } };
-        if (datos && datos.keys && datos.keys.length) {
-            try { w = await moneroTs.openWalletFull({ ...base, keysData: datos.keys, cacheData: datos.cache }); }
-            catch (e) { console.warn('[monero] estado guardado ilegible, se rehace:', e?.message || e); w = null; }
-        }
-        if (!w) w = await moneroTs.createWalletFull({ ...base, privateSpendKey: llaveDeGasto(privEvm), restoreHeight: nacimiento });
-        await w.sync(new class extends moneroTs.MoneroWalletListener {
-            async onSyncProgress(h, inicio, fin, fraccion) {
-                if (alProgreso) { try { alProgreso(fraccion, Math.max(0, fin - h)); } catch (e) { } }
-            }
-        });
-        const [keys, cache] = await w.getData();
-        return {
-            total: String(await w.getBalance()),
-            desbloqueado: String(await w.getUnlockedBalance()),
-            altura: await w.getHeight(),
-            direccion: await w.getPrimaryAddress(),
-            datos: { keys: aBytes(keys), cache: aBytes(cache) },
-        };
-    } finally { await liberar(w); }
+        txs = todo
+            ? await w.sweepUnlocked({ accountIndex: 0, address: destino, relay: false })
+            : [await w.createTx({ accountIndex: 0, address: destino, amount: BigInt(monto), relay: false })];
+    } catch (e) { await liberar(w); throw conCodigo(e); }
+    const suma = (f) => txs.reduce((n, tx) => n + BigInt(f(tx) || 0), 0n);
+    let abierta = true;
+    const cerrar = async () => { if (!abierta) return; abierta = false; clearTimeout(reloj); await liberar(w); };
+    const reloj = setTimeout(cerrar, 5 * 60 * 1000);
+    return {
+        comision: String(suma(tx => tx.getFee())),
+        monto: String(suma(tx => tx.getOutgoingAmount())),
+        transacciones: txs.length,
+        async confirmar() {
+            if (!abierta) { const e = new Error('se venció: prepará el envío de nuevo'); e.codigo = 'vencido'; throw e; }
+            try {
+                const hashes = await w.relayTxs(txs);
+                const claves = [];
+                for (const h of hashes) { try { claves.push(await w.getTxKey(h)); } catch (e) { claves.push(null); } }
+                return { hashes, claves, ...(await foto(w)) };
+            } catch (e) { throw conCodigo(e); }
+            finally { await cerrar(); }
+        },
+        cancelar: cerrar,
+    };
+}
+
+/** "1,5" / "1.5" → piconero (string). null si no es un monto válido. */
+export function aAtomicas(texto) {
+    const t = String(texto || '').trim().replace(',', '.');
+    if (!/^\d+(\.\d{0,12})?$/.test(t)) return null;
+    const [ent, frac = ''] = t.split('.');
+    const n = BigInt(ent) * ATOMICAS + BigInt((frac + '000000000000').slice(0, 12));
+    return n > 0n ? String(n) : null;
+}
+
+/** "monero:4…?tx_amount=1.5" o una dirección suelta → { direccion, monto (texto) } | null */
+export function leerUri(texto) {
+    const t = String(texto || '').trim();
+    const m = /^monero:([1-9A-HJ-NP-Za-km-z]+)(\?.*)?$/i.exec(t);
+    const dir = m ? m[1] : t;
+    if (!esDireccion(dir)) return null;
+    const q = new URLSearchParams((m && m[2]) || '');
+    return { direccion: dir, monto: q.get('tx_amount') || '' };
 }
 
 /** piconero (string/bigint) → "1,234567" con hasta `dec` decimales, sin ceros de más. */

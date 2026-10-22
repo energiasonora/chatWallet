@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Ya podés mandar Monero.** Con Monero elegido, **Enviar** abre «Mandar Monero». Pegás la dirección (o escaneás un QR de Monero, que llena dirección y monto) y ponés cuánto, o tocás **Todo**. Con **Revisar**, la billetera se pone al día y arma la transacción en tu teléfono, sin mandarla todavía. Ves cuánto mandás, a quién, la comisión de la red y el total; recién con **Mandar** sale. Si algo no da, te dice por qué: la dirección no es válida, no alcanza contando la comisión, o la plata todavía espera confirmaciones (Monero la deja gastar a los ~20 minutos). Cada envío queda anotado en tu teléfono con su clave de transacción, que sirve para probar el pago más adelante.
+
 ## 3.82 — 2026-10-22
 
 - **Monero (XMR), primer paso: recibir y ver tu saldo.** En el selector de redes, debajo de Ğ1, ahora está **Monero (XMR)**. Tu cuenta de Monero sale de tu misma frase: si restaurás ChatWallet, la recuperás también. Todo pasa en tu teléfono: la billetera baja los bloques de un nodo y busca tus pagos con tu llave de lectura, que nunca sale del dispositivo. Ves tu saldo, tu dirección y tu QR para cobrar, y lo que todavía espera confirmaciones. En **Mis 25 palabras** tenés tu cuenta en el formato estándar de Monero, para abrirla también en Feather, Cake Wallet o Monerujo. En **Ajustes de Monero** podés elegir el nodo (también uno propio) y ponerlo al día **solo con wifi**: cada día sin abrir Monero son unos 28 MB. Para no gastar batería ni datos, se pone al día solo mientras lo estás mirando, nunca en segundo plano. **Mandar** Monero llega en la próxima versión.
