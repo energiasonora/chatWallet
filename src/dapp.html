@@ -972,6 +972,21 @@
             margin: .5rem .25rem;
         }
 
+        /* Red Monero elegida: igual que Ğ1, fuera los renglones de EVM. */
+        body.red-xmr #gasBalanceDisplay,
+        body.red-xmr #smartWalletBalanceDisplay,
+        body.red-xmr #stealthWalletBalanceDisplay,
+        body.red-xmr #receiveTabStealth {
+            display: none !important;
+        }
+        body:not(.red-xmr) #xmrWalletInfo { display: none; }
+        #xmrWalletInfo button { text-decoration: underline; text-underline-offset: 2px; }
+        #xmrWalletInfo .xmr-error, #xmrWalletEstado.xmr-error { color: #f87171; }
+        .xmr-palabras { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; }
+        .xmr-palabras span { background: rgba(0, 0, 0, .25); border-radius: .4rem; padding: .3rem .45rem; font: 12px ui-monospace, monospace; }
+        .xmr-palabras span i { opacity: .5; font-style: normal; margin-right: .3rem; }
+        body.theme-light .xmr-palabras span { background: #f3f4f6; }
+
         #userCardG1 {
             display: flex;
             flex-direction: column;
@@ -2630,6 +2645,15 @@
                             <div id="g1WalletInfo" class="mt-1 text-xs text-gray-400 space-y-0.5">
                                 <p id="g1WalletPendiente" class="hidden"></p>
                                 <p id="g1WalletIdentidad" class="hidden"></p>
+                            </div>
+                            <!-- Red Monero: estado de la puesta al día, lo que falta confirmar, 25 palabras y ajustes. -->
+                            <div id="xmrWalletInfo" class="hidden mt-1 text-xs text-gray-400 space-y-0.5">
+                                <p id="xmrWalletEstado"></p>
+                                <p id="xmrWalletPendiente" class="hidden"></p>
+                                <p class="flex gap-4 justify-center">
+                                    <button type="button" id="xmrPalabrasBtn" data-i18n-key="xmr_palabras_link">Mis 25 palabras</button>
+                                    <button type="button" id="xmrAjustesBtn" data-i18n-key="xmr_ajustes_link">Ajustes de Monero</button>
+                                </p>
                             </div>
                             <!-- Token Selector Menu -->
                         </div>
@@ -4832,6 +4856,18 @@
             window.cwCargarFrase = () => import('./js/frase.js');
             // La cadena Ğ1 (@polkadot/api): la parte pesada, solo con la red Ğ1 elegida.
             window.cwCargarCadenaG1 = () => import('./js/g1-cadena.js');
+            // Monero: la billetera WASM se empaqueta aparte (monero/build.sh → static/monero/) y
+            // se baja recién al elegir Monero. Ruta relativa: sirve en /dapp, en la APK y en IPFS.
+            window.cwCargarMonero = () => window.__cwMoneroCarga || (window.__cwMoneroCarga = new Promise((ok, mal) => {
+                const s = document.createElement('script');
+                s.src = 'monero/cw-monero.js';
+                s.onload = () => {
+                    try { window.cwMonero.configurar(new URL('monero/', location.href).href); ok(window.cwMonero); }
+                    catch (e) { window.__cwMoneroCarga = null; mal(e); }
+                };
+                s.onerror = () => { window.__cwMoneroCarga = null; s.remove(); mal(new Error('no se pudo bajar la billetera de Monero')); };
+                document.head.appendChild(s);
+            }));
 
 
         </script>
@@ -6586,6 +6622,7 @@
                 }
                 // Red Ğ1 elegida: el saldo sale del indexador Ğ1, no de un RPC EVM.
                 if (redG1Activa()) return pintarRedG1();
+                if (redXmrActiva()) return pintarRedXmr();
                 if (!provider || !currentWallet) {
                     setBalanceText('main', 'N/A');
                     setBalanceText('gas', 'N/A');
@@ -7919,7 +7956,7 @@
                 }
 
                 favoriteNetworks.forEach((token) => {
-                    const isSelected = token.originalIndex === currentTokenIndex && !redG1Activa();
+                    const isSelected = token.originalIndex === currentTokenIndex && !redG1Activa() && !redXmrActiva();
                     const item = document.createElement('button');
                     item.className = `w-full text-left p-3 hover:bg-gray-600/50 flex items-center justify-between transition-colors rounded-lg ${isSelected ? 'text-indigo-400 font-semibold' : ''}`;
                     item.innerHTML = `
@@ -7944,13 +7981,26 @@
                 if (g1Activa) g1Item.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>');
                 g1Item.onclick = () => { cerrarSelectorDeRed(); activarRedG1(); };
                 lista.appendChild(g1Item);
+                // Monero: también aparte (otra llave, otra cadena, autocustodia en el dispositivo).
+                const xmrActiva = redXmrActiva();
+                const xmrItem = document.createElement('button');
+                xmrItem.id = 'redXmrItem';
+                xmrItem.className = `w-full text-left p-3 hover:bg-gray-600/50 flex items-center justify-between transition-colors rounded-lg ${xmrActiva ? 'text-indigo-400 font-semibold' : ''}`;
+                const xmrNombre = document.createElement('span');
+                xmrNombre.textContent = 'Monero (XMR)';
+                xmrItem.appendChild(xmrNombre);
+                if (xmrActiva) xmrItem.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>');
+                xmrItem.onclick = () => { cerrarSelectorDeRed(); activarRedXmr(); };
+                lista.appendChild(xmrItem);
             }
 
             async function switchNetwork(index) {
                 // Volver de Ğ1 a una red EVM, aunque sea la misma que estaba elegida debajo.
                 const veniaDeG1 = redG1Activa();
                 if (veniaDeG1) salirRedG1();
-                if (index === currentTokenIndex && !veniaDeG1) {
+                const veniaDeXmr = redXmrActiva();
+                if (veniaDeXmr) salirRedXmr();
+                if (index === currentTokenIndex && !veniaDeG1 && !veniaDeXmr) {
                     cerrarSelectorDeRed();
                     if (sendModalTokenMenu) sendModalTokenMenu.classList.add('hidden');
                     return;
@@ -14219,6 +14269,7 @@
                     cwNotify({ title: t('g1_net_name'), body: t('g1_err', { e: e?.message || e }), type: 'error', duration: 10000 });
                     return;
                 }
+                if (redXmrActiva()) salirRedXmr();
                 localStorage.setItem(claveRedG1(), '1');
                 // Elegir Ğ1 a mano cuenta como elegir red (ver NET_PICKED_AT_KEY): no la pisa un cobro viejo.
                 localStorage.setItem(NET_PICKED_AT_KEY, String(Date.now()));
@@ -14657,6 +14708,390 @@
                 modal.classList.add('flex');
             });
 
+            // ── Red Monero (autocustodia) ───────────────────────────────────────────────
+            // Va debajo de las EVM, como Ğ1. La llave de gasto sale de la llave EVM (ver
+            // monero/cw-monero.mjs): restaurar ChatWallet con la frase recupera también el Monero,
+            // y las 25 palabras estándar dejan llevarse la cuenta a cualquier billetera de Monero.
+            // La librería (2,3 MB) se baja recién al elegir Monero. Ponerse al día corre en un
+            // worker que se cierra al terminar: el WASM no devuelve la memoria. No se sincroniza en
+            // segundo plano (gasta datos y batería): sólo con Monero elegido y la app a la vista.
+            // Funciones y `var`: renderTokenMenu() y updateBalance() las llaman antes (TDZ).
+            function claveRedXmr() { return `cw-red-xmr-${currentWallet?.address?.toLowerCase()}`; }
+            function claveEstadoXmr(dir) { return `cw-xmr-estado-${String(dir).toLowerCase()}`; }
+            var XMR_NODOS = ['https://xmr-node.cakewallet.com:18081', 'https://node.sethforprivacy.com'];
+            // Ningún ChatWallet tuvo Monero antes de este bloque (22/10/2026): desde acá se busca
+            // cuando la cuenta ya se usó en otro dispositivo.
+            var XMR_NACIMIENTO_MIN = 3789900;
+            var XMR_REFRESCO_MS = 2 * 60 * 1000;
+            var XMR_WIFI_KEY = 'cw-xmr-solo-wifi';
+            var XMR_NODO_KEY = 'cw-xmr-nodo';
+            var xmrSincronizando = null;
+            var xmrInfo = null;          // { progreso, faltan } | { espera: 'wifi' } | { error }
+
+            function redXmrActiva() {
+                return !!currentWallet && localStorage.getItem(claveRedXmr()) === '1';
+            }
+            function estadoXmr() { return currentWallet ? leerJSONLocal(claveEstadoXmr(currentWallet.address)) : null; }
+            function nodoXmr() { return localStorage.getItem(XMR_NODO_KEY) || XMR_NODOS[0]; }
+            function soloWifiXmr() { return localStorage.getItem(XMR_WIFI_KEY) === '1'; }
+            function enDatosMoviles() {
+                const c = navigator.connection;
+                return !!c && (c.type === 'cellular' || (c.type === undefined && c.saveData === true));
+            }
+            // piconero → "1,234567" (sin ceros de más). Copia de cwMonero.formato: pintar el saldo
+            // guardado no tiene que bajar la librería.
+            function formatoXmr(atomicas, dec = 6) {
+                const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+                let n = 0n; try { n = BigInt(atomicas || 0); } catch (e) { }
+                const U = 1000000000000n;
+                const frac = (n % U).toString().padStart(12, '0').slice(0, dec).replace(/0+$/, '');
+                const sep = (1.1).toLocaleString(lang).charAt(1);
+                const ent = Number(n / U).toLocaleString(lang, { useGrouping: 'always' });
+                return frac ? `${ent}${sep}${frac}` : ent;
+            }
+
+            // El estado de la billetera (salidas, historial) se guarda cifrado por monero-ts con una
+            // contraseña que sale de la llave. Va a IndexedDB: pesa ~1 MB, no entra en localStorage.
+            function dbXmr() {
+                return new Promise((ok, mal) => {
+                    const r = indexedDB.open('cw-monero', 1);
+                    r.onupgradeneeded = () => r.result.createObjectStore('datos');
+                    r.onsuccess = () => ok(r.result);
+                    r.onerror = () => mal(r.error);
+                });
+            }
+            async function leerDatosXmr(dir) {
+                const db = await dbXmr();
+                return new Promise((ok, mal) => {
+                    const q = db.transaction('datos').objectStore('datos').get(String(dir).toLowerCase());
+                    q.onsuccess = () => ok(q.result || null);
+                    q.onerror = () => mal(q.error);
+                });
+            }
+            async function guardarDatosXmr(dir, datos) {
+                const db = await dbXmr();
+                return new Promise((ok, mal) => {
+                    const tx = db.transaction('datos', 'readwrite');
+                    tx.objectStore('datos').put(datos, String(dir).toLowerCase());
+                    tx.oncomplete = () => ok();
+                    tx.onerror = () => mal(tx.error);
+                });
+            }
+
+            // Diálogo de Monero: arma el modal, `llenar(caja, cerrar)` pone el contenido.
+            function modalXmr(titulo, llenar) {
+                document.getElementById('xmrModal')?.remove();
+                const modal = document.createElement('div');
+                modal.id = 'xmrModal';
+                modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50';
+                const caja = document.createElement('div');
+                caja.className = 'bg-gray-800 rounded-xl p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto';
+                const h = document.createElement('h3');
+                h.className = 'text-lg font-bold';
+                h.textContent = titulo;
+                caja.appendChild(h);
+                modal.appendChild(caja);
+                const cerrar = () => modal.remove();
+                modal.addEventListener('click', (e) => { if (e.target === modal) cerrar(); });
+                llenar(caja, cerrar);
+                document.body.appendChild(modal);
+                return modal;
+            }
+            function botonXmr(texto, clase, fn) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = `px-4 py-2 rounded-lg ${clase}`;
+                b.textContent = texto;
+                b.onclick = fn;
+                return b;
+            }
+            function parrafoXmr(texto, clase = 'text-sm text-gray-300') {
+                const p = document.createElement('p');
+                p.className = clase;
+                p.textContent = texto;
+                return p;
+            }
+
+            // La primera vez en este dispositivo: ¿desde qué bloque buscar? Si la cuenta ya se usó
+            // en otro lado hay que buscar desde que ChatWallet tiene Monero; si es nueva, desde hoy
+            // (ponerse al día es mucho más rápido).
+            function preguntarNacimientoXmr() {
+                return new Promise((resolve) => {
+                    modalXmr(t('xmr_primera_titulo'), (caja, cerrar) => {
+                        caja.appendChild(parrafoXmr(t('xmr_primera_cuerpo')));
+                        const fila = document.createElement('div');
+                        fila.className = 'flex flex-col gap-2';
+                        fila.appendChild(botonXmr(t('xmr_primera_nueva'), 'bg-indigo-600 hover:bg-indigo-700', () => { cerrar(); resolve('nueva'); }));
+                        fila.appendChild(botonXmr(t('xmr_primera_usada'), 'bg-gray-600 hover:bg-gray-500', () => { cerrar(); resolve('usada'); }));
+                        fila.appendChild(botonXmr(t('g1_cancel'), 'text-gray-400', () => { cerrar(); resolve(null); }));
+                        caja.appendChild(fila);
+                    });
+                });
+            }
+
+            async function activarRedXmr() {
+                if (!currentWallet || !currentWallet.privateKey) return;
+                const dir = currentWallet.address;
+                if (!leerJSONLocal(claveEstadoXmr(dir))) {
+                    const uso = await preguntarNacimientoXmr();
+                    if (!uso) return;
+                    try {
+                        showToast(t('xmr_preparando'), 'info');
+                        const M = await window.cwCargarMonero();
+                        const c = await M.cuenta(currentWallet.privateKey);
+                        let nacimiento = XMR_NACIMIENTO_MIN;
+                        if (uso === 'nueva') {
+                            try { nacimiento = Math.max(XMR_NACIMIENTO_MIN, (await M.altura(nodoXmr())) - 20); } catch (e) { }
+                        }
+                        localStorage.setItem(claveEstadoXmr(dir), JSON.stringify({ direccion: c.direccion, nacimiento, total: '0', desbloqueado: '0', altura: 0, t: 0 }));
+                    } catch (e) {
+                        console.warn('[monero] activar:', e);
+                        cwNotify({ title: 'Monero', body: t('xmr_err', { e: e?.message || e }), type: 'error', duration: 10000 });
+                        return;
+                    }
+                }
+                if (redG1Activa()) salirRedG1();
+                localStorage.setItem(claveRedXmr(), '1');
+                localStorage.setItem(NET_PICKED_AT_KEY, String(Date.now()));
+                renderAddressQr(currentWallet.address);
+                await pintarRedXmr(true);
+            }
+
+            function salirRedXmr() {
+                localStorage.removeItem(claveRedXmr());
+                document.body.classList.remove('red-xmr');
+                xmrInfo = null;
+                const etiqueta = document.getElementById('qrAddressLabel');
+                if (etiqueta && currentWallet) etiqueta.textContent = `${currentWallet.address.slice(0, 8)}…${currentWallet.address.slice(-6)}`;
+                if (currentWallet) renderAddressQr(currentWallet.address);
+                setBalanceText('main', 'Cargando...');
+            }
+
+            // Los renglones de debajo del saldo: estado de la puesta al día, lo que falta confirmar
+            // y los accesos a las 25 palabras y a los ajustes.
+            function renderInfoXmr() {
+                const caja = document.getElementById('xmrWalletInfo');
+                const est = estadoXmr();
+                if (!caja) return;
+                if (!est || !redXmrActiva()) { caja.classList.add('hidden'); return; }
+                caja.classList.remove('hidden');
+                const lineaEstado = document.getElementById('xmrWalletEstado');
+                const lineaPend = document.getElementById('xmrWalletPendiente');
+                lineaEstado.replaceChildren();
+                lineaEstado.classList.remove('xmr-error');
+                const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+                if (xmrInfo && xmrInfo.progreso !== undefined) {
+                    lineaEstado.textContent = t('xmr_sincronizando', { pct: Math.floor(xmrInfo.progreso * 100), faltan: (xmrInfo.faltan || 0).toLocaleString(lang) });
+                } else if (xmrInfo && xmrInfo.espera === 'wifi') {
+                    lineaEstado.append(t('xmr_espera_wifi') + ' ');
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = t('xmr_ahora_igual');
+                    b.onclick = (e) => { e.stopPropagation(); pintarRedXmr(true, { aunConDatos: true }); };
+                    lineaEstado.appendChild(b);
+                } else if (xmrInfo && xmrInfo.error) {
+                    lineaEstado.classList.add('xmr-error');
+                    lineaEstado.append(t('xmr_sin_nodo') + ' ');
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = t('xmr_reintentar');
+                    b.onclick = (e) => { e.stopPropagation(); pintarRedXmr(true); };
+                    lineaEstado.appendChild(b);
+                } else if (est.t) {
+                    lineaEstado.append(t('xmr_al_dia', { hace: haceCuanto(est.t) }) + ' · ');
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = t('xmr_actualizar');
+                    b.onclick = (e) => { e.stopPropagation(); pintarRedXmr(true); };
+                    lineaEstado.appendChild(b);
+                }
+                let pend = 0n;
+                try { pend = BigInt(est.total || 0) - BigInt(est.desbloqueado || 0); } catch (e) { }
+                lineaPend.textContent = pend > 0n ? t('xmr_pendiente', { monto: isBalanceHidden() ? '••••' : formatoXmr(pend) }) : '';
+                lineaPend.classList.toggle('hidden', !(pend > 0n));
+            }
+
+            async function pintarRedXmr(forzar = false, { aunConDatos = false } = {}) {
+                const est = estadoXmr();
+                if (!est || !currentWallet) { salirRedXmr(); return; }
+                document.body.classList.add('red-xmr');
+                chainNameDisplay.textContent = 'Monero';
+                const etiqueta = document.getElementById('qrAddressLabel');
+                if (etiqueta) etiqueta.textContent = `${est.direccion.slice(0, 8)}…${est.direccion.slice(-6)}`;
+                setBalanceText('main', est.t ? `${formatoXmr(est.total)} XMR` : 'Cargando...');
+                renderInfoXmr();
+                if (!forzar && est.t && Date.now() - est.t < XMR_REFRESCO_MS) return;
+                if (xmrSincronizando) return xmrSincronizando;
+                if (document.visibilityState !== 'visible') return;
+                if (!aunConDatos && soloWifiXmr() && enDatosMoviles()) { xmrInfo = { espera: 'wifi' }; renderInfoXmr(); return; }
+                // Todo lo de esta vuelta queda atado a ESTA billetera, aunque mientras tanto se cambie.
+                const dir = currentWallet.address, priv = currentWallet.privateKey;
+                xmrSincronizando = (async () => {
+                    try {
+                        xmrInfo = { progreso: 0, faltan: 0 };
+                        renderInfoXmr();
+                        const M = await window.cwCargarMonero();
+                        let datos = null;
+                        try { datos = await leerDatosXmr(dir); } catch (e) { console.warn('[monero] estado guardado:', e); }
+                        const alProgreso = (f, faltan) => { xmrInfo = { progreso: f, faltan }; if (currentWallet?.address === dir) renderInfoXmr(); };
+                        const nodo = nodoXmr();
+                        let r;
+                        try { r = await M.sincronizar({ privEvm: priv, nodo, nacimiento: est.nacimiento, datos, alProgreso }); }
+                        catch (e) {
+                            // Con el nodo por defecto caído se prueba el otro. Uno elegido a mano no se cambia.
+                            if (localStorage.getItem(XMR_NODO_KEY)) throw e;
+                            console.warn('[monero] nodo', nodo, 'falló, pruebo otro:', e?.message || e);
+                            r = await M.sincronizar({ privEvm: priv, nodo: XMR_NODOS.find(n => n !== nodo), nacimiento: est.nacimiento, datos, alProgreso });
+                        }
+                        try { await guardarDatosXmr(dir, r.datos); } catch (e) { console.warn('[monero] guardar estado:', e); }
+                        const antes = leerJSONLocal(claveEstadoXmr(dir)) || est;
+                        localStorage.setItem(claveEstadoXmr(dir), JSON.stringify({ ...antes, total: r.total, desbloqueado: r.desbloqueado, altura: r.altura, t: Date.now() }));
+                        xmrInfo = null;
+                        if (currentWallet?.address !== dir || !redXmrActiva()) return;
+                        setBalanceText('main', `${formatoXmr(r.total)} XMR`);
+                        if (BigInt(r.total) > 0n) marcarWalletConFondos();
+                        if (antes.t && BigInt(r.total) > BigInt(antes.total || 0)) {
+                            showToast(t('xmr_llego', { monto: formatoXmr(BigInt(r.total) - BigInt(antes.total || 0)) }), 'success', 6000);
+                        }
+                    } catch (e) {
+                        console.warn('[monero] poner al día:', e?.message || e);
+                        xmrInfo = { error: e?.message || String(e) };
+                    } finally {
+                        xmrSincronizando = null;
+                        if (currentWallet?.address === dir) renderInfoXmr();
+                    }
+                })();
+                return xmrSincronizando;
+            }
+
+            // Las 25 palabras: la cuenta de Monero entera, para abrirla en otra billetera.
+            function abrirPalabrasXmr() {
+                const est = estadoXmr();
+                if (!est || !currentWallet) return;
+                modalXmr(t('xmr_palabras_titulo'), (caja, cerrar) => {
+                    caja.appendChild(parrafoXmr(t('xmr_palabras_aviso'), 'text-sm text-yellow-300'));
+                    caja.appendChild(parrafoXmr(t('xmr_palabras_para')));
+                    const zona = document.createElement('div');
+                    caja.appendChild(zona);
+                    const fila = document.createElement('div');
+                    fila.className = 'flex justify-end gap-3';
+                    const mostrar = botonXmr(t('xmr_palabras_mostrar'), 'bg-indigo-600 hover:bg-indigo-700', async () => {
+                        mostrar.disabled = true;
+                        mostrar.textContent = t('xmr_preparando');
+                        try {
+                            const M = await window.cwCargarMonero();
+                            const c = await M.cuenta(currentWallet.privateKey);
+                            const grilla = document.createElement('div');
+                            grilla.className = 'xmr-palabras';
+                            c.palabras.split(' ').forEach((p, i) => {
+                                const s = document.createElement('span');
+                                const n = document.createElement('i');
+                                n.textContent = String(i + 1);
+                                s.append(n, p);
+                                grilla.appendChild(s);
+                            });
+                            zona.replaceChildren(grilla, parrafoXmr(t('xmr_palabras_altura', { altura: est.nacimiento.toLocaleString('en').replace(/,/g, '') }), 'text-xs text-gray-400 mt-3'));
+                            mostrar.remove();
+                        } catch (e) {
+                            zona.replaceChildren(parrafoXmr(t('xmr_err', { e: e?.message || e }), 'text-sm text-red-400'));
+                            mostrar.disabled = false;
+                            mostrar.textContent = t('xmr_palabras_mostrar');
+                        }
+                    });
+                    fila.append(botonXmr(t('g1_cancel_close'), 'bg-gray-600 hover:bg-gray-500', cerrar), mostrar);
+                    caja.appendChild(fila);
+                });
+            }
+
+            // Nodo y "solo con wifi".
+            function abrirAjustesXmr() {
+                modalXmr(t('xmr_ajustes_titulo'), (caja, cerrar) => {
+                    caja.appendChild(parrafoXmr(t('xmr_ajustes_nodo')));
+                    const actual = localStorage.getItem(XMR_NODO_KEY) || '';
+                    const sel = document.createElement('select');
+                    sel.className = 'w-full bg-gray-700 rounded-lg p-2 text-sm';
+                    [['', t('xmr_nodo_auto')], ...XMR_NODOS.map(n => [n, new URL(n).hostname]), ['otro', t('xmr_nodo_otro')]].forEach(([v, txt]) => {
+                        const o = document.createElement('option');
+                        o.value = v; o.textContent = txt;
+                        sel.appendChild(o);
+                    });
+                    const propio = document.createElement('input');
+                    propio.type = 'url';
+                    propio.placeholder = 'https://mi-nodo:18081';
+                    propio.className = 'w-full bg-gray-700 rounded-lg p-2 text-sm font-mono hidden';
+                    if (actual && !XMR_NODOS.includes(actual)) { sel.value = 'otro'; propio.value = actual; propio.classList.remove('hidden'); }
+                    else sel.value = actual;
+                    sel.onchange = () => propio.classList.toggle('hidden', sel.value !== 'otro');
+                    caja.append(sel, propio, parrafoXmr(t('xmr_nodo_nota'), 'text-xs text-gray-400'));
+                    const filaWifi = document.createElement('label');
+                    filaWifi.className = 'flex items-start gap-3 cursor-pointer';
+                    const wifi = document.createElement('input');
+                    wifi.type = 'checkbox';
+                    wifi.checked = soloWifiXmr();
+                    wifi.className = 'mt-1 w-4 h-4';
+                    const txt = document.createElement('span');
+                    txt.className = 'text-sm text-gray-200';
+                    txt.textContent = t('xmr_solo_wifi');
+                    const desc = document.createElement('span');
+                    desc.className = 'block text-xs text-gray-400';
+                    desc.textContent = t('xmr_solo_wifi_desc');
+                    txt.appendChild(desc);
+                    filaWifi.append(wifi, txt);
+                    caja.appendChild(filaWifi);
+                    const error = parrafoXmr('', 'text-sm text-red-400 min-h-[1.25rem]');
+                    caja.appendChild(error);
+                    const fila = document.createElement('div');
+                    fila.className = 'flex justify-end gap-3';
+                    fila.append(botonXmr(t('g1_cancel'), 'bg-gray-600 hover:bg-gray-500', cerrar),
+                        botonXmr(t('xmr_guardar'), 'bg-indigo-600 hover:bg-indigo-700', () => {
+                            let nodo = sel.value === 'otro' ? propio.value.trim() : sel.value;
+                            if (nodo) {
+                                try { const u = new URL(nodo); if (!/^https?:$/.test(u.protocol)) throw 0; nodo = u.origin; }
+                                catch (e) { error.textContent = t('xmr_nodo_invalido'); return; }
+                            }
+                            if (nodo) localStorage.setItem(XMR_NODO_KEY, nodo); else localStorage.removeItem(XMR_NODO_KEY);
+                            localStorage.setItem(XMR_WIFI_KEY, wifi.checked ? '1' : '0');
+                            cerrar();
+                            if (redXmrActiva()) pintarRedXmr(true);
+                        }));
+                    caja.appendChild(fila);
+                });
+            }
+            document.getElementById('xmrPalabrasBtn')?.addEventListener('click', (e) => { e.stopPropagation(); abrirPalabrasXmr(); });
+            document.getElementById('xmrAjustesBtn')?.addEventListener('click', (e) => { e.stopPropagation(); abrirAjustesXmr(); });
+
+            // Enviar, Recibir y copiar con Monero elegido: no van al flujo EVM (igual que Ğ1).
+            function desvioXmr(id, fn) {
+                document.getElementById(id)?.addEventListener('click', (e) => {
+                    if (!redXmrActiva()) return;
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    fn(e);
+                }, true);
+            }
+            desvioXmr('sendBtn', () => showToast(t('xmr_mandar_pronto'), 'info', 5000));
+            desvioXmr('qrAddressBtn', () => {
+                const est = estadoXmr();
+                if (est) navigator.clipboard.writeText(est.direccion).then(() => showToast(t('xmr_copiada'), 'success')).catch(() => { });
+            });
+            desvioXmr('receiveBtn', () => {
+                const est = estadoXmr();
+                const modal = document.getElementById('receiveModal');
+                if (!est || !modal) return;
+                document.getElementById('receiveStandardAddress').textContent = est.direccion;
+                const qrEl = document.getElementById('receiveStandardQr');
+                qrEl.innerHTML = '';
+                new QRCodeStyling({
+                    width: 220, height: 220, type: 'svg', data: `monero:${est.direccion}`, margin: 14,
+                    dotsOptions: { color: '#000', type: 'rounded' },
+                    backgroundOptions: { color: '#fff' }
+                }).append(qrEl);
+                document.getElementById('receiveStandardContent')?.classList.remove('hidden');
+                document.getElementById('receiveStealthContent')?.classList.add('hidden');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            });
+
             // Un link por línea. Se muestra lo que escribió el usuario, pero se navega a una URL
             // validada: sin esquema se asume https, y lo que no sea http(s) se descarta.
             function pintarLinks(linksEl, raw) {
@@ -14696,6 +15131,7 @@
 
             function updateChainName() {
                 if (redG1Activa()) { chainNameDisplay.textContent = t('g1_net_name'); return; }
+                if (redXmrActiva()) { chainNameDisplay.textContent = 'Monero'; return; }
                 const selectedNetwork = optionsList[currentTokenIndex];
                 if (selectedNetwork) {
                     chainNameDisplay.textContent = selectedNetwork.TOKEN_CHAIN_NAME;
@@ -14714,7 +15150,9 @@
                 // Con la red Ğ1 elegida, el QR de la billetera es la cuenta Ğ1 a secas: es lo que
                 // leen Ğecko y Cesium² para pagarte.
                 const g1 = redG1Activa() && cuentaG1Guardada();
-                const chatUrl = g1 ? g1.g1 : (pk ? `${baseUrl}?address=${address}&pk=${pk}` : `${baseUrl}?address=${address}`);
+                // Con Monero, el QR es el URI estándar: lo leen Feather, Cake, Monerujo…
+                const xmr = !g1 && redXmrActiva() && estadoXmr();
+                const chatUrl = g1 ? g1.g1 : xmr ? `monero:${xmr.direccion}` : (pk ? `${baseUrl}?address=${address}&pk=${pk}` : `${baseUrl}?address=${address}`);
                 // Tema claro = modo escaneo: módulos NEGROS sobre fondo BLANCO con margen
                 // (zona de silencio). El QR índigo-sobre-oscuro es lindo pero los lectores
                 // lo detectan mal (bajo contraste y sin quiet zone).
@@ -17290,7 +17728,7 @@
                 const clave = cwClavePrecio(net);
                 const moneda = cwMoneda();
                 // Ğ1, "Cargando...", errores, testnets, tokens sin precio, o ETH mostrado en ETH: nada.
-                if (!net || redG1Activa() || !/^[\d.]/.test(txt || '') || !isFinite(cantidad)
+                if (!net || redG1Activa() || redXmrActiva() || !/^[\d.]/.test(txt || '') || !isFinite(cantidad)
                     || !clave || clave === 'TESTNET' || clave === moneda) { el.textContent = ''; return; }
                 const precios = await cwPreciosUsd();
                 const tasa = await cwTasa(moneda, precios);
@@ -22607,6 +23045,39 @@
                     "settings_hide_balance": "Ocultar el saldo",
                     "settings_hide_balance_desc": "Muestra •••• en vez del monto. También se prende y apaga con el ojo, al lado del saldo.",
                     "settings_read_receipts": "Confirmaciones de lectura",
+                    "xmr_palabras_link": "Mis 25 palabras",
+                    "xmr_ajustes_link": "Ajustes de Monero",
+                    "xmr_primera_titulo": "Monero en este dispositivo",
+                    "xmr_primera_cuerpo": "Tu cuenta de Monero sale de tu misma frase y queda solo en este teléfono. ¿Ya usaste Monero con esta billetera en otro dispositivo? Si no, empieza desde hoy y se pone al día en segundos. Si sí, la busca desde que ChatWallet tiene Monero (tarda más).",
+                    "xmr_primera_nueva": "Es la primera vez",
+                    "xmr_primera_usada": "Ya lo usé en otro dispositivo",
+                    "xmr_preparando": "Preparando Monero…",
+                    "xmr_err": "Monero: {e}",
+                    "xmr_sincronizando": "Poniéndose al día… {pct} % (faltan {faltan} bloques)",
+                    "xmr_espera_wifi": "Esperando wifi para ponerse al día.",
+                    "xmr_ahora_igual": "Ahora igual",
+                    "xmr_sin_nodo": "El nodo de Monero no respondió.",
+                    "xmr_reintentar": "Reintentar",
+                    "xmr_al_dia": "Al día (hace {hace})",
+                    "xmr_actualizar": "Actualizar",
+                    "xmr_pendiente": "{monto} XMR esperando confirmaciones",
+                    "xmr_llego": "Llegaron {monto} XMR",
+                    "xmr_palabras_titulo": "Tus 25 palabras de Monero",
+                    "xmr_palabras_aviso": "Con estas palabras cualquiera puede gastar tu Monero. No las compartas ni les saques foto.",
+                    "xmr_palabras_para": "Sirven para abrir esta misma cuenta en otra billetera de Monero (Feather, Cake Wallet, Monerujo…). ChatWallet no las necesita: salen de tu frase de siempre.",
+                    "xmr_palabras_mostrar": "Mostrar",
+                    "xmr_palabras_altura": "Al restaurarlas en otra billetera, como altura de restauración poné {altura}.",
+                    "xmr_ajustes_titulo": "Ajustes de Monero",
+                    "xmr_ajustes_nodo": "Nodo: de dónde se bajan los bloques. Tu llave de lectura nunca sale del teléfono, pero el nodo ve tu IP.",
+                    "xmr_nodo_auto": "Automático (el que responda)",
+                    "xmr_nodo_otro": "Mi propio nodo…",
+                    "xmr_nodo_nota": "Un nodo propio tiene que aceptar pedidos del navegador (opción --rpc-access-control-origins de monerod).",
+                    "xmr_nodo_invalido": "Esa dirección de nodo no es válida.",
+                    "xmr_solo_wifi": "Ponerse al día solo con wifi",
+                    "xmr_solo_wifi_desc": "Cada día sin abrir Monero son unos 28 MB de bloques. Con esto prendido, en datos móviles espera al wifi.",
+                    "xmr_guardar": "Guardar",
+                    "xmr_mandar_pronto": "Mandar Monero llega en la próxima versión. Por ahora podés recibir y ver tu saldo.",
+                    "xmr_copiada": "Dirección de Monero copiada",
                     "settings_read_receipts_desc": "Le avisás a quien te escribe que viste su mensaje (✓✓ celeste). Si las apagás, tampoco ves las de los demás. Solo en chats de a dos.",
                     "tilde_enviado": "Enviado",
                     "tilde_visto": "Visto",
@@ -23175,6 +23646,39 @@
                     "settings_hide_balance": "Hide the balance",
                     "settings_hide_balance_desc": "Shows •••• instead of the amount. You can also toggle it with the eye next to the balance.",
                     "settings_read_receipts": "Read receipts",
+                    "xmr_palabras_link": "My 25 words",
+                    "xmr_ajustes_link": "Monero settings",
+                    "xmr_primera_titulo": "Monero on this device",
+                    "xmr_primera_cuerpo": "Your Monero account comes from your same phrase and stays only on this phone. Have you already used Monero with this wallet on another device? If not, it starts from today and catches up in seconds. If you have, it searches from when ChatWallet got Monero (takes longer).",
+                    "xmr_primera_nueva": "It's my first time",
+                    "xmr_primera_usada": "I've used it on another device",
+                    "xmr_preparando": "Preparing Monero…",
+                    "xmr_err": "Monero: {e}",
+                    "xmr_sincronizando": "Catching up… {pct}% ({faltan} blocks left)",
+                    "xmr_espera_wifi": "Waiting for wifi to catch up.",
+                    "xmr_ahora_igual": "Do it now",
+                    "xmr_sin_nodo": "The Monero node didn't respond.",
+                    "xmr_reintentar": "Retry",
+                    "xmr_al_dia": "Up to date ({hace} ago)",
+                    "xmr_actualizar": "Refresh",
+                    "xmr_pendiente": "{monto} XMR waiting for confirmations",
+                    "xmr_llego": "{monto} XMR arrived",
+                    "xmr_palabras_titulo": "Your 25 Monero words",
+                    "xmr_palabras_aviso": "Anyone with these words can spend your Monero. Don't share them or take photos of them.",
+                    "xmr_palabras_para": "They open this same account in another Monero wallet (Feather, Cake Wallet, Monerujo…). ChatWallet doesn't need them: they come from your usual phrase.",
+                    "xmr_palabras_mostrar": "Show",
+                    "xmr_palabras_altura": "When restoring them in another wallet, use {altura} as the restore height.",
+                    "xmr_ajustes_titulo": "Monero settings",
+                    "xmr_ajustes_nodo": "Node: where blocks are downloaded from. Your view key never leaves the phone, but the node sees your IP.",
+                    "xmr_nodo_auto": "Automatic (whichever responds)",
+                    "xmr_nodo_otro": "My own node…",
+                    "xmr_nodo_nota": "Your own node must accept browser requests (monerod's --rpc-access-control-origins option).",
+                    "xmr_nodo_invalido": "That node address isn't valid.",
+                    "xmr_solo_wifi": "Catch up on wifi only",
+                    "xmr_solo_wifi_desc": "Each day without opening Monero is about 28 MB of blocks. With this on, it waits for wifi when on mobile data.",
+                    "xmr_guardar": "Save",
+                    "xmr_mandar_pronto": "Sending Monero comes in the next version. For now you can receive and see your balance.",
+                    "xmr_copiada": "Monero address copied",
                     "settings_read_receipts_desc": "Let people know you saw their message (light-blue ✓✓). If you turn them off, you won’t see theirs either. One-to-one chats only.",
                     "tilde_enviado": "Sent",
                     "tilde_visto": "Seen",
@@ -23743,6 +24247,39 @@
                     "settings_hide_balance": "Masquer le solde",
                     "settings_hide_balance_desc": "Affiche •••• au lieu du montant. L'œil à côté du solde fait la même chose.",
                     "settings_read_receipts": "Confirmations de lecture",
+                    "xmr_palabras_link": "Mes 25 mots",
+                    "xmr_ajustes_link": "Réglages Monero",
+                    "xmr_primera_titulo": "Monero sur cet appareil",
+                    "xmr_primera_cuerpo": "Votre compte Monero vient de votre même phrase et reste uniquement sur ce téléphone. Avez-vous déjà utilisé Monero avec ce portefeuille sur un autre appareil ? Sinon, il part d'aujourd'hui et se met à jour en quelques secondes. Si oui, il cherche depuis l'arrivée de Monero dans ChatWallet (plus long).",
+                    "xmr_primera_nueva": "C'est la première fois",
+                    "xmr_primera_usada": "Je l'ai déjà utilisé ailleurs",
+                    "xmr_preparando": "Préparation de Monero…",
+                    "xmr_err": "Monero : {e}",
+                    "xmr_sincronizando": "Mise à jour… {pct} % ({faltan} blocs restants)",
+                    "xmr_espera_wifi": "En attente du wifi pour se mettre à jour.",
+                    "xmr_ahora_igual": "Maintenant quand même",
+                    "xmr_sin_nodo": "Le nœud Monero n'a pas répondu.",
+                    "xmr_reintentar": "Réessayer",
+                    "xmr_al_dia": "À jour (il y a {hace})",
+                    "xmr_actualizar": "Actualiser",
+                    "xmr_pendiente": "{monto} XMR en attente de confirmations",
+                    "xmr_llego": "{monto} XMR reçus",
+                    "xmr_palabras_titulo": "Vos 25 mots Monero",
+                    "xmr_palabras_aviso": "Avec ces mots, n'importe qui peut dépenser vos Monero. Ne les partagez pas et ne les photographiez pas.",
+                    "xmr_palabras_para": "Ils ouvrent ce même compte dans un autre portefeuille Monero (Feather, Cake Wallet, Monerujo…). ChatWallet n'en a pas besoin : ils viennent de votre phrase habituelle.",
+                    "xmr_palabras_mostrar": "Afficher",
+                    "xmr_palabras_altura": "En les restaurant dans un autre portefeuille, indiquez {altura} comme hauteur de restauration.",
+                    "xmr_ajustes_titulo": "Réglages Monero",
+                    "xmr_ajustes_nodo": "Nœud : d'où les blocs sont téléchargés. Votre clé de lecture ne quitte jamais le téléphone, mais le nœud voit votre IP.",
+                    "xmr_nodo_auto": "Automatique (celui qui répond)",
+                    "xmr_nodo_otro": "Mon propre nœud…",
+                    "xmr_nodo_nota": "Votre propre nœud doit accepter les requêtes du navigateur (option --rpc-access-control-origins de monerod).",
+                    "xmr_nodo_invalido": "Cette adresse de nœud n'est pas valide.",
+                    "xmr_solo_wifi": "Se mettre à jour uniquement en wifi",
+                    "xmr_solo_wifi_desc": "Chaque jour sans ouvrir Monero représente environ 28 Mo de blocs. Activé, il attend le wifi en données mobiles.",
+                    "xmr_guardar": "Enregistrer",
+                    "xmr_mandar_pronto": "L'envoi de Monero arrive dans la prochaine version. Pour l'instant, vous pouvez recevoir et voir votre solde.",
+                    "xmr_copiada": "Adresse Monero copiée",
                     "settings_read_receipts_desc": "Indique à qui vous écrit que vous avez vu son message (✓✓ bleu clair). Si vous les désactivez, vous ne voyez pas non plus celles des autres. Seulement dans les discussions à deux.",
                     "tilde_enviado": "Envoyé",
                     "tilde_visto": "Vu",
@@ -23835,6 +24372,7 @@
                 // sin esto se quedaba en el idioma anterior hasta el próximo latido del otro.
                 if (currentChatContact) updateChatHeaderStatus(currentChatContact);
                 if (currentWallet && redG1Activa()) pintarRedG1();
+                if (currentWallet && redXmrActiva()) pintarRedXmr();
             }
 
             function initializeLanguage() {

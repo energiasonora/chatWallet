@@ -1,0 +1,12 @@
+{
+  "name": "cw-monero",
+  "private": true,
+  "description": "Billetera Monero de ChatWallet: se empaqueta aparte (esbuild) a src/static/monero/ y la dapp la carga sólo al elegir Monero.",
+  "scripts": { "build": "bash build.sh" },
+  "dependencies": {
+    "@noble/hashes": "1.8.0",
+    "assert": "2.1.0",
+    "monero-ts": "0.11.20"
+  },
+  "devDependencies": { "esbuild": "0.24.0" }
+}

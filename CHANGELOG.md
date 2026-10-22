@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Monero (XMR), primer paso: recibir y ver tu saldo.** En el selector de redes, debajo de Ğ1, ahora está **Monero (XMR)**. Tu cuenta de Monero sale de tu misma frase: si restaurás ChatWallet, la recuperás también. Todo pasa en tu teléfono: la billetera baja los bloques de un nodo y busca tus pagos con tu llave de lectura, que nunca sale del dispositivo. Ves tu saldo, tu dirección y tu QR para cobrar, y lo que todavía espera confirmaciones. En **Mis 25 palabras** tenés tu cuenta en el formato estándar de Monero, para abrirla también en Feather, Cake Wallet o Monerujo. En **Ajustes de Monero** podés elegir el nodo (también uno propio) y ponerlo al día **solo con wifi**: cada día sin abrir Monero son unos 28 MB. Para no gastar batería ni datos, se pone al día solo mientras lo estás mirando, nunca en segundo plano. **Mandar** Monero llega en la próxima versión.
+
 ## 3.81 — 2026-10-22
 
 - **Vistos: ahora sabés si leyeron tu mensaje.** Cada mensaje que mandás lleva un tilde gris (✓) cuando sale, y pasa a dos tildes celestes (✓✓) cuando la otra persona abre el chat y lo ve, como en WhatsApp. El aviso viaja cifrado como cualquier mensaje. Antes había siempre dos tildes grises que no querían decir nada. Si no querés que sepan cuándo leíste, apagá **Configuración → Confirmaciones de lectura**; igual que en WhatsApp, entonces tampoco ves las de los demás. Por ahora solo en chats de a dos.
