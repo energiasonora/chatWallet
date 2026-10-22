@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Vistos: ahora sabés si leyeron tu mensaje.** Cada mensaje que mandás lleva un tilde gris (✓) cuando sale, y pasa a dos tildes celestes (✓✓) cuando la otra persona abre el chat y lo ve, como en WhatsApp. El aviso viaja cifrado como cualquier mensaje. Antes había siempre dos tildes grises que no querían decir nada. Si no querés que sepan cuándo leíste, apagá **Configuración → Confirmaciones de lectura**; igual que en WhatsApp, entonces tampoco ves las de los demás. Por ahora solo en chats de a dos.
+
 ## 3.80 — 2026-10-22
 
 - **Mensajes de voz.** Con el campo de texto vacío, el botón de enviar pasa a ser un micrófono: lo tocás, hablás y lo mandás (o lo descartás con el tachito). Hasta 2 minutos por mensaje. El audio viaja cifrado de punta a punta dentro del mismo mensaje, como un texto: no se sube a ningún servidor. Del otro lado se ve con su duración y su onda, se escucha ahí mismo y se puede acelerar a 1,5× o 2×. También se pueden reenviar. Quien te escuche tiene que tener esta versión o una más nueva: en las anteriores el audio no se ve bien. En la app de Android, la primera vez te pide permiso para usar el micrófono.

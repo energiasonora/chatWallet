@@ -627,6 +627,13 @@
             color: white !important
         }
 
+        /* Tildes: ✓ salió a la red · ✓✓ celeste = el otro lo vio (recibo de lectura de XMTP) */
+        .status-icon { display: inline-flex; margin-left: 3px; }
+        .status-icon svg { width: 18px; height: 14px; color: #9ca3af !important; transition: color .3s; }
+        .status-icon.cw-visto svg { color: #38bdf8 !important; }
+        body.theme-light .status-icon svg { color: #6b7280 !important; }
+        body.theme-light .status-icon.cw-visto svg { color: #0284c7 !important; }
+
         /* Sidebar Styles */
         .sidebar-overlay {
             position: fixed;
@@ -4306,6 +4313,17 @@
                                 •••• en vez del monto. También se prende y apaga con el ojo, al lado del saldo.</span>
                         </label>
                     </div>
+                    <div class="flex items-start gap-3">
+                        <input type="checkbox" id="readReceiptsToggle"
+                            class="mt-1 w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 bg-gray-700">
+                        <label for="readReceiptsToggle" class="cursor-pointer select-none">
+                            <span class="text-sm text-gray-200" data-i18n-key="settings_read_receipts">Confirmaciones de
+                                lectura</span>
+                            <span class="block text-xs text-gray-500" data-i18n-key="settings_read_receipts_desc">Le
+                                avisás a quien te escribe que viste su mensaje (✓✓ celeste). Si las apagás, tampoco ves
+                                las de los demás. Solo en chats de a dos.</span>
+                        </label>
+                    </div>
                     <div class="flex items-center justify-between gap-3">
                         <label for="settingsCurrency" class="select-none">
                             <span class="text-sm text-gray-200" data-i18n-key="settings_currency">Moneda para ver el
@@ -6545,6 +6563,16 @@
                 openOnLastPaidToggle.checked = localStorage.getItem(OPEN_ON_LAST_PAID_KEY) !== '0';
                 openOnLastPaidToggle.addEventListener('change', () => {
                     localStorage.setItem(OPEN_ON_LAST_PAID_KEY, openOnLastPaidToggle.checked ? '1' : '0');
+                });
+            }
+
+            // Confirmaciones de lectura (vistos): global, prendidas por defecto.
+            const readReceiptsToggle = document.getElementById('readReceiptsToggle');
+            if (readReceiptsToggle) {
+                readReceiptsToggle.checked = cwVistosActivos();
+                readReceiptsToggle.addEventListener('change', () => {
+                    try { localStorage.setItem(VISTOS_OFF_KEY, readReceiptsToggle.checked ? '0' : '1'); } catch (e) { }
+                    cwPintarVistos();
                 });
             }
 
@@ -11881,6 +11909,11 @@
                                     message.contentType.typeId === 'presence' ||
                                     message.contentType.typeId === 'profile') {
                                     // Ignorar silenciosamente estos tipos para el flujo principal
+                                    // Recibo de lectura del otro: lo que le mandé hasta acá ya lo vio.
+                                    if ((message.contentType.typeId === 'readReceipt' || message.contentType.typeId === 'read-receipt')
+                                        && message.senderInboxId !== chatwalletxmtp.inboxId) {
+                                        cwAnotarVisto(message.conversationId, message.sentAt ? message.sentAt.getTime() : 0);
+                                    }
                                     if (message.contentType.typeId === 'presence') {
                                         handlePresenceMessage(message);
                                     } else if (message.contentType.typeId === 'profile') {
@@ -11951,18 +11984,9 @@
 
                                 if (isChatOpen) {
                                     addMessageToUI(message, type);
-                                    if (!isSentByMe && (message.contentType.typeId === 'text' || message.contentType.typeId === 'reply' || message.contentType.typeId === 'attachment')) {
-                                        // Send read receipt ONLY for text messages to avoid loops
-                                        try {
-                                            const codec = new window.ReadReceiptCodec();
-                                            const encoded = codec.encode({ messageId: message.id });
-                                            if (!encoded.parameters) encoded.parameters = {};
-                                            await currentConversation.send(encoded);
-                                            console.log("Recibo de lectura enviado para", message.id);
-                                        } catch (e) {
-                                            console.warn("Could not send read receipt:", e);
-                                        }
-                                    }
+                                    // Visto: sólo por mensajes de verdad (no por recibos ni perfiles,
+                                    // que harían un ida y vuelta sin fin) y sólo si se está mirando.
+                                    if (!isSentByMe && cwPideVisto(message)) await cwMandarVisto(currentConversation);
                                 }
 
                                 const messageTimestamp = message.sentAt ? message.sentAt.getTime() : new Date().getTime();
@@ -12490,9 +12514,12 @@
                     }
                     const entries = [];
                     const conReacciones = [];   // las reacciones colgadas de los mensajes (ver abajo)
+                    let ultimoAjenoMs = 0;       // el mensaje más nuevo del otro (para el visto)
                     for (const message of existingMessages) {
                         const typeId = message.contentType.typeId;
                         if (typeId === 'readReceipt' || typeId === 'read-receipt' || typeId === 'presence') continue;
+                        if (message.senderInboxId !== chatwalletxmtp.inboxId && cwPideVisto(message) && message.sentAt)
+                            ultimoAjenoMs = Math.max(ultimoAjenoMs, message.sentAt.getTime());
                         // Perfiles que llegaron mientras estábamos offline: aplicarlos (alias/avatar
                         // del contacto) en vez de renderizarlos como un mensaje en el chat.
                         if (typeId === 'profile') { handleProfileMessage(message); continue; }
@@ -12544,6 +12571,8 @@
                     // Y de paso, comparar el hilo con la otra punta: si a alguno le faltan
                     // mensajes (base borrada, push perdida), el otro se los completa.
                     if (peerAddr && !convIsGroup(conv)) syncMandarResumen(conv, peerAddr);
+                    // Tildes: hasta dónde leyó el otro, y mi visto si quedó alguno sin mandar.
+                    if (!convIsGroup(conv)) cwRevisarVistos(conv, ultimoAjenoMs);
                 } catch (error) {
                     console.error("Error al cargar mensajes:", error);
                     if (token !== chatOpenToken) return;
@@ -12638,12 +12667,17 @@
                             const before = processedMessages.size;
                             await currentConversation.sync();
                             const msgs = await currentConversation.messages({ limit: 1000n });
+                            let ultimoAjenoMs = 0;
                             for (const message of msgs) {
                                 const typeId = message.contentType.typeId;
                                 if (typeId === 'readReceipt' || typeId === 'read-receipt' || typeId === 'presence' || typeId === 'profile') continue;
                                 const type = message.senderInboxId === chatwalletxmtp.inboxId ? 'sent' : 'received';
+                                if (type === 'received' && cwPideVisto(message) && message.sentAt)
+                                    ultimoAjenoMs = Math.max(ultimoAjenoMs, message.sentAt.getTime());
                                 addMessageToUI(message, type);
                             }
+                            // Al volver al primer plano: vistos del otro y el mío si quedó pendiente.
+                            if (!convIsGroup(currentConversation)) cwRevisarVistos(currentConversation, ultimoAjenoMs);
                             const added = processedMessages.size - before;
                             if (added > 0) console.log(`🔄 Resync: ${added} mensaje(s) nuevo(s) recuperado(s).`);
                         }
@@ -13845,12 +13879,8 @@
                         const statusSpan = document.createElement('span');
                         statusSpan.className = 'status-icon';
                         statusSpan.id = `status-${message.id}`;
-                        statusSpan.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500">
-                        <path d="M20 6L9 17l-5-5"></path>
-                        <path d="M15 6l-9 9"></path>
-                        </svg>
-                    `;
+                        statusSpan.dataset.ms = String(message.sentAt ? message.sentAt.getTime() : 0);
+                        cwPintarTilde(statusSpan);
                         metadataDiv.appendChild(statusSpan);
                     }
 
@@ -13871,13 +13901,82 @@
                 if (reactionsByMsg.has(message.id)) renderReactionsBar(message.id);
             }
 
-            function updateMessageStatusToRead(messageId) {
-                const statusIcon = document.querySelector(`#status-${messageId} svg`);
-                if (statusIcon) {
-                    statusIcon.classList.remove('text-gray-500');
-                    statusIcon.classList.add('text-blue-400'); // Blue for read
-                }
+            // ── Vistos (tildes) ─────────────────────────────────────────────────────────
+            // ✓ = el mensaje está en la red. ✓✓ celeste = el otro abrió el chat después de que
+            // llegó. Sale del recibo de lectura estándar de XMTP: un solo recibo marca leído todo
+            // lo anterior (lastReadTimes() da, por persona, la hora de red de su último recibo).
+            // No hay "entregado": XMTP no lo tiene, y fabricarlo obligaría al teléfono del otro a
+            // contestar solo cada vez que recibe algo (batería, y delata cuándo está conectado).
+            // Sólo en chats de a dos. Como en WhatsApp, quien apaga los vistos tampoco los ve.
+            var VISTOS_OFF_KEY = 'cw-vistos-off';   // var: el interruptor de Configuración la lee antes (TDZ)
+            const cwVistoMs = new Map();   // convId → ms de red hasta donde leyó el otro
+            const TILDE_UNO = '<svg viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9.5l4.5 4.5L18 4.5"/></svg>';
+            const TILDE_DOS = '<svg viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 9.5L6 14l8.5-9.5"/><path d="M10 13l1 1 9.5-9.5"/></svg>';
+            function cwVistosActivos() {
+                try { return localStorage.getItem(VISTOS_OFF_KEY) !== '1'; } catch (e) { return true; }
             }
+            function cwPintarTilde(span) {
+                const ms = Number(span.dataset.ms || 0);
+                const hasta = currentConversation ? (cwVistoMs.get(currentConversation.id) || 0) : 0;
+                const visto = !currentGroup && cwVistosActivos() && ms > 0 && ms <= hasta;
+                const estado = visto ? 'visto' : 'enviado';
+                if (span.dataset.estado === estado) return;
+                span.dataset.estado = estado;
+                span.classList.toggle('cw-visto', visto);
+                span.innerHTML = visto ? TILDE_DOS : TILDE_UNO;
+                span.title = t(visto ? 'tilde_visto' : 'tilde_enviado');
+            }
+            function cwPintarVistos() {
+                messagesContainer.querySelectorAll('.status-icon[data-ms]').forEach(cwPintarTilde);
+            }
+            function cwAnotarVisto(convId, ms) {
+                if (!convId || !(ms > (cwVistoMs.get(convId) || 0))) return;
+                cwVistoMs.set(convId, ms);
+                if (currentConversation && currentConversation.id === convId) cwPintarVistos();
+            }
+            const cwNsAMs = (ns) => { try { return Number(BigInt(ns) / 1000000n); } catch (e) { return 0; } };
+            // Lee de la base local hasta dónde leyó cada uno: { otro, yo } en ms de red.
+            async function cwLeidoHasta(conv) {
+                const r = { otro: 0, yo: 0 };
+                if (!conv || convIsGroup(conv) || typeof conv.lastReadTimes !== 'function') return r;
+                const mapa = await conv.lastReadTimes();
+                const filas = mapa instanceof Map ? mapa.entries() : Object.entries(mapa || {});
+                for (const [inbox, ns] of filas) {
+                    const ms = cwNsAMs(ns);
+                    if (inbox === chatwalletxmtp?.inboxId) r.yo = Math.max(r.yo, ms);
+                    else r.otro = Math.max(r.otro, ms);
+                }
+                return r;
+            }
+            // Al abrir el chat o resincronizar: pinta los vistos y, si hay mensajes del otro
+            // que todavía no confirmé (llegaron con la app cerrada), manda UN recibo.
+            async function cwRevisarVistos(conv, ultimoAjenoMs) {
+                try {
+                    const leido = await cwLeidoHasta(conv);
+                    cwAnotarVisto(conv.id, leido.otro);
+                    if (ultimoAjenoMs > leido.yo) await cwMandarVisto(conv);
+                } catch (e) { console.warn('[vistos] revisar:', e?.message || e); }
+            }
+            async function cwMandarVisto(conv) {
+                if (!conv || convIsGroup(conv) || !cwVistosActivos()) return;
+                // Sólo si el chat está a la vista: con la pantalla apagada no lo leyó nadie.
+                // Al volver, el resync de primer plano llama a cwRevisarVistos y lo manda.
+                if (document.visibilityState !== 'visible' || !chatView.classList.contains('active')
+                    || !currentConversation || currentConversation.id !== conv.id) return;
+                try {
+                    if (typeof conv.sendReadReceipt === 'function') await conv.sendReadReceipt();
+                    else {
+                        const encoded = new window.ReadReceiptCodec().encode({});
+                        if (!encoded.parameters) encoded.parameters = {};
+                        await conv.send(encoded);
+                    }
+                } catch (e) { console.warn('[vistos] no se pudo mandar el recibo:', e?.message || e); }
+            }
+            // Mensajes del otro que piden recibo (no los de protocolo: perfiles, reacciones…).
+            const cwPideVisto = (m) => {
+                const tId = m?.contentType?.typeId;
+                return tId === 'text' || tId === 'reply' || tId === 'attachment';
+            };
 
             function showUserInfo(address) {
                 const card = document.getElementById('userInfoCard');
@@ -22507,6 +22606,10 @@
                     "settings_open_on_last_paid_desc": "Al abrir la wallet ves la red, el token y el saldo donde te pagaron la última vez.",
                     "settings_hide_balance": "Ocultar el saldo",
                     "settings_hide_balance_desc": "Muestra •••• en vez del monto. También se prende y apaga con el ojo, al lado del saldo.",
+                    "settings_read_receipts": "Confirmaciones de lectura",
+                    "settings_read_receipts_desc": "Le avisás a quien te escribe que viste su mensaje (✓✓ celeste). Si las apagás, tampoco ves las de los demás. Solo en chats de a dos.",
+                    "tilde_enviado": "Enviado",
+                    "tilde_visto": "Visto",
                     "nav_balances": "Balances",
                     "bal_title": "Tus balances",
                     "xmtp_colgado_titulo": "El chat no responde",
@@ -23071,6 +23174,10 @@
                     "settings_open_on_last_paid_desc": "When you open the wallet you see the network, token and balance where you were last paid.",
                     "settings_hide_balance": "Hide the balance",
                     "settings_hide_balance_desc": "Shows •••• instead of the amount. You can also toggle it with the eye next to the balance.",
+                    "settings_read_receipts": "Read receipts",
+                    "settings_read_receipts_desc": "Let people know you saw their message (light-blue ✓✓). If you turn them off, you won’t see theirs either. One-to-one chats only.",
+                    "tilde_enviado": "Sent",
+                    "tilde_visto": "Seen",
                     "nav_balances": "Balances",
                     "bal_title": "Your balances",
                     "xmtp_colgado_titulo": "Chat isn't responding",
@@ -23635,6 +23742,10 @@
                     "settings_open_on_last_paid_desc": "À l'ouverture du portefeuille, vous voyez le réseau, le jeton et le solde où vous avez été payé la dernière fois.",
                     "settings_hide_balance": "Masquer le solde",
                     "settings_hide_balance_desc": "Affiche •••• au lieu du montant. L'œil à côté du solde fait la même chose.",
+                    "settings_read_receipts": "Confirmations de lecture",
+                    "settings_read_receipts_desc": "Indique à qui vous écrit que vous avez vu son message (✓✓ bleu clair). Si vous les désactivez, vous ne voyez pas non plus celles des autres. Seulement dans les discussions à deux.",
+                    "tilde_enviado": "Envoyé",
+                    "tilde_visto": "Vu",
                     "nav_balances": "Soldes",
                     "bal_title": "Vos soldes",
                     "xmtp_colgado_titulo": "Le chat ne répond pas",
