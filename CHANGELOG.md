@@ -17,6 +17,9 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Actualizar la app es más corto.** En Android 12 o más nuevo la actualización se instala sin el diálogo «¿Deseas actualizar esta app?». La app se cierra sola y avisa con una notificación cuando terminó. Antes de descargar aparece un atajo a Play Protect, y si algo falla te dice qué pasó y ofrece reintentar o usar el instalador de siempre.
+- **En teléfonos con Android 15 la pantalla ya no queda debajo de los botones del sistema.** Antes la barra de navegación (◁ ○ |||) se dibujaba encima de la barra de escribir del chat y de la barra de abajo. En teléfonos con letra grande o pantalla angosta, además, el botón de enviar y el del micrófono quedaban fuera de la pantalla.
+
 ## 3.85 — 2026-10-22
 
 - **«Olvidar billetera» ahora olvida de verdad.** Antes, al olvidar una billetera y crear otra en el mismo navegador, la nueva heredaba el nombre de la vieja y veía mezclados sus chats, y a veces salía el aviso falso de «este navegador borró los chats». Ahora olvidar borra de este navegador los chats, contactos, perfil y demás datos de esa billetera, y la cuenta nueva arranca limpia. La app instalada (PWA) del mismo navegador comparte la billetera: si la olvidás o cambiás de cuenta en una ventana, la otra se entera y se actualiza, en vez de seguir con la anterior. El chat sigue funcionando en una sola ventana a la vez; si está abierto en otra, ahora el aviso menciona también la app instalada.
