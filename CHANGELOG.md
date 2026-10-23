@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.85 — 2026-10-22
+
 - **«Olvidar billetera» ahora olvida de verdad.** Antes, al olvidar una billetera y crear otra en el mismo navegador, la nueva heredaba el nombre de la vieja y veía mezclados sus chats, y a veces salía el aviso falso de «este navegador borró los chats». Ahora olvidar borra de este navegador los chats, contactos, perfil y demás datos de esa billetera, y la cuenta nueva arranca limpia. La app instalada (PWA) del mismo navegador comparte la billetera: si la olvidás o cambiás de cuenta en una ventana, la otra se entera y se actualiza, en vez de seguir con la anterior. El chat sigue funcionando en una sola ventana a la vez; si está abierto en otra, ahora el aviso menciona también la app instalada.
 
 ## 3.84 — 2026-10-22
