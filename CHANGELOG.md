@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.86 — 2026-10-23
+
 - **Actualizar la app es más corto.** En Android 12 o más nuevo la actualización se instala sin el diálogo «¿Deseas actualizar esta app?». La app se cierra sola y avisa con una notificación cuando terminó. Antes de descargar aparece un atajo a Play Protect, y si algo falla te dice qué pasó y ofrece reintentar o usar el instalador de siempre.
 - **En teléfonos con Android 15 la pantalla ya no queda debajo de los botones del sistema.** Antes la barra de navegación (◁ ○ |||) se dibujaba encima de la barra de escribir del chat y de la barra de abajo. En teléfonos con letra grande o pantalla angosta, además, el botón de enviar y el del micrófono quedaban fuera de la pantalla.
 
