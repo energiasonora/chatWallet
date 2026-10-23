@@ -10928,6 +10928,8 @@
 
                         if (String(lastMessageText).startsWith('[TRANSACTION]')) {
                             lastMessageText = '💸 Transacción';
+                        } else if (String(lastMessageText).startsWith('[XMR]')) {
+                            lastMessageText = etiquetaXmrDeTexto(lastMessageText);
                         }
 
                         const isOnline = estaEnLinea(contact);
@@ -13172,6 +13174,7 @@
                     return r ? `Reaccionó ${r.content || ''}` : 'Reacción';
                 }
                 const texto = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+                if (texto.startsWith('[XMR]')) return etiquetaXmrDeTexto(texto);
                 // Los mensajes del puente con las dApps también llegan acá. Arreglar sólo las
                 // burbujas del chat no alcanzaba: la lista de contactos seguía mostrando
                 // `{"cw":1,"id":"ed9835b8-2ad8…` como vista previa, que es otro camino de
@@ -13742,6 +13745,17 @@
                 messageRow.id = `msg-${message.id}`;
 
 
+                if (messageContent.startsWith('[XMR]')) {
+                    // Pago o pedido de Monero (ver tarjetaXmr): lo escribió la otra punta, todo por textContent.
+                    const datosXmr = leerTarjetaXmr(messageContent);
+                    if (datosXmr) {
+                        messageRow.className = `w-full flex ${type === 'sent' ? 'justify-end' : 'justify-start'}`;
+                        messageRow.appendChild(tarjetaXmr(datosXmr, type, currentConversation));
+                        messagesContainer.appendChild(messageRow);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        return;
+                    }
+                }
                 if (messageContent.startsWith('[TRANSACTION]')) {
                     messageRow.className = `w-full flex ${type === 'sent' ? 'justify-end' : 'justify-start'}`;
                     try {
@@ -15098,7 +15112,7 @@
                 if (c === 'vencido') return t('xmr_err_vencido');
                 return t('xmr_err', { e: e?.message || e });
             }
-            async function abrirEnvioXmr({ destino = '', monto = '' } = {}) {
+            async function abrirEnvioXmr({ destino = '', monto = '', alEnviar = null } = {}) {
                 if (!currentWallet || !currentWallet.privateKey) return;
                 if (!estadoXmr()) { await activarRedXmr(); if (!estadoXmr()) return; }
                 const dir = currentWallet.address, priv = currentWallet.privateKey;
@@ -15211,6 +15225,7 @@
                                 btnCancelar.textContent = t('g1_cancel_close');
                                 if (currentWallet?.address === dir && redXmrActiva()) { setBalanceText('main', `${formatoXmr(r.total)} XMR`); renderInfoXmr(); }
                                 showToast(t('xmr_enviado', { monto: formatoXmr(s.monto) }), 'success', 5000);
+                                if (alEnviar) { try { await alEnviar({ hash: r.hashes[0], clave: r.claves[0], monto: s.monto, destino: leerQrXmr(dest.value).direccion }); } catch (e) { console.warn('[monero] avisar en el chat:', e); } }
                             } catch (e) {
                                 console.warn('[monero] mandar:', e);
                                 await liberar();
@@ -15230,6 +15245,140 @@
                 const [ent, frac = ''] = s.split('.');
                 const n = BigInt(ent) * 1000000000000n + BigInt((frac + '000000000000').slice(0, 12));
                 return n > 0n ? String(n) : null;
+            }
+
+            // ── Monero en el chat ──
+            // [XMR]{"v":1,"type":"request","address":<subdirección>,"amount":"1.5"}
+            // [XMR]{"v":1,"type":"send","amount":<piconero>,"txHash","txKey","address"}
+            // Al pedir se manda una SUBDIRECCIÓN propia de ese contacto (índice fijo por contacto):
+            // nadie puede unir tus cobros entre contactos. Al pagar, la app del que paga manda el
+            // hash y la clave de la transacción; la del que cobra verifica en la cadena que el pago
+            // fue a una dirección SUYA y cuánto llegó (la "prueba de pago" de Monero).
+            function claveSubdirsXmr(dir) { return `cw-xmr-subdirs-${String(dir).toLowerCase()}`; }
+            function leerTarjetaXmr(texto) {
+                try {
+                    const d = JSON.parse(String(texto).slice(5));
+                    if (!d || d.v !== 1) return null;
+                    if (d.type === 'request' && esDireccionXmr(d.address) && (!d.amount || aAtomicasXmr(d.amount))) return d;
+                    if (d.type === 'send' && esDireccionXmr(d.address) && /^\d{1,20}$/.test(String(d.amount))
+                        && /^[0-9a-f]{64}$/.test(d.txHash || '') && /^[0-9a-f]{64,}$/.test(d.txKey || '')) return d;
+                } catch (e) { }
+                return null;
+            }
+            function etiquetaXmrDeTexto(texto) {
+                const d = leerTarjetaXmr(texto);
+                if (!d) return '💸 Monero';
+                if (d.type === 'request') return d.amount ? t('xmr_chat_prev_pedido', { monto: formatoXmr(aAtomicasXmr(d.amount)) }) : '💸 Monero';
+                return t('xmr_chat_prev_pago', { monto: formatoXmr(d.amount) });
+            }
+            async function pedirXmrEnChat(conv, peer, montoTexto) {
+                if (!conv || !peer || !currentWallet) return;
+                const monto = String(montoTexto || '').trim();
+                if (monto && !aAtomicasXmr(monto)) { showToast(t('payreq_bad_amount'), 'error'); return; }
+                if (!estadoXmr()) { await activarRedXmr(); if (!estadoXmr()) return; }
+                const dir = currentWallet.address, priv = currentWallet.privateKey;
+                const mapa = leerJSONLocal(claveSubdirsXmr(dir)) || {};
+                const k = String(peer).toLowerCase();
+                let entrada = mapa[k];
+                const soltar = await turnoXmr();
+                try {
+                    if (!entrada) {
+                        const usados = Object.values(mapa).map(x => x.i);
+                        const i = (usados.length ? Math.max(...usados) : 0) + 1;
+                        const M = await window.cwCargarMonero();
+                        entrada = { i, dir: await M.subdireccion(priv, i) };
+                        mapa[k] = entrada;
+                        localStorage.setItem(claveSubdirsXmr(dir), JSON.stringify(mapa));
+                    }
+                } catch (e) {
+                    showToast(t('xmr_err', { e: e?.message || e }), 'error');
+                    return;
+                } finally { soltar(); }
+                const montoNorm = monto ? monto.replace(',', '.') : '';
+                await conv.sendText('[XMR]' + JSON.stringify({ v: 1, type: 'request', address: entrada.dir, amount: montoNorm }));
+                try { pingWake(conv); } catch (e) { }
+                showToast(t('payreq_sent', { amount: montoNorm || '', symbol: 'XMR' }), 'success');
+            }
+            async function pagarXmrDesdeChat(d, conv) {
+                await abrirEnvioXmr({
+                    destino: d.address, monto: d.amount || '',
+                    alEnviar: async ({ hash, clave, monto, destino }) => {
+                        if (!conv || !clave) return;
+                        await conv.sendText('[XMR]' + JSON.stringify({ v: 1, type: 'send', amount: monto, txHash: hash, txKey: clave, address: destino }));
+                        try { pingWake(conv); } catch (e) { }
+                    },
+                });
+            }
+            // Verificación (sólo del lado que cobra). Se guarda; con 10+ confirmaciones es final.
+            function claveVerifXmr(hash) { return `cw-xmr-verif-${hash}`; }
+            async function verificarTarjetaXmr(d, linea) {
+                const pintar = (v) => {
+                    linea.className = 'mt-2 text-xs';
+                    if (!v.mia) { linea.classList.add('text-red-400'); linea.textContent = t('xmr_chat_no_mia'); return; }
+                    if (!v.bueno || BigInt(v.recibido || 0) === 0n) { linea.classList.add('text-red-400'); linea.textContent = t('xmr_chat_no_llego'); return; }
+                    const corto = BigInt(v.recibido) < BigInt(d.amount);
+                    linea.classList.add(corto ? 'text-yellow-300' : 'text-green-400');
+                    linea.textContent = v.enPool ? t('xmr_chat_en_pool', { monto: formatoXmr(v.recibido) })
+                        : t('xmr_chat_verificado', { monto: formatoXmr(v.recibido), n: v.confirmaciones });
+                };
+                const guardado = leerJSONLocal(claveVerifXmr(d.txHash));
+                if (guardado) { pintar(guardado); if (guardado.final || Date.now() - guardado.t < 2 * 60 * 1000) return; }
+                if (!currentWallet || !estadoXmr()) { linea.textContent = t('xmr_chat_activar'); return; }
+                const priv = currentWallet.privateKey;
+                if (!guardado) linea.textContent = t('xmr_chat_verificando');
+                const soltar = await turnoXmr();
+                try {
+                    const M = await window.cwCargarMonero();
+                    const v = await M.verificarPago({ privEvm: priv, nodo: nodoXmr(), hash: d.txHash, clave: d.txKey, direccion: d.address, regtest: regtestXmr() });
+                    const r = { ...v, t: Date.now(), final: !v.mia || (v.bueno && v.confirmaciones >= 10) };
+                    try { localStorage.setItem(claveVerifXmr(d.txHash), JSON.stringify(r)); } catch (e) { }
+                    if (linea.isConnected) pintar(r);
+                    if (v.mia && v.bueno && redXmrActiva()) pintarRedXmr(true);
+                } catch (e) {
+                    console.warn('[monero] verificar pago:', e);
+                    if (linea.isConnected && !guardado) { linea.className = 'mt-2 text-xs text-gray-400'; linea.textContent = t('xmr_sin_nodo'); }
+                } finally { soltar(); }
+            }
+            function tarjetaXmr(d, type, conv) {
+                const mio = type === 'sent';
+                const card = document.createElement('div');
+                card.className = `max-w-xs w-full p-4 rounded-2xl ${mio ? 'bg-indigo-900/50' : 'bg-gray-700'} border border-gray-600/50 xmr-tarjeta`;
+                const titulo = document.createElement('p');
+                titulo.className = 'font-semibold text-gray-200';
+                const monto = document.createElement('p');
+                monto.className = 'text-2xl font-bold';
+                const sim = document.createElement('span');
+                sim.className = 'text-lg text-gray-400';
+                sim.textContent = ' XMR';
+                const sub = document.createElement('p');
+                sub.className = 'text-xs text-gray-400 font-mono mt-1';
+                sub.textContent = `${d.address.slice(0, 8)}…${d.address.slice(-6)}`;
+                card.append(titulo, monto, sub);
+                if (d.type === 'request') {
+                    titulo.textContent = mio ? t('xmr_chat_pediste') : t('xmr_chat_te_pidieron');
+                    monto.textContent = d.amount ? formatoXmr(aAtomicasXmr(d.amount)) : '—';
+                    monto.classList.add('text-white');
+                    monto.appendChild(sim);
+                    if (!mio) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'mt-4 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg transition';
+                        b.textContent = '💸 ' + t('xmr_chat_pagar');
+                        b.onclick = () => pagarXmrDesdeChat(d, conv);
+                        card.appendChild(b);
+                    }
+                } else {
+                    titulo.textContent = mio ? t('xmr_chat_enviaste') : t('xmr_chat_recibiste');
+                    monto.textContent = formatoXmr(d.amount);
+                    monto.classList.add(mio ? 'text-red-400' : 'text-green-400');
+                    monto.appendChild(sim);
+                    const linea = document.createElement('p');
+                    linea.className = 'mt-2 text-xs text-gray-400';
+                    linea.textContent = mio ? t('xmr_chat_tx', { tx: d.txHash.slice(0, 12) }) : '';
+                    card.appendChild(linea);
+                    if (!mio) verificarTarjetaXmr(d, linea);
+                }
+                return card;
             }
 
             // Enviar, Recibir y copiar con Monero elegido: no van al flujo EVM (igual que Ğ1).
@@ -19511,9 +19660,13 @@
                     // viajaba sólo con el chainId: pedir 10 USDC en Arbitrum llegaba como
                     // "Te solicitaron 10 ETH", porque del otro lado ese chainId es primero ETH.
                     const esc = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    // Monero va al final y, si es la red elegida, viene seleccionado. No en grupos:
+                    // la subdirección es por contacto.
+                    const conXmr = !currentGroup && !!(currentWallet && currentWallet.privateKey);
                     const opciones = optionsList.map((net, i) =>
-                        `<option value="${i}" ${i === currentTokenIndex ? 'selected' : ''}>${esc(net.TOKEN_CHAIN_NAME || ('Red ' + net.TOKEN_CHAINID))}</option>`).join('');
-                    const simboloDe = (net) => net?.TOKEN_SYMBOL || net?.NATIVE_SYMBOL || 'ETH';
+                        `<option value="${i}" ${i === currentTokenIndex && !(conXmr && redXmrActiva()) ? 'selected' : ''}>${esc(net.TOKEN_CHAIN_NAME || ('Red ' + net.TOKEN_CHAINID))}</option>`).join('')
+                        + (conXmr ? `<option value="xmr" ${redXmrActiva() ? 'selected' : ''}>Monero (XMR)</option>` : '');
+                    const simboloDe = (net) => net === 'xmr' ? 'XMR' : (net?.TOKEN_SYMBOL || net?.NATIVE_SYMBOL || 'ETH');
                     const modalHtml = `
                 <div id="payReqModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
                     <div class="bg-gray-800 rounded-2xl p-6 w-full max-w-xs shadow-2xl border border-gray-700 space-y-4">
@@ -19540,8 +19693,9 @@
                     const amountInput = document.getElementById('payReqAmount');
                     const tokenSelect = document.getElementById('payReqToken');
                     const symbolEl = document.getElementById('payReqSymbol');
-                    const elegida = () => optionsList[parseInt(tokenSelect.value, 10)] || optionsList[currentTokenIndex];
+                    const elegida = () => tokenSelect.value === 'xmr' ? 'xmr' : (optionsList[parseInt(tokenSelect.value, 10)] || optionsList[currentTokenIndex]);
                     tokenSelect.addEventListener('change', () => { symbolEl.textContent = simboloDe(elegida()); });
+                    symbolEl.textContent = simboloDe(elegida());
                     amountInput.focus();
                     amountInput.select();
 
@@ -19556,6 +19710,12 @@
                             return;
                         }
                         const network = elegida();
+                        if (network === 'xmr') {
+                            const conv = currentConversation, peer = currentChatContact && currentChatContact.address;
+                            closeModal();
+                            await pedirXmrEnChat(conv, peer, amountInput.value);
+                            return;
+                        }
                         const symbol = simboloDe(network);
                         // chainId se sigue mandando suelto para las versiones viejas, que sólo leen eso.
                         const messageText = `[TRANSACTION]${JSON.stringify({ type: 'request', amount, chainId: network.TOKEN_CHAINID, network: redParaCompartir(network) })}`;
@@ -23256,6 +23416,20 @@
                     "xmr_solo_wifi_desc": "Cada día sin abrir Monero son unos 28 MB de bloques. Con esto prendido, en datos móviles espera al wifi.",
                     "xmr_guardar": "Guardar",
                     "xmr_copiada": "Dirección de Monero copiada",
+                    "xmr_chat_prev_pedido": "💸 Pedido de {monto} XMR",
+                    "xmr_chat_prev_pago": "💸 {monto} XMR",
+                    "xmr_chat_pediste": "Pediste Monero",
+                    "xmr_chat_te_pidieron": "Te pidieron Monero",
+                    "xmr_chat_pagar": "Pagar con Monero",
+                    "xmr_chat_enviaste": "Enviaste",
+                    "xmr_chat_recibiste": "Te mandaron",
+                    "xmr_chat_tx": "tx {tx}…",
+                    "xmr_chat_verificando": "Verificando en la cadena…",
+                    "xmr_chat_verificado": "✓ Verificado: llegaron {monto} XMR ({n} confirmaciones)",
+                    "xmr_chat_en_pool": "⏳ En camino: {monto} XMR, todavía sin confirmar",
+                    "xmr_chat_no_mia": "⚠ Ese pago no fue a una dirección tuya.",
+                    "xmr_chat_no_llego": "⚠ La cadena no confirma este pago.",
+                    "xmr_chat_activar": "Elegí Monero en el selector de redes para verificar este pago.",
                     "xmr_mandar_titulo": "Mandar Monero",
                     "xmr_disponible": "Podés mandar: {monto} XMR",
                     "xmr_disponible_pend": "Además, {monto} XMR esperan confirmaciones: Monero los deja gastar a los ~20 minutos.",
@@ -23877,6 +24051,20 @@
                     "xmr_solo_wifi_desc": "Each day without opening Monero is about 28 MB of blocks. With this on, it waits for wifi when on mobile data.",
                     "xmr_guardar": "Save",
                     "xmr_copiada": "Monero address copied",
+                    "xmr_chat_prev_pedido": "💸 Request for {monto} XMR",
+                    "xmr_chat_prev_pago": "💸 {monto} XMR",
+                    "xmr_chat_pediste": "You requested Monero",
+                    "xmr_chat_te_pidieron": "Monero requested from you",
+                    "xmr_chat_pagar": "Pay with Monero",
+                    "xmr_chat_enviaste": "You sent",
+                    "xmr_chat_recibiste": "You were sent",
+                    "xmr_chat_tx": "tx {tx}…",
+                    "xmr_chat_verificando": "Checking on-chain…",
+                    "xmr_chat_verificado": "✓ Verified: {monto} XMR arrived ({n} confirmations)",
+                    "xmr_chat_en_pool": "⏳ On its way: {monto} XMR, not confirmed yet",
+                    "xmr_chat_no_mia": "⚠ That payment didn't go to one of your addresses.",
+                    "xmr_chat_no_llego": "⚠ The chain doesn't confirm this payment.",
+                    "xmr_chat_activar": "Choose Monero in the network selector to verify this payment.",
                     "xmr_mandar_titulo": "Send Monero",
                     "xmr_disponible": "You can send: {monto} XMR",
                     "xmr_disponible_pend": "Also, {monto} XMR are waiting for confirmations: Monero lets you spend them after ~20 minutes.",
@@ -24498,6 +24686,20 @@
                     "xmr_solo_wifi_desc": "Chaque jour sans ouvrir Monero représente environ 28 Mo de blocs. Activé, il attend le wifi en données mobiles.",
                     "xmr_guardar": "Enregistrer",
                     "xmr_copiada": "Adresse Monero copiée",
+                    "xmr_chat_prev_pedido": "💸 Demande de {monto} XMR",
+                    "xmr_chat_prev_pago": "💸 {monto} XMR",
+                    "xmr_chat_pediste": "Vous avez demandé des Monero",
+                    "xmr_chat_te_pidieron": "On vous demande des Monero",
+                    "xmr_chat_pagar": "Payer en Monero",
+                    "xmr_chat_enviaste": "Vous avez envoyé",
+                    "xmr_chat_recibiste": "On vous a envoyé",
+                    "xmr_chat_tx": "tx {tx}…",
+                    "xmr_chat_verificando": "Vérification sur la chaîne…",
+                    "xmr_chat_verificado": "✓ Vérifié : {monto} XMR reçus ({n} confirmations)",
+                    "xmr_chat_en_pool": "⏳ En route : {monto} XMR, pas encore confirmés",
+                    "xmr_chat_no_mia": "⚠ Ce paiement n'est pas allé à l'une de vos adresses.",
+                    "xmr_chat_no_llego": "⚠ La chaîne ne confirme pas ce paiement.",
+                    "xmr_chat_activar": "Choisissez Monero dans le sélecteur de réseaux pour vérifier ce paiement.",
                     "xmr_mandar_titulo": "Envoyer des Monero",
                     "xmr_disponible": "Vous pouvez envoyer : {monto} XMR",
                     "xmr_disponible_pend": "De plus, {monto} XMR attendent des confirmations : Monero permet de les dépenser après ~20 minutes.",

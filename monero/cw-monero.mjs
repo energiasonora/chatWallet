@@ -172,6 +172,39 @@ export async function prepararEnvio({ destino, monto, todo, ...opciones }) {
     };
 }
 
+/**
+ * Subdirección (cuenta 0, índice `indice`) — una por contacto: quien te paga ve una dirección
+ * que no se puede unir con las que les diste a otros. Sin red. wallet2 detecta los pagos a las
+ * primeras 200 sin hacer nada (su "lookahead"); igual se pueden pasar como `subdirecciones`.
+ */
+export async function subdireccion(privEvm, indice) {
+    let w;
+    try {
+        w = await moneroTs.createWalletFull({ networkType: RED, password: contrasena(privEvm), privateSpendKey: llaveDeGasto(privEvm) });
+        return await w.getAddress(0, indice);
+    } finally { await liberar(w); }
+}
+
+/**
+ * Verifica un pago que alguien dice haberte hecho: que `direccion` sea TUYA (principal o una
+ * subdirección) y, con la clave de la transacción, cuánto llegó a esa dirección y con cuántas
+ * confirmaciones. → { mia, bueno, recibido (piconero), confirmaciones, enPool }
+ * Sin "mia" alguien podría mostrarte un pago real hecho a otra persona.
+ */
+export async function verificarPago({ privEvm, nodo, hash, clave, direccion, regtest }) {
+    let w;
+    try {
+        const enNode = typeof window === 'undefined';
+        w = await moneroTs.createWalletFull({ networkType: RED, password: contrasena(privEvm), privateSpendKey: llaveDeGasto(privEvm),
+            server: { uri: nodo }, ...(regtest ? { regtest: true, ...(enNode ? { proxyToWorker: false } : {}) } : {}) });
+        let mia = false;
+        try { await w.getAddressIndex(direccion); mia = true; } catch (e) { }
+        if (!mia) return { mia: false, bueno: false, recibido: '0', confirmaciones: 0, enPool: false };
+        const c = await w.checkTxKey(hash, clave, direccion);
+        return { mia: true, bueno: !!c.getIsGood(), recibido: String(c.getReceivedAmount() || 0n), confirmaciones: c.getNumConfirmations() || 0, enPool: !!c.getInTxPool() };
+    } finally { await liberar(w); }
+}
+
 /** "1,5" / "1.5" → piconero (string). null si no es un monto válido. */
 export function aAtomicas(texto) {
     const t = String(texto || '').trim().replace(',', '.');

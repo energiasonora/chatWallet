@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Monero en el chat.** En **Solicitar pago** ahora podés pedir **Monero (XMR)**. Tu app genera una dirección distinta para cada contacto, así nadie puede unir lo que cobrás de unos y otros. Del otro lado llega una tarjeta «Te pidieron Monero» con **Pagar con Monero**, que abre el envío ya completo. Después de pagar, la app de quien paga deja en el chat la prueba del pago, y la tuya la verifica en la cadena: primero «⏳ En camino» y después «✓ Verificado: llegaron X XMR». Comprueba también que el pago haya ido a una dirección **tuya**: nadie puede mostrarte el pago que le hizo a otro como si fuera para vos.
+
 ## 3.83 — 2026-10-22
 
 - **Ya podés mandar Monero.** Con Monero elegido, **Enviar** abre «Mandar Monero». Pegás la dirección (o escaneás un QR de Monero, que llena dirección y monto) y ponés cuánto, o tocás **Todo**. Con **Revisar**, la billetera se pone al día y arma la transacción en tu teléfono, sin mandarla todavía. Ves cuánto mandás, a quién, la comisión de la red y el total; recién con **Mandar** sale. Si algo no da, te dice por qué: la dirección no es válida, no alcanza contando la comisión, o la plata todavía espera confirmaciones (Monero la deja gastar a los ~20 minutos). Cada envío queda anotado en tu teléfono con su clave de transacción, que sirve para probar el pago más adelante.
