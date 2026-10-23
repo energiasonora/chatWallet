@@ -54,6 +54,18 @@
 
         <!-- Tras un reboot el FGS no puede rearrancar solo: este receiver avisa con una
              notificación "abrí ChatWallet para reactivar el chat" (tap abre la app) -->
+        <!-- Actualizador: resultado de la sesión de instalación y aviso de "ya se actualizó" -->
+        <receiver
+            android:name=".InstallResultReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".UpdatedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">

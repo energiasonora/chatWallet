@@ -15817,6 +15817,22 @@
                             go.onclick = () => downloadAndInstallUpdate(vStr);
                             status.appendChild(document.createElement('br'));
                             status.appendChild(go);
+                            // Play Protect se resuelve ANTES de bajar: antes el botón aparecía recién
+                            // con el instalador abierto, y había que cancelar, desactivarlo y bajar
+                            // todo de nuevo.
+                            if (NativeUpdater.openPlayProtectSettings) {
+                                const pp = document.createElement('p');
+                                pp.className = 'text-xs text-gray-400 mt-2';
+                                pp.append('¿Play Protect te frena la instalación? Desactivá «Analizar apps» antes de descargar: ');
+                                const ppBtn = document.createElement('button');
+                                ppBtn.className = 'underline text-indigo-300';
+                                ppBtn.textContent = 'abrir Play Protect';
+                                ppBtn.onclick = () => NativeUpdater.openPlayProtectSettings().catch(() => {
+                                    pp.innerHTML = 'Abrí Play Store → tu perfil → <b>Play Protect</b> → ⚙️ → desactivá <b>“Analizar apps”</b>.';
+                                });
+                                pp.appendChild(ppBtn);
+                                status.appendChild(pp);
+                            }
                         } else {
                             // PWA: con recargar alcanza (el SW trae la versión nueva).
                             status.innerHTML = `Hay una versión nueva (<b>${vStr}</b>). Recargá la página para actualizar.`;
@@ -15842,7 +15858,7 @@
 
             const fmtMB = bytes => (bytes / 1048576).toFixed(1);
 
-            async function downloadAndInstallUpdate(vStr) {
+            async function downloadAndInstallUpdate(vStr, opciones = {}) {
                 const status = document.getElementById('updateStatus');
                 let progressSub = null;
                 try {
@@ -15889,31 +15905,64 @@
                         });
                     }
 
-                    await NativeUpdater.downloadAndInstall({ url: APK_DOWNLOAD_URL });
-
-                    // El instalador ya se abrió. Lo que puede aparecer AHORA es el diálogo de
-                    // Google Play Protect ("analizando app" / "app no reconocida") — no es un
-                    // cuelgue nuestro: hay que tocar "Instalar de todos modos" (a veces detrás
-                    // de "Más detalles"). Dejamos la guía + acceso directo para desactivarlo.
+                    const r = await NativeUpdater.downloadAndInstall({ url: APK_DOWNLOAD_URL, viejo: !!opciones.viejo });
                     status.innerHTML = '';
-                    const okMsg = document.createElement('p');
-                    okMsg.className = 'text-xs text-green-400';
-                    okMsg.textContent = 'Descarga lista, instalador abierto.';
-                    const ppMsg = document.createElement('p');
-                    ppMsg.className = 'text-xs text-yellow-300 mt-1';
-                    ppMsg.innerHTML = 'Si aparece el aviso de <b>Google Play Protect</b> (“analizando” / “app no reconocida”), no está trabado: tocá <b>“Más detalles”</b> y después <b>“Instalar de todos modos”</b>.';
-                    status.appendChild(okMsg);
-                    status.appendChild(ppMsg);
-                    if (NativeUpdater.openPlayProtectSettings) {
-                        const ppBtn = document.createElement('button');
-                        ppBtn.className = 'mt-2 inline-block px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold';
-                        ppBtn.textContent = 'Desactivar análisis de Play Protect';
-                        ppBtn.onclick = () => NativeUpdater.openPlayProtectSettings().catch(() => {
-                            ppMsg.innerHTML = 'Abrí Play Store → tu perfil → <b>Play Protect</b> → ⚙️ → desactivá <b>“Analizar apps”</b>.';
-                        });
-                        status.appendChild(document.createElement('br'));
-                        status.appendChild(ppBtn);
+                    const msg = document.createElement('p');
+                    msg.className = 'text-xs text-green-400';
+                    status.appendChild(msg);
+                    const ppGuia = () => {
+                        const ppMsg = document.createElement('p');
+                        ppMsg.className = 'text-xs text-yellow-300 mt-1';
+                        ppMsg.innerHTML = 'Si aparece el aviso de <b>Google Play Protect</b> (“analizando” / “app no reconocida”), no está trabado: tocá <b>“Más detalles”</b> y después <b>“Instalar de todos modos”</b>.';
+                        status.appendChild(ppMsg);
+                        if (NativeUpdater.openPlayProtectSettings) {
+                            const ppBtn = document.createElement('button');
+                            ppBtn.className = 'mt-2 inline-block px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold';
+                            ppBtn.textContent = 'Desactivar análisis de Play Protect';
+                            ppBtn.onclick = () => NativeUpdater.openPlayProtectSettings().catch(() => {
+                                ppMsg.innerHTML = 'Abrí Play Store → tu perfil → <b>Play Protect</b> → ⚙️ → desactivá <b>“Analizar apps”</b>.';
+                            });
+                            status.appendChild(ppBtn);
+                        }
+                    };
+                    const reintentar = (texto, viejo) => {
+                        const b = document.createElement('button');
+                        b.className = 'mt-2 ml-2 inline-block px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold';
+                        b.textContent = texto;
+                        b.onclick = () => downloadAndInstallUpdate(vStr, { viejo });
+                        status.appendChild(b);
+                    };
+                    if (!(r && r.sesion)) {
+                        // Camino de antes: el instalador del sistema pide confirmar.
+                        msg.textContent = 'Descarga lista, instalador abierto.';
+                        ppGuia();
+                        return;
                     }
+                    // Instalación por sesión: en Android 12+ no pregunta nada. La app se cierra
+                    // sola y una notificación avisa que ya está, para abrirla.
+                    msg.textContent = 'Instalando… La app se va a cerrar sola: cuando termine te llega una notificación para abrirla.';
+                    if (window.__cwUpdateSub) { try { window.__cwUpdateSub.remove(); } catch (e) { } }
+                    window.__cwUpdateSub = await NativeUpdater.addListener('updateResult', (ev) => {
+                        if (ev.ok) return;
+                        status.innerHTML = '';
+                        const m = document.createElement('p');
+                        m.className = 'text-xs mt-1 ' + (ev.confirmar ? 'text-green-400' : 'text-yellow-300');
+                        status.appendChild(m);
+                        if (ev.confirmar) {
+                            m.textContent = 'Android pide que confirmes: tocá «Actualizar».';
+                            ppGuia();
+                        } else if (ev.cancelado) {
+                            m.textContent = 'Se canceló la instalación.';
+                            reintentar('Intentar de nuevo', false);
+                        } else if (ev.bloqueado) {
+                            m.textContent = 'Algo bloqueó la instalación (suele ser Play Protect).';
+                            ppGuia();
+                            reintentar('Intentar de nuevo', false);
+                        } else {
+                            m.textContent = 'No se pudo instalar así' + (ev.mensaje ? ` (${ev.mensaje})` : '') + '.';
+                            reintentar('Probar con el instalador de siempre', true);
+                        }
+                    });
                 } catch (e) {
                     console.warn('downloadAndInstallUpdate:', e);
                     status.className = 'mt-2 min-h-[1rem] text-red-400';
