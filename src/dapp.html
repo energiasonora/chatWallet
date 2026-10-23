@@ -2285,6 +2285,10 @@
                 ¿Estás seguro? Perderás el acceso a esta billetera si no has guardado la clave privada. Esta acción es
                 irreversible.
             </p>
+            <p class="text-gray-400 text-xs">
+                Se borran de este navegador sus chats, contactos y perfil. La app instalada (PWA) de este mismo
+                navegador comparte la billetera: también la olvida.
+            </p>
             <div class="flex space-x-4 pt-2">
                 <button id="cancelForgetWalletBtn"
                     class="w-full p-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg transition-all text-white font-semibold">
@@ -6189,7 +6193,11 @@
             let cwXmtpCandado = false, cwXmtpCandadoEnCola = false;
             function cwTomarCandadoXmtp(wallet) {
                 if (cwXmtpCandado || !navigator.locks || !navigator.locks.request) return Promise.resolve(true);
-                const nombre = `cw-xmtp-${wallet.address.toLowerCase()}`;
+                // Uno para TODO el navegador, no por cuenta: la base de XMTP (OPFS) es exclusiva por
+                // sitio. Con una wallet abierta en la PWA, otra wallet en una pestaña no podía guardar
+                // su base, estrenaba instalación en cada carga y salía el aviso falso de "el
+                // navegador borró los chats" (medido el 22/10/2026).
+                const nombre = 'cw-xmtp';
                 const retener = () => new Promise(() => { });   // hasta que la página se vaya
                 return new Promise(resolve => {
                     navigator.locks.request(nombre, { ifAvailable: true }, (candado) => {
@@ -9384,7 +9392,7 @@
 
             // Inserta registros nuevos (los ids ya existentes se ignoran). Devuelve cuántos entraron.
             async function msgStorePut(records) {
-                if (!records || !records.length) return 0;
+                if (!records || !records.length || window.__cwOlvidando) return 0;
                 const db = await msgStoreOpen();
                 return new Promise((resolve, reject) => {
                     const tx = db.transaction('messages', 'readwrite');
@@ -10415,6 +10423,7 @@
             }
 
             async function saveContacts() {
+                if (window.__cwOlvidando) return;
                 try {
                     const encryptedContacts = await encryptContacts(contacts);
                     if (encryptedContacts) {
@@ -21108,19 +21117,55 @@
             closeForgetWalletModal.addEventListener('click', closeForgetModalAction);
             cancelForgetWalletBtn.addEventListener('click', closeForgetModalAction);
 
-            confirmForgetWalletBtn.addEventListener('click', () => {
+            // Olvidar = esta cuenta deja de existir en ESTE navegador. Antes sólo se borraban cinco
+            // claves: el cliente XMTP de la cuenta olvidada seguía vivo (sus mensajes entraban a la
+            // cuenta nueva), y el almacén de mensajes, la agenda, el perfil (alias) y demás quedaban
+            // para la próxima wallet, que los veía mezclados (reporte del 22/10/2026). La base de
+            // XMTP no se toca: ya va por dirección y sirve si la misma wallet se restaura.
+            async function vaciarIdb(nombre) {
+                const db = await new Promise((ok, mal) => { const r = indexedDB.open(nombre); r.onsuccess = () => ok(r.result); r.onerror = () => mal(r.error); });
+                try {
+                    const stores = [...db.objectStoreNames];
+                    if (!stores.length) return;
+                    await new Promise((ok, mal) => { const tx = db.transaction(stores, 'readwrite'); stores.forEach(n => tx.objectStore(n).clear()); tx.oncomplete = ok; tx.onerror = () => mal(tx.error); });
+                } finally { db.close(); }
+            }
+            async function olvidarDatosLocales(dir) {
+                [WALLET_MNEMONIC_KEY, WALLET_BACKUP_DONE_KEY, NETWORKS_STORAGE_KEY, SELECTED_NETWORK_KEY, WALLET_ORIGIN_KEY,
+                 CONTACTS_STORAGE_KEY, TOMBSTONES_STORAGE_KEY, OWN_PROFILE_KEY, OFFLINE_THREADS_KEY, STEALTH_PENDING_KEY,
+                 WC_SESSIONS_KEY, WC_ACTIVITY_KEY, WC_APPS_KEY, NOTIFIED_TS_KEY, 'cw-link-force-restore'
+                ].forEach(k => { try { localStorage.removeItem(k); } catch (e) { } });
+                // Todo lo que lleva la dirección en el nombre (respaldo, Ğ1, Monero, instalación XMTP…).
+                if (dir) Object.keys(localStorage).filter(k => k.toLowerCase().includes(dir)).forEach(k => localStorage.removeItem(k));
+                for (const nombre of ['chatwallet-msgstore', 'chatwallet-avatars', 'cw-monero']) {
+                    try { await vaciarIdb(nombre); } catch (e) { console.warn('[olvidar]', nombre, e); }
+                }
+            }
+            confirmForgetWalletBtn.addEventListener('click', async () => {
                 forgetWalletModal.classList.add('hidden');
                 forgetWalletModal.classList.remove('flex');
-                localStorage.removeItem(WALLET_STORAGE_KEY);
-                localStorage.removeItem(WALLET_MNEMONIC_KEY);
-                localStorage.removeItem(WALLET_BACKUP_DONE_KEY);
-                localStorage.removeItem(NETWORKS_STORAGE_KEY);
-                localStorage.removeItem(SELECTED_NETWORK_KEY);
-                resetUI();
-                if (backupNagBanner) { backupNagBanner.classList.add('hidden'); backupNagBanner.classList.remove('flex'); }
-                const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
-                statusEl.textContent = translations[lang]['wallet_forgotten'];
-                showToast("Billetera olvidada correctamente.", "success");
+                const dir = currentWallet ? currentWallet.address.toLowerCase() : null;
+                window.__cwOlvidando = true;                 // desde acá nada vuelve a escribir esta cuenta
+                localStorage.removeItem(WALLET_STORAGE_KEY); // primero: las otras ventanas se enteran y se recargan
+                await new Promise(r => setTimeout(r, 800));
+                await olvidarDatosLocales(dir);
+                try { sessionStorage.setItem('cw-olvidada', '1'); } catch (e) { }
+                // Recargar mata el cliente XMTP y sus streams y suelta el candado del chat.
+                location.reload();
+            });
+            try {
+                if (sessionStorage.getItem('cw-olvidada')) {
+                    sessionStorage.removeItem('cw-olvidada');
+                    setTimeout(() => showToast("Billetera olvidada correctamente.", "success"), 800);
+                }
+            } catch (e) { }
+            // La PWA y las pestañas de este navegador comparten la wallet guardada. Si otra ventana
+            // la olvida o cambia de cuenta, ésta no puede seguir con la vieja (seguiría escribiendo
+            // sus chats en el almacén compartido): se recarga y toma lo que haya ahora.
+            window.addEventListener('storage', (e) => {
+                if (e.key !== WALLET_STORAGE_KEY && e.key !== null) return;
+                const ahora = localStorage.getItem(WALLET_STORAGE_KEY);
+                if (currentWallet ? ahora !== currentWallet.privateKey : !!ahora) location.reload();
             });
 
             // El botón del header copia el LINK DE INVITACIÓN (la address se copia bajo el QR).
@@ -23152,7 +23197,7 @@
                     "embebido_copiar": "Copiar el link",
                     "embebido_copiado": "Copiado: pegalo en Chrome o Safari.",
                     "embebido_seguir": "Seguir acá igual",
-                    "xmtp_otra_ventana": "ChatWallet ya está abierta en otra pestaña o ventana de este navegador. El chat funciona en una sola a la vez: cerrá la otra y acá arranca solo.",
+                    "xmtp_otra_ventana": "ChatWallet ya está abierta en otra pestaña o ventana de este navegador, o en la app instalada. El chat funciona en una sola a la vez: cerrá la otra y acá arranca solo.",
                     "chat_fuera_reconectar": "Reconectar este dispositivo",
                     "chat_reconectado": "Dispositivo reconectado al chat. Se recuperó lo que había en tu respaldo.",
                     "chat_sin_sync": "No se pudo sincronizar este chat: ves lo que estaba guardado.",
@@ -23787,7 +23832,7 @@
                     "embebido_copiar": "Copy the link",
                     "embebido_copiado": "Copied: paste it in Chrome or Safari.",
                     "embebido_seguir": "Stay here anyway",
-                    "xmtp_otra_ventana": "ChatWallet is already open in another tab or window of this browser. Chat works in one at a time: close the other one and it starts here by itself.",
+                    "xmtp_otra_ventana": "ChatWallet is already open in another tab or window of this browser, or in the installed app. Chat works in one at a time: close the other one and it starts here by itself.",
                     "chat_fuera_reconectar": "Reconnect this device",
                     "chat_reconectado": "Device reconnected to chat. What was in your backup was recovered.",
                     "chat_sin_sync": "Couldn't sync this chat: you're seeing what was saved.",
@@ -24422,7 +24467,7 @@
                     "embebido_copiar": "Copier le lien",
                     "embebido_copiado": "Copié : colle-le dans Chrome ou Safari.",
                     "embebido_seguir": "Rester ici quand même",
-                    "xmtp_otra_ventana": "ChatWallet est déjà ouverte dans un autre onglet ou une autre fenêtre de ce navigateur. Le chat marche dans une seule à la fois : ferme l'autre et il démarre ici tout seul.",
+                    "xmtp_otra_ventana": "ChatWallet est déjà ouverte dans un autre onglet ou une autre fenêtre de ce navigateur, ou dans l'app installée. Le chat marche dans une seule à la fois : ferme l'autre et il démarre ici tout seul.",
                     "chat_fuera_reconectar": "Reconnecter cet appareil",
                     "chat_reconectado": "Appareil reconnecté au chat. Ce qu'il y avait dans ta sauvegarde a été récupéré.",
                     "chat_sin_sync": "Impossible de synchroniser ce chat : tu vois ce qui était enregistré.",
