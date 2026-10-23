@@ -44,6 +44,46 @@
     <meta name="twitter:image" content="https://chatwallet.org/img/og-chatwallet.jpg">
     <meta name="twitter:image:alt" content="ChatWallet, la wallet soberana.">
     <link rel="canonical" href="https://chatwallet.org/" />
+    <!-- Datos para buscadores: qué es la app, dónde está el código y de dónde viene (ETHGlobal LFGHO, 2024). -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://chatwallet.org/#app",
+          "name": "ChatWallet",
+          "url": "https://chatwallet.org/",
+          "description": "The sovereign wallet: encrypted chat and self-custodial crypto payments in one app. No KYC, no SIM, no phone, no account, no middleman. Open source.",
+          "applicationCategory": "FinanceApplication",
+          "operatingSystem": "Android, Web",
+          "isAccessibleForFree": true,
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "downloadUrl": "https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk",
+          "codeRepository": "https://github.com/energiasonora/chatWallet",
+          "image": "https://chatwallet.org/img/og-chatwallet.jpg",
+          "inLanguage": ["en", "es", "fr"],
+          "publisher": { "@id": "https://chatwallet.org/#org" },
+          "sameAs": [
+            "https://github.com/energiasonora/chatWallet",
+            "https://ethglobal.com/showcase/chatwallet-5rp2j"
+          ]
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://chatwallet.org/#org",
+          "name": "ChatWallet",
+          "url": "https://chatwallet.org/",
+          "logo": "https://chatwallet.org/web-app-manifest-512x512.png",
+          "parentOrganization": { "@type": "Organization", "name": "Energía Sonora", "url": "https://energiasonora.xyz" },
+          "sameAs": [
+            "https://github.com/energiasonora/chatWallet",
+            "https://ethglobal.com/showcase/chatwallet-5rp2j"
+          ]
+        }
+      ]
+    }
+    </script>
 
     <link rel="stylesheet" href="css/pico.min.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2175,6 +2215,7 @@
                         <ul>
                             <li><a href="https://energiasonora.xyz" target="_blank" rel="noopener noreferrer">Energia Sonora</a></li>
                             <li><a href="https://github.com/energiasonora/chatWallet">Github</a></li>
+                            <li><a href="https://ethglobal.com/showcase/chatwallet-5rp2j" target="_blank" rel="noopener"><span lang="en">Born at ETHGlobal LFGHO (2024)</span><span lang="es">Nació en ETHGlobal LFGHO (2024)</span><span lang="fr">Né à ETHGlobal LFGHO (2024)</span></a></li>
                         </ul>
                     </div>
                     <div class="footer-new__presale">

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /book-admin.html
+
+Sitemap: https://chatwallet.org/sitemap.xml
