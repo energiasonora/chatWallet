@@ -2699,6 +2699,13 @@
                                 data-i18n-key="receive_action">Recibir</span>
                         </button>
                     </div>
+                    <div class="w-full max-w-[480px] mx-auto px-4 pb-3 -mt-1">
+                        <button type="button" id="cctpOpenBtn"
+                            class="cctp-open w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition">
+                            <span aria-hidden="true">⇄</span><span data-i18n-key="cctp_open">Pasar USDC a otra red</span>
+                            <span class="cctp-badge hidden text-xs bg-indigo-600 text-white rounded-full px-2"></span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Removed contactsView - now in sidebar -->
@@ -2977,6 +2984,11 @@
                             <p id="balTotal" class="text-4xl font-bold break-words">—</p>
                             <p id="balTotalNote" class="text-xs text-gray-500 mt-1 min-h-[1rem]"></p>
                         </div>
+                        <button type="button" id="balCctpBtn"
+                            class="cctp-open w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition">
+                            <span aria-hidden="true">⇄</span><span data-i18n-key="cctp_open">Pasar USDC a otra red</span>
+                            <span class="cctp-badge hidden text-xs bg-indigo-600 text-white rounded-full px-2"></span>
+                        </button>
                         <div id="balList" class="space-y-2"></div>
                         <p class="text-xs text-gray-500">
                             <span data-i18n-key="bal_hint">Se leen todas tus redes. Con el ojo ocultás una fila: deja de
@@ -3957,6 +3969,50 @@
                 <button type="button" id="payQrOk"
                     class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-bold"
                     data-i18n-key="ars_qr_close">Entendido</button>
+            </div>
+        </div>
+
+        <!-- Pasar USDC a otra red (CCTP de Circle): ver cwCctpAbrir(). -->
+        <div id="cctpModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center p-4 z-[60]">
+            <div class="bg-gray-800 rounded-xl px-6 pb-6 w-full max-w-sm space-y-3 max-h-[90dvh] overflow-y-auto">
+                <div class="sticky top-0 z-10 bg-gray-800 pt-6 pb-1 flex justify-between items-start gap-2">
+                    <h3 class="text-lg font-bold" data-i18n-key="cctp_title">Pasar USDC a otra red</h3>
+                    <button id="closeCctp" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+                </div>
+                <p class="text-xs text-gray-400" data-i18n-key="cctp_intro">Circle quema tu USDC en una red y lo emite en la otra, 1 a 1, a tu misma dirección. Sin pools ni intermediarios que lo custodien.</p>
+                <div id="cctpPend" class="hidden space-y-2"></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="text-xs text-gray-400 space-y-1"><span data-i18n-key="cctp_from">Desde</span>
+                        <select id="cctpFrom" class="w-full bg-gray-700 rounded-lg px-2 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500"></select>
+                    </label>
+                    <label class="text-xs text-gray-400 space-y-1"><span data-i18n-key="cctp_to">Hacia</span>
+                        <select id="cctpTo" class="w-full bg-gray-700 rounded-lg px-2 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500"></select>
+                    </label>
+                </div>
+                <div class="flex gap-2">
+                    <input id="cctpAmount" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"
+                        class="flex-grow min-w-0 w-0 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-xl font-bold focus:outline-none focus:border-indigo-500">
+                    <button type="button" id="cctpMax" class="px-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm font-semibold" data-i18n-key="cctp_max">Todo</button>
+                </div>
+                <div id="cctpSpeedRow" class="space-y-1">
+                    <p class="text-xs text-gray-400" data-i18n-key="cctp_speed">Velocidad</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" data-cctp-vel="rapido" class="py-2 rounded-lg bg-indigo-600 text-sm" data-i18n-key="cctp_fast">Rápida (segundos)</button>
+                        <button type="button" data-cctp-vel="estandar" class="py-2 rounded-lg bg-gray-700 text-sm" data-i18n-key="cctp_std">Estándar (~15 min)</button>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-xs text-gray-400" data-i18n-key="cctp_delivery">Al llegar</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" data-cctp-ent="yo" class="py-2 rounded-lg bg-gray-700 text-sm" data-i18n-key="cctp_ent_yo">Lo recibo yo</button>
+                        <button type="button" data-cctp-ent="circle" class="py-2 rounded-lg bg-gray-700 text-sm" data-i18n-key="cctp_ent_circle">Lo entrega Circle</button>
+                    </div>
+                    <p id="cctpDeliveryNote" class="text-xs text-gray-400"></p>
+                </div>
+                <div id="cctpQuote" class="bg-gray-900/60 rounded-lg p-3 text-sm space-y-1"></div>
+                <p id="cctpErr" class="hidden text-sm text-red-400"></p>
+                <button type="button" id="cctpGo" disabled
+                    class="w-full py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold disabled:opacity-40" data-i18n-key="cctp_review">Revisar</button>
             </div>
         </div>
 
@@ -6002,6 +6058,8 @@
 
                 // --- Stage 1: Core Wallet UI (Always runs) ---
                 currentWallet = wallet;
+                // Un pase de USDC entre redes que quedó a mitad de camino sigue solo (ver cwCctpSeguir).
+                setTimeout(() => window.cwCctpRetomar?.(), 4000);
 
                 // La agenda es LOCAL: se lee del dispositivo ya, sin esperar a XMTP. Antes se
                 // cargaba recién cuando XMTP terminaba de arrancar, y si XMTP fallaba (el puntito
@@ -18455,6 +18513,516 @@
                 });
             })();
 
+
+            // ── Pasar USDC a otra red (CCTP v2 de Circle) ─────────────────────────────────
+            // Circle QUEMA el USDC en la red de origen y lo EMITE en la de destino, 1 a 1, a la
+            // misma dirección. No hay pool ni puente de terceros que custodie nada: solo los
+            // contratos de Circle (en quien ya confía quien tiene USDC) y su servicio público de
+            // firmas, Iris. Iris no pide clave y responde con CORS abierto (verificado 23/10/2026).
+            // Las direcciones de los contratos son las mismas en las cinco redes.
+            //
+            // Dos formas de recibir en destino:
+            //   'yo'     → la app llama receiveMessage con tu llave. Cuesta gas nativo en destino
+            //              (en Ethereum, oct-2026, unos centavos), así que hace falta tener algo.
+            //   'circle' → el Forwarding Service de Circle lo emite por vos (hook 'cctp-forward').
+            //              No pide gas en destino pero cobra en USDC (≈1 USDC hacia Ethereum).
+            // Lo pendiente se guarda por dirección: si la app se cierra a mitad de camino, al
+            // volver retoma desde donde quedó. Una quema nunca se da por perdida.
+            const CW_CCTP_TM = '0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d';   // TokenMessengerV2
+            const CW_CCTP_MT = '0x81D40F21F12A8F0E3252Bccb954D722d4c464B64';   // MessageTransmitterV2
+            const CW_CCTP_IRIS = 'https://iris-api.circle.com';
+            // "cctp-forward" + versión 0 + largo 0: el pedido de entrega más simple que acepta Circle.
+            const CW_CCTP_HOOK = '0x636374702d666f72776172640000000000000000000000000000000000000000';
+            const CW_CCTP_REDES = {
+                '1': { dom: 0, nombre: 'Ethereum', usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', gas: 'ETH',
+                    rpcs: ['https://ethereum-rpc.publicnode.com', 'https://eth.llamarpc.com'], tx: 'https://etherscan.io/tx/' },
+                '8453': { dom: 6, nombre: 'Base', usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', gas: 'ETH',
+                    rpcs: ['https://mainnet.base.org', 'https://base-rpc.publicnode.com'], tx: 'https://basescan.org/tx/' },
+                '42161': { dom: 3, nombre: 'Arbitrum', usdc: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', gas: 'ETH',
+                    rpcs: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-one-rpc.publicnode.com'], tx: 'https://arbiscan.io/tx/' },
+                '10': { dom: 2, nombre: 'OP Mainnet', usdc: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', gas: 'ETH',
+                    rpcs: ['https://mainnet.optimism.io', 'https://optimism-rpc.publicnode.com'], tx: 'https://optimistic.etherscan.io/tx/' },
+                '137': { dom: 7, nombre: 'Polygon', usdc: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', gas: 'POL',
+                    rpcs: ['https://polygon-rpc.com', 'https://polygon-bor-rpc.publicnode.com'], tx: 'https://polygonscan.com/tx/' },
+            };
+            const CW_CCTP_ABI_TM = [
+                'function depositForBurn(uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, address burnToken, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold)',
+                'function depositForBurnWithHook(uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, address burnToken, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold, bytes hookData)',
+            ];
+            const CW_CCTP_ABI_MT = [
+                'function receiveMessage(bytes message, bytes attestation) returns (bool)',
+                'function usedNonces(bytes32) view returns (uint256)',
+            ];
+            const CW_CCTP_ABI_USDC = [
+                'function balanceOf(address) view returns (uint256)',
+                'function allowance(address, address) view returns (uint256)',
+                'function approve(address, uint256) returns (bool)',
+            ];
+            // Gas típico de cada paso (con margen). Sirve para avisar ANTES si no alcanza.
+            const CW_CCTP_GAS = { aprobar: 70000n, quemar: 230000n, recibir: 230000n };
+            const CW_CCTP_KEY = () => `cw-cctp-${currentWallet?.address?.toLowerCase()}`;
+            const cwCctpDormir = ms => new Promise(r => setTimeout(r, ms));
+
+            function cwCctpLista() { return cwLeerJSON(CW_CCTP_KEY(), []); }
+            function cwCctpGuardar(item) {
+                if (!currentWallet || window.__cwOlvidando || item.dueno !== currentWallet.address) return;
+                const l = cwCctpLista().filter(x => x.id !== item.id);
+                l.unshift(item);
+                try { localStorage.setItem(CW_CCTP_KEY(), JSON.stringify(l.slice(0, 8))); } catch (e) { }
+                cwCctpPintarPendientes();
+            }
+            function cwCctpEnMarcha(x) { return x.estado !== 'listo' && x.estado !== 'error' && x.estado !== 'archivado'; }
+
+            // Primero el RPC que el usuario eligió para esa red (si la tiene en su lista), después
+            // los de repuesto. Se queda con el primero que contesta, por dos minutos.
+            const cwCctpProvs = {};
+            async function cwCctpProv(chainId) {
+                const c = cwCctpProvs[chainId];
+                if (c && Date.now() - c.t < 120000) return c.p;
+                const propias = optionsList.filter(n => n && String(n.TOKEN_CHAINID) === String(chainId))
+                    .flatMap(n => [n.API, ...(Array.isArray(n.rpc) ? n.rpc : [])]);
+                const urls = [...propias, ...CW_CCTP_REDES[chainId].rpcs]
+                    .filter((u, i, a) => u && /^https?:\/\//.test(u) && a.indexOf(u) === i).slice(0, 4);
+                let ultimo = null;
+                for (const url of urls) {
+                    try {
+                        const p = cwProveedor(url, chainId);
+                        await withTimeout(p.getBlockNumber(), 7000, 'rpc');
+                        cwCctpProvs[chainId] = { p, t: Date.now() };
+                        return p;
+                    } catch (e) { ultimo = e; }
+                }
+                throw ultimo || new Error('sin RPC');
+            }
+
+            async function cwCctpIris(ruta, opts) {
+                const r = await fetch(CW_CCTP_IRIS + ruta, opts);
+                if (r.status === 404) return null;   // todavía no lo vio: se sigue esperando
+                if (!r.ok) throw new Error('Circle ' + r.status);
+                return r.json();
+            }
+
+            function cwCctpLang() { try { return localStorage.getItem('chatwallet-lang') || 'es'; } catch (e) { return 'es'; } }
+            function cwCctpFmt(unidades) {   // USDC en unidades de 6 decimales → "9,99"
+                const v = Number(unidades) / 1e6;
+                return v.toLocaleString(cwCctpLang(), { minimumFractionDigits: 2, maximumFractionDigits: v > 0 && v < 0.01 ? 6 : 4 });
+            }
+            function cwCctpFmtGas(wei) {
+                const v = Number(ethers.formatEther(wei));
+                return v === 0 ? '0' : v.toLocaleString(cwCctpLang(), { maximumSignificantDigits: 2 });
+            }
+            function cwCctpErr(e) {
+                const m = e?.shortMessage || e?.reason || e?.info?.error?.message || e?.message || String(e);
+                return /insufficient funds/i.test(m) ? t('cctp_err_gas_generic') : String(m).slice(0, 160);
+            }
+            function cwCctpPrecioGas(fd) { return fd.maxFeePerGas || fd.gasPrice || 0n; }
+
+            // Cuánto cuesta y cuánto llega. `monto` en unidades de 6 decimales (BigInt).
+            async function cwCctpCotizar({ src, dst, monto, rapido, entrega }) {
+                const S = CW_CCTP_REDES[src], D = CW_CCTP_REDES[dst];
+                const addr = currentWallet.address;
+                const [fees, provS, provD] = await Promise.all([
+                    cwCctpIris(`/v2/burn/USDC/fees/${S.dom}/${D.dom}?forward=true`),
+                    cwCctpProv(src), cwCctpProv(dst),
+                ]);
+                if (!Array.isArray(fees)) throw new Error(t('cctp_err_route'));
+                // Polygon no tiene modo rápido (el estándar ya tarda segundos).
+                const hayRapido = fees.some(f => Number(f.finalityThreshold) === 1000) && src !== '137';
+                const umbral = rapido && hayRapido ? 1000 : 2000;
+                const fila = fees.find(f => Number(f.finalityThreshold) === umbral) || { minimumFee: 0 };
+                const bps = Number(fila.minimumFee) || 0;
+                // Comisión del protocolo, redondeada para arriba (la fórmula de la guía de Circle).
+                const protocolo = (monto * BigInt(Math.round(bps * 100)) + 999999n) / 1000000n;
+                const ff = fila.forwardFee || {};
+                const entregaCircle = BigInt(Math.ceil(Number(ff.med ?? ff.medium ?? 0)));
+                // En el rápido se deja el doble de margen: si la comisión sube entre la cotización y
+                // la firma, una maxFee justa haría caer la transferencia al modo lento.
+                const maxFee = entrega === 'circle'
+                    ? protocolo * 2n + entregaCircle
+                    : (umbral === 1000 ? protocolo * 2n + 1n : 0n);
+                const comision = protocolo + (entrega === 'circle' ? entregaCircle : 0n);
+                const usdcS = new ethers.Contract(S.usdc, CW_CCTP_ABI_USDC, provS);
+                const [saldo, permitido, fdS, fdD, nativoS, nativoD] = await Promise.all([
+                    usdcS.balanceOf(addr), usdcS.allowance(addr, CW_CCTP_TM),
+                    provS.getFeeData(), provD.getFeeData(), provS.getBalance(addr), provD.getBalance(addr),
+                ]);
+                const gasS = cwCctpPrecioGas(fdS) * ((permitido >= monto ? 0n : CW_CCTP_GAS.aprobar) + CW_CCTP_GAS.quemar);
+                const gasD = cwCctpPrecioGas(fdD) * CW_CCTP_GAS.recibir;
+                return {
+                    src, dst, monto, rapido: umbral === 1000, hayRapido, umbral, entrega, bps, maxFee, comision,
+                    entregaCircle, recibe: monto - comision, saldo,
+                    gasS, nativoS, alcanzaGasS: nativoS >= gasS * 2n,
+                    gasD, nativoD, alcanzaGasD: nativoD >= gasD * 2n,
+                };
+            }
+
+            async function cwCctpEjecutar(q) {
+                const S = CW_CCTP_REDES[q.src], D = CW_CCTP_REDES[q.dst];
+                const addr = currentWallet.address;
+                const item = {
+                    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), dueno: addr,
+                    src: q.src, dst: q.dst, monto: q.monto.toString(), rapido: q.rapido, entrega: q.entrega,
+                    maxFee: q.maxFee.toString(), estado: 'aprobando', t: Date.now(),
+                };
+                cwCctpGuardar(item);
+                try {
+                    const provS = await cwCctpProv(q.src);
+                    const s = currentWallet.connect(provS);
+                    const usdc = new ethers.Contract(S.usdc, CW_CCTP_ABI_USDC, s);
+                    // El nonce se lee UNA vez y se numera a mano: pedirlo antes de cada envío
+                    // devolvía el mismo número dos veces (caché del provider, o un RPC público
+                    // balanceado que todavía no vio la aprobación) y la salida rebotaba.
+                    let nonce = await provS.getTransactionCount(addr, 'pending');
+                    // Se aprueba EXACTO lo que sale, nunca "ilimitado".
+                    if ((await usdc.allowance(addr, CW_CCTP_TM)) < q.monto) {
+                        const tx = await usdc.approve(CW_CCTP_TM, q.monto, { nonce: nonce++ });
+                        item.aprobTx = tx.hash; cwCctpGuardar(item);
+                        const rc = await tx.wait();
+                        if (!rc || rc.status !== 1) throw new Error(t('cctp_err_approve'));
+                    }
+                    item.estado = 'quemando'; cwCctpGuardar(item);
+                    const tm = new ethers.Contract(CW_CCTP_TM, CW_CCTP_ABI_TM, s);
+                    const args = [q.monto, D.dom, ethers.zeroPadValue(addr, 32), S.usdc, ethers.ZeroHash, q.maxFee, q.umbral];
+                    const tx = q.entrega === 'circle'
+                        ? await tm.depositForBurnWithHook(...args, CW_CCTP_HOOK, { nonce })
+                        : await tm.depositForBurn(...args, { nonce });
+                    // Desde acá el USDC ya salió: el hash queda guardado antes de esperar nada.
+                    item.burnTx = tx.hash; item.estado = 'saliendo'; cwCctpGuardar(item);
+                    const rc = await tx.wait();
+                    if (!rc || rc.status !== 1) { delete item.burnTx; throw new Error(t('cctp_err_burn')); }
+                    item.estado = 'atestando'; cwCctpGuardar(item);
+                    if (typeof updateBalance === 'function') updateBalance();
+                } catch (e) {
+                    console.warn('[cctp] salida', e);
+                    item.estado = 'error'; item.err = cwCctpErr(e); cwCctpGuardar(item);
+                    return item;
+                }
+                cwCctpSeguir(item);
+                return item;
+            }
+
+            // Espera la firma de Circle y recibe en destino. Se puede llamar las veces que haga
+            // falta (al volver a abrir la app, con «Reintentar»): cada paso mira primero si ya pasó.
+            const cwCctpCorriendo = new Set();
+            async function cwCctpSeguir(item) {
+                if (!item.burnTx || cwCctpCorriendo.has(item.id)) return;
+                cwCctpCorriendo.add(item.id);
+                const S = CW_CCTP_REDES[item.src], D = CW_CCTP_REDES[item.dst];
+                const sigue = () => currentWallet && !window.__cwOlvidando && currentWallet.address === item.dueno;
+                try {
+                    let m = null;
+                    for (; ;) {
+                        if (!sigue()) return;
+                        const d = await cwCctpIris(`/v2/messages/${S.dom}?transactionHash=${item.burnTx}`).catch(e => { console.warn('[cctp] iris', e); return null; });
+                        m = d?.messages?.[0] || null;
+                        const firmado = m && m.status === 'complete' && m.attestation && m.attestation !== 'PENDING'
+                            && m.message && m.message !== '0x';
+                        if (firmado && (item.entrega !== 'circle' || m.forwardTxHash)) break;
+                        const estado = firmado ? 'entregando' : 'atestando';
+                        const demora = m?.delayReason || '';
+                        if (item.estado !== estado || item.demora !== demora || item.err) {
+                            item.estado = estado; item.demora = demora; delete item.err; cwCctpGuardar(item);
+                        }
+                        await cwCctpDormir(item.rapido || firmado ? 4000 : 15000);
+                    }
+                    const cuerpo = m.decodedMessage?.decodedMessageBody || {};
+                    if (cuerpo.amount) item.recibido = (BigInt(cuerpo.amount) - BigInt(cuerpo.feeExecuted || 0)).toString();
+                    const provD = await cwCctpProv(item.dst);
+                    if (item.entrega === 'circle') {
+                        item.mintTx = m.forwardTxHash; item.estado = 'entregando'; cwCctpGuardar(item);
+                        const rc = await provD.waitForTransaction(m.forwardTxHash, 1, 10 * 60000);
+                        if (rc && rc.status !== 1) throw new Error(t('cctp_err_forward'));
+                    } else {
+                        const mt = new ethers.Contract(CW_CCTP_MT, CW_CCTP_ABI_MT, currentWallet.connect(provD));
+                        const nonce = m.eventNonce || m.decodedMessage?.nonce;
+                        // Cualquiera puede llamar receiveMessage: si otro ya lo hizo, la plata llegó.
+                        const usado = nonce ? await mt.usedNonces(nonce).catch(() => 0n) : 0n;
+                        if (usado === 0n) {
+                            item.estado = 'recibiendo'; delete item.err; cwCctpGuardar(item);
+                            try {
+                                const tx = await mt.receiveMessage(m.message, m.attestation);
+                                item.mintTx = tx.hash; cwCctpGuardar(item);
+                                const rc = await tx.wait();
+                                if (!rc || rc.status !== 1) throw new Error(t('cctp_err_receive'));
+                            } catch (e) {
+                                // La firma rápida vence a las 24 h: se pide una nueva y se vuelve a esperar.
+                                if (/expired/i.test(cwCctpErr(e)) && nonce) {
+                                    await cwCctpIris(`/v2/reattest/${nonce}`, { method: 'POST' }).catch(() => null);
+                                    item.estado = 'atestando'; delete item.mintTx; cwCctpGuardar(item);
+                                    cwCctpCorriendo.delete(item.id);
+                                    return cwCctpSeguir(item);
+                                }
+                                throw e;
+                            }
+                        }
+                    }
+                    item.estado = 'listo'; item.fin = Date.now(); delete item.err; cwCctpGuardar(item);
+                    cwCctpAsegurarRed(item.dst);
+                    cwNotify({ type: 'success', title: t('cctp_done_title'),
+                        body: t('cctp_done', { n: cwCctpFmt(item.recibido || item.monto), red: D.nombre }), duration: 6000 });
+                    if (typeof updateBalance === 'function') updateBalance();
+                    if (document.getElementById('balancesView')?.classList.contains('active')) cwPintarBalances(true);
+                } catch (e) {
+                    console.warn('[cctp] seguir', e);
+                    item.estado = 'error'; item.err = cwCctpErr(e); cwCctpGuardar(item);
+                } finally {
+                    cwCctpCorriendo.delete(item.id);
+                }
+            }
+
+            // Si la red de destino no está en tu lista (Ethereum no viene por defecto), el USDC
+            // llegaría a un lugar que la billetera no muestra: se suma «USDC on <red>».
+            function cwCctpAsegurarRed(chainId) {
+                const R = CW_CCTP_REDES[chainId];
+                if (!R || optionsList.some(n => n && String(n.TOKEN_CHAINID) === String(chainId)
+                    && (n.TOKEN_ADDRESS || '').toLowerCase() === R.usdc.toLowerCase())) return;
+                optionsList.push({
+                    TOKEN_CHAIN_NAME: `USDC on ${R.nombre}`, TOKEN_CHAINID: String(chainId),
+                    EXPLORER: R.tx.replace(/tx\/$/, ''), API: R.rpcs[0], NATIVE_SYMBOL: R.gas,
+                    TOKEN_ADDRESS: R.usdc, TOKEN_SYMBOL: 'USDC', DECIMALS: 6, isFavorite: false,
+                });
+                try { saveNetworks(); } catch (e) { }
+                try { renderNetworksList(); } catch (e) { }
+            }
+
+            function cwCctpRetomar() {
+                if (!currentWallet || isOffline) return;
+                for (const x of cwCctpLista()) if (x.burnTx && cwCctpEnMarcha(x)) cwCctpSeguir(x);
+                cwCctpPintarPendientes();
+            }
+            window.cwCctpRetomar = cwCctpRetomar;
+
+            // ── La ficha ──
+            const cwCctpUi = { saldos: {}, q: null, confirmar: false, gen: 0, rapido: true, entrega: null };
+
+            function cwCctpTextoEstado(x) {
+                const S = CW_CCTP_REDES[x.src], D = CW_CCTP_REDES[x.dst];
+                switch (x.estado) {
+                    case 'aprobando': return t('cctp_st_approve');
+                    case 'quemando': return t('cctp_st_burn', { red: S.nombre });
+                    case 'saliendo': return t('cctp_st_leaving', { red: S.nombre });
+                    case 'atestando': return t(x.rapido ? 'cctp_st_attest_fast' : 'cctp_st_attest_std')
+                        + (x.demora ? ' (' + x.demora + ')' : '');
+                    case 'entregando': return t('cctp_st_forward', { red: D.nombre });
+                    case 'recibiendo': return t('cctp_st_receive', { red: D.nombre });
+                    case 'listo': return t('cctp_done', { n: cwCctpFmt(x.recibido || x.monto), red: D.nombre });
+                    case 'error': return t('cctp_st_error', { err: x.err || '?' }) + ' '
+                        + (x.burnTx ? t('cctp_st_error_safe') : t('cctp_st_error_nothing'));
+                    default: return x.estado;
+                }
+            }
+
+            function cwCctpPintarPendientes() {
+                const enMarcha = currentWallet ? cwCctpLista().filter(cwCctpEnMarcha).length : 0;
+                document.querySelectorAll('.cctp-badge').forEach(b => {
+                    b.textContent = t('cctp_badge', { n: enMarcha });
+                    b.classList.toggle('hidden', !enMarcha);
+                });
+                const cont = document.getElementById('cctpPend');
+                if (!cont) return;
+                const lista = currentWallet ? cwCctpLista().filter(x => x.estado !== 'archivado').slice(0, 5) : [];
+                cont.classList.toggle('hidden', !lista.length);
+                cont.innerHTML = lista.map(x => {
+                    const S = CW_CCTP_REDES[x.src], D = CW_CCTP_REDES[x.dst];
+                    if (!S || !D) return '';
+                    const color = x.estado === 'listo' ? 'text-emerald-400' : x.estado === 'error' ? 'text-red-400' : 'text-gray-300';
+                    const enlace = (h, red, txt) => h ? `<a href="${escHtml(red.tx + h)}" target="_blank" rel="noopener" class="underline text-indigo-300">${escHtml(txt)}</a>` : '';
+                    const enlaces = [enlace(x.burnTx, S, t('cctp_link_out', { red: S.nombre })), enlace(x.mintTx, D, t('cctp_link_in', { red: D.nombre }))].filter(Boolean).join(' · ');
+                    const reintentar = x.estado === 'error' && x.burnTx
+                        ? `<button type="button" class="cctp-retry px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-xs font-bold" data-id="${escHtml(x.id)}">${escHtml(t('cctp_retry'))}</button>` : '';
+                    const quitar = !cwCctpEnMarcha(x) && !reintentar
+                        ? `<button type="button" class="cctp-hide text-gray-500 hover:text-white text-lg leading-none" data-id="${escHtml(x.id)}" aria-label="×">&times;</button>` : '';
+                    return `<div class="cctp-item bg-gray-900/60 rounded-lg p-3 text-sm space-y-1" data-id="${escHtml(x.id)}" data-estado="${escHtml(x.estado)}">
+                        <div class="flex justify-between gap-2"><span class="font-semibold">${escHtml(cwCctpFmt(x.monto))} USDC · ${escHtml(S.nombre)} → ${escHtml(D.nombre)}</span>${quitar}</div>
+                        <p class="cctp-item-estado ${color}">${escHtml(cwCctpTextoEstado(x))}</p>
+                        ${enlaces ? `<p class="text-xs">${enlaces}</p>` : ''}
+                        ${reintentar}
+                    </div>`;
+                }).join('');
+            }
+
+            function cwCctpMontoInput() {
+                const v = (document.getElementById('cctpAmount').value || '').trim().replace(',', '.');
+                if (!/^\d*\.?\d{0,6}$/.test(v) || !v || v === '.') return null;
+                try { const u = ethers.parseUnits(v, 6); return u > 0n ? u : null; } catch (e) { return null; }
+            }
+
+            function cwCctpPintarSelects() {
+                const fromSel = document.getElementById('cctpFrom'), toSel = document.getElementById('cctpTo');
+                const opciones = (sel, excluir) => {
+                    const actual = sel.value;
+                    sel.innerHTML = Object.entries(CW_CCTP_REDES).filter(([id]) => id !== excluir).map(([id, r]) => {
+                        const s = cwCctpUi.saldos[id];
+                        const txt = r.nombre + (s === undefined ? '' : s === null ? ' · ?' : ` · ${cwCctpFmt(s)}`);
+                        return `<option value="${id}">${escHtml(txt)}</option>`;
+                    }).join('');
+                    if ([...sel.options].some(o => o.value === actual)) sel.value = actual;
+                };
+                opciones(fromSel, null);
+                opciones(toSel, fromSel.value);
+            }
+
+            async function cwCctpLeerSaldos() {
+                const addr = currentWallet.address;
+                await Promise.all(Object.entries(CW_CCTP_REDES).map(async ([id, r]) => {
+                    try {
+                        const c = new ethers.Contract(r.usdc, CW_CCTP_ABI_USDC, await cwCctpProv(id));
+                        cwCctpUi.saldos[id] = await withTimeout(c.balanceOf(addr), 8000, 'usdc');
+                    } catch (e) { cwCctpUi.saldos[id] = null; }
+                }));
+            }
+
+            function cwCctpSetModo(grupo, valor) {
+                if (grupo === 'vel') cwCctpUi.rapido = valor === 'rapido';
+                else cwCctpUi.entrega = valor;
+                document.querySelectorAll(`[data-cctp-${grupo}]`).forEach(b => {
+                    const on = b.getAttribute(`data-cctp-${grupo}`) === valor;
+                    b.classList.toggle('bg-indigo-600', on);
+                    b.classList.toggle('bg-gray-700', !on);
+                    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                });
+            }
+
+            // Recalcula la cotización con lo que hay en la ficha. Cualquier cambio anula el
+            // «Confirmar» pendiente: lo que se confirma es siempre lo que se ve.
+            async function cwCctpRecotizar() {
+                const gen = ++cwCctpUi.gen;
+                cwCctpUi.q = null; cwCctpUi.confirmar = false;
+                const quote = document.getElementById('cctpQuote'), err = document.getElementById('cctpErr'), go = document.getElementById('cctpGo');
+                const src = document.getElementById('cctpFrom').value, dst = document.getElementById('cctpTo').value;
+                const monto = cwCctpMontoInput();
+                err.classList.add('hidden');
+                go.disabled = true;
+                go.textContent = t('cctp_review');
+                if (!monto) { quote.innerHTML = `<p class="text-gray-400">${escHtml(t('cctp_enter_amount'))}</p>`; return; }
+                quote.innerHTML = `<p class="text-gray-400">${escHtml(t('cctp_quoting'))}</p>`;
+                let q;
+                try {
+                    // La entrega se elige sola la primera vez: por tu cuenta si tenés gas en destino.
+                    const entrega = cwCctpUi.entrega || 'yo';
+                    q = await cwCctpCotizar({ src, dst, monto, rapido: cwCctpUi.rapido, entrega });
+                    if (!cwCctpUi.entrega && !q.alcanzaGasD) {
+                        cwCctpSetModo('ent', 'circle');
+                        q = await cwCctpCotizar({ src, dst, monto, rapido: cwCctpUi.rapido, entrega: 'circle' });
+                    } else if (!cwCctpUi.entrega) cwCctpSetModo('ent', 'yo');
+                } catch (e) {
+                    if (gen !== cwCctpUi.gen) return;
+                    quote.innerHTML = '';
+                    err.textContent = t('cctp_err_quote', { err: cwCctpErr(e) });
+                    err.classList.remove('hidden');
+                    return;
+                }
+                if (gen !== cwCctpUi.gen) return;
+                const S = CW_CCTP_REDES[src], D = CW_CCTP_REDES[dst];
+                document.getElementById('cctpSpeedRow').classList.toggle('hidden', !q.hayRapido);
+                const filas = [
+                    [t('cctp_q_out'), `${cwCctpFmt(q.monto)} USDC · ${S.nombre}`],
+                    [t('cctp_q_fee'), q.comision > 0n ? `${q.entrega === 'circle' || q.rapido ? t('cctp_q_upto') + ' ' : ''}${cwCctpFmt(q.comision)} USDC` : t('cctp_q_nofee')],
+                    [t('cctp_q_in'), `≈ ${cwCctpFmt(q.recibe > 0n ? q.recibe : 0n)} USDC · ${D.nombre}`],
+                    [t('cctp_q_time'), q.rapido ? t('cctp_q_time_fast') : (src === '137' ? t('cctp_q_time_fast') : t('cctp_q_time_std'))],
+                    [t('cctp_q_gas_src', { red: S.nombre }), `≈ ${cwCctpFmtGas(q.gasS)} ${S.gas}`],
+                ];
+                if (q.entrega === 'yo') filas.push([t('cctp_q_gas_dst', { red: D.nombre }), `≈ ${cwCctpFmtGas(q.gasD)} ${D.gas}`]);
+                quote.innerHTML = filas.map(([k, v]) => `<div class="flex justify-between gap-3"><span class="text-gray-400">${escHtml(k)}</span><span class="text-right font-semibold">${escHtml(v)}</span></div>`).join('')
+                    + `<p class="text-xs text-gray-500 pt-1">${escHtml(t('cctp_q_to_self'))}</p>`;
+                document.getElementById('cctpDeliveryNote').textContent = q.entrega === 'circle'
+                    ? t('cctp_ent_circle_note', { n: cwCctpFmt(q.entregaCircle) })
+                    : t('cctp_ent_yo_note', { red: D.nombre, gas: D.gas });
+                let problema = '';
+                if (q.saldo < q.monto) problema = t('cctp_err_balance', { n: cwCctpFmt(q.saldo), red: S.nombre });
+                else if (q.recibe <= 0n) problema = t('cctp_err_too_small');
+                else if (!q.alcanzaGasS) problema = t('cctp_err_gas', { gas: S.gas, red: S.nombre });
+                else if (q.entrega === 'yo' && !q.alcanzaGasD) problema = t('cctp_err_gas_dst', { gas: D.gas, red: D.nombre });
+                if (problema) { err.textContent = problema; err.classList.remove('hidden'); return; }
+                cwCctpUi.q = q;
+                go.disabled = false;
+            }
+
+            async function cwCctpAbrir() {
+                if (!currentWallet) return;
+                const modal = document.getElementById('cctpModal');
+                modal.classList.remove('hidden'); modal.classList.add('flex');
+                cwCctpUi.entrega = null;
+                cwCctpUi.tocado = false;
+                cwCctpSetModo('vel', cwCctpUi.rapido ? 'rapido' : 'estandar');
+                cwCctpSetModo('ent', '');
+                cwCctpPintarPendientes();
+                cwCctpRetomar();
+                cwCctpPintarSelects();
+                document.getElementById('cctpQuote').innerHTML = `<p class="text-gray-400">${escHtml(t('cctp_loading'))}</p>`;
+                await cwCctpLeerSaldos();
+                // Si mientras se leían los saldos elegiste las redes a mano, se respeta tu elección.
+                if (cwCctpUi.tocado) { cwCctpPintarSelects(); return; }
+                // Origen: la red que tenés abierta si es una de estas; si no, donde más USDC hay.
+                const fromSel = document.getElementById('cctpFrom');
+                const abierta = String(optionsList[currentTokenIndex]?.TOKEN_CHAINID || '');
+                const conMas = Object.entries(cwCctpUi.saldos).filter(([, s]) => s).sort((a, b) => (b[1] > a[1] ? 1 : -1))[0]?.[0];
+                fromSel.value = CW_CCTP_REDES[abierta] && cwCctpUi.saldos[abierta] ? abierta : (conMas || '8453');
+                cwCctpPintarSelects();
+                const toSel = document.getElementById('cctpTo');
+                toSel.value = fromSel.value === '1' ? '8453' : '1';
+                cwCctpRecotizar();
+            }
+            window.cwCctpAbrir = cwCctpAbrir;
+
+            (function wireCctp() {
+                const modal = document.getElementById('cctpModal');
+                if (!modal) return;
+                const cerrar = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
+                document.querySelectorAll('.cctp-open').forEach(b => b.addEventListener('click', cwCctpAbrir));
+                document.getElementById('closeCctp').addEventListener('click', cerrar);
+                modal.addEventListener('click', e => { if (e.target === modal) cerrar(); });
+                document.getElementById('cctpFrom').addEventListener('change', () => {
+                    cwCctpUi.tocado = true;
+                    const toSel = document.getElementById('cctpTo');
+                    const antes = toSel.value;
+                    cwCctpPintarSelects();
+                    if (antes === document.getElementById('cctpFrom').value) toSel.value = toSel.options[0].value;
+                    cwCctpUi.entrega = null; cwCctpRecotizar();
+                });
+                document.getElementById('cctpTo').addEventListener('change', () => { cwCctpUi.tocado = true; cwCctpUi.entrega = null; cwCctpRecotizar(); });
+                let espera = null;
+                document.getElementById('cctpAmount').addEventListener('input', () => {
+                    // Lo confirmable deja de valer YA, no cuando llegue la cotización nueva.
+                    cwCctpUi.gen++; cwCctpUi.q = null; cwCctpUi.confirmar = false;
+                    const go = document.getElementById('cctpGo');
+                    go.disabled = true; go.textContent = t('cctp_review');
+                    clearTimeout(espera); espera = setTimeout(cwCctpRecotizar, 400);
+                });
+                document.getElementById('cctpMax').addEventListener('click', () => {
+                    const s = cwCctpUi.saldos[document.getElementById('cctpFrom').value];
+                    if (!s) return;
+                    document.getElementById('cctpAmount').value = ethers.formatUnits(s, 6);
+                    cwCctpRecotizar();
+                });
+                document.querySelectorAll('[data-cctp-vel]').forEach(b => b.addEventListener('click', () => { cwCctpSetModo('vel', b.dataset.cctpVel); cwCctpRecotizar(); }));
+                document.querySelectorAll('[data-cctp-ent]').forEach(b => b.addEventListener('click', () => { cwCctpSetModo('ent', b.dataset.cctpEnt); cwCctpRecotizar(); }));
+                // Dos toques, como en pagar un QR: «Revisar» muestra lo que sale y «Confirmar» lo manda.
+                document.getElementById('cctpGo').addEventListener('click', async () => {
+                    const go = document.getElementById('cctpGo');
+                    const q = cwCctpUi.q;
+                    if (!q) return;
+                    if (!cwCctpUi.confirmar) {
+                        cwCctpUi.confirmar = true;
+                        go.textContent = t('cctp_confirm', { n: cwCctpFmt(q.monto), red: CW_CCTP_REDES[q.dst].nombre });
+                        return;
+                    }
+                    cwCctpUi.q = null; cwCctpUi.confirmar = false;
+                    go.disabled = true;
+                    go.textContent = t('cctp_sending');
+                    document.getElementById('cctpAmount').value = '';
+                    await cwCctpEjecutar(q);
+                    go.textContent = t('cctp_review');
+                    cwCctpLeerSaldos().then(cwCctpPintarSelects);
+                });
+                document.getElementById('cctpPend').addEventListener('click', e => {
+                    const r = e.target.closest('.cctp-retry');
+                    if (r) { const x = cwCctpLista().find(i => i.id === r.dataset.id); if (x) { x.estado = 'atestando'; delete x.err; cwCctpGuardar(x); cwCctpSeguir(x); } return; }
+                    const h = e.target.closest('.cctp-hide');
+                    if (h) { const x = cwCctpLista().find(i => i.id === h.dataset.id); if (x) { x.estado = 'archivado'; cwCctpGuardar(x); } }
+                });
+            })();
+
             // Hoy el plugin argentino vive adentro del bundle y esto es un envoltorio de dos
             // líneas. Cuando llegue el pago de verdad (que arrastra viem) esta función pasa a
             // bajar el bundle del nodo propio, verificar su SHA-256 y arrancarlo en un Worker sin
@@ -23211,6 +23779,64 @@
                     "settings_archive_identity": "Mi identidad",
                     "settings_archive_adopted_note": "Estás usando el chat de otra wallet. Tu identidad y tus chats vuelven solos cuando esa wallet te quite el acceso.",
                     "pay_qr_title": "QR de pago",
+                    "cctp_open": "Pasar USDC a otra red",
+                    "cctp_title": "Pasar USDC a otra red",
+                    "cctp_intro": "Circle quema tu USDC en una red y lo emite en la otra, 1 a 1, a tu misma dirección. Sin pools ni intermediarios que lo custodien.",
+                    "cctp_from": "Desde",
+                    "cctp_to": "Hacia",
+                    "cctp_max": "Todo",
+                    "cctp_speed": "Velocidad",
+                    "cctp_fast": "Rápida (segundos)",
+                    "cctp_std": "Estándar (~15 min)",
+                    "cctp_delivery": "Al llegar",
+                    "cctp_ent_yo": "Lo recibo yo",
+                    "cctp_ent_circle": "Lo entrega Circle",
+                    "cctp_ent_yo_note": "Tu app lo recibe en {red} con tu llave. Necesitás un poco de {gas} en {red} para el gas.",
+                    "cctp_ent_circle_note": "Circle lo emite en destino por vos: no necesitás gas allá, pero cobra unos {n} USDC.",
+                    "cctp_review": "Revisar",
+                    "cctp_confirm": "Confirmar: pasar {n} USDC a {red}",
+                    "cctp_sending": "Enviando…",
+                    "cctp_loading": "Leyendo tus saldos de USDC…",
+                    "cctp_enter_amount": "Poné cuánto USDC querés pasar.",
+                    "cctp_quoting": "Calculando…",
+                    "cctp_q_out": "Sale",
+                    "cctp_q_fee": "Comisión de Circle",
+                    "cctp_q_upto": "hasta",
+                    "cctp_q_nofee": "sin comisión",
+                    "cctp_q_in": "Llega",
+                    "cctp_q_time": "Tiempo",
+                    "cctp_q_time_fast": "segundos",
+                    "cctp_q_time_std": "15 a 20 minutos",
+                    "cctp_q_gas_src": "Gas en {red}",
+                    "cctp_q_gas_dst": "Gas en {red}",
+                    "cctp_q_to_self": "Llega a tu misma dirección. Si cerrás la app en el medio, sigue al volver a abrirla.",
+                    "cctp_err_quote": "No se pudo calcular: {err}",
+                    "cctp_err_route": "Circle no ofrece esta ruta.",
+                    "cctp_err_balance": "No alcanza: tenés {n} USDC en {red}.",
+                    "cctp_err_too_small": "El monto no cubre la comisión.",
+                    "cctp_err_gas": "Te falta {gas} en {red} para pagar el gas.",
+                    "cctp_err_gas_dst": "Te falta {gas} en {red} para recibirlo. Elegí «Lo entrega Circle».",
+                    "cctp_err_gas_generic": "No alcanza el gas.",
+                    "cctp_err_approve": "la aprobación falló",
+                    "cctp_err_burn": "la salida falló",
+                    "cctp_err_receive": "la recepción falló",
+                    "cctp_err_forward": "la entrega de Circle falló",
+                    "cctp_st_approve": "1/3 · Aprobando el USDC…",
+                    "cctp_st_burn": "1/3 · Firmando la salida en {red}…",
+                    "cctp_st_leaving": "1/3 · Esperando que {red} confirme la salida…",
+                    "cctp_st_attest_fast": "2/3 · Esperando la firma de Circle (segundos)…",
+                    "cctp_st_attest_std": "2/3 · Esperando la firma de Circle (15 a 20 min)…",
+                    "cctp_st_forward": "3/3 · Circle lo está emitiendo en {red}…",
+                    "cctp_st_receive": "3/3 · Recibiendo en {red}…",
+                    "cctp_st_error": "No se pudo: {err}.",
+                    "cctp_st_error_safe": "Tu USDC no se perdió: tocá Reintentar.",
+                    "cctp_st_error_nothing": "No salió nada de tu billetera.",
+                    "cctp_done_title": "USDC recibido",
+                    "cctp_done": "✓ Llegaron {n} USDC a {red}.",
+                    "cctp_retry": "Reintentar",
+                    "cctp_link_out": "salida en {red}",
+                    "cctp_link_in": "llegada en {red}",
+                    "cctp_badge": "{n} en curso",
                     "pay_qr_soon": "Reconocimos un QR de {esquema} ({pais}), pero el plugin para pagarlo todavía no está disponible.",
                     "ars_qr_merchant": "Comercio",
                     "ars_qr_amount": "Monto",
@@ -23846,6 +24472,64 @@
                     "settings_archive_identity": "My identity",
                     "settings_archive_adopted_note": "You are using another wallet\u2019s chat. Your identity and your chats come back on their own once that wallet removes your access.",
                     "pay_qr_title": "Payment QR",
+                    "cctp_open": "Move USDC to another network",
+                    "cctp_title": "Move USDC to another network",
+                    "cctp_intro": "Circle burns your USDC on one network and mints it on the other, 1 to 1, to your same address. No pools, no middlemen holding it.",
+                    "cctp_from": "From",
+                    "cctp_to": "To",
+                    "cctp_max": "Max",
+                    "cctp_speed": "Speed",
+                    "cctp_fast": "Fast (seconds)",
+                    "cctp_std": "Standard (~15 min)",
+                    "cctp_delivery": "On arrival",
+                    "cctp_ent_yo": "I receive it",
+                    "cctp_ent_circle": "Circle delivers it",
+                    "cctp_ent_yo_note": "Your app receives it on {red} with your key. You need a little {gas} on {red} for gas.",
+                    "cctp_ent_circle_note": "Circle mints it at the destination for you: no gas needed there, but it charges about {n} USDC.",
+                    "cctp_review": "Review",
+                    "cctp_confirm": "Confirm: move {n} USDC to {red}",
+                    "cctp_sending": "Sending…",
+                    "cctp_loading": "Reading your USDC balances…",
+                    "cctp_enter_amount": "Enter how much USDC to move.",
+                    "cctp_quoting": "Calculating…",
+                    "cctp_q_out": "Leaves",
+                    "cctp_q_fee": "Circle fee",
+                    "cctp_q_upto": "up to",
+                    "cctp_q_nofee": "no fee",
+                    "cctp_q_in": "Arrives",
+                    "cctp_q_time": "Time",
+                    "cctp_q_time_fast": "seconds",
+                    "cctp_q_time_std": "15 to 20 minutes",
+                    "cctp_q_gas_src": "Gas on {red}",
+                    "cctp_q_gas_dst": "Gas on {red}",
+                    "cctp_q_to_self": "It arrives at your same address. If you close the app halfway, it resumes when you open it again.",
+                    "cctp_err_quote": "Could not calculate: {err}",
+                    "cctp_err_route": "Circle does not offer this route.",
+                    "cctp_err_balance": "Not enough: you have {n} USDC on {red}.",
+                    "cctp_err_too_small": "The amount does not cover the fee.",
+                    "cctp_err_gas": "You need {gas} on {red} to pay for gas.",
+                    "cctp_err_gas_dst": "You need {gas} on {red} to receive it. Choose «Circle delivers it».",
+                    "cctp_err_gas_generic": "Not enough gas.",
+                    "cctp_err_approve": "the approval failed",
+                    "cctp_err_burn": "the transfer out failed",
+                    "cctp_err_receive": "receiving failed",
+                    "cctp_err_forward": "Circle's delivery failed",
+                    "cctp_st_approve": "1/3 · Approving the USDC…",
+                    "cctp_st_burn": "1/3 · Signing the transfer out on {red}…",
+                    "cctp_st_leaving": "1/3 · Waiting for {red} to confirm it…",
+                    "cctp_st_attest_fast": "2/3 · Waiting for Circle's signature (seconds)…",
+                    "cctp_st_attest_std": "2/3 · Waiting for Circle's signature (15 to 20 min)…",
+                    "cctp_st_forward": "3/3 · Circle is minting it on {red}…",
+                    "cctp_st_receive": "3/3 · Receiving on {red}…",
+                    "cctp_st_error": "It failed: {err}.",
+                    "cctp_st_error_safe": "Your USDC is not lost: tap Retry.",
+                    "cctp_st_error_nothing": "Nothing left your wallet.",
+                    "cctp_done_title": "USDC received",
+                    "cctp_done": "✓ {n} USDC arrived on {red}.",
+                    "cctp_retry": "Retry",
+                    "cctp_link_out": "out on {red}",
+                    "cctp_link_in": "in on {red}",
+                    "cctp_badge": "{n} in progress",
                     "pay_qr_soon": "We recognised a {esquema} QR ({pais}), but the plugin to pay it is not available yet.",
                     "ars_qr_merchant": "Merchant",
                     "ars_qr_amount": "Amount",
@@ -24481,6 +25165,64 @@
                     "settings_archive_identity": "Mon identité",
                     "settings_archive_adopted_note": "Vous utilisez le chat d\u2019un autre portefeuille. Votre identité et vos discussions reviendront d\u2019elles-mêmes lorsque ce portefeuille vous retirera l\u2019accès.",
                     "pay_qr_title": "QR de paiement",
+                    "cctp_open": "Passer des USDC sur un autre réseau",
+                    "cctp_title": "Passer des USDC sur un autre réseau",
+                    "cctp_intro": "Circle brûle tes USDC sur un réseau et les émet sur l'autre, 1 pour 1, à ta même adresse. Sans pools ni intermédiaires qui les gardent.",
+                    "cctp_from": "Depuis",
+                    "cctp_to": "Vers",
+                    "cctp_max": "Tout",
+                    "cctp_speed": "Vitesse",
+                    "cctp_fast": "Rapide (secondes)",
+                    "cctp_std": "Standard (~15 min)",
+                    "cctp_delivery": "À l'arrivée",
+                    "cctp_ent_yo": "Je les reçois",
+                    "cctp_ent_circle": "Circle les livre",
+                    "cctp_ent_yo_note": "Ton app les reçoit sur {red} avec ta clé. Il te faut un peu de {gas} sur {red} pour le gas.",
+                    "cctp_ent_circle_note": "Circle les émet à destination pour toi : pas besoin de gas là-bas, mais il prend environ {n} USDC.",
+                    "cctp_review": "Vérifier",
+                    "cctp_confirm": "Confirmer : passer {n} USDC sur {red}",
+                    "cctp_sending": "Envoi…",
+                    "cctp_loading": "Lecture de tes soldes USDC…",
+                    "cctp_enter_amount": "Indique combien d'USDC passer.",
+                    "cctp_quoting": "Calcul…",
+                    "cctp_q_out": "Part",
+                    "cctp_q_fee": "Frais de Circle",
+                    "cctp_q_upto": "jusqu'à",
+                    "cctp_q_nofee": "sans frais",
+                    "cctp_q_in": "Arrive",
+                    "cctp_q_time": "Durée",
+                    "cctp_q_time_fast": "secondes",
+                    "cctp_q_time_std": "15 à 20 minutes",
+                    "cctp_q_gas_src": "Gas sur {red}",
+                    "cctp_q_gas_dst": "Gas sur {red}",
+                    "cctp_q_to_self": "Ça arrive à ta même adresse. Si tu fermes l'app en cours de route, ça reprend à la réouverture.",
+                    "cctp_err_quote": "Calcul impossible : {err}",
+                    "cctp_err_route": "Circle ne propose pas cette route.",
+                    "cctp_err_balance": "Pas assez : tu as {n} USDC sur {red}.",
+                    "cctp_err_too_small": "Le montant ne couvre pas les frais.",
+                    "cctp_err_gas": "Il te manque du {gas} sur {red} pour le gas.",
+                    "cctp_err_gas_dst": "Il te manque du {gas} sur {red} pour les recevoir. Choisis « Circle les livre ».",
+                    "cctp_err_gas_generic": "Pas assez de gas.",
+                    "cctp_err_approve": "l'approbation a échoué",
+                    "cctp_err_burn": "la sortie a échoué",
+                    "cctp_err_receive": "la réception a échoué",
+                    "cctp_err_forward": "la livraison de Circle a échoué",
+                    "cctp_st_approve": "1/3 · Approbation des USDC…",
+                    "cctp_st_burn": "1/3 · Signature de la sortie sur {red}…",
+                    "cctp_st_leaving": "1/3 · En attente de la confirmation de {red}…",
+                    "cctp_st_attest_fast": "2/3 · En attente de la signature de Circle (secondes)…",
+                    "cctp_st_attest_std": "2/3 · En attente de la signature de Circle (15 à 20 min)…",
+                    "cctp_st_forward": "3/3 · Circle les émet sur {red}…",
+                    "cctp_st_receive": "3/3 · Réception sur {red}…",
+                    "cctp_st_error": "Échec : {err}.",
+                    "cctp_st_error_safe": "Tes USDC ne sont pas perdus : touche Réessayer.",
+                    "cctp_st_error_nothing": "Rien n'est sorti de ton portefeuille.",
+                    "cctp_done_title": "USDC reçus",
+                    "cctp_done": "✓ {n} USDC sont arrivés sur {red}.",
+                    "cctp_retry": "Réessayer",
+                    "cctp_link_out": "sortie sur {red}",
+                    "cctp_link_in": "arrivée sur {red}",
+                    "cctp_badge": "{n} en cours",
                     "pay_qr_soon": "Nous avons reconnu un QR {esquema} ({pais}), mais le plugin pour le payer n'est pas encore disponible.",
                     "ars_qr_merchant": "Commerce",
                     "ars_qr_amount": "Montant",

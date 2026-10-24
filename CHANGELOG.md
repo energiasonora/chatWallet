@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Pasar USDC a otra red.** Hay un botón nuevo, **⇄ Pasar USDC a otra red**, en la billetera y en Balances. Elegís desde qué red y hacia cuál (Ethereum, Base, Arbitrum, OP Mainnet o Polygon) y cuánto. Usa el sistema de Circle (CCTP): quema el USDC en una red y lo emite en la otra, 1 a 1, a tu misma dirección. No pasa por pools ni por intermediarios que lo custodien. La **rápida** tarda segundos y cobra una comisión mínima (0,013 %). La **estándar** tarda de 15 a 20 minutos y no cobra comisión. Al llegar, tu app lo recibe con tu llave, y para eso necesitás un poco del gas de la red de destino. Si no tenés, elegí **Lo entrega Circle**: Circle lo emite por vos y cobra en USDC (hacia Ethereum, cerca de 1 USDC). Antes de confirmar ves cuánto sale, cuánto llega, las comisiones y el gas. Si cerrás la app en el medio, la transferencia sigue sola al volver a abrirla. Si la red de destino no estaba en tu lista, se agrega sola para que veas tu USDC.
+
 ## 3.86 — 2026-10-23
 
 - **Actualizar la app es más corto.** En Android 12 o más nuevo la actualización se instala sin el diálogo «¿Deseas actualizar esta app?». La app se cierra sola y avisa con una notificación cuando terminó. Antes de descargar aparece un atajo a Play Protect, y si algo falla te dice qué pasó y ofrece reintentar o usar el instalador de siempre.
