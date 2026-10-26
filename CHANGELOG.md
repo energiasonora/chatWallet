@@ -17,6 +17,9 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Enviar Ğ1 ya no te pide la frase de sorpresa.** Si tu billetera vino de la web a la app con «Llevar tu cuenta a la app», ahora viaja también la llave de tu cuenta Ğ1, y enviar Ğ1 anda sin pedir nada. Si la restauraste hace un tiempo (antes de que existiera enviar Ğ1), la app te la pide una sola vez al enviar. El cartel ahora dice **Firmar con Ğ1** y explica por qué: la cuenta Ğ1 sale de tus 12 palabras, no de la clave de tu billetera. La frase no se guarda; queda solo la llave Ğ1 y no se vuelve a pedir.
+- Al borrar la cuenta del navegador después de pasarla a la app, se borra también la llave Ğ1.
+
 ## 3.90 — 2026-10-26
 
 - **Copia de seguridad más clara.** Ahora te muestra solo tus 12 palabras, grandes y numeradas, para que las anotes en orden. La clave privada ya no aparece al lado (quedó en "Opciones avanzadas", por si la necesitás para otra app). Al terminar te pregunta una palabra al azar ("¿cuál es la número 7?") para confirmar que quedó bien anotada.

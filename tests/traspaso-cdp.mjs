@@ -113,7 +113,10 @@ try {
     await abrir(`${WEB}#cw-traspaso=${efimera.pub}`, `
         localStorage.setItem('xmtp-chat-wallet', ${JSON.stringify(cuenta.pk)});
         localStorage.setItem('xmtp-chat-wallet-mnemonic', ${JSON.stringify(cuenta.m)});
-        localStorage.setItem('cw-moneda', 'ARS');`);
+        localStorage.setItem('cw-moneda', 'ARS');
+        localStorage.setItem('cw-g1-raiz-' + ${JSON.stringify(cuenta.a.toLowerCase())}, '0x' + 'ab'.repeat(32));
+        localStorage.setItem('cw-g1-cuenta-' + ${JSON.stringify(cuenta.a.toLowerCase())}, JSON.stringify({ g1: 'g1PRUEBA', ruta: '//0' }));
+        localStorage.setItem('cw-g1-candidatas-' + ${JSON.stringify(cuenta.a.toLowerCase())}, JSON.stringify([{ g1: 'g1PRUEBA', ruta: '//0' }]));`);
     check('el navegador con cuenta muestra "Llevar tu cuenta a la app"', await pollFor(`!!document.getElementById('cwTrSi')`, 90, 1000));
     check('…nombrando la cuenta', (await ev(`document.getElementById('cwTraspasoModal').textContent`)).includes(cuenta.a.slice(0, 6)));
     check('…y el fragmento con la llave ya no está en la URL', await ev(`location.hash`) === '');
@@ -126,6 +129,8 @@ try {
     // Tocar "Abrir la app" (el intent no lleva a ningún lado en headless): luego ofrece borrar.
     await ev(`(() => { const a = document.getElementById('cwTrAbrir'); a.addEventListener('click', e => e.preventDefault()); a.click(); })()`);
     check('al volver, ofrece borrarla de este navegador', await pollFor(`!!document.getElementById('cwTrBorrar')`, 10));
+    await ev(`document.getElementById('cwTrBorrar').click()`);
+    check('…y borrarla se lleva también la llave Ğ1', await pollFor(`localStorage.getItem('cw-g1-raiz-' + ${JSON.stringify(cuenta.a.toLowerCase())}) === null`, 10));
 
     // ── 4. La app (localhost, sin wallet) recibe la cuenta ──
     const urlApp = `https://chatwallet.org/dapp.html?cw-traspaso=${cifrado}`;
@@ -136,6 +141,8 @@ try {
     check('la app guardó la MISMA cuenta', await ev(`localStorage.getItem('xmtp-chat-wallet')`) === cuenta.pk);
     check('…con su frase', await ev(`localStorage.getItem('xmtp-chat-wallet-mnemonic')`) === cuenta.m);
     check('…y la moneda elegida', await ev(`localStorage.getItem('cw-moneda')`) === 'ARS');
+    check('…y la llave Ğ1 (para enviar Ğ1 sin pedir la frase)', await ev(`localStorage.getItem('cw-g1-raiz-' + ${JSON.stringify(cuenta.a.toLowerCase())})`) === '0x' + 'ab'.repeat(32));
+    check('…con su cuenta Ğ1 y candidatas', await ev(`JSON.parse(localStorage.getItem('cw-g1-cuenta-' + ${JSON.stringify(cuenta.a.toLowerCase())})).g1 === 'g1PRUEBA' && !!localStorage.getItem('cw-g1-candidatas-' + ${JSON.stringify(cuenta.a.toLowerCase())})`));
     check('la llave de un solo uso se borró', await ev(`localStorage.getItem('cw-traspaso-llave')`) === null);
     await sleep(2500);   // recarga sola
     check('tras recargar, abre esa cuenta', await pollFor(`currentWallet && currentWallet.address === ${JSON.stringify(cuenta.a)}`, 60));

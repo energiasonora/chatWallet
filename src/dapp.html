@@ -14305,7 +14305,8 @@
 
             // Sin frase a mano (billetera restaurada antes de esta versión): se pide UNA vez,
             // se comprueba que sea la de esta billetera y se descarta.
-            function pedirFraseParaG1(B) {
+            // para: 'activar' (calcular la dirección) o 'firmar' (enviar sin la llave Ğ1 guardada).
+            function pedirFraseParaG1(B, para = 'activar') {
                 return new Promise((resolve) => {
                     const modal = document.createElement('div');
                     modal.id = 'g1FraseModal';
@@ -14324,11 +14325,11 @@
                             </div>
                         </form>`;
                     const q = (sel) => modal.querySelector(sel);
-                    q('h3').textContent = t('g1_phrase_title');
-                    q('[data-g1="cuerpo"]').textContent = t('g1_phrase_body');
+                    q('h3').textContent = t(para === 'firmar' ? 'g1_phrase_sign_title' : 'g1_phrase_title');
+                    q('[data-g1="cuerpo"]').textContent = t(para === 'firmar' ? 'g1_phrase_sign_body' : 'g1_phrase_body');
                     q('[data-g1="nota"]').textContent = t('g1_phrase_pk_note');
                     q('[data-g1="cancelar"]').textContent = t('g1_cancel');
-                    q('button[type="submit"]').textContent = t('g1_activate');
+                    q('button[type="submit"]').textContent = t(para === 'firmar' ? 'g1_phrase_sign_ok' : 'g1_activate');
                     const cerrar = (valor) => { modal.remove(); resolve(valor); };
                     q('[data-g1="cancelar"]').onclick = () => cerrar(null);
                     q('form').onsubmit = (e) => {
@@ -14591,7 +14592,7 @@
                 const dir = currentWallet.address;
                 let raiz = localStorage.getItem(claveRaizG1(dir));
                 if (!raiz) {
-                    const frase = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic() || await pedirFraseParaG1(B);
+                    const frase = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic() || await pedirFraseParaG1(B, 'firmar');
                     if (!frase) return null;
                     raiz = B.raizHex(frase);
                     localStorage.setItem(claveRaizG1(dir), raiz);
@@ -23331,6 +23332,13 @@
                             c: localStorage.getItem(CW_MONEDA_KEY) || '',
                             n: redes.length < 12000 ? redes : '',
                             s: localStorage.getItem(SELECTED_NETWORK_KEY) || '',
+                            // Cuenta Ğ1: sin la raíz, la app pediría la frase para enviar Ğ1
+                            // (la llave Ğ1 sale de la frase, no de la clave EVM).
+                            g: {
+                                r: localStorage.getItem(claveRaizG1(currentWallet.address)) || '',
+                                c: localStorage.getItem(claveCuentaG1(currentWallet.address)) || '',
+                                d: localStorage.getItem(claveCandidatasG1(currentWallet.address)) || '',
+                            },
                         };
                         cifrado = EthCrypto.cipher.stringify(
                             await EthCrypto.encryptWithPublicKey(toEncryptablePubKey(pub), JSON.stringify(datos)));
@@ -23356,6 +23364,7 @@
                             localStorage.removeItem(WALLET_STORAGE_KEY);
                             localStorage.removeItem(WALLET_MNEMONIC_KEY);
                             localStorage.removeItem(WALLET_BACKUP_DONE_KEY);
+                            localStorage.removeItem(claveRaizG1(currentWallet.address));   // la llave Ğ1 también es secreta
                             showToast(escHtml(t('traspaso_borrada')), 'success', 4000);
                             setTimeout(() => location.reload(), 1500);
                         };
@@ -23397,6 +23406,13 @@
                 if (datos.c) localStorage.setItem(CW_MONEDA_KEY, datos.c);
                 if (datos.n) { try { JSON.parse(datos.n); localStorage.setItem(NETWORKS_STORAGE_KEY, datos.n); } catch (_) { } }
                 if (datos.s) localStorage.setItem(SELECTED_NETWORK_KEY, datos.s);
+                if (datos.g && typeof datos.g === 'object') {
+                    const a = String(datos.a);
+                    if (/^[0-9a-fA-F]{64}$/.test(String(datos.g.r || '').replace(/^0x/, ''))) localStorage.setItem(claveRaizG1(a), datos.g.r);
+                    for (const [campo, clave] of [['c', claveCuentaG1(a)], ['d', claveCandidatasG1(a)]]) {
+                        if (datos.g[campo]) { try { JSON.parse(datos.g[campo]); localStorage.setItem(clave, datos.g[campo]); } catch (_) { } }
+                    }
+                }
                 // La cuenta ya vivió la migración de XMTP en el navegador: no contársela de nuevo.
                 if (!localStorage.getItem(MUDANZA_AVISADA_KEY)) localStorage.setItem(MUDANZA_AVISADA_KEY, 'traspaso');
                 showToast(escHtml(t('traspaso_ok')), 'success', 4000);
@@ -23775,7 +23791,10 @@
                     "g1_searching": "Buscando tu cuenta Ğ1…",
                     "g1_err": "No se pudo leer la red Ğ1: {e}",
                     "g1_phrase_title": "Activar Ğ1",
-                    "g1_phrase_body": "Tu cuenta Ğ1 sale de tu frase semilla. Escribila una vez: no se guarda, solo se calcula tu dirección Ğ1.",
+                    "g1_phrase_body": "Tu cuenta Ğ1 sale de tu frase semilla. Escribila una vez: la frase no se guarda; en este dispositivo queda solo la llave de tu cuenta Ğ1, como la de tu billetera.",
+                    "g1_phrase_sign_title": "Firmar con Ğ1",
+                    "g1_phrase_sign_body": "Para enviar Ğ1 hace falta la llave de tu cuenta Ğ1, que sale de tu frase semilla y no de la clave de tu billetera. Este dispositivo todavía no la tiene. Escribí la frase una vez: no se guarda, queda solo la llave Ğ1 y no se te vuelve a pedir.",
+                    "g1_phrase_sign_ok": "Continuar",
                     "g1_phrase_pk_note": "Si importaste esta billetera con clave privada, no tiene frase y no puede tener una cuenta Ğ1 derivada.",
                     "g1_phrase_invalid": "Esa no es una frase válida.",
                     "g1_phrase_other": "Esa frase es de otra billetera, no de esta.",
@@ -24482,7 +24501,10 @@
                     "g1_searching": "Looking for your Ğ1 account…",
                     "g1_err": "Couldn't read the Ğ1 network: {e}",
                     "g1_phrase_title": "Enable Ğ1",
-                    "g1_phrase_body": "Your Ğ1 account comes from your seed phrase. Enter it once: it isn't stored, only your Ğ1 address is computed.",
+                    "g1_phrase_body": "Your Ğ1 account comes from your seed phrase. Enter it once: the phrase isn't stored; this device keeps only your Ğ1 account key, like your wallet key.",
+                    "g1_phrase_sign_title": "Sign with Ğ1",
+                    "g1_phrase_sign_body": "Sending Ğ1 needs your Ğ1 account key, which comes from your seed phrase, not from your wallet key. This device doesn't have it yet. Enter the phrase once: it isn't stored, only the Ğ1 key is kept and you won't be asked again.",
+                    "g1_phrase_sign_ok": "Continue",
                     "g1_phrase_pk_note": "If you imported this wallet with a private key, it has no phrase and can't have a derived Ğ1 account.",
                     "g1_phrase_invalid": "That isn't a valid phrase.",
                     "g1_phrase_other": "That phrase belongs to another wallet, not this one.",
@@ -25189,7 +25211,10 @@
                     "g1_searching": "Recherche de ton compte Ğ1…",
                     "g1_err": "Impossible de lire le réseau Ğ1 : {e}",
                     "g1_phrase_title": "Activer Ğ1",
-                    "g1_phrase_body": "Ton compte Ğ1 vient de ta phrase secrète. Saisis-la une fois : elle n'est pas enregistrée, seule ton adresse Ğ1 est calculée.",
+                    "g1_phrase_body": "Ton compte Ğ1 vient de ta phrase secrète. Saisis-la une fois : la phrase n'est pas enregistrée ; cet appareil garde seulement la clé de ton compte Ğ1, comme celle de ton portefeuille.",
+                    "g1_phrase_sign_title": "Signer avec Ğ1",
+                    "g1_phrase_sign_body": "Pour envoyer des Ğ1, il faut la clé de ton compte Ğ1, qui vient de ta phrase secrète et non de la clé de ton portefeuille. Cet appareil ne l'a pas encore. Saisis la phrase une fois : elle n'est pas enregistrée, seule la clé Ğ1 est gardée et elle ne te sera plus demandée.",
+                    "g1_phrase_sign_ok": "Continuer",
                     "g1_phrase_pk_note": "Si tu as importé ce portefeuille avec une clé privée, il n'a pas de phrase et ne peut pas avoir de compte Ğ1 dérivé.",
                     "g1_phrase_invalid": "Ce n'est pas une phrase valide.",
                     "g1_phrase_other": "Cette phrase appartient à un autre portefeuille, pas à celui-ci.",

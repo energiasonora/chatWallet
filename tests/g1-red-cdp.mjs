@@ -126,7 +126,7 @@ try {
     ok((await chunks()).length === 0, 'no se bajó ningún pedazo Ğ1 ni de frases', JSON.stringify(await chunks()));
     await abrirSelector();
     ok(await listo(`!!document.getElementById('redG1Item')`, 5), 'el selector ofrece Ğ1');
-    ok(await ev(`document.querySelector('#tokenSelectorList').lastElementChild.id === 'redG1Item'`), 'al final, debajo de las EVM');
+    ok(await ev(`document.querySelector('#tokenSelectorList').lastElementChild.previousElementSibling?.id === 'redG1Item' && document.querySelector('#tokenSelectorList').lastElementChild.id === 'redXmrItem'`), 'debajo de las EVM (y arriba de Monero)');
     ok(await texto('#redG1Item') === 'Ğ1 · moneda libre', 'se llama "Ğ1 · moneda libre"', await texto('#redG1Item'));
 
     console.log('\n── A) activar Ğ1 ──');
@@ -313,6 +313,22 @@ try {
     ok(mandado.destino === PENDIENTE && mandado.centimos === 1250 && mandado.comentario === 'gracias por el pan', 'destino, 1250 céntimos y el comentario', JSON.stringify(mandado));
     ok(!!(await ev(`localStorage.getItem('cw-g1-raiz-' + currentWallet.address.toLowerCase())`)) && (await ev(`localStorage.getItem('xmtp-chat-wallet-mnemonic')`)) === null, 'guardada la raíz Ğ1, no la frase');
     await ev(`document.querySelector('#g1EnvioModal [data-g1="cancelar"]').click()`);
+
+    console.log('\n── E) enviar sin la raíz guardada (restaurada en 3.54–3.56 o traída por traspaso) ──');
+    await ev(`localStorage.removeItem('cw-g1-raiz-' + currentWallet.address.toLowerCase())`);
+    await ev(`window.__g1envios.length = 0`);
+    await ev(`document.getElementById('sendBtn').click()`);
+    ok(await listo(`!!document.getElementById('g1EnvioModal')`, 15), 'abre el envío');
+    await tipear('destino', PENDIENTE); await tipear('monto', '1'); await sleep(300);
+    await seguir(); await sleep(500); await seguir();
+    ok(await listo(`!!document.getElementById('g1FraseModal')`, 10), 'pide la frase para firmar');
+    ok(await texto('#g1FraseModal h3') === 'Firmar con Ğ1', 'con título de firmar, no de activar', await texto('#g1FraseModal h3'));
+    ok(/no de la clave de tu billetera/.test(await texto('#g1FraseModal [data-g1="cuerpo"]')) && !/solo se calcula tu dirección/.test(await texto('#g1FraseModal [data-g1="cuerpo"]')), 'explica por qué y no dice que no guarda nada');
+    await ev(`{ const m = document.getElementById('g1FraseModal'); m.querySelector('textarea').value = ${JSON.stringify(P1)}; m.querySelector('form').requestSubmit() }`);
+    ok(await listo(`window.__g1envios.length === 1`, 15), 'con la frase, firma y manda');
+    ok(!!(await ev(`localStorage.getItem('cw-g1-raiz-' + currentWallet.address.toLowerCase())`)), 'y guarda la raíz: no la vuelve a pedir');
+    await ev(`document.querySelector('#g1EnvioModal [data-g1="cancelar"]')?.click()`);
+    await sleep(300);
 
     console.log('\n── E) pagar un pedido escaneado ──');
     await ev(`handleScannedData(${JSON.stringify('june://' + RAIZ1 + '?amount=3&comment=caf%C3%A9')})`);
