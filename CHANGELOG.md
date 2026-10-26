@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Copia de seguridad más clara.** Ahora te muestra solo tus 12 palabras, grandes y numeradas, para que las anotes en orden. La clave privada ya no aparece al lado (quedó en "Opciones avanzadas", por si la necesitás para otra app). Al terminar te pregunta una palabra al azar ("¿cuál es la número 7?") para confirmar que quedó bien anotada.
+- **Avisos más amables.** El cartel rojo que pedía respaldar pasó a ser una franja tranquila que te invita a anotar tus palabras, y los avisos de instalar la app tienen el mismo estilo.
+- **Si te invitaron, entrás directo al chat.** En Android ya no aparece el cartel de pantalla completa ofreciendo la app antes de empezar: la app se sugiere en una franja arriba, sin frenarte.
+
 ## 3.89 — 2026-10-24
 
 - **Pasar USDC a otra red.** Hay un botón nuevo, **⇄ Pasar USDC a otra red**, en la billetera y en Balances. Elegís desde qué red y hacia cuál (Ethereum, Base, Arbitrum, OP Mainnet o Polygon) y cuánto. Usa el sistema de Circle (CCTP): quema el USDC en una red y lo emite en la otra, 1 a 1, a tu misma dirección. No pasa por pools ni por intermediarios que lo custodien. La **rápida** tarda segundos y cobra una comisión mínima (0,013 %). La **estándar** tarda de 15 a 20 minutos y no cobra comisión. Al llegar, tu app lo recibe con tu llave, y para eso necesitás un poco del gas de la red de destino. Si no tenés, elegí **Lo entrega Circle**: Circle lo emite por vos y cobra en USDC (hacia Ethereum, cerca de 1 USDC). Antes de confirmar ves cuánto sale, cuánto llega, las comisiones y el gas. Si cerrás la app en el medio, la transferencia sigue sola al volver a abrirla. Si la red de destino no estaba en tu lista, se agrega sola para que veas tu USDC.

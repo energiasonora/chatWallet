@@ -95,17 +95,14 @@ try {
     await sleep(1000);
     check('en la misma sesión no se vuelve a ofrecer', !await ev(`!!document.getElementById('cwOfrecerApk')`));
 
-    // ── 2. Android con invitación: la oferta lleva la invitación a la app ──
+    // ── 2. Android con invitación: NO se lo frena; la app se sugiere en la franja ──
     const INVITA = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
     await abrir(`${WEB}?address=${INVITA}`);
-    check('con invitación: aparece la oferta', await pollFor(visible('#cwOfrecerApk'), 20));
-    check('…con el título de invitación', /invitaron/.test(await ev(`document.querySelector('#cwOfrecerApk h3').textContent`)));
-    const hrefInv = await ev(`document.getElementById('cwApkAbrir').getAttribute('href')`);
-    check('…y el intent lleva la invitación', hrefInv.startsWith(`intent://chatwallet.org/dapp.html?address=${INVITA}#Intent;`), hrefInv);
-    check('mientras decide, no se crea la wallet', await ev(`!localStorage.getItem('xmtp-chat-wallet')`));
-    await ev(`document.getElementById('cwApkSeguir').click()`);
-    check('si sigue en el navegador, la invitación crea la wallet como siempre',
+    check('con invitación: la wallet nace sin pasar por ningún cartel',
         await pollFor(`!!localStorage.getItem('xmtp-chat-wallet')`, 30));
+    check('…nunca apareció la oferta de pantalla completa', !await ev(`!!document.getElementById('cwOfrecerApk')`));
+    check('…y la app se ofrece en la franja de arriba', await pollFor(visible('#apkInstallBanner'), 10));
+    check('…que no es roja ni verde chillón', await ev(`document.getElementById('apkInstallBanner').classList.contains('cw-franja')`));
 
     // ── 3. Traspaso: el navegador (127.0.0.1) tiene la cuenta ──
     await abrir(WEB);

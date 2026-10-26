@@ -1515,6 +1515,12 @@
         .cw-aviso-ambar { background-color: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.45); color: #fcd34d; }
         .cw-aviso-rojo { background-color: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.45); color: #fca5a5; }
         .cw-aviso-verde { background-color: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.5); color: #6ee7b7; }
+        /* Franjas de la pila de avisos: sugerencias, no alarmas. Fondo apenas teñido, sin rojo. */
+        .cw-franja { background-color: rgba(99, 102, 241, 0.10); border-bottom: 1px solid rgba(99, 102, 241, 0.25); color: #e0e7ff; }
+        .cw-franja-cta { background-color: #4f46e5; color: #fff; }
+        .cw-franja-cta:hover { background-color: #6366f1; }
+        .cw-franja-x { color: rgba(224, 231, 255, 0.55); }
+        .cw-franja-x:hover { color: #fff; }
 
         /* ═══════════ TEMA CLARO ═══════════
            Activado con body.theme-light (toggle en el modal de marca, persistido en
@@ -1540,6 +1546,9 @@
         body.theme-light .cw-aviso-ambar { background-color: #fffbeb; border-color: #f59e0b; color: #92400e; }
         body.theme-light .cw-aviso-rojo { background-color: #fef2f2; border-color: #ef4444; color: #991b1b; }
         body.theme-light .cw-aviso-verde { background-color: #ecfdf5; border-color: #10b981; color: #065f46; }
+        body.theme-light .cw-franja { background-color: #eef2ff; border-bottom-color: #c7d2fe; color: #3730a3; }
+        body.theme-light .cw-franja-x { color: #6366f1; }
+        body.theme-light .cw-franja-x:hover { color: #3730a3; }
         body.theme-light .bg-gray-800\/50 { background-color: #f9fafb !important; }
         body.theme-light .bg-gray-700\/50 { background-color: #f3f4f6 !important; }
         /* indigo-400 nació para leerse sobre fondo oscuro: sobre blanco da ~3:1, por debajo del
@@ -2441,19 +2450,19 @@
             <!-- Backup pendiente. Persistente en todas las vistas hasta confirmar "He guardado
                  mis claves"; la ✕ lo silencia solo por esta sesión (ver dismissBackupNag). -->
             <div id="backupNagBanner"
-                class="hidden items-center gap-3 bg-red-600 text-white px-4 py-2 shrink-0">
-                <span class="text-sm font-semibold flex-grow min-w-0">⚠️ <span data-i18n-key="backup_nag_text">Respaldá tu frase secreta: sin
-                        backup, perder este dispositivo es perder tu billetera.</span></span>
+                class="hidden items-center gap-3 cw-franja px-4 py-2 shrink-0">
+                <span class="text-sm flex-grow min-w-0 cursor-pointer">🔑 <span data-i18n-key="backup_nag_text">Anotá tus 12 palabras
+                        secretas: con ellas recuperás tu cuenta si cambiás de teléfono.</span></span>
                 <button type="button" id="backupNagCta"
-                    class="bg-white text-red-700 px-3 py-1 rounded text-sm font-bold shrink-0"
-                    data-i18n-key="backup_nag_cta">Respaldar</button>
-                <button type="button" id="backupNagDismiss" title="Ocultar"
-                    class="text-white/80 hover:text-white text-2xl leading-none shrink-0 px-1">&times;</button>
+                    class="cw-franja-cta px-3 py-1 rounded-full text-sm font-semibold shrink-0"
+                    data-i18n-key="backup_nag_cta">Anotar</button>
+                <button type="button" id="backupNagDismiss" title="Ahora no"
+                    class="cw-franja-x text-xl leading-none shrink-0 px-1">&times;</button>
             </div>
 
             <!-- Instalar la PWA. La ✕ acá sí es definitiva: es una sugerencia, no una advertencia. -->
             <div id="pwaInstallBanner"
-                class="hidden items-center gap-3 bg-indigo-600 text-white px-4 py-2 shrink-0">
+                class="hidden items-center gap-3 cw-franja px-4 py-2 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="shrink-0">
@@ -2463,28 +2472,28 @@
                 </svg>
                 <span id="pwaInstallText" class="text-sm font-medium flex-grow min-w-0">Instalar ChatWallet (PWA)</span>
                 <button type="button" id="pwaInstallBtn"
-                    class="bg-white text-indigo-600 px-3 py-1 rounded text-sm font-bold shrink-0">Instalar</button>
+                    class="cw-franja-cta px-3 py-1 rounded-full text-sm font-semibold shrink-0">Instalar</button>
                 <button type="button" id="pwaDismissBtn" title="Ocultar"
-                    class="text-white/80 hover:text-white text-2xl leading-none shrink-0 px-1">&times;</button>
+                    class="cw-franja-x text-xl leading-none shrink-0 px-1">&times;</button>
             </div>
 
             <!-- En Android ofrecemos el APK en lugar de la PWA: es la única forma de que las
                  notificaciones lleguen con el navegador cerrado. Reemplaza al banner PWA, no
                  se muestran los dos. -->
             <div id="apkInstallBanner"
-                class="hidden items-center gap-3 bg-green-700 text-white px-4 py-2 shrink-0">
+                class="hidden items-center gap-3 cw-franja px-4 py-2 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
                     fill="currentColor" class="shrink-0" aria-hidden="true">
                     <path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.23A11.46 11.46 0 0 0 12 7.99c-1.74 0-3.38.41-4.83 1.15L5.31 5.9a.4.4 0 1 0-.69.4l1.84 3.18A11.37 11.37 0 0 0 .5 18.5h23a11.37 11.37 0 0 0-5.9-9.02zM7 15.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
                 </svg>
                 <span id="apkInstallText" class="text-sm font-medium flex-grow min-w-0"
-                    data-i18n-key="apk_banner_text">Instalá la app Android: las notificaciones llegan aunque cierres el
-                    navegador.</span>
+                    data-i18n-key="apk_banner_text">¿Querés avisos aunque cierres el navegador? Probá la app de
+                    Android.</span>
                 <a id="apkInstallBtn" href="#" rel="noopener"
-                    class="bg-white text-green-700 px-3 py-1 rounded text-sm font-bold shrink-0"
+                    class="cw-franja-cta px-3 py-1 rounded-full text-sm font-semibold shrink-0"
                     data-i18n-key="apk_banner_cta">Descargar</a>
                 <button type="button" id="apkDismissBtn" title="Ocultar"
-                    class="text-white/80 hover:text-white text-2xl leading-none shrink-0 px-1">&times;</button>
+                    class="cw-franja-x text-xl leading-none shrink-0 px-1">&times;</button>
             </div>
         </div>
 
@@ -3760,42 +3769,38 @@
                     </select>
                 </div>
                 <div id="backupWarningView">
-                    <div class="bg-red-900/50 border border-red-500 text-red-300 text-sm rounded-lg p-3 my-4">
-                        <p><strong data-i18n-key="backup_warning_title">¡ADVERTENCIA DE SEGURIDAD!</strong></p>
-                        <p class="mt-2" data-i18n-key="backup_warning_body">Estás a punto de revelar tus claves
-                            secretas. NUNCA compartas esta información. Cualquiera con acceso a ellas puede robar tus
-                            fondos de forma irreversible.</p>
+                    <div class="cw-aviso-ambar text-sm rounded-lg p-3 my-4 leading-relaxed">
+                        <p><strong data-i18n-key="backup_warning_title">🔑 Tus palabras son tu cuenta</strong></p>
+                        <p class="mt-2" data-i18n-key="backup_warning_body">Vas a ver las palabras secretas de tu
+                            billetera. NUNCA se las muestres ni se las pases a nadie: quien las tenga puede llevarse tus
+                            fondos, y no hay forma de recuperarlos.</p>
                     </div>
-                    <button id="showBackupKeysBtn" class="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700"
-                        data-i18n-key="backup_understand_risk">Entiendo el riesgo, mostrar claves</button>
+                    <button id="showBackupKeysBtn" class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
+                        data-i18n-key="backup_understand_risk">Entiendo, mostrar mis palabras</button>
                     <button id="cancelBackupBtn" class="w-full mt-2 px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500"
-                        data-i18n-key="cancel_button">Cancelar</button>
+                        data-i18n-key="backup_later">Ahora no</button>
                 </div>
+                <!-- Paso 1: las palabras. Al que recién empieza no le sirve ver dos "claves": lo único
+                     que tiene que anotar es la frase, en orden. La clave privada queda escondida en
+                     "Opciones avanzadas" (salvo wallets importadas por clave, que no tienen frase). -->
                 <div id="backupKeysView" class="hidden space-y-4">
-                    <div id="backupMnemonicContainer" class="hidden">
-                        <label class="block text-sm text-gray-400 mb-1" data-i18n-key="backup_mnemonic_label">Frase
-                            Mnemónica (12 palabras)</label>
-                        <div class="relative">
-                            <p id="backupMnemonic"
-                                class="w-full bg-gray-900 rounded-lg p-3 font-mono text-sm text-gray-300 select-all notranslate"
-                                translate="no"></p>
-                            <button onclick="copyBackupData('backupMnemonic', this)"
-                                class="absolute top-2 right-2 text-gray-400 hover:text-white p-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round">
-                                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                                </svg>
-                            </button>
-                        </div>
+                    <div id="backupMnemonicContainer" class="hidden space-y-3">
+                        <p class="text-sm text-gray-300" data-i18n-key="backup_words_intro">Anotá estas 12
+                            palabras en papel, en este orden. Son la única forma de recuperar tu billetera.</p>
+                        <ol id="backupWordsGrid" class="grid grid-cols-2 gap-2 notranslate" translate="no"></ol>
+                        <p id="backupMnemonic" class="hidden"></p>
+                        <button type="button" onclick="copyBackupData('backupMnemonic', this)"
+                            class="w-full text-xs text-gray-400 hover:text-white py-1"
+                            data-i18n-key="backup_copy_words">Copiar las palabras</button>
                     </div>
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1" data-i18n-key="backup_private_key_label">Clave
-                            Privada</label>
-                        <div class="relative">
+                    <details id="backupAdvanced" class="bg-gray-900/50 rounded-lg p-3">
+                        <summary class="text-xs text-gray-400 cursor-pointer select-none"
+                            data-i18n-key="backup_advanced">Opciones avanzadas: clave privada</summary>
+                        <p class="text-xs text-gray-500 mt-2" data-i18n-key="backup_pk_hint">No hace falta
+                            anotarla: las palabras ya la contienen. Sirve para importar la billetera en otras apps.</p>
+                        <div class="relative mt-2">
                             <p id="backupPrivateKey"
-                                class="w-full bg-gray-900 rounded-lg p-3 font-mono text-xs text-gray-300 select-all break-all notranslate"
+                                class="w-full bg-gray-900 rounded-lg p-3 pr-8 font-mono text-xs text-gray-300 select-all break-all notranslate"
                                 translate="no"></p>
                             <button onclick="copyBackupData('backupPrivateKey', this)"
                                 class="absolute top-2 right-2 text-gray-400 hover:text-white p-1">
@@ -3807,9 +3812,27 @@
                                 </svg>
                             </button>
                         </div>
-                    </div>
-                    <button id="closeBackupModalBtn" class="w-full px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500"
-                        data-i18n-key="backup_keys_saved">He guardado mis claves</button>
+                    </details>
+                    <button id="closeBackupModalBtn" class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
+                        data-i18n-key="backup_words_written">Ya las anoté</button>
+                </div>
+                <!-- Paso 2: comprobar una palabra al azar, por su número. Confirma que la anotó y
+                     que respetó el orden; recién ahí se da el respaldo por hecho. -->
+                <div id="backupVerifyView" class="hidden space-y-3">
+                    <p class="text-sm text-gray-300" data-i18n-key="backup_verify_intro">Comprobemos que
+                        quedó bien anotada. Mirá tu papel:</p>
+                    <label for="backupVerifyInput" class="block text-base font-semibold text-white">
+                        <span data-i18n-key="backup_verify_q">¿Cuál es la palabra número</span>
+                        <span id="backupVerifyNum" class="text-indigo-300 text-2xl font-bold"></span>?</label>
+                    <input id="backupVerifyInput" type="text" autocomplete="off" autocapitalize="none"
+                        autocorrect="off" spellcheck="false"
+                        class="w-full bg-gray-700 rounded-lg p-3 text-lg font-mono outline-none focus:ring-2 focus:ring-indigo-500 notranslate"
+                        translate="no">
+                    <p id="backupVerifyMsg" class="text-sm text-red-400 min-h-[1.25rem]"></p>
+                    <button id="backupVerifyBtn" class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
+                        data-i18n-key="backup_verify_btn">Comprobar</button>
+                    <button id="backupVerifyBackBtn" class="w-full px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500"
+                        data-i18n-key="backup_verify_back">Volver a ver las palabras</button>
                 </div>
             </div>
         </div>
@@ -22873,7 +22896,8 @@
                 const btn = document.getElementById('backupWalletSettingsBtn');
                 if (!btn) return;
                 const done = !!localStorage.getItem(WALLET_BACKUP_DONE_KEY);
-                const key = done ? 'settings_show_private_key' : 'backup_wallet_button';
+                const tieneFrase = !!currentWallet && !!((currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic());
+                const key = !done ? 'backup_wallet_button' : (tieneFrase ? 'settings_show_private_key' : 'settings_show_pk_only');
                 btn.dataset.i18nKey = key;   // así translateUI lo sigue al cambiar de idioma
                 btn.textContent = t(key);
                 btn.className = 'w-full px-4 py-2 font-semibold rounded-lg transition-colors ' + (done
@@ -22891,14 +22915,40 @@
                 // Reset to warning view first
                 document.getElementById('backupWarningView').classList.remove('hidden');
                 document.getElementById('backupKeysView').classList.add('hidden');
+                document.getElementById('backupVerifyView').classList.add('hidden');
 
                 const phrase = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic();
+                const advanced = document.getElementById('backupAdvanced');
+                const grid = document.getElementById('backupWordsGrid');
+                grid.innerHTML = '';
+                backupWords = phrase ? phrase.trim().split(/\s+/) : [];
                 if (phrase) {
                     mnemonicEl.textContent = phrase;
+                    // Cada palabra con su número: el orden es parte del secreto.
+                    backupWords.forEach((w, i) => {
+                        const li = document.createElement('li');
+                        li.className = 'flex items-baseline gap-2 bg-gray-900 rounded-lg px-3 py-2';
+                        const n = document.createElement('span');
+                        n.className = 'text-gray-500 text-sm font-mono w-6 text-right shrink-0';
+                        n.textContent = (i + 1) + '.';
+                        const word = document.createElement('span');
+                        word.className = 'text-white text-lg font-semibold tracking-wide';
+                        word.textContent = w;
+                        li.append(n, word);
+                        grid.appendChild(li);
+                    });
                     mnemonicContainer.classList.remove('hidden');
+                    advanced.open = false;
                 } else {
+                    // Importada por clave privada: no hay frase, lo único a guardar es la clave.
                     mnemonicContainer.classList.add('hidden');
+                    advanced.open = true;
                 }
+                // Ya confirmado antes (o sin frase): no hace falta volver a comprobar.
+                const yaHecho = !!localStorage.getItem(WALLET_BACKUP_DONE_KEY);
+                const finKey = (!phrase || yaHecho) ? 'backup_done_btn' : 'backup_words_written';
+                closeBackupModalBtn.dataset.i18nKey = finKey;
+                closeBackupModalBtn.textContent = t(finKey);
 
                 privateKeyEl.textContent = currentWallet.privateKey;
                 backupWalletModal.classList.remove('hidden');
@@ -22908,6 +22958,50 @@
             function doCloseBackupModal() {
                 backupWalletModal.classList.add('hidden');
                 backupWalletModal.classList.remove('flex');
+                // No dejar el secreto en el DOM más de lo necesario.
+                document.getElementById('backupWordsGrid').innerHTML = '';
+                document.getElementById('backupVerifyInput').value = '';
+                backupWords = [];
+            }
+
+            let backupWords = [];
+            let backupVerifyIdx = -1;
+
+            // Las listas es/fr llevan tildes ("ábaco", "élève"): comparar sin acentos ni mayúsculas.
+            function normalizarPalabra(w) {
+                return (w || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+            }
+
+            function marcarBackupHecho() {
+                localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
+                updateBackupNagBanner();
+                updateBackupSettingsBtn();
+                doCloseBackupModal();
+            }
+
+            function mostrarComprobacionBackup() {
+                // Una palabra al azar (no la primera: es la que todos anotan bien).
+                backupVerifyIdx = 1 + Math.floor(Math.random() * (backupWords.length - 1));
+                document.getElementById('backupVerifyNum').textContent = String(backupVerifyIdx + 1);
+                const input = document.getElementById('backupVerifyInput');
+                input.value = '';
+                document.getElementById('backupVerifyMsg').textContent = '';
+                document.getElementById('backupKeysView').classList.add('hidden');
+                document.getElementById('backupVerifyView').classList.remove('hidden');
+                setTimeout(() => input.focus(), 50);
+            }
+
+            function comprobarPalabraBackup() {
+                const input = document.getElementById('backupVerifyInput');
+                const msg = document.getElementById('backupVerifyMsg');
+                if (backupVerifyIdx < 0 || !backupWords[backupVerifyIdx]) return;
+                if (normalizarPalabra(input.value) === normalizarPalabra(backupWords[backupVerifyIdx])) {
+                    marcarBackupHecho();
+                    showToast(t('backup_verify_ok'), 'success', 4000);
+                } else {
+                    msg.textContent = t('backup_verify_bad');
+                    input.select();
+                }
             }
 
             function copyBackupData(elementId, button) {
@@ -22925,13 +23019,24 @@
             window.addSharedNetwork = addSharedNetwork;
 
             // Backup Listeners
-            // "He guardado mis claves" (solo visible tras mostrar las claves) = confirmación:
-            // apaga el recordatorio. Cancelar y ✕ NO confirman.
+            // "Ya las anoté" lleva a comprobar una palabra; recién al acertarla se apaga el
+            // recordatorio. Sin frase (importada por clave) o ya confirmado antes, cierra directo.
+            // Cancelar y ✕ NO confirman.
             closeBackupModalBtn.addEventListener('click', () => {
-                localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
-                updateBackupNagBanner();
-                updateBackupSettingsBtn();
-                doCloseBackupModal();
+                if (backupWords.length && !localStorage.getItem(WALLET_BACKUP_DONE_KEY)) {
+                    mostrarComprobacionBackup();
+                } else {
+                    if (!localStorage.getItem(WALLET_BACKUP_DONE_KEY)) marcarBackupHecho();
+                    else doCloseBackupModal();
+                }
+            });
+            document.getElementById('backupVerifyBtn').addEventListener('click', comprobarPalabraBackup);
+            document.getElementById('backupVerifyInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); comprobarPalabraBackup(); }
+            });
+            document.getElementById('backupVerifyBackBtn').addEventListener('click', () => {
+                document.getElementById('backupVerifyView').classList.add('hidden');
+                document.getElementById('backupKeysView').classList.remove('hidden');
             });
             cancelBackupBtn.addEventListener('click', doCloseBackupModal);
             closeBackupModal.addEventListener('click', doCloseBackupModal);
@@ -23098,11 +23203,14 @@
                 if (!/Android/i.test(ua) || /Windows/i.test(ua)) return false;
                 try { return !sessionStorage.getItem(CW_APK_OFRECIDA_KEY); } catch (_) { return true; }
             }
+            function cwLlegaPorInvitacion() {
+                const q = new URLSearchParams(location.search);
+                return ['address', 'to', 'pay', 'wc'].some(k => q.has(k));
+            }
             // Resuelve cuando elige seguir en el navegador; si se va a la app, esta pestaña ya no importa.
             function cwOfrecerApk() {
                 return new Promise(resolve => {
-                    const q = new URLSearchParams(location.search);
-                    const conInvitacion = ['address', 'to', 'pay', 'wc'].some(k => q.has(k));
+                    const conInvitacion = cwLlegaPorInvitacion();
                     const intent = cwIntentApp(conInvitacion ? location.pathname + location.search : '/dapp.html');
                     const attr = (x) => escHtml(x).replace(/"/g, '&quot;');
                     const el = document.createElement('div');
@@ -23353,7 +23461,9 @@
                     const embebido = cwNavegadorEmbebido();
                     if (embebido) await cwAvisarNavegadorEmbebido(embebido);
                     // En Android, antes de crear la wallet acá: la app (con o sin invitación).
-                    else if (!traspasoPedido && cwConvieneLaApp()) await cwOfrecerApk();
+                    // A quien llega por una invitación no se lo frena: entra directo al chat y la
+                    // app se le sugiere en la franja de arriba (#apkInstallBanner), sin cartel.
+                    else if (!traspasoPedido && !cwLlegaPorInvitacion() && cwConvieneLaApp()) await cwOfrecerApk();
                     // Acá nace la wallet de quien llega por un link: si algo falla, que se vea.
                     try { await handleUrlParameters(); }
                     catch (e) {
@@ -23530,18 +23640,32 @@
                     "language_label": "Idioma",
                     "settings_title": "Configuración",
                     "backup_wallet_button": "Hacer Copia de Seguridad",
-                    "settings_show_private_key": "Mostrar clave privada",
+                    "settings_show_private_key": "Ver mis palabras secretas",
+                    "settings_show_pk_only": "Mostrar clave privada",
                     "forget_wallet_button": "Olvidar Billetera",
                     "backup_wallet_title": "Copia de Seguridad",
-                    "backup_warning_title": "¡ADVERTENCIA DE SEGURIDAD!",
-                    "backup_warning_body": "Estás a punto de revelar tus claves secretas. NUNCA compartas esta información. Cualquiera con acceso a ellas puede robar tus fondos de forma irreversible.",
-                    "backup_understand_risk": "Entiendo el riesgo, mostrar claves",
+                    "backup_warning_title": "🔑 Tus palabras son tu cuenta",
+                    "backup_warning_body": "Con ellas recuperás tu billetera y tus chats en cualquier teléfono. Anotalas en papel y guardalas en privado: nadie de ChatWallet te las va a pedir nunca.",
+                    "backup_understand_risk": "Ver mis palabras",
                     "cancel_button": "Cancelar",
                     "backup_mnemonic_label": "Frase Mnemónica (12 palabras)",
-                    "backup_nag_text": "Respaldá tu frase secreta: sin backup, perder este dispositivo es perder tu billetera.",
-                    "backup_nag_text_fondos": "Ya tenés fondos: respaldá tu frase secreta. Sin ella, perder este dispositivo es perder la billetera.",
+                    "backup_words_intro": "Anotá estas palabras en papel, en este orden y con su número. Son la única forma de recuperar tu billetera.",
+                    "backup_copy_words": "Copiar las palabras",
+                    "backup_advanced": "Opciones avanzadas: clave privada",
+                    "backup_pk_hint": "No hace falta anotarla: las palabras ya la contienen. Sirve para importar la billetera en otras apps.",
+                    "backup_words_written": "Ya las anoté",
+                    "backup_later": "Ahora no",
+                    "backup_done_btn": "Listo",
+                    "backup_verify_intro": "Comprobemos que quedó bien anotada. Mirá tu papel:",
+                    "backup_verify_q": "¿Cuál es la palabra número",
+                    "backup_verify_btn": "Comprobar",
+                    "backup_verify_back": "Volver a ver las palabras",
+                    "backup_verify_bad": "No coincide. Revisá el número en tu papel o volvé a ver las palabras.",
+                    "backup_verify_ok": "¡Listo! Tu copia de seguridad está guardada.",
+                    "backup_nag_text": "Anotá tus 12 palabras secretas: con ellas recuperás tu cuenta si cambiás de teléfono.",
+                    "backup_nag_text_fondos": "Ya tenés fondos 🎉 Anotá tus 12 palabras secretas para no perderlos si cambiás de teléfono.",
                     "toast_wallet_lista": "Listo, ya podés chatear.",
-                    "backup_nag_cta": "Respaldar",
+                    "backup_nag_cta": "Anotar",
                     "network_picker_title": "Elegí la red",
                     "cold_modal_title": "Modo frío (offline)",
                     "cold_modal_desc": "Vas a pasar la wallet a modo frío: se desconecta de internet y queda como un dispositivo de firma offline. Las transferencias se hacen por código QR.",
@@ -23698,7 +23822,7 @@
                     "g1_st_revoked": "identidad revocada",
                     "phrase_lang_title": "Frase en {idioma}",
                     "phrase_lang_body": "Para volver siempre a este mismo chat, restaurá con esta misma frase y en este mismo idioma: la misma frase en otro idioma abre otra identidad de chat.",
-                    "apk_banner_text": "Instalá la app Android: las notificaciones llegan aunque cierres el navegador.",
+                    "apk_banner_text": "¿Querés avisos aunque cierres el navegador? Probá la app de Android.",
                     "apk_banner_cta": "Descargar",
                     "settings_install_title": "Instalar la app",
                     "settings_install_apk": "Descargar el APK Android",
@@ -24223,18 +24347,32 @@
                     "language_label": "Language",
                     "settings_title": "Settings",
                     "backup_wallet_button": "Backup Wallet",
-                    "settings_show_private_key": "Show private key",
+                    "settings_show_private_key": "View my secret words",
+                    "settings_show_pk_only": "Show private key",
                     "forget_wallet_button": "Forget Wallet",
                     "backup_wallet_title": "Wallet Backup",
-                    "backup_warning_title": "SECURITY WARNING!",
-                    "backup_warning_body": "You are about to reveal your secret keys. NEVER share this information. Anyone with access to them can steal your funds irreversibly.",
-                    "backup_understand_risk": "I understand the risk, show keys",
+                    "backup_warning_title": "🔑 Your words are your account",
+                    "backup_warning_body": "They restore your wallet and chats on any phone. Write them on paper and keep them private: nobody from ChatWallet will ever ask for them.",
+                    "backup_understand_risk": "Show my words",
                     "cancel_button": "Cancel",
                     "backup_mnemonic_label": "Mnemonic Phrase (12 words)",
-                    "backup_nag_text": "Back up your secret phrase: without a backup, losing this device means losing your wallet.",
-                    "backup_nag_text_fondos": "You have funds now: back up your secret phrase. Without it, losing this device means losing the wallet.",
+                    "backup_words_intro": "Write these words down on paper, in this order, with their numbers. They are the only way to recover your wallet.",
+                    "backup_copy_words": "Copy the words",
+                    "backup_advanced": "Advanced: private key",
+                    "backup_pk_hint": "You don't need to write it down: the words already contain it. It is useful to import the wallet into other apps.",
+                    "backup_words_written": "I wrote them down",
+                    "backup_later": "Not now",
+                    "backup_done_btn": "Done",
+                    "backup_verify_intro": "Let's check it was written correctly. Look at your paper:",
+                    "backup_verify_q": "What is word number",
+                    "backup_verify_btn": "Check",
+                    "backup_verify_back": "Show the words again",
+                    "backup_verify_bad": "That doesn't match. Check the number on your paper or view the words again.",
+                    "backup_verify_ok": "Done! Your backup is saved.",
+                    "backup_nag_text": "Write down your 12 secret words: they restore your account if you change phones.",
+                    "backup_nag_text_fondos": "You have funds now 🎉 Write down your 12 secret words so you don't lose them if you change phones.",
                     "toast_wallet_lista": "All set — you can chat now.",
-                    "backup_nag_cta": "Back up",
+                    "backup_nag_cta": "Write down",
                     "network_picker_title": "Choose the network",
                     "cold_modal_title": "Cold mode (offline)",
                     "cold_modal_desc": "You are about to switch the wallet to cold mode: it disconnects from the internet and becomes an offline signing device. Transfers happen over QR codes.",
@@ -24391,7 +24529,7 @@
                     "g1_st_revoked": "revoked identity",
                     "phrase_lang_title": "Phrase in {idioma}",
                     "phrase_lang_body": "To always come back to this same chat, restore with this same phrase in this same language: the same phrase in another language opens a different chat identity.",
-                    "apk_banner_text": "Install the Android app: notifications arrive even with the browser closed.",
+                    "apk_banner_text": "Want alerts even with the browser closed? Try the Android app.",
                     "apk_banner_cta": "Download",
                     "settings_install_title": "Install the app",
                     "settings_install_apk": "Download the Android APK",
@@ -24916,18 +25054,32 @@
                     "language_label": "Langue",
                     "settings_title": "Paramètres",
                     "backup_wallet_button": "Sauvegarder le Portefeuille",
-                    "settings_show_private_key": "Afficher la clé privée",
+                    "settings_show_private_key": "Voir mes mots secrets",
+                    "settings_show_pk_only": "Afficher la clé privée",
                     "forget_wallet_button": "Oublier le Portefeuille",
                     "backup_wallet_title": "Sauvegarde du Portefeuille",
-                    "backup_warning_title": "AVERTISSEMENT DE SÉCURITÉ !",
-                    "backup_warning_body": "Vous êtes sur le point de révéler vos clés secrètes. Ne partagez JAMAIS cette information. Toute personne y ayant accès peut voler vos fonds de manière irréversible.",
-                    "backup_understand_risk": "Je comprends le risque, afficher les clés",
+                    "backup_warning_title": "🔑 Vos mots sont votre compte",
+                    "backup_warning_body": "Ils restaurent votre portefeuille et vos discussions sur n'importe quel téléphone. Notez-les sur papier et gardez-les pour vous : personne de ChatWallet ne vous les demandera jamais.",
+                    "backup_understand_risk": "Voir mes mots",
                     "cancel_button": "Annuler",
                     "backup_mnemonic_label": "Phrase Mnémonique (12 mots)",
-                    "backup_nag_text": "Sauvegardez votre phrase secrète : sans copie, perdre cet appareil c'est perdre votre portefeuille.",
-                    "backup_nag_text_fondos": "Vous avez des fonds : sauvegardez votre phrase secrète. Sans elle, perdre cet appareil c'est perdre le portefeuille.",
+                    "backup_words_intro": "Notez ces mots sur papier, dans cet ordre, avec leur numéro. C'est le seul moyen de récupérer votre portefeuille.",
+                    "backup_copy_words": "Copier les mots",
+                    "backup_advanced": "Options avancées : clé privée",
+                    "backup_pk_hint": "Inutile de la noter : les mots la contiennent déjà. Elle sert à importer le portefeuille dans d'autres applis.",
+                    "backup_words_written": "Je les ai notés",
+                    "backup_later": "Plus tard",
+                    "backup_done_btn": "Terminé",
+                    "backup_verify_intro": "Vérifions qu'ils sont bien notés. Regardez votre papier :",
+                    "backup_verify_q": "Quel est le mot numéro",
+                    "backup_verify_btn": "Vérifier",
+                    "backup_verify_back": "Revoir les mots",
+                    "backup_verify_bad": "Ça ne correspond pas. Vérifiez le numéro sur votre papier ou revoyez les mots.",
+                    "backup_verify_ok": "C'est fait ! Votre sauvegarde est enregistrée.",
+                    "backup_nag_text": "Notez vos 12 mots secrets : ils restaurent votre compte si vous changez de téléphone.",
+                    "backup_nag_text_fondos": "Vous avez des fonds 🎉 Notez vos 12 mots secrets pour ne pas les perdre si vous changez de téléphone.",
                     "toast_wallet_lista": "C'est prêt, vous pouvez discuter.",
-                    "backup_nag_cta": "Sauvegarder",
+                    "backup_nag_cta": "Noter",
                     "network_picker_title": "Choisissez le réseau",
                     "cold_modal_title": "Mode hors ligne",
                     "cold_modal_desc": "Vous allez passer le portefeuille en mode hors ligne : il se déconnecte d'internet et devient un dispositif de signature hors ligne. Les transferts se font par code QR.",
@@ -25084,7 +25236,7 @@
                     "g1_st_revoked": "identité révoquée",
                     "phrase_lang_title": "Phrase en {idioma}",
                     "phrase_lang_body": "Pour revenir toujours à ce même chat, restaure avec cette même phrase dans cette même langue : la même phrase dans une autre langue ouvre une autre identité de chat.",
-                    "apk_banner_text": "Installez l'app Android : les notifications arrivent même navigateur fermé.",
+                    "apk_banner_text": "Des alertes même navigateur fermé ? Essayez l'app Android.",
                     "apk_banner_cta": "Télécharger",
                     "settings_install_title": "Installer l'app",
                     "settings_install_apk": "Télécharger l'APK Android",
