@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.90 — 2026-10-26
+
 - **Copia de seguridad más clara.** Ahora te muestra solo tus 12 palabras, grandes y numeradas, para que las anotes en orden. La clave privada ya no aparece al lado (quedó en "Opciones avanzadas", por si la necesitás para otra app). Al terminar te pregunta una palabra al azar ("¿cuál es la número 7?") para confirmar que quedó bien anotada.
 - **Avisos más amables.** El cartel rojo que pedía respaldar pasó a ser una franja tranquila que te invita a anotar tus palabras, y los avisos de instalar la app tienen el mismo estilo.
 - **Si te invitaron, entrás directo al chat.** En Android ya no aparece el cartel de pantalla completa ofreciendo la app antes de empezar: la app se sugiere en una franja arriba, sin frenarte.
