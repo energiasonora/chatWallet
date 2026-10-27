@@ -1,6 +1,6 @@
 # Vínculo Ğ1 — norma `ius-naturalis/vinculo-g1/1`
 
-**Estado:** borrador · 25/9/2026
+**Estado:** borrador · 25/9/2026 · §11 (ChatWallet) agregada el 27/10/2026
 **Para qué:** que una dirección EVM (`0x…`, la que ya usa Ius y ChatWallet) y una cuenta Ğ1 (`g1…`) se declaren **de la misma persona**, de forma que cualquiera pueda comprobarlo sin preguntarle a ningún servidor. Con el vínculo hecho, Ius puede mostrar el badge **"ser vivo · miembro Ğ1"** leyendo la red de confianza de la Ğ1.
 
 Ius no mantiene una red de confianza propia. La humanidad se la certifica la Ğ1; Ius solo la **lee**.
@@ -77,7 +77,7 @@ El badge **no se guarda**: se recalcula siempre desde la Ğ1. Si la persona deja
 ## 6. Confianza en el indexador
 
 El indexador (squid) puede mentir o estar caído.
-- **v1:** consultar al menos dos indexadores cuando haya, y mostrar `bloque` + `hashExtrinsic` para que cualquiera lo confirme en otro nodo.
+- **v1:** consultar al menos dos indexadores cuando haya, y mostrar `bloque` + `hashExtrinsic` para que cualquiera lo confirme en otro nodo. El hash sale del evento del comentario: `txComments{ authorId remark blockNumber event{ extrinsic{ hash } } }` (verificado el 27/10/2026; las transferencias, en cambio, vienen con `event` vacío, así que el hash se toma siempre del comentario).
 - **Después:** verificar el extrinsic directo contra un nodo RPC (`chain_getBlock`) sin pasar por el indexador.
 
 Endpoints probados el 25/9/2026: `https://squid.g1.brussels.ovh/v1/graphql` ✔. `g1-squid.axiom-team.fr` responde vacío y `g1.p2p.legal` da 502. Ius tiene que traer una **lista con respaldo**, no una URL fija.
@@ -90,7 +90,7 @@ Endpoints probados el 25/9/2026: `https://squid.g1.brussels.ovh/v1/graphql` ✔.
 4. La persona hace en Ğecko o Cesium² una transferencia mínima con ese comentario.
 5. Ius consulta el indexador cada pocos segundos hasta verlo, verifica (§4) y muestra el badge (§5).
 
-**En ChatWallet, más adelante:** la llave Ğ1 sale de la misma semilla, así que los pasos 2 a 4 los hace la app sola, sin copiar y pegar.
+**En ChatWallet:** la llave Ğ1 sale de la misma semilla, así que los pasos 2 a 4 los hace la app sola, sin copiar y pegar. Ver §11.
 
 ## 8. Qué habilita
 
@@ -109,3 +109,68 @@ Endpoints probados el 25/9/2026: `https://squid.g1.brussels.ovh/v1/graphql` ✔.
 
 - `env -u NODE_OPTIONS node ius-spec/g1.test.cjs [--vivo]`: blake2b, SS58 con direcciones reales, base64url, reglas del vínculo (último, mutuo, revocación, copia desde otra cuenta). `--vivo` consulta además el indexador real.
 - `ius-spec/e2e-g1.mjs`: Chrome headless por CDP contra `ius/` servido en `:8830` (`python3 -m http.server 8830 --directory ius`), con wallet falsa y comentarios simulados; identidades contra la red real.
+
+## 11. ChatWallet: del pago al chat y del chat al pago
+
+### 11.1 El problema
+
+En ChatWallet cada persona tiene dos llaves que salen de las mismas 12 palabras por caminos distintos: la `0x` (con la que chatea, porque XMTP solo asocia identidades EVM o passkeys) y la `g1` (ed25519, con la que paga Ğ1). Hoy no se conocen entre sí:
+
+- Si una `g1…` te paga, el historial no puede abrirte el chat con esa persona: no sabe su `0x`.
+- Tus contactos no saben tu `g1` salvo que se la pases a mano.
+
+### 11.2 Dos niveles de vínculo
+
+El vínculo público de §3 deja escrito para siempre que tal `0x` (con todo su historial y saldos EVM) es tal miembro Ğ1 (cuyo seudónimo muchas veces es el nombre real). Revocarlo no borra la cadena. Por eso **no se hace solo**:
+
+| Nivel | Quién lo ve | Dónde vive | Cuándo |
+|---|---|---|---|
+| **Privado** | solo tus contactos del chat | el perfil firmado que ya viaja por XMTP, cifrado | por defecto, al activar Ğ1 |
+| **Público** | cualquiera | comentario `ius1:` en la cadena Ğ1 (§3) | solo si la persona lo pide, con el aviso de arriba en pantalla |
+
+El público hace falta para el badge de Ius y para que **un desconocido** que te pagó Ğ1 te encuentre en el chat. El privado alcanza para todo lo demás.
+
+### 11.3 Vínculo privado (en el perfil)
+
+ChatWallet tiene la llave ed25519 de la cuenta Ğ1 (la misma que firma las transferencias), así que puede probar el lado Ğ1 **sin publicar nada**: firma el mensaje canónico de §2 también con esa llave.
+
+El perfil suma un campo:
+
+```
+g1: { cuenta: "g1…", evm: <firma EVM de §2>, ed: <firma ed25519 de §2, base64url> }
+```
+
+- La firma ed25519 se hace sobre `<Bytes>` + mensaje §2 + `</Bytes>`, la envoltura que usan las billeteras de Polkadot/Duniter para firmar texto, así ninguna firma de mensaje puede confundirse con una de operación.
+- El receptor verifica las dos: `verifyMessage(msg, evm) == remitente` y `ed25519.verify(ed, envuelto, pubkey(g1))`. Si alguna falla, el campo se ignora entero.
+- **No entra en `profileCanonical`.** Cambiar la cadena firmada del perfil ya rompió la compatibilidad una vez (v1.42); el campo `g1` se defiende solo con sus dos firmas, y un cliente viejo simplemente lo ignora.
+- Una cuenta Ğ1 vacía (que todavía no existe en la cadena) **sí** puede firmar el vínculo privado; el público, no (§11.5).
+
+### 11.4 Qué hace la app con el vínculo
+
+- **Historial Ğ1:** para cada `g1` del historial, primero se busca en la agenda (vínculos privados recibidos), después en la cadena (vínculos públicos, una sola consulta por página: `txComments(filter:{ authorId:{in:[…]}, remark:{startsWith:"ius1:"} })`, con caché). Si hay `0x`, la fila muestra el nombre y se puede abrir el chat.
+- **Pagar Ğ1 desde el chat:** si el contacto tiene `g1` verificada, el botón de pagar ofrece Ğ1 sin pedir la cuenta.
+- **Al revés no se busca:** desde una `0x` desconocida no se consulta la Ğ1 para averiguar si es miembro. Solo se lee lo que la persona eligió mostrar.
+
+### 11.5 Vínculo público desde ChatWallet
+
+- Se publica **solo el comentario**: `System.remark_with_event("ius1:…")`, sin transferencia (las 0,01 Ğ1 de §3 son para las billeteras que no saben mandar un comentario suelto). Si hay dividendos por reclamar, va en lote con `claim_uds`.
+- Sin comisión en uso normal (§1). La cuenta tiene que **existir** en la cadena (haber recibido Ğ1 alguna vez); si no, la app avisa y lo deja pendiente.
+- Revocar (`ius1:rev`) está a un toque en la misma pantalla, con la aclaración de que lo viejo sigue en la cadena.
+
+### 11.6 Qué nombre se muestra
+
+Un contacto puede tener varios nombres. Se ordenan por **qué tan difícil es falsificarlos**:
+
+1. **El que le pusiste vos** (`contact.name`): manda siempre, es tuyo.
+2. **Seudónimo de miembro Ğ1** (con vínculo verificado e `isMember`): lo respalda la red de confianza, gente que se certificó en persona. Va con ✦.
+3. **Nombre `.eth`** (resolución inversa que vuelve a la misma `0x`): está en la cadena, pero cualquiera puede comprar uno.
+4. **Alias propio de ChatWallet** (`selfAlias`): lo elige la persona; cualquiera puede ponerse el mismo. Se muestra como "sin confirmar", como hoy.
+
+Arriba va el primero que exista; abajo, en chico, el siguiente, para que un alias inventado nunca tape un seudónimo verificado.
+
+### 11.7 Pendiente
+
+- [ ] Comprobar que el indexador registra un `remark_with_event` **suelto** (sin transferencia) igual que uno en lote. Todos los vistos el 27/10/2026 venían de transferencias.
+- [ ] Probar la envoltura `<Bytes>` contra la verificación de Ğecko/Cesium² (que una firma de ChatWallet la acepten otras herramientas).
+- [ ] Texto del aviso del vínculo público, en es/en/fr.
+- [ ] Prueba con dos identidades: A se vincula en privado, B ve el seudónimo y le paga Ğ1 desde el chat; A publica, un tercero sin contacto la encuentra desde el historial.
