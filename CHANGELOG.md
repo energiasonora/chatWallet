@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Historial de Ğ1.** En **Historial**, al elegir Ğ1 ves tus movimientos con fecha, monto, con quién y el **comentario** de cada transferencia. Los comentarios de Ğ1 viajan en la cadena junto con la transferencia, a la vista de todos, como en Ğecko y Cesium. Si la otra cuenta está en tu agenda se ve su nombre; si es miembro de la red de confianza, su seudónimo. Tocando un movimiento ves la cuenta completa y el bloque. **Ver más** trae los anteriores.
+- **Historial de Monero, armado en tu teléfono.** Al elegir Monero en **Historial** ves tus cobros y envíos, sin consultar a nadie: sale de la misma billetera que se pone al día en tu dispositivo. En los cobros dice **quién te pagó**, porque cada contacto te paga a su propia subdirección (la que le diste al pedirle por el chat). En los envíos ves a quién, la comisión y la clave de la transacción, que sirve de prueba de pago. Aparece después de la próxima puesta al día de Monero.
+- **«Pasar USDC a otra red» se muestra solo con USDC.** En la billetera, el botón aparece cuando tenés elegido USDC en una red que lo permite (o si tenés una transferencia en marcha). Con otra moneda ya no ocupa lugar.
+
 ## 3.91 — 2026-10-26
 
 - **Enviar Ğ1 ya no te pide la frase de sorpresa.** Si tu billetera vino de la web a la app con «Llevar tu cuenta a la app», ahora viaja también la llave de tu cuenta Ğ1, y enviar Ğ1 anda sin pedir nada. Si la restauraste hace un tiempo (antes de que existiera enviar Ğ1), la app te la pide una sola vez al enviar. El cartel ahora dice **Firmar con Ğ1** y explica por qué: la cuenta Ğ1 sale de tus 12 palabras, no de la clave de tu billetera. La frase no se guarda; queda solo la llave Ğ1 y no se vuelve a pedir.

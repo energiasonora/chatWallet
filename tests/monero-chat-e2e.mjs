@@ -172,6 +172,23 @@ try {
     const saldoB = await B.ev(`estadoXmr().total`);
     ok(saldoB === '400000000000', 'la billetera de B ve los 0,4 XMR en su subdirección', saldoB);
 
+    console.log('\n── historial de Monero ──');
+    const abrirHist = (X) => X.ev(`(async () => { document.querySelector('[data-view="historyView"]').click();
+        await new Promise(r => setTimeout(r, 300)); historyNetworkSelector.value = 'xmr'; await fetchTransactionHistory(); return true; })()`);
+    const filasX = (X) => X.ev(`[...document.querySelectorAll('#transactionList .hist-fila')].map(f => ({ quien: f.querySelector('.hist-quien').textContent, monto: f.querySelector('.hist-monto').textContent, det: f.querySelector('.hist-detalle').textContent }))`);
+    await abrirHist(B);
+    ok(!!await B.listo(`document.querySelectorAll('#transactionList .hist-fila').length >= 1`, 20), 'B: el historial de Monero tiene el cobro');
+    const nombreA = await B.ev(`nombreContactoPorDir(${JSON.stringify(wa.address)})`);
+    const fb = (await filasX(B))[0];
+    ok(!!nombreA && fb.quien === nombreA, 'B: dice QUIÉN le pagó (el contacto de esa subdirección)', `${JSON.stringify(fb)} / ${nombreA}`);
+    ok(fb.monto === '+0,4 XMR' && /subdirección #\d+, la que le diste en el chat/.test(fb.det), 'B: monto y por qué se sabe', JSON.stringify(fb));
+    await abrirHist(A);
+    ok(!!await A.listo(`document.querySelectorAll('#transactionList .hist-fila').length >= 1`, 20), 'A: el historial de Monero tiene el envío');
+    const nombreB = await A.ev(`nombreContactoPorDir(${JSON.stringify(wb.address)})`);
+    const fa = (await filasX(A)).find(f => f.monto.startsWith('−'));
+    ok(!!fa && !!nombreB && fa.quien === nombreB, 'A: dice a quién le mandó', `${JSON.stringify(fa)} / ${nombreB}`);
+    ok(!!fa && /^−0,4\d* XMR$/.test(fa.monto) && /Clave de la transacción/.test(fa.det), 'A: monto con comisión y la clave de la transacción', JSON.stringify(fa));
+
     console.log('\n── una tarjeta trucha ──');
     const hashA = await A.ev(`leerJSONLocal(claveEnviosXmr(currentWallet.address))[0]`);
     const trucha = await A.ev(`(async () => { const l = document.createElement('p'); document.body.appendChild(l);

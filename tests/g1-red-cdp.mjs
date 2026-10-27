@@ -69,6 +69,19 @@ const FALSO = `(() => {
                 return json({ identityByAccountId: c ? { index: 99, name: c.identity.name, status: c.estado, isMember: c.identity.isMember, expireOn: 3000000,
                     certReceived: { totalCount: c.certs } } : null, blocks: { nodes: [{ height: 2900000, timestamp: new Date().toISOString() }] } });
             }
+            if (/transfers\\(first/.test(q)) {
+                const t0 = Date.parse('2026-10-20T12:00:00Z');
+                const pag1 = [
+                    { id: 'a', blockNumber: 2923000, timestamp: new Date(t0).toISOString(), amount: '150', fromId: PENDIENTE, toId: MIEMBRO,
+                      from: { identity: { name: 'Novata' } }, to: { identity: { name: 'TestMiembro' } }, comment: { remark: '<img src=x onerror="window.__xss=1">pan' } },
+                    { id: 'b', blockNumber: 2922000, timestamp: new Date(t0 - 864e5).toISOString(), amount: '2500', fromId: MIEMBRO, toId: 'g1Desconocida1111111111111111111111111111111111',
+                      from: { identity: { name: 'TestMiembro' } }, to: { identity: null }, comment: null },
+                ];
+                const pag2 = [{ id: 'c', blockNumber: 2921000, timestamp: new Date(t0 - 2 * 864e5).toISOString(), amount: '1000', fromId: 'g1Otra22222222222222222222222222222222222222222', toId: MIEMBRO,
+                      from: { identity: null }, to: { identity: null }, comment: { remark: 'gracias' } }];
+                window.__g1historial = (window.__g1historial || 0) + 1;
+                return json({ transfers: { totalCount: 3, pageInfo: v.despues ? { hasNextPage: false, endCursor: null } : { hasNextPage: true, endCursor: 'c2' }, nodes: v.despues ? pag2 : pag1 } });
+            }
             if (/txComments/.test(q)) {
                 const nodos = (window.__g1comentarios || []).filter(n => v.id ? n.authorId === v.id : n.remark.startsWith(v.p));
                 return json({ txComments: { nodes: nodos } });
@@ -339,6 +352,35 @@ try {
     e1 = await envio();
     ok(e1.destino === RAIZ1 && e1.monto === '3,00' && e1.comentario === 'café', 'con destino, monto y comentario del pedido', JSON.stringify(e1));
     await ev(`document.querySelector('#g1EnvioModal [data-g1="cancelar"]').click()`);
+
+    // ── F) historial Ğ1 en la pestaña Historial ───────────────────────────────────
+    console.log('\n── F) historial Ğ1 ──');
+    ok(await ev(`document.getElementById('cctpOpenBtn').parentElement.classList.contains('hidden')`), 'con Ğ1, sin el botón de pasar USDC');
+    await ev(`document.querySelector('[data-view="historyView"]').click()`);
+    ok(await listo(`historyNetworkSelector.value === 'g1'`, 10), 'el historial abre en Ğ1 (la red elegida)', await ev(`historyNetworkSelector.value`));
+    ok(await listo(`document.querySelectorAll('#transactionList .hist-fila').length === 2`, 15), 'muestra la primera página');
+    const filas = () => ev(`[...document.querySelectorAll('#transactionList .hist-fila')].map(f => ({ quien: f.querySelector('.hist-quien').textContent, nota: f.querySelector('.hist-nota')?.textContent || null, monto: f.querySelector('.hist-monto').textContent, det: f.querySelector('.hist-detalle').textContent }))`);
+    let fs1 = await filas();
+    ok(await ev(`document.getElementById('historyColMid').textContent`) === 'Con', 'la columna dice "Con", no "Hash"');
+    ok(fs1[0].quien === 'Novata' && fs1[0].monto === '+1,50 Ğ1', 'entrada: seudónimo y monto', JSON.stringify(fs1[0]));
+    ok(fs1[0].nota === '<img src=x onerror="window.__xss=1">pan' && !(await ev(`!!window.__xss`)), 'el comentario se muestra como texto (sin ejecutar nada)');
+    ok(fs1[1].quien === 'g1Descon…1111' && fs1[1].monto === '−25,00 Ğ1' && fs1[1].nota === null, 'salida: cuenta sin nombre, en negativo', JSON.stringify(fs1[1]));
+    ok(/Para: g1Desconocida/.test(fs1[1].det) && /Bloque #2922000/.test(fs1[1].det), 'el detalle trae la cuenta completa y el bloque');
+    await ev(`document.querySelector('#transactionList .hist-fila').click()`);
+    ok(await ev(`!document.querySelector('#transactionList .hist-detalle').classList.contains('hidden')`), 'tocar una fila abre el detalle');
+    await ev(`document.getElementById('historyMas').click()`);
+    ok(await listo(`document.querySelectorAll('#transactionList .hist-fila').length === 3 && !document.getElementById('historyMas')`, 10), '"Ver más" trae la página siguiente y se va');
+    fs1 = await filas();
+    ok(fs1[2].nota === 'gracias' && fs1[2].monto === '+10,00 Ğ1', 'la segunda página', JSON.stringify(fs1[2]));
+
+    console.log('\n── F) botón de pasar USDC sólo con USDC ──');
+    const idxUsdc = await ev(`optionsList.findIndex(n => String(n.TOKEN_CHAINID) === '8453' && (n.TOKEN_ADDRESS || '').toLowerCase() === '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913')`);
+    const idxEth = await ev(`optionsList.findIndex(n => String(n.TOKEN_CHAINID) === '8453' && !n.TOKEN_ADDRESS)`);
+    ok(idxUsdc >= 0 && idxEth >= 0, 'hay USDC y ETH de Base en la lista', `${idxUsdc} ${idxEth}`);
+    await ev(`switchNetwork(${idxEth})`); await sleep(800);
+    ok(await ev(`document.getElementById('cctpOpenBtn').parentElement.classList.contains('hidden')`), 'con ETH de Base: oculto');
+    await ev(`switchNetwork(${idxUsdc})`); await sleep(800);
+    ok(!(await ev(`document.getElementById('cctpOpenBtn').parentElement.classList.contains('hidden')`)), 'con USDC de Base: visible');
 } finally {
     try { ws && ws.close(); } catch { }
     try { proc.kill('SIGKILL'); } catch { }

@@ -120,3 +120,39 @@ export function leerQrG1(texto) {
     }
     return { g1, monto, comentario: p.get('comment') || null, esPago: !!esquema };
 }
+
+// ── Historial ────────────────────────────────────────────────────────────────────
+// Las transferencias de la cuenta, de la más nueva a la más vieja, de a `cantidad`. El
+// comentario es el remark_with_event que viaja en el mismo batch que la transferencia: está
+// en la cadena, en claro, y el indexador lo engancha a su transferencia.
+const Q_HISTORIAL = `query($id:String!,$n:Int!,$despues:Cursor){
+  transfers(first:$n, after:$despues, orderBy:BLOCK_NUMBER_DESC,
+            filter:{ or:[{ fromId:{ equalTo:$id } },{ toId:{ equalTo:$id } }] }){
+    totalCount pageInfo{ hasNextPage endCursor }
+    nodes{ id blockNumber timestamp amount fromId toId
+           from{ identity{ name } } to{ identity{ name } } comment{ remark } } } }`;
+
+// → { total, siguiente (cursor o null), movimientos: [{ id, bloque, t (ms), centimos
+//     (positivo = entra, negativo = sale), otro (g1 de la otra punta), nombre (su
+//     seudónimo Ğ1 o null), comentario (o null) }] }
+export async function historial(g1, { despues = null, cantidad = 50 } = {}, fetchFn) {
+    const d = await IusG1.consultar(Q_HISTORIAL, { id: g1, n: cantidad, despues }, fetchFn);
+    const tr = d.transfers;
+    return {
+        total: tr.totalCount,
+        siguiente: tr.pageInfo.hasNextPage ? tr.pageInfo.endCursor : null,
+        movimientos: tr.nodes.map((n) => {
+            const sale = n.fromId === g1;
+            const otra = sale ? n.to : n.from;
+            return {
+                id: n.id,
+                bloque: n.blockNumber,
+                t: Date.parse(n.timestamp),
+                centimos: (sale ? -1 : 1) * Number(n.amount),
+                otro: sale ? n.toId : n.fromId,
+                nombre: (otra && otra.identity && otra.identity.name) || null,
+                comentario: (n.comment && n.comment.remark) || null,
+            };
+        }),
+    };
+}

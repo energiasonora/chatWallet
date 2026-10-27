@@ -2946,7 +2946,7 @@
                         <div
                             class="sticky top-0 bg-gray-800 grid grid-cols-3 gap-2 p-2 text-xs font-bold text-gray-400 border-b border-gray-700">
                             <div class="text-left">Fecha</div>
-                            <div class="text-center">Hash</div>
+                            <div id="historyColMid" class="text-center">Hash</div>
                             <div class="text-right">Monto</div>
                         </div>
                         <div id="transactionList" class="space-y-1 pt-1" style="height: 100%;">
@@ -5785,6 +5785,18 @@
                     }
                     historyNetworkSelector.appendChild(option);
                 });
+                // Ğ1 y Monero no son EVM: van al final si la cuenta existe, y quedan elegidas si
+                // son la red que muestra la billetera.
+                const extras = [];
+                if (cuentaG1Guardada()) extras.push(['g1', t('g1_net_name'), redG1Activa()]);
+                if (estadoXmr()) extras.push(['xmr', 'Monero (XMR)', redXmrActiva()]);
+                for (const [valor, nombre, activa] of extras) {
+                    const option = document.createElement('option');
+                    option.value = valor;
+                    option.textContent = nombre;
+                    if (activa) option.selected = true;
+                    historyNetworkSelector.appendChild(option);
+                }
             }
 
             historyNetworkSelector.addEventListener('change', fetchTransactionHistory);
@@ -5800,6 +5812,11 @@
                 transactionList.innerHTML = '';
 
                 const selectedIndex = historyNetworkSelector.value;
+                const colMedio = document.getElementById('historyColMid');
+                if (colMedio) colMedio.textContent = (selectedIndex === 'g1' || selectedIndex === 'xmr') ? t('hist_col_with') : 'Hash';
+                historialVuelta++;   // una respuesta Ğ1/Monero que llegue tarde ya no pinta
+                if (selectedIndex === 'g1') return historialG1();
+                if (selectedIndex === 'xmr') return historialXmr();
                 if (selectedIndex === '' || selectedIndex === null) {
                     historyLoader.classList.add('hidden');
                     noHistoryMessage.textContent = 'Selecciona una red para ver el historial.';
@@ -6650,7 +6667,24 @@
                 cwPintarValorPrincipal();
             }
 
+            // «Pasar USDC a otra red» en la billetera: sólo con USDC elegido en una red que CCTP
+            // conecta, o si hay una transferencia en marcha (para poder seguirla).
+            function cwCctpVisibilidad() {
+                const b = document.getElementById('cctpOpenBtn');
+                if (!b) return;
+                let ver = false;
+                try {
+                    const n = optionsList[currentTokenIndex];
+                    const r = n && CW_CCTP_REDES[String(n.TOKEN_CHAINID)];
+                    ver = !redG1Activa() && !redXmrActiva() && !!r && !!n.TOKEN_ADDRESS
+                        && n.TOKEN_ADDRESS.toLowerCase() === r.usdc.toLowerCase();
+                    if (!ver && currentWallet) ver = cwCctpLista().some(cwCctpEnMarcha);
+                } catch (e) { ver = false; }   // antes de que exista la tabla de CCTP
+                b.parentElement.classList.toggle('hidden', !ver);
+            }
+
             function setBalanceText(slot, text) {
+                if (slot === 'main') cwCctpVisibilidad();
                 lastBalances[slot] = text;
                 renderBalances();
             }
@@ -14582,6 +14616,161 @@
                 })().catch((e) => console.warn('[g1] consulta del escaneo:', e?.message || e));
             }
 
+            // ── Historial de Ğ1 y de Monero (pestaña Historial) ───────────────────────────
+            // Ğ1 sale del indexador (las transferencias con su comentario, que está en la cadena).
+            // Monero sale de la billetera del teléfono: se guarda en cada puesta al día y no hace
+            // ninguna consulta. Los nombres: tu agenda primero, después el seudónimo Ğ1. Todo lo
+            // que escribió otro (comentario, seudónimo, alias) va por textContent.
+            var historialVuelta = 0;
+            function nombreContactoPorG1(g1) {
+                const c = (contacts || []).find(x => x && x.g1 === g1);
+                return c ? c.name : null;
+            }
+            function nombreContactoPorDir(dir) {
+                const k = String(dir || '').toLowerCase();
+                const c = (contacts || []).find(x => x && String(x.address || '').toLowerCase() === k);
+                return c ? c.name : null;
+            }
+            const cortoHist = (s) => `${String(s).slice(0, 8)}…${String(s).slice(-4)}`;
+            function filaHistorial({ ms, quien, nota, monto, entra, detalle }) {
+                const lang = localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'es';
+                const fila = document.createElement('div');
+                fila.className = 'hist-fila grid grid-cols-3 gap-2 p-2 text-sm rounded-lg hover:bg-gray-700/50 transition-colors items-center cursor-pointer';
+                const fecha = document.createElement('div');
+                fecha.className = 'text-left text-gray-300 text-xs';
+                fecha.textContent = ms ? new Date(ms).toLocaleDateString(lang, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('hist_pending');
+                const medio = document.createElement('div');
+                medio.className = 'text-center min-w-0';
+                const q = document.createElement('div');
+                q.className = 'hist-quien text-xs text-indigo-300 truncate';
+                q.textContent = quien;
+                medio.appendChild(q);
+                if (nota) {
+                    const n = document.createElement('div');
+                    n.className = 'hist-nota text-xs text-gray-400 truncate italic';
+                    n.textContent = nota;
+                    medio.appendChild(n);
+                }
+                const m = document.createElement('div');
+                m.className = `hist-monto text-right font-semibold ${entra ? 'text-green-400' : 'text-orange-400'}`;
+                m.textContent = isBalanceHidden() ? '••••' : monto;
+                const det = document.createElement('div');
+                det.className = 'hist-detalle col-span-3 hidden text-xs text-gray-400 break-all space-y-1 pt-1';
+                for (const linea of detalle) {
+                    const p = document.createElement('p');
+                    p.textContent = linea;
+                    det.appendChild(p);
+                }
+                fila.append(fecha, medio, m, det);
+                fila.addEventListener('click', () => det.classList.toggle('hidden'));
+                return fila;
+            }
+            function historialMensaje(texto) {
+                historyLoader.classList.add('hidden');
+                noHistoryMessage.textContent = texto;
+                noHistoryMessage.classList.remove('hidden');
+            }
+
+            async function historialG1(despues = null) {
+                const vuelta = historialVuelta;
+                const cuenta = cuentaG1Guardada();
+                if (!cuenta) return historialMensaje(t('hist_empty'));
+                let r;
+                try {
+                    const B = await window.cwCargarBilleteraG1();
+                    r = await B.historial(cuenta.g1, { despues, cantidad: 50 });
+                } catch (e) {
+                    console.warn('[g1] historial:', e?.message || e);
+                    if (vuelta === historialVuelta) historialMensaje(t('hist_error'));
+                    return;
+                }
+                if (vuelta !== historialVuelta) return;
+                historyLoader.classList.add('hidden');
+                document.getElementById('historyMas')?.remove();
+                if (!r.movimientos.length && !despues) return historialMensaje(t('hist_empty'));
+                for (const m of r.movimientos) {
+                    const entra = m.centimos > 0;
+                    const agenda = nombreContactoPorG1(m.otro);
+                    transactionList.appendChild(filaHistorial({
+                        ms: m.t, entra, nota: m.comentario,
+                        quien: agenda || m.nombre || cortoHist(m.otro),
+                        monto: `${entra ? '+' : '−'}${formatoG1(Math.abs(m.centimos))} Ğ1`,
+                        detalle: [
+                            `${t(entra ? 'hist_from' : 'hist_to')}: ${m.otro}`,
+                            m.nombre ? `${t('hist_g1_name')}: ${m.nombre}` : null,
+                            m.comentario ? `${t('hist_comment')}: ${m.comentario}` : null,
+                            `${t('hist_block')} #${m.bloque}`,
+                        ].filter(Boolean),
+                    }));
+                }
+                if (r.siguiente) {
+                    const mas = document.createElement('button');
+                    mas.type = 'button';
+                    mas.id = 'historyMas';
+                    mas.className = 'w-full py-2 my-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm';
+                    mas.textContent = t('hist_more');
+                    mas.onclick = () => { mas.disabled = true; mas.textContent = t('hist_loading'); historialG1(r.siguiente); };
+                    transactionList.appendChild(mas);
+                }
+            }
+
+            async function historialXmr() {
+                const vuelta = historialVuelta;
+                if (!currentWallet) return;
+                const dir = currentWallet.address;
+                let movs = null;
+                try { movs = await leerDatosXmr(dir + '#movs'); } catch (e) { }
+                if (vuelta !== historialVuelta) return;
+                historyLoader.classList.add('hidden');
+                if (!movs) {
+                    historialMensaje(t(redXmrActiva() ? 'hist_xmr_wait' : 'hist_xmr_open'));
+                    if (redXmrActiva()) pintarRedXmr(true);
+                    return;
+                }
+                if (!movs.length) return historialMensaje(t('hist_empty'));
+                // Quién te pagó: cada contacto tiene su subdirección (ver pedirXmrEnChat).
+                const porIndice = new Map(Object.entries(leerJSONLocal(claveSubdirsXmr(dir)) || {}).map(([peer, x]) => [x.i, peer]));
+                // A quién mandaste: lo anotado al enviar (wallet2 no guarda el destino al reabrir).
+                const envioDe = new Map();
+                for (const e of (leerJSONLocal(claveEnviosXmr(dir)) || [])) (e.hashes || []).forEach((h, i) => envioDe.set(h, { ...e, clave: e.claves && e.claves[i] }));
+                for (const m of movs) {
+                    const entra = m.sale === '0';
+                    const detalle = [];
+                    let quien;
+                    if (entra) {
+                        const peers = m.subdirs.map(i => porIndice.get(i)).filter(Boolean);
+                        if (peers.length) quien = peers.map(p => nombreContactoPorDir(p) || cortoHist(p)).join(', ');
+                        else if (m.subdirs.length === 1 && m.subdirs[0] > 0) quien = t('hist_xmr_sub', { i: m.subdirs[0] });
+                        else quien = t('hist_xmr_main');
+                        if (peers.length) detalle.push(t('hist_xmr_via_sub', { i: m.subdirs.join(', ') }));
+                    } else {
+                        const e = envioDe.get(m.hash);
+                        const destino = (e && e.destino) || (m.destinos[0] && m.destinos[0].direccion) || null;
+                        quien = (e && e.peer && (nombreContactoPorDir(e.peer) || cortoHist(e.peer))) || (destino ? cortoHist(destino) : t('hist_xmr_sent'));
+                        if (destino) detalle.push(`${t('hist_to')}: ${destino}`);
+                        detalle.push(`${t('hist_fee')}: ${formatoXmr(m.comision, 12)} XMR`);
+                        if (e && e.clave) detalle.push(`${t('hist_xmr_txkey')}: ${e.clave}`);
+                    }
+                    detalle.push(`tx ${m.hash}`);
+                    detalle.push(m.altura ? (m.bloqueada ? t('hist_xmr_locked', { n: m.confirmaciones }) : t('hist_confs', { n: m.confirmaciones })) : t('hist_pending'));
+                    transactionList.appendChild(filaHistorial({
+                        ms: m.t, entra, quien, nota: null, detalle,
+                        monto: entra ? `+${formatoXmr(m.entra)} XMR` : `−${formatoXmr(BigInt(m.sale) + BigInt(m.comision))} XMR`,
+                    }));
+                }
+            }
+            // Después de una puesta al día: si la pestaña Historial está mostrando Monero, se repinta.
+            async function guardarMovimientosXmr(dir, movs) {
+                if (!movs) return;
+                try { await guardarDatosXmr(dir + '#movs', movs); } catch (e) { console.warn('[monero] guardar historial:', e); return; }
+                if (currentWallet?.address === dir && historyView.classList.contains('active') && historyNetworkSelector.value === 'xmr') {
+                    historialVuelta++;
+                    transactionList.innerHTML = '';
+                    noHistoryMessage.classList.add('hidden');
+                    historialXmr();
+                }
+            }
+
             // ── Enviar Ğ1 ────────────────────────────────────────────────────────────────
             // La cuenta con su secreto, para firmar: de la frase (billetera creada acá) o de la
             // raíz guardada (restaurada). Si no hay ninguna de las dos, se pide la frase una vez.
@@ -15072,6 +15261,7 @@
                             r = await M.sincronizar({ privEvm: priv, nodo: XMR_NODOS.find(n => n !== nodo), nacimiento: est.nacimiento, datos, alProgreso });
                         }
                         try { await guardarDatosXmr(dir, r.datos); } catch (e) { console.warn('[monero] guardar estado:', e); }
+                        await guardarMovimientosXmr(dir, r.movimientos);
                         const antes = leerJSONLocal(claveEstadoXmr(dir)) || est;
                         localStorage.setItem(claveEstadoXmr(dir), JSON.stringify({ ...antes, total: r.total, desbloqueado: r.desbloqueado, altura: r.altura, t: Date.now() }));
                         xmrInfo = null;
@@ -15203,7 +15393,7 @@
                 if (c === 'vencido') return t('xmr_err_vencido');
                 return t('xmr_err', { e: e?.message || e });
             }
-            async function abrirEnvioXmr({ destino = '', monto = '', alEnviar = null } = {}) {
+            async function abrirEnvioXmr({ destino = '', monto = '', alEnviar = null, peer = null } = {}) {
                 if (!currentWallet || !currentWallet.privateKey) return;
                 if (!estadoXmr()) { await activarRedXmr(); if (!estadoXmr()) return; }
                 const dir = currentWallet.address, priv = currentWallet.privateKey;
@@ -15303,10 +15493,11 @@
                                 const r = await s.confirmar();
                                 enviado = true;
                                 try { await guardarDatosXmr(dir, r.datos); } catch (e) { }
+                                await guardarMovimientosXmr(dir, r.movimientos);
                                 const antes = leerJSONLocal(claveEstadoXmr(dir)) || {};
                                 localStorage.setItem(claveEstadoXmr(dir), JSON.stringify({ ...antes, total: r.total, desbloqueado: r.desbloqueado, altura: r.altura, t: Date.now() }));
                                 const envios = leerJSONLocal(claveEnviosXmr(dir)) || [];
-                                envios.unshift({ hashes: r.hashes, claves: r.claves, destino: leerQrXmr(dest.value).direccion, monto: s.monto, comision: s.comision, t: Date.now() });
+                                envios.unshift({ hashes: r.hashes, claves: r.claves, destino: leerQrXmr(dest.value).direccion, monto: s.monto, comision: s.comision, t: Date.now(), ...(peer ? { peer } : {}) });
                                 localStorage.setItem(claveEnviosXmr(dir), JSON.stringify(envios.slice(0, 200)));
                                 await liberar();
                                 decir(t('xmr_enviado', { monto: formatoXmr(s.monto) }), 'text-green-400');
@@ -15392,7 +15583,7 @@
             }
             async function pagarXmrDesdeChat(d, conv) {
                 await abrirEnvioXmr({
-                    destino: d.address, monto: d.amount || '',
+                    destino: d.address, monto: d.amount || '', peer: currentChatContact?.address || null,
                     alEnviar: async ({ hash, clave, monto, destino }) => {
                         if (!conv || !clave) return;
                         await conv.sendText('[XMR]' + JSON.stringify({ v: 1, type: 'send', amount: monto, txHash: hash, txKey: clave, address: destino }));
@@ -18837,6 +19028,7 @@
             }
 
             function cwCctpPintarPendientes() {
+                cwCctpVisibilidad();
                 const enMarcha = currentWallet ? cwCctpLista().filter(cwCctpEnMarcha).length : 0;
                 document.querySelectorAll('.cctp-badge').forEach(b => {
                     b.textContent = t('cctp_badge', { n: enMarcha });
@@ -23795,6 +23987,27 @@
                     "g1_phrase_sign_title": "Firmar con Ğ1",
                     "g1_phrase_sign_body": "Para enviar Ğ1 hace falta la llave de tu cuenta Ğ1, que sale de tu frase semilla y no de la clave de tu billetera. Este dispositivo todavía no la tiene. Escribí la frase una vez: no se guarda, queda solo la llave Ğ1 y no se te vuelve a pedir.",
                     "g1_phrase_sign_ok": "Continuar",
+                    "hist_col_with": "Con",
+                    "hist_pending": "En el pool",
+                    "hist_empty": "Todavía no hay movimientos.",
+                    "hist_error": "No se pudo leer el historial. Revisá la conexión.",
+                    "hist_more": "Ver más",
+                    "hist_loading": "Cargando…",
+                    "hist_from": "De",
+                    "hist_to": "Para",
+                    "hist_g1_name": "Seudónimo Ğ1",
+                    "hist_comment": "Comentario",
+                    "hist_block": "Bloque",
+                    "hist_fee": "Comisión",
+                    "hist_confs": "{n} confirmaciones",
+                    "hist_xmr_locked": "{n} confirmaciones · todavía no se puede gastar",
+                    "hist_xmr_txkey": "Clave de la transacción (prueba de pago)",
+                    "hist_xmr_main": "A tu dirección principal",
+                    "hist_xmr_sub": "A tu subdirección #{i}",
+                    "hist_xmr_via_sub": "Llegó a la subdirección #{i}, la que le diste en el chat",
+                    "hist_xmr_sent": "Enviado",
+                    "hist_xmr_wait": "Poniendo Monero al día para armar el historial…",
+                    "hist_xmr_open": "El historial de Monero se arma en tu teléfono: elegí Monero en la billetera una vez para ponerlo al día.",
                     "g1_phrase_pk_note": "Si importaste esta billetera con clave privada, no tiene frase y no puede tener una cuenta Ğ1 derivada.",
                     "g1_phrase_invalid": "Esa no es una frase válida.",
                     "g1_phrase_other": "Esa frase es de otra billetera, no de esta.",
@@ -24505,6 +24718,27 @@
                     "g1_phrase_sign_title": "Sign with Ğ1",
                     "g1_phrase_sign_body": "Sending Ğ1 needs your Ğ1 account key, which comes from your seed phrase, not from your wallet key. This device doesn't have it yet. Enter the phrase once: it isn't stored, only the Ğ1 key is kept and you won't be asked again.",
                     "g1_phrase_sign_ok": "Continue",
+                    "hist_col_with": "With",
+                    "hist_pending": "In the pool",
+                    "hist_empty": "No transactions yet.",
+                    "hist_error": "Couldn't load the history. Check your connection.",
+                    "hist_more": "Show more",
+                    "hist_loading": "Loading…",
+                    "hist_from": "From",
+                    "hist_to": "To",
+                    "hist_g1_name": "Ğ1 pseudonym",
+                    "hist_comment": "Comment",
+                    "hist_block": "Block",
+                    "hist_fee": "Fee",
+                    "hist_confs": "{n} confirmations",
+                    "hist_xmr_locked": "{n} confirmations · can't be spent yet",
+                    "hist_xmr_txkey": "Transaction key (payment proof)",
+                    "hist_xmr_main": "To your main address",
+                    "hist_xmr_sub": "To your subaddress #{i}",
+                    "hist_xmr_via_sub": "Arrived at subaddress #{i}, the one you gave them in the chat",
+                    "hist_xmr_sent": "Sent",
+                    "hist_xmr_wait": "Syncing Monero to build the history…",
+                    "hist_xmr_open": "Your Monero history is built on your phone: pick Monero in the wallet once to sync it.",
                     "g1_phrase_pk_note": "If you imported this wallet with a private key, it has no phrase and can't have a derived Ğ1 account.",
                     "g1_phrase_invalid": "That isn't a valid phrase.",
                     "g1_phrase_other": "That phrase belongs to another wallet, not this one.",
@@ -25215,6 +25449,27 @@
                     "g1_phrase_sign_title": "Signer avec Ğ1",
                     "g1_phrase_sign_body": "Pour envoyer des Ğ1, il faut la clé de ton compte Ğ1, qui vient de ta phrase secrète et non de la clé de ton portefeuille. Cet appareil ne l'a pas encore. Saisis la phrase une fois : elle n'est pas enregistrée, seule la clé Ğ1 est gardée et elle ne te sera plus demandée.",
                     "g1_phrase_sign_ok": "Continuer",
+                    "hist_col_with": "Avec",
+                    "hist_pending": "Dans le pool",
+                    "hist_empty": "Aucun mouvement pour le moment.",
+                    "hist_error": "Impossible de lire l'historique. Vérifie ta connexion.",
+                    "hist_more": "Voir plus",
+                    "hist_loading": "Chargement…",
+                    "hist_from": "De",
+                    "hist_to": "À",
+                    "hist_g1_name": "Pseudonyme Ğ1",
+                    "hist_comment": "Commentaire",
+                    "hist_block": "Bloc",
+                    "hist_fee": "Frais",
+                    "hist_confs": "{n} confirmations",
+                    "hist_xmr_locked": "{n} confirmations · pas encore dépensable",
+                    "hist_xmr_txkey": "Clé de la transaction (preuve de paiement)",
+                    "hist_xmr_main": "Vers ton adresse principale",
+                    "hist_xmr_sub": "Vers ta sous-adresse #{i}",
+                    "hist_xmr_via_sub": "Arrivé sur la sous-adresse #{i}, celle que tu lui as donnée dans le chat",
+                    "hist_xmr_sent": "Envoyé",
+                    "hist_xmr_wait": "Mise à jour de Monero pour construire l'historique…",
+                    "hist_xmr_open": "L'historique Monero se construit sur ton téléphone : choisis Monero dans le portefeuille une fois pour le mettre à jour.",
                     "g1_phrase_pk_note": "Si tu as importé ce portefeuille avec une clé privée, il n'a pas de phrase et ne peut pas avoir de compte Ğ1 dérivé.",
                     "g1_phrase_invalid": "Ce n'est pas une phrase valide.",
                     "g1_phrase_other": "Cette phrase appartient à un autre portefeuille, pas à celui-ci.",

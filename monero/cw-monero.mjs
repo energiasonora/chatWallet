@@ -99,13 +99,46 @@ async function abrirAlDia({ privEvm, nodo, nacimiento, datos, alProgreso, regtes
     return w;
 }
 
+// El historial sale de la billetera ya sincronizada: no hace ninguna consulta a la red.
+// Cada movimiento: { hash, t (ms, null si está en el pool), altura, entra (piconero que te
+// llegaron), sale (piconero mandados, sin el vuelto), comision, subdirs (índices de
+// subdirección que recibieron: dicen qué contacto te pagó), destinos [{ direccion, monto }],
+// confirmaciones, bloqueada }. Del más nuevo al más viejo.
+async function movimientos(w) {
+    const txs = await w.getTxs();
+    const lista = txs.map((tx) => {
+        const bloque = tx.getBlock && tx.getBlock();
+        const ts = bloque && bloque.getTimestamp && bloque.getTimestamp();
+        const entradas = (tx.getIncomingTransfers && tx.getIncomingTransfers()) || [];
+        const salida = tx.getOutgoingTransfer && tx.getOutgoingTransfer();
+        // El vuelto de un envío vuelve a la cuenta como entrada a la subdirección 0: no es un cobro.
+        const cobros = salida ? [] : entradas;
+        return {
+            hash: tx.getHash(),
+            t: ts ? Number(ts) * 1000 : null,
+            altura: bloque && bloque.getHeight ? bloque.getHeight() : null,
+            entra: String(cobros.reduce((n, x) => n + BigInt(x.getAmount() || 0), 0n)),
+            sale: salida ? String(salida.getAmount() || 0n) : '0',
+            comision: salida ? String(tx.getFee() || 0n) : '0',
+            subdirs: [...new Set(cobros.map((x) => x.getSubaddressIndex()))],
+            destinos: salida && salida.getDestinations ? (salida.getDestinations() || []).map((d) => ({ direccion: d.getAddress(), monto: String(d.getAmount() || 0n) })) : [],
+            confirmaciones: tx.getNumConfirmations() || 0,
+            bloqueada: !!tx.getIsLocked(),
+        };
+    }).filter((m) => m.entra !== '0' || m.sale !== '0');
+    return lista.sort((a, b) => (b.altura ?? Infinity) - (a.altura ?? Infinity));
+}
+
 async function foto(w) {
     const [keys, cache] = await w.getData();
+    let movs = null;
+    try { movs = await movimientos(w); } catch (e) { console.warn('[monero] historial:', e?.message || e); }
     return {
         total: String(await w.getBalance()),
         desbloqueado: String(await w.getUnlockedBalance()),
         altura: await w.getHeight(),
         direccion: await w.getPrimaryAddress(),
+        movimientos: movs,
         datos: { keys: aBytes(keys), cache: aBytes(cache) },
     };
 }
