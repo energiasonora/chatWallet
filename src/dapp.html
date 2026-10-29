@@ -5648,6 +5648,10 @@
             // Send Modal
             const sendBtn = document.getElementById('sendBtn');
             const sendModal = document.getElementById('sendModal');
+            // Al cerrarse (por donde sea) deja de ser "desde el chat": el menú Activo pierde Ğ1.
+            if (sendModal) new MutationObserver(() => {
+                if (sendModal.classList.contains('hidden') && sendModal.dataset.desdeChat) delete sendModal.dataset.desdeChat;
+            }).observe(sendModal, { attributes: true, attributeFilter: ['class'] });
             const sendForm = document.getElementById('sendForm');
             const cancelSendBtn = document.getElementById('cancelSendBtn');
             const recipientAddressInput = document.getElementById('recipientAddress');
@@ -6363,6 +6367,9 @@
                             .then(() => localStorage.setItem('chatwallet-wake-broadcasted', '1'))
                             .catch(() => { });
                     }
+
+                    // Tu cuenta Ğ1 a tus contactos (vínculo privado), una vez por cuenta.
+                    difundirVinculoG1SiFalta().catch(() => { });
 
                     statusEl.textContent = "Conectado al chat.";
                     document.getElementById('xmtpErrorBadge')?.classList.add('hidden');
@@ -8060,6 +8067,31 @@
                     };
                     sendModalTokenMenu.appendChild(item);
                 });
+
+                // Desde un chat 1:1, Ğ1 también: se le paga a la cuenta que el contacto compartió
+                // en su perfil. Si no la compartió, el toque explica por qué no se puede.
+                if (sendModal && sendModal.dataset.desdeChat === '1' && contactoDelChat()) {
+                    const sep = document.createElement('div');
+                    sep.className = 'red-g1-sep';
+                    sendModalTokenMenu.appendChild(sep);
+                    const c = contactoDelChat();
+                    const g1Item = document.createElement('button');
+                    g1Item.type = 'button';
+                    g1Item.id = 'sendModalG1Item';
+                    g1Item.className = `w-full text-left p-3 hover:bg-gray-600/50 flex items-center justify-between transition-colors rounded-lg ${c.g1 ? '' : 'opacity-50'}`;
+                    const nom = document.createElement('span');
+                    nom.textContent = t('g1_chat_item');
+                    g1Item.appendChild(nom);
+                    g1Item.onclick = () => {
+                        sendModalTokenMenu.classList.add('hidden');
+                        if (!c.g1) { pagarG1DesdeChat(); return; }
+                        sendModal.classList.add('hidden');
+                        sendModal.classList.remove('flex');
+                        if (recipientAddressInput) recipientAddressInput.readOnly = false;
+                        pagarG1DesdeChat();
+                    };
+                    sendModalTokenMenu.appendChild(g1Item);
+                }
             }
 
             function renderTokenMenu() {
@@ -11054,6 +11086,8 @@
                             lastMessageText = '💸 Transacción';
                         } else if (String(lastMessageText).startsWith('[XMR]')) {
                             lastMessageText = etiquetaXmrDeTexto(lastMessageText);
+                        } else if (String(lastMessageText).startsWith('[G1]')) {
+                            lastMessageText = etiquetaG1DeTexto(lastMessageText);
                         }
 
                         const isOnline = estaEnLinea(contact);
@@ -13299,6 +13333,7 @@
                 }
                 const texto = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
                 if (texto.startsWith('[XMR]')) return etiquetaXmrDeTexto(texto);
+                if (texto.startsWith('[G1]')) return etiquetaG1DeTexto(texto);
                 // Los mensajes del puente con las dApps también llegan acá. Arreglar sólo las
                 // burbujas del chat no alcanzaba: la lista de contactos seguía mostrando
                 // `{"cw":1,"id":"ed9835b8-2ad8…` como vista previa, que es otro camino de
@@ -13869,6 +13904,17 @@
                 messageRow.id = `msg-${message.id}`;
 
 
+                if (messageContent.startsWith('[G1]')) {
+                    // Pago o pedido de Ğ1 (ver tarjetaG1): lo escribió la otra punta, todo por textContent.
+                    const datosG1 = leerTarjetaG1(messageContent);
+                    if (datosG1) {
+                        messageRow.className = `w-full flex ${type === 'sent' ? 'justify-end' : 'justify-start'}`;
+                        messageRow.appendChild(tarjetaG1(datosG1, type));
+                        messagesContainer.appendChild(messageRow);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        return;
+                    }
+                }
                 if (messageContent.startsWith('[XMR]')) {
                     // Pago o pedido de Monero (ver tarjetaXmr): lo escribió la otra punta, todo por textContent.
                     const datosXmr = leerTarjetaXmr(messageContent);
@@ -14402,6 +14448,7 @@
                         showToast(t('g1_searching'), 'info');
                         const elegida = await B.elegirCuenta(cands);
                         localStorage.setItem(claveCuentaG1(dir), JSON.stringify({ g1: elegida.g1, ruta: elegida.ruta }));
+                        difundirVinculoG1SiFalta().catch(() => { });
                     }
                 } catch (e) {
                     console.warn('[g1] activar:', e);
@@ -14791,6 +14838,44 @@
                 return cuenta;
             }
 
+            // ── Vínculo privado 0x ↔ g1 en el perfil (ius-spec/vinculo-g1.md §11.3) ──────────
+            // Tus contactos aprenden tu cuenta Ğ1 por el perfil firmado que ya viaja por XMTP, y
+            // así pueden pagarte Ğ1 desde el chat. No se publica nada en la cadena. Se firma sin
+            // pedir nada: si no está la llave Ğ1 a mano (raíz guardada o frase), no va.
+            function claveVinculoG1(a) { return `cw-g1-vinculo-${String(a).toLowerCase()}`; }
+            async function vinculoG1ParaPerfil() {
+                try {
+                    const c = cuentaG1Guardada();
+                    if (!c || !currentWallet) return null;
+                    const dir = currentWallet.address;
+                    const hecho = leerJSONLocal(claveVinculoG1(dir));
+                    if (hecho && hecho.cuenta === c.g1) return hecho;
+                    const B = await window.cwCargarBilleteraG1();
+                    let raiz = localStorage.getItem(claveRaizG1(dir));
+                    if (!raiz) {
+                        const frase = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic();
+                        if (!frase) return null;
+                        raiz = B.raizHex(frase);
+                    }
+                    const cuenta = B.cuentaDeRaizHex(raiz, c.ruta);
+                    if (cuenta.direccion !== c.g1) return null;
+                    const v = await B.vinculoPrivado(cuenta, dir, (m) => currentWallet.signMessage(m));
+                    localStorage.setItem(claveVinculoG1(dir), JSON.stringify(v));
+                    return v;
+                } catch (e) { console.warn('[g1] vínculo para el perfil:', e); return null; }
+            }
+            // Una vez por cuenta Ğ1: re-emitir el perfil para que los contactos la aprendan ya,
+            // sin esperar al reenvío espaciado.
+            async function difundirVinculoG1SiFalta() {
+                const c = cuentaG1Guardada();
+                if (!c || !chatwalletxmtp || !currentWallet) return;
+                const marca = `cw-g1-vinculo-difundido-${currentWallet.address.toLowerCase()}`;
+                if (localStorage.getItem(marca) === c.g1) return;
+                if (!(await vinculoG1ParaPerfil())) return;
+                await broadcastProfile();
+                localStorage.setItem(marca, c.g1);
+            }
+
             // Un monto para poner en el campo: sin separador de miles, con la coma o el punto
             // decimal del idioma (centimosDeTexto acepta los dos).
             function montoParaCampo(centimos) {
@@ -14953,6 +15038,11 @@
                         });
                         estado(t('g1_send_inblock', { b: res.bloque ?? '?' }), 'text-green-400');
                         showToast(t('g1_send_done', { monto: formatoG1(montoC) }), 'success', 5000);
+                        // Desde el chat: dejar la tarjeta del pago en la conversación.
+                        if (prellenado.alEnviar) {
+                            try { await prellenado.alEnviar({ monto: montoC, desde: miCuenta, destino, bloque: res.bloque ?? null, hash: res.hash || null }); }
+                            catch (e) { console.warn('[g1] avisar en el chat:', e); }
+                        }
                         g1Lectura = null;
                         if (redG1Activa()) pintarRedG1(true);
                         q('cancelar').disabled = false;
@@ -14966,6 +15056,136 @@
                         q('cancelar').disabled = false;
                     }
                 };
+            }
+
+            // ── Ğ1 en el chat ──────────────────────────────────────────────────────────────
+            // La cuenta Ğ1 del contacto llega en su perfil firmado (vínculo privado, ver
+            // vinculoG1ParaPerfil); sin ella no se puede pagarle desde el chat.
+            // [G1]{"v":1,"type":"request","to":<g1 de quien pide>,"amount":<céntimos>}
+            // [G1]{"v":1,"type":"send","amount":<céntimos>,"from","to","block","hash"}
+            // Lo escribe la otra punta: se valida todo y se pinta con textContent.
+            const esCuentaG1 = (x) => typeof x === 'string' && /^g1[1-9A-HJ-NP-Za-km-z]{40,50}$/.test(x);
+            function leerTarjetaG1(texto) {
+                try {
+                    const d = JSON.parse(String(texto).slice(4));
+                    if (!d || d.v !== 1) return null;
+                    const monto = Number(d.amount);
+                    if (!Number.isSafeInteger(monto) || monto < 0) return null;
+                    if (d.type === 'request' && esCuentaG1(d.to)) return { type: 'request', to: d.to, amount: monto };
+                    if (d.type === 'send' && monto > 0 && esCuentaG1(d.to) && esCuentaG1(d.from)
+                        && (d.block == null || Number.isSafeInteger(d.block))
+                        && (d.hash == null || /^0x[0-9a-f]{64}$/.test(d.hash))) {
+                        return { type: 'send', to: d.to, from: d.from, amount: monto, block: d.block ?? null, hash: d.hash ?? null };
+                    }
+                } catch (e) { }
+                return null;
+            }
+            function etiquetaG1DeTexto(texto) {
+                const d = leerTarjetaG1(texto);
+                if (!d) return '💸 Ğ1';
+                if (d.type === 'request') return d.amount ? t('g1_chat_prev_pedido', { monto: formatoG1(d.amount) }) : '💸 Ğ1';
+                return t('g1_chat_prev_pago', { monto: formatoG1(d.amount) });
+            }
+            function contactoDelChat() {
+                if (currentGroup || !currentChatContact || currentChatContact.isGroup) return null;
+                const a = String(currentChatContact.address || '').toLowerCase();
+                return contacts.find(c => c.address && c.address.toLowerCase() === a) || currentChatContact;
+            }
+            // Pagar Ğ1 al contacto del chat (o a lo que pidió en su tarjeta) y dejar la prueba.
+            async function pagarG1DesdeChat({ destino = null, monto = null } = {}) {
+                const c = contactoDelChat();
+                const conv = currentConversation;
+                const cuenta = destino || (c && c.g1);
+                if (!cuenta) {
+                    showToast(t('g1_chat_sin_cuenta', { nombre: c ? contactOwnName(c) : '' }), 'info', 8000);
+                    return;
+                }
+                await abrirEnvioG1({
+                    destino: cuenta, monto: monto || undefined,
+                    alEnviar: async ({ monto: m, desde, destino: a, bloque, hash }) => {
+                        if (!conv) return;
+                        await conv.sendText('[G1]' + JSON.stringify({ v: 1, type: 'send', amount: m, from: desde, to: a, block: bloque, hash }));
+                        try { pingWake(conv); } catch (e) { }
+                    },
+                });
+            }
+            async function pedirG1EnChat(conv, montoTexto) {
+                if (!conv || !currentWallet) return;
+                if (!cuentaG1Guardada()) { await activarRedG1(); if (!cuentaG1Guardada()) return; }
+                const montoC = centimosDeTexto(montoTexto);
+                if (!montoC) { showToast(t('payreq_bad_amount'), 'error'); return; }
+                await conv.sendText('[G1]' + JSON.stringify({ v: 1, type: 'request', to: cuentaG1Guardada().g1, amount: montoC }));
+                try { pingWake(conv); } catch (e) { }
+                showToast(t('payreq_sent', { amount: formatoG1(montoC), symbol: 'Ğ1' }), 'success');
+            }
+            // Del lado que cobra: buscar la transferencia en el indexador (de quién, a quién,
+            // cuánto, en qué bloque). Lo confirmado se guarda.
+            function claveVerifG1(d) { return `cw-g1-verif-${d.from}-${d.to}-${d.block}-${d.amount}`; }
+            async function verificarTarjetaG1(d, linea) {
+                const pintar = (ok) => {
+                    linea.className = 'mt-2 text-xs ' + (ok ? 'text-green-400' : 'text-gray-400');
+                    linea.textContent = ok ? t('g1_chat_verificado', { monto: formatoG1(d.amount) }) : t('g1_chat_no_aparece');
+                };
+                const mia = cuentaG1Guardada();
+                if (!mia || d.to !== mia.g1) {
+                    if (mia) { linea.className = 'mt-2 text-xs text-red-400'; linea.textContent = t('g1_chat_no_mia'); }
+                    return;
+                }
+                if (localStorage.getItem(claveVerifG1(d)) === '1') { pintar(true); return; }
+                linea.textContent = t('g1_chat_verificando');
+                try {
+                    const B = await window.cwCargarBilleteraG1();
+                    const r = await B.historial(mia.g1, { cantidad: 50 });
+                    const ok = r.movimientos.some(m => m.otro === d.from && m.centimos === d.amount && (d.block == null || m.bloque === d.block));
+                    if (ok) try { localStorage.setItem(claveVerifG1(d), '1'); } catch (e) { }
+                    if (linea.isConnected) pintar(ok);
+                } catch (e) {
+                    console.warn('[g1] verificar pago del chat:', e);
+                    if (linea.isConnected) pintar(false);
+                }
+            }
+            function tarjetaG1(d, type) {
+                const mio = type === 'sent';
+                const card = document.createElement('div');
+                card.className = `max-w-xs w-full p-4 rounded-2xl ${mio ? 'bg-indigo-900/50' : 'bg-gray-700'} border border-gray-600/50 g1-tarjeta`;
+                const titulo = document.createElement('p');
+                titulo.className = 'font-semibold text-gray-200';
+                const monto = document.createElement('p');
+                monto.className = 'text-2xl font-bold';
+                const sim = document.createElement('span');
+                sim.className = 'text-lg text-gray-400';
+                sim.textContent = ' Ğ1';
+                const sub = document.createElement('p');
+                sub.className = 'text-xs text-gray-400 font-mono mt-1';
+                card.append(titulo, monto, sub);
+                if (d.type === 'request') {
+                    titulo.textContent = mio ? t('g1_chat_pediste') : t('g1_chat_te_pidieron');
+                    monto.textContent = d.amount ? formatoG1(d.amount) : '—';
+                    monto.classList.add('text-white');
+                    monto.appendChild(sim);
+                    sub.textContent = `${d.to.slice(0, 8)}…${d.to.slice(-6)}`;
+                    if (!mio) {
+                        const b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'mt-4 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg transition';
+                        b.textContent = '💸 ' + t('g1_chat_pagar');
+                        b.onclick = () => pagarG1DesdeChat({ destino: d.to, monto: d.amount || null });
+                        card.appendChild(b);
+                    }
+                } else {
+                    titulo.textContent = mio ? t('g1_chat_enviaste') : t('g1_chat_recibiste');
+                    monto.textContent = formatoG1(d.amount);
+                    monto.classList.add(mio ? 'text-red-400' : 'text-green-400');
+                    monto.appendChild(sim);
+                    sub.textContent = d.block != null ? t('g1_chat_bloque', { b: d.block }) : `${d.to.slice(0, 8)}…${d.to.slice(-6)}`;
+                    if (!mio) {
+                        const linea = document.createElement('p');
+                        linea.className = 'mt-2 text-xs text-gray-400';
+                        card.appendChild(linea);
+                        verificarTarjetaG1(d, linea);
+                    }
+                }
+                return card;
             }
 
             // Enviar, Recibir y copiar la dirección del QR: con Ğ1 elegida no van al flujo EVM.
@@ -20467,8 +20687,14 @@
                         return;
                     }
 
+                    // Con Ğ1 elegida y un contacto que compartió su cuenta Ğ1: directo a Ğ1.
+                    const cG1 = contactoDelChat();
+                    if (redG1Activa() && cG1 && cG1.g1) { await pagarG1DesdeChat(); return; }
+
                     isSendingFromChat = true;
                     chatRecipientAddress = currentConversation.peerAddress;
+                    if (sendModal) sendModal.dataset.desdeChat = '1';
+                    renderAndBindSendModalMenu();
 
                     await updateBalance();
                     setTxStatus('Enviar a tu contacto de chat.', false);
@@ -20505,10 +20731,14 @@
                     // Monero va al final y, si es la red elegida, viene seleccionado. No en grupos:
                     // la subdirección es por contacto.
                     const conXmr = !currentGroup && !!(currentWallet && currentWallet.privateKey);
+                    // Ğ1: también solo de a dos (la tarjeta lleva tu cuenta Ğ1 para que te paguen).
+                    const conG1 = !currentGroup && !!currentWallet;
+                    const especial = (conXmr && redXmrActiva()) || (conG1 && redG1Activa());
                     const opciones = optionsList.map((net, i) =>
-                        `<option value="${i}" ${i === currentTokenIndex && !(conXmr && redXmrActiva()) ? 'selected' : ''}>${esc(net.TOKEN_CHAIN_NAME || ('Red ' + net.TOKEN_CHAINID))}</option>`).join('')
+                        `<option value="${i}" ${i === currentTokenIndex && !especial ? 'selected' : ''}>${esc(net.TOKEN_CHAIN_NAME || ('Red ' + net.TOKEN_CHAINID))}</option>`).join('')
+                        + (conG1 ? `<option value="g1" ${redG1Activa() ? 'selected' : ''}>${esc(t('g1_chat_item'))}</option>` : '')
                         + (conXmr ? `<option value="xmr" ${redXmrActiva() ? 'selected' : ''}>Monero (XMR)</option>` : '');
-                    const simboloDe = (net) => net === 'xmr' ? 'XMR' : (net?.TOKEN_SYMBOL || net?.NATIVE_SYMBOL || 'ETH');
+                    const simboloDe = (net) => net === 'xmr' ? 'XMR' : net === 'g1' ? 'Ğ1' : (net?.TOKEN_SYMBOL || net?.NATIVE_SYMBOL || 'ETH');
                     const modalHtml = `
                 <div id="payReqModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
                     <div class="bg-gray-800 rounded-2xl p-6 w-full max-w-xs shadow-2xl border border-gray-700 space-y-4">
@@ -20535,7 +20765,7 @@
                     const amountInput = document.getElementById('payReqAmount');
                     const tokenSelect = document.getElementById('payReqToken');
                     const symbolEl = document.getElementById('payReqSymbol');
-                    const elegida = () => tokenSelect.value === 'xmr' ? 'xmr' : (optionsList[parseInt(tokenSelect.value, 10)] || optionsList[currentTokenIndex]);
+                    const elegida = () => tokenSelect.value === 'xmr' || tokenSelect.value === 'g1' ? tokenSelect.value : (optionsList[parseInt(tokenSelect.value, 10)] || optionsList[currentTokenIndex]);
                     tokenSelect.addEventListener('change', () => { symbolEl.textContent = simboloDe(elegida()); });
                     symbolEl.textContent = simboloDe(elegida());
                     amountInput.focus();
@@ -20552,6 +20782,12 @@
                             return;
                         }
                         const network = elegida();
+                        if (network === 'g1') {
+                            const conv = currentConversation;
+                            closeModal();
+                            await pedirG1EnChat(conv, amountInput.value);
+                            return;
+                        }
                         if (network === 'xmr') {
                             const conv = currentConversation, peer = currentChatContact && currentChatContact.address;
                             closeModal();
@@ -21558,6 +21794,10 @@
                 // (APK): ausente = "sin información", no borra el token que el contacto ya aprendió.
                 const wakeTopic = getWakeTopic();
                 if (wakeTopic) payload.wakeTopic = wakeTopic;
+                // Cuenta Ğ1 (vínculo privado): fuera de la cadena firmada a propósito, se defiende
+                // con sus dos firmas y un cliente viejo la ignora (spec ius §11.3).
+                const g1 = await vinculoG1ParaPerfil();
+                if (g1) payload.g1 = g1;
                 payload.sig = await currentWallet.signMessage(profileCanonical(payload));
                 return payload;
             }
@@ -21651,6 +21891,17 @@
                     // 2b. Avatar: los bytes van a IndexedDB por hash (content-addressed, dedup). En el
                     //     contacto guardamos avatarHash + el dataURL en memoria para renderizar (al
                     //     persistir se strippea el dataURL, ver encryptContacts). Viaja por XMTP en el perfil.
+                    // 2a. Cuenta Ğ1 (vínculo privado): vale solo si firman las dos llaves. Si no
+                    //     viene, no se borra la que ya teníamos (pudo venir de su QR de Ğ1).
+                    let g1Verificada = null;
+                    if (profile.g1) {
+                        try {
+                            const B = await window.cwCargarBilleteraG1();
+                            g1Verificada = B.verificarVinculoPrivado(profile.g1, profile.did, ethers);
+                            if (!g1Verificada) console.warn('Perfil: vínculo Ğ1 con firma inválida, ignorado');
+                        } catch (e) { console.warn('Perfil: no se pudo verificar el vínculo Ğ1', e); }
+                    }
+
                     let avatarHash = '';
                     if (profile.avatar) {
                         avatarHash = await sha256Hex(profile.avatar); // derivado de los bytes (autoritativo)
@@ -21677,6 +21928,7 @@
                         contacts[idx].profileUpdatedAt = profile.updatedAt;
                         // Wake push: topic ntfy del contacto (para despertarlo al mandarle mensajes).
                         if (profile.wakeTopic) contacts[idx].wakeTopic = profile.wakeTopic;
+                        if (g1Verificada) contacts[idx].g1 = g1Verificada;
                     } else if (isSuppressedContact(profile.did)) {
                         // Borrado/bloqueado: un broadcast de perfil NO es motivo para revivirlo
                         // (era la vía por la que las wallets olvidadas se re-agregaban solas).
@@ -21692,6 +21944,7 @@
                             avatarHash,
                             links: profile.links || '',
                             wakeTopic: profile.wakeTopic || '',
+                            g1: g1Verificada || undefined,
                             unreadCount: 0, status: 'offline', lastSeen: null,
                             profileUpdatedAt: profile.updatedAt,
                         });
@@ -22579,6 +22832,8 @@
 
             if (sendBtn) {
                 sendBtn.addEventListener('click', async () => {
+                    if (sendModal) delete sendModal.dataset.desdeChat;
+                    renderAndBindSendModalMenu();      // sin la opción Ğ1 del chat
                     await updateBalance();
                     setTxStatus('Introduce los detalles de la transacción.', false);
                     if (sendForm) sendForm.reset();
@@ -22687,8 +22942,17 @@
                     return;
                 }
 
+                const cG1 = contactoDelChat();
+                if (redG1Activa() && cG1 && cG1.g1) {
+                    chatActionsContainer.classList.add('hidden');
+                    chatActionsToggle.querySelector('svg').style.transform = 'rotate(0deg)';
+                    await pagarG1DesdeChat();
+                    return;
+                }
                 isSendingFromChat = true;
                 chatRecipientAddress = currentConversation.peerAddress;
+                sendModal.dataset.desdeChat = '1';
+                renderAndBindSendModalMenu();
 
                 await updateBalance();
                 setTxStatus('Enviar a tu contacto de chat.', false);
@@ -24505,6 +24769,21 @@
                     "xmr_chat_en_pool": "⏳ En camino: {monto} XMR, todavía sin confirmar",
                     "xmr_chat_no_mia": "⚠ Ese pago no fue a una dirección tuya.",
                     "xmr_chat_no_llego": "⚠ La cadena no confirma este pago.",
+                    "g1_chat_item": "Ğ1 (junas)",
+                    "g1_chat_sin_cuenta": "{nombre} todavía no compartió su cuenta Ğ1. Aparece sola cuando activa Ğ1 en ChatWallet (versión 3.93 o más nueva).",
+                    "g1_chat_sin_cuenta_pedir": "Para pedir Ğ1, primero elegí Ğ1 en el selector de redes.",
+                    "g1_chat_prev_pedido": "💸 Pedido de {monto} Ğ1",
+                    "g1_chat_prev_pago": "💸 {monto} Ğ1",
+                    "g1_chat_pediste": "Pediste Ğ1",
+                    "g1_chat_te_pidieron": "Te pidieron Ğ1",
+                    "g1_chat_pagar": "Pagar con Ğ1",
+                    "g1_chat_enviaste": "Enviaste",
+                    "g1_chat_recibiste": "Te mandaron",
+                    "g1_chat_bloque": "bloque #{b}",
+                    "g1_chat_verificando": "Buscando el pago en la cadena…",
+                    "g1_chat_verificado": "✓ Verificado: llegaron {monto} Ğ1",
+                    "g1_chat_no_mia": "⚠ Ese pago no fue a tu cuenta Ğ1.",
+                    "g1_chat_no_aparece": "⏳ Todavía no aparece en el indexador. Volvé a abrir el chat en un rato.",
                     "xmr_chat_activar": "Elegí Monero en el selector de redes para verificar este pago.",
                     "xmr_mandar_titulo": "Mandar Monero",
                     "xmr_disponible": "Podés mandar: {monto} XMR",
@@ -25236,6 +25515,21 @@
                     "xmr_chat_en_pool": "⏳ On its way: {monto} XMR, not confirmed yet",
                     "xmr_chat_no_mia": "⚠ That payment didn't go to one of your addresses.",
                     "xmr_chat_no_llego": "⚠ The chain doesn't confirm this payment.",
+                    "g1_chat_item": "Ğ1 (june)",
+                    "g1_chat_sin_cuenta": "{nombre} hasn't shared a Ğ1 account yet. It shows up by itself once they turn on Ğ1 in ChatWallet (version 3.93 or newer).",
+                    "g1_chat_sin_cuenta_pedir": "To request Ğ1, first pick Ğ1 in the network selector.",
+                    "g1_chat_prev_pedido": "💸 Request for {monto} Ğ1",
+                    "g1_chat_prev_pago": "💸 {monto} Ğ1",
+                    "g1_chat_pediste": "You requested Ğ1",
+                    "g1_chat_te_pidieron": "Ğ1 requested",
+                    "g1_chat_pagar": "Pay with Ğ1",
+                    "g1_chat_enviaste": "You sent",
+                    "g1_chat_recibiste": "You received",
+                    "g1_chat_bloque": "block #{b}",
+                    "g1_chat_verificando": "Looking for the payment on chain…",
+                    "g1_chat_verificado": "✓ Verified: {monto} Ğ1 arrived",
+                    "g1_chat_no_mia": "⚠ That payment didn't go to your Ğ1 account.",
+                    "g1_chat_no_aparece": "⏳ Not in the indexer yet. Reopen the chat in a while.",
                     "xmr_chat_activar": "Choose Monero in the network selector to verify this payment.",
                     "xmr_mandar_titulo": "Send Monero",
                     "xmr_disponible": "You can send: {monto} XMR",
@@ -25967,6 +26261,21 @@
                     "xmr_chat_en_pool": "⏳ En route : {monto} XMR, pas encore confirmés",
                     "xmr_chat_no_mia": "⚠ Ce paiement n'est pas allé à l'une de vos adresses.",
                     "xmr_chat_no_llego": "⚠ La chaîne ne confirme pas ce paiement.",
+                    "g1_chat_item": "Ğ1 (junes)",
+                    "g1_chat_sin_cuenta": "{nombre} n'a pas encore partagé son compte Ğ1. Il apparaît tout seul quand la personne active Ğ1 dans ChatWallet (version 3.93 ou plus récente).",
+                    "g1_chat_sin_cuenta_pedir": "Pour demander des Ğ1, choisissez d'abord Ğ1 dans le sélecteur de réseaux.",
+                    "g1_chat_prev_pedido": "💸 Demande de {monto} Ğ1",
+                    "g1_chat_prev_pago": "💸 {monto} Ğ1",
+                    "g1_chat_pediste": "Vous avez demandé des Ğ1",
+                    "g1_chat_te_pidieron": "On vous demande des Ğ1",
+                    "g1_chat_pagar": "Payer en Ğ1",
+                    "g1_chat_enviaste": "Vous avez envoyé",
+                    "g1_chat_recibiste": "Vous avez reçu",
+                    "g1_chat_bloque": "bloc #{b}",
+                    "g1_chat_verificando": "Recherche du paiement sur la chaîne…",
+                    "g1_chat_verificado": "✓ Vérifié : {monto} Ğ1 reçus",
+                    "g1_chat_no_mia": "⚠ Ce paiement n'est pas allé à votre compte Ğ1.",
+                    "g1_chat_no_aparece": "⏳ Pas encore dans l'indexeur. Rouvrez le chat dans un moment.",
                     "xmr_chat_activar": "Choisissez Monero dans le sélecteur de réseaux pour vérifier ce paiement.",
                     "xmr_mandar_titulo": "Envoyer des Monero",
                     "xmr_disponible": "Vous pouvez envoyer : {monto} XMR",

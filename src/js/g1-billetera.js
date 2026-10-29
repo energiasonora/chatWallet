@@ -5,6 +5,7 @@
 //
 // Se carga a demanda al activar la red Ğ1 (window.cwCargarBilleteraG1 en dapp.html).
 import { sha256 } from '@noble/hashes/sha256';
+import { ed25519 } from '@noble/curves/ed25519';
 import IusG1 from '../../ius/js/g1.js';
 import { candidatasG1, miniSecreto, cuentaDeRaiz } from './g1-llave.js';
 import { leerFrase, semillaBip39 } from './frase.js';
@@ -155,4 +156,32 @@ export async function historial(g1, { despues = null, cantidad = 50 } = {}, fetc
             };
         }),
     };
+}
+
+// ── Vínculo privado 0x ↔ g1 (spec ius-spec/vinculo-g1.md §11.3) ─────────────────────
+// Viaja en el perfil firmado del chat, sólo a los contactos: no se publica nada en la
+// cadena. Dos firmas sobre el mismo mensaje de §2: la de la 0x y la ed25519 de la cuenta
+// Ğ1, ésta con la envoltura <Bytes>…</Bytes> de las billeteras Polkadot/Duniter, así no
+// puede confundirse con la firma de una operación.
+const envolver = (msg) => new TextEncoder().encode('<Bytes>' + msg + '</Bytes>');
+
+// → { cuenta, evm, ed } para el perfil. `firmarEvm(msg)` firma con la 0x (signMessage).
+export async function vinculoPrivado(cuenta, evm, firmarEvm) {
+    const msg = IusG1.mensajeVinculo(evm, cuenta.direccion);
+    const ed = IusG1.b64urlCodificar(ed25519.sign(envolver(msg), cuenta.semilla));
+    return { cuenta: cuenta.direccion, evm: await firmarEvm(msg), ed };
+}
+
+// La g1 si las dos firmas valen para `did`; si no, null (el campo se ignora entero).
+export function verificarVinculoPrivado(v, did, ethers) {
+    try {
+        if (!v || typeof v.cuenta !== 'string' || typeof v.evm !== 'string' || typeof v.ed !== 'string') return null;
+        const d = IusG1.ss58Decodificar(v.cuenta);
+        if (!d || d.prefijo !== IusG1.PREFIJO_G1) return null;
+        const msg = IusG1.mensajeVinculo(did, v.cuenta);
+        if (ethers.verifyMessage(msg, v.evm).toLowerCase() !== String(did).toLowerCase()) return null;
+        const sig = IusG1.b64urlDecodificar(v.ed);
+        if (!sig || sig.length !== 64) return null;
+        return ed25519.verify(sig, envolver(msg), d.clave) ? v.cuenta.trim() : null;
+    } catch (_) { return null; }
 }
