@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.94 — 2026-10-29
+
 - **Entrar a una app es un solo paso.** Antes, entrar con ChatWallet a una app como Soberano Mail pedía dos aprobaciones: primero «Conectar» y después firmar. Ahora, si la app lo soporta, aparece una sola pantalla, **«Entrar en …»**, con el texto que vas a firmar, y con **Entrar** quedás adentro. Las apps que todavía no lo soportan siguen con los dos pasos.
 - **Un aviso para no caer en páginas falsas.** Arriba de la pantalla de conectar o entrar, un cartel te recuerda que compruebes que el sitio que aparece sea el mismo donde estás entrando. Ese nombre lo declara la propia página, y una página falsa puede mostrarte el QR de la verdadera.
 
