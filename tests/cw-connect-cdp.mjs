@@ -112,6 +112,28 @@ try {
     check('v2: …y deja de atenderla', !(await W.ev(`JSON.parse(localStorage.getItem('chatwallet-wc-sessions') || '[]').some(x => x.ethInbox === ${JSON.stringify(inboxV2)})`)));
     check('v2: …y la fila de apps desaparece', await W.ev(`document.getElementById('appsConectadasRow')?.classList.contains('hidden') !== false`));
 
+    // 1b. v2.1 — login en un paso (SPEC §3.2): una sola pantalla, con el cartel del dominio, y la
+    // firma vuelve dentro del connect.
+    const textoLogin = 'Entrar a la app de prueba\nNonce: ' + randomBytes(6).toString('hex');
+    await A.ev(`conectarV2({ app: 'login.chatwallet.org', name: 'Login de prueba', kind: 'once', chainId: 0, login: ${JSON.stringify(textoLogin)} })`);
+    const uriL = await A.esperar(`window.__estado.v2.uri`, 120);
+    check('login: el URI lleva el texto a firmar', new URLSearchParams(uriL.split('?')[1]).get('login') === textoLogin, uriL);
+    W.ev(`handleScannedData(${JSON.stringify(uriL)})`).catch(() => { });
+    const cuerpoL = await aprobar(W);
+    check('login: la pantalla muestra el texto entero a firmar', cuerpoL.includes(textoLogin));
+    const firmaL = await A.esperar(`window.__sesionV2 && window.__sesionV2.firmaLogin`, 120);
+    check('login: la firma vuelve con el connect y es de la cuenta', !!firmaL && (await A.ev(`verificarFirma(${JSON.stringify(textoLogin)}, ${JSON.stringify(firmaL)})`)) === yo, String(firmaL).slice(0, 24));
+    await sleep(1500);
+    check('login: no aparece una segunda pantalla de firma', !(await W.ev(`!!document.getElementById('wc-yes')`)));
+    await A.ev(`window.__sesionV2.cerrar()`);
+    // El cartel: se abre la pantalla de una app y se lee antes de rechazar.
+    await A.ev(`conectarV2({ app: 'cartel.chatwallet.org', name: 'Cartel', kind: 'once', login: 'x' })`);
+    const uriC = await A.esperar(`window.__estado.v2.uri`, 120);
+    W.ev(`handleScannedData(${JSON.stringify(uriC)})`).catch(() => { });
+    const cartel = await W.esperar(`(() => { const a = document.getElementById('wc-aviso'); return a && a.style.display !== 'none' && a.textContent; })()`, 90);
+    check('login: arriba hay un cartel que pide comprobar el dominio', /cartel\.chatwallet\.org/.test(cartel || '') && /fijate/.test(cartel || ''), String(cartel));
+    await W.ev(`document.getElementById('wc-no').click()`);
+
     // 2. v1: una app vieja sigue funcionando y tampoco es contacto.
     const uriV1 = await A.ev(`conectarV1()`);
     const inboxV1 = await A.ev(`window.__estado.v1.inbox`);

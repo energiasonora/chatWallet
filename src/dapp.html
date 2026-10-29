@@ -17331,6 +17331,15 @@
                 return quien + '\n\n' + t('wc_connect_body', { inbox, chain: req.chainId || '?' }) + (uso ? '\n\n' + uso : '');
             }
 
+            // Login en un paso (cw-connect/SPEC.md §3.2): la misma pantalla vincula y muestra
+            // entero el texto que se firma para entrar.
+            function wcTextoLogin(req) {
+                const quien = req.app
+                    ? t('wc_connect_who', { app: req.app, name: req.name || req.app })
+                    : req.name ? t('wc_connect_who_name', { name: req.name }) : t('wc_connect_who_unknown');
+                return quien + '\n\n' + t('wc_login_body', { msg: req.login });
+            }
+
             // → true si el pedido quedó atendido (vinculado o rechazado por el usuario) y el
             // link se puede borrar; false si falló y conviene dejarlo para reintentar.
             async function startWalletConnectSession(uri) {
@@ -17343,8 +17352,19 @@
                 const v = Math.min(req.v || 1, window.CwConnect.VERSION);
                 const kind = v >= 2 ? req.kind : 'session';   // v1 no declara; StealthPay reusa su identidad
 
-                const ok = await wcApprove(t('wc_connect_title'), wcTextoVincular(req), t('wc_connect_cta'), 'vincular');
+                // El cartel va siempre: el dominio lo declara la app y una página falsa puede
+                // mostrar el QR de la verdadera (SPEC §7.6).
+                const aviso = req.app ? t('wc_domain_warning', { app: req.app }) : t('wc_domain_warning_none');
+                const ok = req.login
+                    ? await wcApprove(t('wc_login_title', { app: req.app || req.name || 'dApp' }), wcTextoLogin(req), t('wc_login_cta'), 'vincular', aviso)
+                    : await wcApprove(t('wc_connect_title'), wcTextoVincular(req), t('wc_connect_cta'), 'vincular', aviso);
                 if (!ok) return true;
+                // Se firma antes de abrir el DM: si la firma falla no queda una vinculación a medias.
+                let firmaLogin = null;
+                if (req.login) {
+                    try { firmaLogin = await currentWallet.signMessage(req.login); }
+                    catch (e) { alert(t('wc_connect_err', { e: (e.message || e) })); return false; }
+                }
 
                 try {
                     const dm = await cwAbrirDmCon(inbox);
@@ -17363,6 +17383,10 @@
                     const hola = v >= 2
                         ? { cw: 1, type: 'connect', v, address: currentWallet.address, chainId, app: req.app, name: req.name, kind }
                         : { cw: 1, type: 'connect', address: currentWallet.address, chainId };
+                    if (firmaLogin) {
+                        hola.login = firmaLogin;
+                        if (peerInboxId) wcLogActivity({ kind: 'sign', peerInboxId, summary: String(req.login).replace(/\s+/g, ' ').slice(0, 60), result: 'approved' });
+                    }
                     await cwEnviarDapp(dm, hola, v);
                     // Perfil soberano (alias + avatar firmados por el DID) a la dApp recién vinculada,
                     // para que muestre tu avatar sin esperar a que edites el perfil (broadcastProfile).
@@ -17675,7 +17699,8 @@
 
             // Minimal promise-based approval modal — self-contained, no dependency on
             // the app's own modal system.
-            function wcApprove(title, body, confirmLabel, tipo = 'firma') {
+            // `aviso`: cartel arriba del cuerpo (texto propio de ChatWallet, nunca de la dApp).
+            function wcApprove(title, body, confirmLabel, tipo = 'firma', aviso = '') {
                 const pe = PEDIDO_ESTILO[tipo] || PEDIDO_ESTILO.firma;
                 return new Promise((resolve) => {
                     const ov = document.createElement('div');
@@ -17683,6 +17708,7 @@
                     // OJO: title/body llevan contenido que manda la dApp — nunca via innerHTML.
                     ov.innerHTML = `<div style="background:#111827;color:#fff;border:1px solid ${pe.borde};border-radius:16px;max-width:360px;width:100%;padding:22px;font-family:system-ui,sans-serif;box-shadow:0 20px 50px rgba(0,0,0,0.6);">
                         ${cabeceraDePedido(pe, 'wc-title')}
+                        <div id="wc-aviso" style="display:none;font-size:0.78rem;line-height:1.45;color:#fde68a;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.45);border-radius:10px;padding:9px 11px;margin-bottom:12px;"></div>
                         <div id="wc-body" style="font-size:0.82rem;color:#cbd5e1;white-space:pre-wrap;line-height:1.5;margin-bottom:18px;word-break:break-word;"></div>
                         <div style="display:flex;gap:10px;">
                             <button id="wc-no" style="flex:1;padding:10px;border-radius:10px;border:1px solid #374151;background:transparent;color:#9ca3af;font-weight:700;cursor:pointer;"></button>
@@ -17691,6 +17717,7 @@
                     vibrarPedidoDeFirma();
                     ov.querySelector('#wc-title').textContent = title;
                     ov.querySelector('#wc-body').textContent = body;
+                    if (aviso) { const a = ov.querySelector('#wc-aviso'); a.textContent = aviso; a.style.display = 'block'; }
                     ov.querySelector('#wc-no').textContent = t('wc_reject');
                     ov.querySelector('#wc-yes').textContent = confirmLabel || t('wc_approve');
                     document.body.appendChild(ov);
@@ -24626,6 +24653,11 @@
                     "wc_connect_title": "Conectar con dApp",
                     "wc_connect_body": "Una dApp quiere vincularse a tu ChatWallet vía XMTP para pedirte firmas y envíos.\n\nInbox: {inbox}\nRed (chainId): {chain}\n\nVerá tu alias y tu avatar. Tu clave privada nunca sale de ChatWallet.",
                     "wc_connect_cta": "Conectar",
+                    "wc_login_title": "Entrar en {app}",
+                    "wc_login_body": "Para entrar vas a firmar este texto (no mueve fondos):\n\n{msg}\n\nVerá tu dirección, tu alias y tu avatar. Tu clave privada nunca sale de ChatWallet.",
+                    "wc_login_cta": "Entrar",
+                    "wc_domain_warning": "⚠️ Antes de aprobar, fijate que {app} sea el sitio donde estás entrando. Ese dominio lo declara la propia página: una falsa puede copiar el QR de la verdadera.",
+                    "wc_domain_warning_none": "⚠️ Esta app no dice desde qué sitio te pide la conexión. Aprobá solo si acabás de escanear el QR en una página en la que confiás.",
                     "wc_connected_toast": "✅ Conectado a la dApp. Sus solicitudes aparecerán acá.",
                     "wc_connect_err": "No se pudo conectar: {e}",
                     "wc_sign_title": "Firmar mensaje",
@@ -25372,6 +25404,11 @@
                     "wc_connect_title": "Connect to dApp",
                     "wc_connect_body": "A dApp wants to link to your ChatWallet over XMTP to request signatures and transactions.\n\nInbox: {inbox}\nNetwork (chainId): {chain}\n\nIt will see your alias and avatar. Your private key never leaves ChatWallet.",
                     "wc_connect_cta": "Connect",
+                    "wc_login_title": "Sign in to {app}",
+                    "wc_login_body": "To sign in you'll sign this text (it doesn't move funds):\n\n{msg}\n\nIt will see your address, alias and avatar. Your private key never leaves ChatWallet.",
+                    "wc_login_cta": "Sign in",
+                    "wc_domain_warning": "⚠️ Before approving, check that {app} is the site you're signing in to. The page declares that domain itself: a fake one can copy the real one's QR.",
+                    "wc_domain_warning_none": "⚠️ This app doesn't say which site it's connecting from. Approve only if you just scanned the QR on a page you trust.",
                     "wc_connected_toast": "✅ Connected to the dApp. Its requests will show up here.",
                     "wc_connect_err": "Could not connect: {e}",
                     "wc_sign_title": "Sign message",
@@ -26116,6 +26153,11 @@
                     "wc_connect_title": "Se connecter à la dApp",
                     "wc_connect_body": "Une dApp veut se lier à votre ChatWallet via XMTP pour vous demander des signatures et des envois.\n\nInbox : {inbox}\nRéseau (chainId) : {chain}\n\nElle verra votre alias et votre avatar. Votre clé privée ne quitte jamais ChatWallet.",
                     "wc_connect_cta": "Connecter",
+                    "wc_login_title": "Se connecter à {app}",
+                    "wc_login_body": "Pour vous connecter, vous allez signer ce texte (aucun fonds ne bouge) :\n\n{msg}\n\nElle verra votre adresse, votre alias et votre avatar. Votre clé privée ne quitte jamais ChatWallet.",
+                    "wc_login_cta": "Se connecter",
+                    "wc_domain_warning": "⚠️ Avant d'approuver, vérifiez que {app} est bien le site sur lequel vous vous connectez. C'est la page elle-même qui déclare ce domaine : une fausse peut copier le QR de la vraie.",
+                    "wc_domain_warning_none": "⚠️ Cette app ne dit pas depuis quel site elle se connecte. N'approuvez que si vous venez de scanner le QR sur une page de confiance.",
                     "wc_connected_toast": "✅ Connecté à la dApp. Ses demandes apparaîtront ici.",
                     "wc_connect_err": "Connexion impossible : {e}",
                     "wc_sign_title": "Signer le message",

@@ -1,4 +1,4 @@
-// CW Connect v2 — implementación de referencia (ver SPEC.md, que es lo normativo).
+// CW Connect v2.1 — implementación de referencia (ver SPEC.md, que es lo normativo).
 //
 // La usan las dos puntas:
 //   · la billetera (ChatWallet) para leer pedidos, armar respuestas y reconocer apps;
@@ -70,7 +70,16 @@ function limpiarMeta(app, name, kind) {
     };
 }
 
-export function armarUriVinculacion({ inbox, chainId = 0, app = '', name = '', kind = 'once', v = VERSION }) {
+// §3.2 — texto a firmar al vincular (login en un paso). Se descarta entero si no cumple,
+// igual que `name`: nada de recortar lo que la persona va a firmar.
+export const MAX_LOGIN = 500;
+export function limpiarLogin(texto) {
+    if (typeof texto !== 'string' || !texto) return '';
+    if (/[\u0000-\u0009\u000b-\u001f\u007f]/.test(texto)) return '';   // control, salvo \n
+    return [...texto].length <= MAX_LOGIN ? texto : '';
+}
+
+export function armarUriVinculacion({ inbox, chainId = 0, app = '', name = '', kind = 'once', v = VERSION, login = '' }) {
     const q = new URLSearchParams();
     q.set('v', String(v));
     q.set('inbox', String(inbox).toLowerCase());
@@ -79,6 +88,8 @@ export function armarUriVinculacion({ inbox, chainId = 0, app = '', name = '', k
     if (meta.app) q.set('app', meta.app);
     if (meta.name) q.set('name', meta.name);
     q.set('kind', meta.kind);
+    const l = limpiarLogin(login);
+    if (l) q.set('login', l);
     // URLSearchParams codifica los espacios como '+'; la spec pide encodeURIComponent.
     return 'chatwallet://wc?' + q.toString().replace(/\+/g, '%20');
 }
@@ -98,7 +109,12 @@ export function leerUriVinculacion(texto) {
     if (!RE_DIR.test(inbox)) return null;
     const chainId = Number(q.get('chain') || '0');
     const v = Math.max(1, Math.floor(Number(q.get('v') || '1')) || 1);
-    return { inbox, chainId: Number.isFinite(chainId) && chainId > 0 ? chainId : 0, v, ...limpiarMeta(q.get('app'), q.get('name'), q.get('kind')) };
+    const login = limpiarLogin(q.get('login'));
+    return {
+        inbox, chainId: Number.isFinite(chainId) && chainId > 0 ? chainId : 0, v,
+        ...limpiarMeta(q.get('app'), q.get('name'), q.get('kind')),
+        ...(login ? { login } : {}),
+    };
 }
 
 // Metadatos de una app declarados en un pedido de pago (§6).
@@ -161,6 +177,8 @@ const uuid = () => (globalThis.crypto && crypto.randomUUID) ? crypto.randomUUID(
  * opts:
  *   Client, ethers           — @xmtp/browser-sdk y ethers v6 (alcanza con { Wallet, getAddress })
  *   app, name, kind, chainId — lo que la app declara (§3)
+ *   login                    — texto a firmar en el mismo paso de vincular (§3.2); la firma vuelve
+ *                              en `firmaLogin` (null si la billetera no lo soporta: firmar aparte)
  *   env                      — 'production' (por defecto) o 'dev'
  *   identidad                — { privateKey, dbKey } para reusar la de una sesión anterior (kind 'session')
  *   onUri(uri, identidad)    — para pintar el QR; `identidad` es lo que hay que guardar para reconectar
@@ -185,7 +203,8 @@ export async function conectarConChatWallet(opts) {
         env: opts.env || 'production', dbEncryptionKey: dbKey,
         appVersion: opts.appVersion || 'CW-Connect/2', codecs: [new CwCodec()],
     });
-    const uri = armarUriVinculacion({ inbox: wallet.address, chainId: opts.chainId || 0, ...meta });
+    const login = limpiarLogin(opts.login || '');
+    const uri = armarUriVinculacion({ inbox: wallet.address, chainId: opts.chainId || 0, ...meta, login });
     onEstado('Escaneá con ChatWallet');
     if (opts.onUri) opts.onUri(uri, identidad);
 
@@ -193,7 +212,7 @@ export async function conectarConChatWallet(opts) {
     const stream = await cliente.conversations.streamAllMessages();
     const pendientes = new Map();
     const alCerrarFns = [];
-    let dm = null, version = 1, direccion = null, chainId = 0, cerrada = false;
+    let dm = null, version = 1, direccion = null, chainId = 0, cerrada = false, firmaLogin = null;
     let conectada, fallo;
     const conexion = new Promise((res, rej) => { conectada = res; fallo = rej; });
 
@@ -218,6 +237,8 @@ export async function conectarConChatWallet(opts) {
                 version = leido.version >= 2 && Number(m.v) >= 2 ? 2 : 1;
                 direccion = ethers.getAddress(m.address);
                 chainId = Number(m.chainId) || 0;
+                // §5.1: la firma del login viene en el connect si la billetera lo soporta.
+                if (login && typeof m.login === 'string' && /^0x[0-9a-fA-F]{130}$/.test(m.login)) firmaLogin = m.login;
                 // Contestar por la misma conversación: es el DM con la identidad que firma.
                 dm = await cliente.conversations.getConversationById(message.conversationId);
                 if (!dm) {
@@ -254,7 +275,7 @@ export async function conectarConChatWallet(opts) {
     });
 
     return {
-        address: direccion, chainId, version, identidad,
+        address: direccion, chainId, version, identidad, firmaLogin,
         pedir,
         firmar: (msg) => pedir('personal_sign', [msg, direccion.toLowerCase()]),
         mandarTx: (tx) => pedir('eth_sendTransaction', [tx]),

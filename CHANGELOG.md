@@ -17,6 +17,9 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Entrar a una app es un solo paso.** Antes, entrar con ChatWallet a una app como Soberano Mail pedía dos aprobaciones: primero «Conectar» y después firmar. Ahora, si la app lo soporta, aparece una sola pantalla, **«Entrar en …»**, con el texto que vas a firmar, y con **Entrar** quedás adentro. Las apps que todavía no lo soportan siguen con los dos pasos.
+- **Un aviso para no caer en páginas falsas.** Arriba de la pantalla de conectar o entrar, un cartel te recuerda que compruebes que el sitio que aparece sea el mismo donde estás entrando. Ese nombre lo declara la propia página, y una página falsa puede mostrarte el QR de la verdadera.
+
 ## 3.93 — 2026-10-29
 
 - **Pagar Ğ1 desde el chat.** En un chat, **Enviar** ahora ofrece **Ğ1 (junas)** debajo de las otras redes. Se abre «Enviar Ğ1» con la cuenta de tu contacto ya puesta: no hace falta pedírsela ni copiarla. Si tenés Ğ1 elegida como red, va directo. Al terminar queda en el chat una tarjeta con el monto y el bloque. Del otro lado dice «Te mandaron…», y la app de quien cobra lo busca en la red Ğ1 antes de marcarlo «✓ Verificado».

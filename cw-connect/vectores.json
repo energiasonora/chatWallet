@@ -1,5 +1,5 @@
 {
-  "spec": "CW Connect v2, borrador 1",
+  "spec": "CW Connect v2.1",
   "uris": [
     {
       "entrada": {
@@ -30,6 +30,28 @@
         "kind": "otra"
       },
       "uri": "chatwallet://wc?v=2&inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=1&kind=once"
+    },
+    {
+      "entrada": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 1,
+        "app": "mail.energiasonora.org",
+        "name": "Soberano Mail",
+        "kind": "once",
+        "login": "Soberano Mail Login\nNonce: 4f2a9c"
+      },
+      "uri": "chatwallet://wc?v=2&inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=1&app=mail.energiasonora.org&name=Soberano%20Mail&kind=once&login=Soberano%20Mail%20Login%0ANonce%3A%204f2a9c"
+    },
+    {
+      "entrada": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 1,
+        "app": "mail.energiasonora.org",
+        "name": "Soberano Mail",
+        "kind": "once",
+        "login": "con\ttab"
+      },
+      "uri": "chatwallet://wc?v=2&inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=1&app=mail.energiasonora.org&name=Soberano%20Mail&kind=once"
     }
   ],
   "lecturas": [
@@ -106,6 +128,29 @@
     {
       "texto": "0x1111111111111111111111111111111111111111",
       "resultado": null
+    },
+    {
+      "texto": "chatwallet://wc?v=2&inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=1&app=mail.energiasonora.org&kind=once&login=Soberano%20Mail%20Login%0ANonce%3A%204f2a9c",
+      "resultado": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 1,
+        "v": 2,
+        "app": "mail.energiasonora.org",
+        "name": "",
+        "kind": "once",
+        "login": "Soberano Mail Login\nNonce: 4f2a9c"
+      }
+    },
+    {
+      "texto": "chatwallet://wc?v=2&inbox=0x8ba1f109551bd432803012645ac136ddd64dba72&chain=1&kind=once&login=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "resultado": {
+        "inbox": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "chainId": 1,
+        "v": 2,
+        "app": "",
+        "name": "",
+        "kind": "once"
+      }
     }
   ],
   "mensajes": [
@@ -128,6 +173,27 @@
       },
       "fallback": "ChatWallet: vinculación con una app",
       "contentHex": "7b226377223a312c2274797065223a22636f6e6e656374222c2276223a322c2261646472657373223a22307838626131663130393535316244343332383033303132363435416331333664646436344442413732222c22636861696e4964223a383435332c22617070223a226d61696c2e656e6572676961736f6e6f72612e6f7267222c226e616d65223a22536f626572616e6f204d61696c222c226b696e64223a226f6e6365227d"
+    },
+    {
+      "mensaje": {
+        "cw": 1,
+        "type": "connect",
+        "v": 2,
+        "address": "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+        "chainId": 1,
+        "app": "mail.energiasonora.org",
+        "name": "Soberano Mail",
+        "kind": "once",
+        "login": "0x2222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "tipo": {
+        "authorityId": "chatwallet.org",
+        "typeId": "cw",
+        "versionMajor": 2,
+        "versionMinor": 0
+      },
+      "fallback": "ChatWallet: vinculación con una app",
+      "contentHex": "7b226377223a312c2274797065223a22636f6e6e656374222c2276223a322c2261646472657373223a22307838626131663130393535316244343332383033303132363435416331333664646436344442413732222c22636861696e4964223a312c22617070223a226d61696c2e656e6572676961736f6e6f72612e6f7267222c226e616d65223a22536f626572616e6f204d61696c222c226b696e64223a226f6e6365222c226c6f67696e223a22307832323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232227d"
     },
     {
       "mensaje": {

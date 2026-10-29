@@ -1,6 +1,6 @@
-# CW Connect v2 — Especificación
+# CW Connect v2.1 — Especificación
 
-**Estado:** borrador 1 (16/10/2026). **Idioma normativo: español.**
+**Estado:** v2.1 (29/10/2026; borrador 1 del 16/10/2026 + login en un paso, §3.2). **Idioma normativo: español.**
 Implementación de referencia: [`cw-connect.mjs`](cw-connect.mjs). Vectores: [`vectores.json`](vectores.json),
 verificables con `node cw-connect/test/verificar.mjs`.
 
@@ -47,6 +47,7 @@ La app muestra este URI como QR:
 | `app` | no (v2: debería) | dominio desde el que corre la app, p. ej. `mail.energiasonora.org`. Se pasa a minúsculas; después, sólo `[a-z0-9.-]`, hasta 253 caracteres |
 | `name` | no | nombre a mostrar, hasta 40 caracteres (puntos de código), sin caracteres de control; se le quitan los espacios de los extremos; codificado con `encodeURIComponent` |
 | `kind` | no | `once` (por defecto) o `session` |
+| `login` | no (v2.1) | texto a firmar en el mismo paso de vincular (§3.2), hasta 500 caracteres (puntos de código), sin caracteres de control salvo el salto de línea; codificado con `encodeURIComponent` |
 
 Dos formas equivalentes:
 
@@ -56,7 +57,7 @@ Dos formas equivalentes:
   nombre ni dominio) o `CWW1|<inbox>|<chain>` (v1).
 
 Una billetera que recibe un URI DEBE rechazar un `inbox` que no sea una dirección válida, y DEBE
-ignorar `app` o `name` que no cumplan las reglas de arriba (se tratan como ausentes, no se
+ignorar `app`, `name` o `login` que no cumplan las reglas de arriba (se tratan como ausentes, no se
 recortan).
 
 ### 3.1 El nombre lo declara la app
@@ -66,6 +67,19 @@ los muestra como **declarados** ("dice ser Soberano Mail · mail.energiasonora.o
 verificados, y el dominio va antes que el nombre. Sirven para ordenar y reconocer, no para
 confiar. Lo que protege a la persona es lo mismo que en la v1: cada firma y cada transacción se
 muestra entera y se aprueba a mano (§7).
+
+### 3.2 Login en un paso (v2.1)
+
+Sin `login`, entrar a una app son dos aprobaciones: vincular y después firmar el `personal_sign`
+del inicio de sesión. Con `login`, la app pone en el URI el texto que su servidor espera firmado
+(con su nonce de un solo uso) y la billetera muestra **una sola** pantalla: quién dice ser la
+app, el texto completo a firmar y el aviso de la §7.6. Si la persona aprueba, la billetera firma
+el texto con EIP-191 y manda la firma dentro del `connect` (§5.1). Si rechaza, no manda nada.
+
+Una billetera que no conoce `login` lo ignora y hace el flujo de dos pasos; por eso la app, si el
+`connect` llega sin firma, DEBE pedirla con un `personal_sign` normal. El texto lo arma la app y
+la billetera no lo interpreta: la protección es la misma que en un `personal_sign` (§7.3) — se
+muestra entero y se aprueba a mano.
 
 ## 4. Transporte
 
@@ -113,7 +127,9 @@ es la versión del protocolo: un mensaje de una sesión v2 sigue diciendo `"cw":
     { "cw": 1, "type": "connect", "v": 2, "address": "0x…", "chainId": 8453,
       "app": "mail.energiasonora.org", "name": "Soberano Mail", "kind": "once" }
 
-`address` es la cuenta que va a firmar (checksum o minúsculas). `app`, `name` y `kind` repiten lo
+`address` es la cuenta que va a firmar (checksum o minúsculas). Si el URI traía `login` y la
+persona lo aprobó, el `connect` lleva además `"login": "0x…"`, la firma EIP-191 de ese texto
+(65 bytes) hecha por `address`. `app`, `name` y `kind` repiten lo
 que la billetera entendió del URI: le confirman a la app qué mostró y le avisan a los otros
 dispositivos de la misma persona que ese DM es de una app (ven el mensaje enviado y así no lo
 convierten en contacto).
@@ -180,6 +196,9 @@ siempre `kind=once`.
    puede leer. Un permiso sin límite se nombra como tal.
 4. `app` y `name` se muestran como declarados (§3.1).
 5. Nunca exporta la llave ni firma algo que la persona no vio.
+6. La pantalla de vincular (con o sin `login`) avisa arriba de todo que hay que comprobar que el
+   dominio mostrado sea el de la página en la que la persona está entrando: `app` lo declara la
+   propia app (§3.1), y una página falsa puede mostrar el QR de la verdadera.
 
 ## 8. Qué hace la billetera con el chat de una app
 
