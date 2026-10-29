@@ -17,6 +17,12 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.93 — 2026-10-29
+
+- **Pagar Ğ1 desde el chat.** En un chat, **Enviar** ahora ofrece **Ğ1 (junas)** debajo de las otras redes. Se abre «Enviar Ğ1» con la cuenta de tu contacto ya puesta: no hace falta pedírsela ni copiarla. Si tenés Ğ1 elegida como red, va directo. Al terminar queda en el chat una tarjeta con el monto y el bloque. Del otro lado dice «Te mandaron…», y la app de quien cobra lo busca en la red Ğ1 antes de marcarlo «✓ Verificado».
+- **Pedir Ğ1 por el chat.** En **Solicitar pago** podés elegir Ğ1. A tu contacto le llega una tarjeta con **Pagar con Ğ1**, que abre el envío con tu cuenta y el monto.
+- **Tus contactos conocen tu cuenta Ğ1, y nadie más.** Si activaste Ğ1, tu cuenta Ğ1 viaja dentro de tu perfil, cifrada, solo a la gente con la que chateás. Va firmada con las dos llaves (la de tu billetera y la de Ğ1), así nadie puede hacer pasar otra cuenta por la tuya. No se publica nada en la cadena Ğ1. Para pagarle Ğ1 a alguien desde el chat, esa persona también tiene que tener esta versión y haber activado Ğ1; mientras tanto, la opción aparece apagada y explica por qué.
+
 ## 3.92 — 2026-10-26
 
 - **Historial de Ğ1.** En **Historial**, al elegir Ğ1 ves tus movimientos con fecha, monto, con quién y el **comentario** de cada transferencia. Los comentarios de Ğ1 viajan en la cadena junto con la transferencia, a la vista de todos, como en Ğecko y Cesium. Si la otra cuenta está en tu agenda se ve su nombre; si es miembro de la red de confianza, su seudónimo. Tocando un movimiento ves la cuenta completa y el bloque. **Ver más** trae los anteriores.
