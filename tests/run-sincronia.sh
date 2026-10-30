@@ -5,7 +5,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 WEB_PORT=8846
-NODE_BIN="${NODE_BIN:-$HOME/.nvm/versions/node/v22.23.2/bin/node}"
+NODE_BIN="${NODE_BIN:-$(ls -d "$HOME"/.nvm/versions/node/v22*/bin | tail -1)/node}"
 NODE_DIR="$(dirname "$NODE_BIN")"
 BUILD="${BUILD_DIR:-dist-sincronia-test}"
 unset NODE_OPTIONS

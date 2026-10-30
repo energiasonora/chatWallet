@@ -13,11 +13,21 @@
     <meta name="apple-mobile-web-app-title" content="ChatWallet">
     <!-- <title>Crypto Wallet & Chat XMTP</title> -->
     <title>Crypto Wallet & Chat XMTP</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.7/elliptic.min.js"></script>
+    <!-- Librerías empaquetadas con la app (antes venían de unpkg/cdnjs en cada carga): código de
+         terceros que corre en la misma página que las llaves no se baja más de internet. -->
+    <script src="js/qr-code-styling.js"></script>
+    <script src="js/html5-qrcode-2.3.8.min.js"></script>
+    <script>
+        // html5-qrcode publica sus clases con `var` sueltos; el minificador de Parcel los renombra
+        // y dejan de ser globales. Las colgamos de window a mano (con la CDN no hacía falta).
+        (function (L) {
+            if (!L) return;
+            ['Html5Qrcode', 'Html5QrcodeScanner', 'Html5QrcodeSupportedFormats', 'Html5QrcodeScannerState', 'Html5QrcodeScanType']
+                .forEach(function (n) { if (L[n]) window[n] = L[n]; });
+        })(window.__Html5QrcodeLibrary__);
+    </script>
+    <script src="js/elliptic-6.5.7.min.js"></script>
 
 
     <!-- Google Fonts -->
@@ -1997,6 +2007,9 @@
             border-radius: 50%;
         }
     </style>
+    <!-- Tailwind compilado (scripts/tailwind-dapp.sh); va al final del <head>, donde lo
+         inyectaba la CDN, para que gane sobre los <style> de arriba como antes. -->
+    <link rel="stylesheet" href="css/tailwind-dapp.css">
 </head>
 
 <body class="bg-gray-900 text-white">

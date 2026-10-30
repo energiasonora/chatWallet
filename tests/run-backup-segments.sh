@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 PORT=3199
 IPFS_BIN="${IPFS_BIN:-/usr/local/bin/ipfs}"
 PTR=poc/ipfs-node/backup-pointers.json
-NODE_BIN="${NODE_BIN:-$HOME/.nvm/versions/node/v22.23.2/bin/node}"
+NODE_BIN="${NODE_BIN:-$(ls -d "$HOME"/.nvm/versions/node/v22*/bin | tail -1)/node}"
 unset NODE_OPTIONS
 
 started_ipfs=0

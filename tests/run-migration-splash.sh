@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 
 WEB_PORT=8818
 CDP_PORT=9334
-NODE_BIN="${NODE_BIN:-$HOME/.nvm/versions/node/v22.23.2/bin/node}"
+NODE_BIN="${NODE_BIN:-$(ls -d "$HOME"/.nvm/versions/node/v22*/bin | tail -1)/node}"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 BUILD="${BUILD_DIR:-dist-apk}"
 unset NODE_OPTIONS

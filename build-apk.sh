@@ -53,6 +53,8 @@ rm -rf dist-apk
 # a term-size, que trae un binario x86. Desde macOS 27 (sin Rosetta) ese binario no corre
 # ("Bad CPU type in executable"), Parcel muere callado y el cp de abajo no encuentra nada.
 # term-size mira primero estas variables y ya no llega al binario. (30/9/2026)
+# Tailwind compilado (antes lo bajaba la CDN en el teléfono, en cada arranque).
+./scripts/tailwind-dapp.sh >/dev/null
 COLUMNS=120 LINES=40 PARCEL_WORKERS=0 yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html src/book-admin.html \
   --dist-dir dist-apk --public-url ./ --cache-dir .parcel-cache-apk >/dev/null
 

@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 PORT=3199
 WEB_PORT=8817
 IPFS_BIN="${IPFS_BIN:-/usr/local/bin/ipfs}"
-NODE_BIN="${NODE_BIN:-$HOME/.nvm/versions/node/v22.23.2/bin/node}"
+NODE_BIN="${NODE_BIN:-$(ls -d "$HOME"/.nvm/versions/node/v22*/bin | tail -1)/node}"
 PTR=poc/ipfs-node/backup-pointers.json
 BUILD="${BUILD_DIR:?falta BUILD_DIR (el directorio del build a servir)}"
 unset NODE_OPTIONS

@@ -82,6 +82,9 @@ echo "✦ Build con Node $(node -v)…"
 # OJO: book-admin.html DEBE estar en esta lista. Es autocontenida (todo inline), pero si
 # no es entry, Parcel la considera salida huérfana con la cache compartida y la BORRA de
 # public/ en el siguiente deploy → el panel de ventas se cae con 404 sin avisar.
+# Tailwind de dapp.html compilado acá (ya no se baja de la CDN en cada carga): si alguien
+# usó una clase nueva, entra en este build.
+./scripts/tailwind-dapp.sh
 yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html src/book-admin.html \
   --dist-dir public --public-url ./ --cache-dir .parcel-cache-build
 

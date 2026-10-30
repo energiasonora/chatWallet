@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **La app ya no baja código de otros sitios al abrirse.** Los estilos y las tres librerías que dibujan y leen los QR y hacen cuentas de las direcciones privadas venían de servidores ajenos (Tailwind, unpkg, cdnjs) cada vez que abrías ChatWallet. Ahora viajan dentro de la app. Si uno de esos servidores fallara o lo comprometieran, no podría meter código en la misma página donde están tus llaves. Además la app abre más rápido y, en Android, se ve bien aunque arranque sin conexión. Por fuera se ve igual que antes.
+
 ## 3.95 — 2026-10-30
 
 - **Tus 12 palabras ya no quedan guardadas en el teléfono.** Cuando comprobás que las anotaste (la app te pregunta una palabra al azar), se borran de este dispositivo. La app no las necesita para funcionar: tu billetera, Ğ1, Monero y el respaldo de tus chats siguen andando igual. Así, si alguien llegara a leer los datos de la app, no se lleva tus palabras, que abren todo lo que hayas creado con ellas, también fuera de ChatWallet. Tu papel pasa a ser la única copia: guardalo bien. Si ya habías hecho el respaldo antes, aparece una franja que te pide comprobarlas una vez para poder borrarlas.
