@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.96 — 2026-10-30
+
 - **La app ya no le avisa a Google ni a otros sitios cada vez que la abrís.** Los estilos, las letras y las librerías que dibujan y leen los QR venían de servidores ajenos (Google Fonts, Tailwind, unpkg, cdnjs, jsdelivr) cada vez que abrías ChatWallet, la página principal o la del libro. Así Google y esos sitios se enteraban de tu IP en cada visita, y además podían meter código en la misma página donde están tus llaves si los comprometían. Ahora todo viaja dentro de la app. Además abre más rápido y, en Android, se ve igual aunque arranque sin conexión, que es justamente lo que hace falta para usarla como billetera fría. Por fuera se ve igual que antes.
 
 ## 3.95 — 2026-10-30
