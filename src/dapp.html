@@ -23388,7 +23388,7 @@
                 const conFondos = walletTuvoFondos();
                 const hecho = !!localStorage.getItem(WALLET_BACKUP_DONE_KEY);
                 const frase = !!fraseDisponible();
-                // Respaldo confirmado antes de la 3.94: la frase sigue guardada. Se pide comprobarla
+                // Respaldo confirmado antes de la 3.95: la frase sigue guardada. Se pide comprobarla
                 // una vez para poder borrarla.
                 const borrarPendiente = hecho && frase;
                 const show = !!currentWallet
@@ -23553,7 +23553,7 @@
             // Cancelar y ✕ NO confirman.
             closeBackupModalBtn.addEventListener('click', () => {
                 // Con palabras a la vista siempre se comprueba: acertar es lo que las borra del
-                // dispositivo (también en billeteras que ya habían confirmado antes de la 3.94).
+                // dispositivo (también en billeteras que ya habían confirmado antes de la 3.95).
                 if (backupWords.length) {
                     mostrarComprobacionBackup();
                 } else {

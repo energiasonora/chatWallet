@@ -17,6 +17,9 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Tus 12 palabras ya no quedan guardadas en el teléfono.** Cuando comprobás que las anotaste (la app te pregunta una palabra al azar), se borran de este dispositivo. La app no las necesita para funcionar: tu billetera, Ğ1, Monero y el respaldo de tus chats siguen andando igual. Así, si alguien llegara a leer los datos de la app, no se lleva tus palabras, que abren todo lo que hayas creado con ellas, también fuera de ChatWallet. Tu papel pasa a ser la única copia: guardalo bien. Si ya habías hecho el respaldo antes, aparece una franja que te pide comprobarlas una vez para poder borrarlas.
+- **En la app de Android, tus datos no salen del teléfono.** Android ya no copia los datos de ChatWallet al respaldo de Google ni al pasarlos a un teléfono nuevo (Smart Switch, cable o wifi). Para cambiar de teléfono, se restaura con tus 12 palabras.
+
 ## 3.94 — 2026-10-29
 
 - **Entrar a una app es un solo paso.** Antes, entrar con ChatWallet a una app como Soberano Mail pedía dos aprobaciones: primero «Conectar» y después firmar. Ahora, si la app lo soporta, aparece una sola pantalla, **«Entrar en …»**, con el texto que vas a firmar, y con **Entrar** quedás adentro. Las apps que todavía no lo soportan siguen con los dos pasos.

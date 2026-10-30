@@ -2,7 +2,7 @@
 // Cubre: palabras numeradas en orden, clave privada escondida en "Opciones avanzadas",
 // comprobación de una palabra (falla con la equivocada, acepta sin tildes/mayúsculas),
 // y que recién al acertar se apaga el aviso. También el caso sin frase (importada por clave).
-// Desde la 3.94: al acertar, la frase se BORRA del dispositivo (antes se guarda la llave Ğ1), y
+// Desde la 3.95: al acertar, la frase se BORRA del dispositivo (antes se guarda la llave Ğ1), y
 // a quien ya había confirmado antes con la frase guardada se le pide comprobar para borrarla.
 //
 // Uso: servir el build en :8817 (python3 -m http.server 8817 -d dist-respaldo-test) y
@@ -105,7 +105,7 @@ try {
     await ev(`document.getElementById('closeBackupModalBtn').click()`);
     ok(await ev(`document.getElementById('backupWalletModal').classList.contains('hidden')`), '"Listo" cierra sin comprobar');
 
-    // ── Respaldo confirmado antes de la 3.94, con la frase todavía guardada ──
+    // ── Respaldo confirmado antes de la 3.95, con la frase todavía guardada ──
     await cargar(`localStorage.setItem('xmtp-chat-wallet', '${PK}');
         localStorage.setItem('xmtp-chat-wallet-mnemonic', '${FRASE}');
         localStorage.setItem('xmtp-chat-wallet-backup-done', '1');`);
