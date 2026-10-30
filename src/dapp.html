@@ -3788,6 +3788,8 @@
                         <p class="text-sm text-gray-300" data-i18n-key="backup_words_intro">Anotá estas 12
                             palabras en papel, en este orden. Son la única forma de recuperar tu billetera.</p>
                         <ol id="backupWordsGrid" class="grid grid-cols-2 gap-2 notranslate" translate="no"></ol>
+                        <p class="text-xs text-gray-400" data-i18n-key="backup_words_se_borran">Cuando compruebes que
+                            las anotaste, se borran de este dispositivo: tu papel va a ser la única copia.</p>
                         <p id="backupMnemonic" class="hidden"></p>
                         <button type="button" onclick="copyBackupData('backupMnemonic', this)"
                             class="w-full text-xs text-gray-400 hover:text-white py-1"
@@ -14438,7 +14440,7 @@
                         const B = await window.cwCargarBilleteraG1();
                         let cands = leerJSONLocal(claveCandidatasG1(dir));
                         if (!cands) {
-                            const guardada = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic();
+                            const guardada = fraseDisponible();
                             const frase = guardada || await pedirFraseParaG1(B);
                             if (!frase) return;                       // canceló
                             cands = B.candidatas(frase);
@@ -14828,7 +14830,7 @@
                 const dir = currentWallet.address;
                 let raiz = localStorage.getItem(claveRaizG1(dir));
                 if (!raiz) {
-                    const frase = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic() || await pedirFraseParaG1(B, 'firmar');
+                    const frase = fraseDisponible() || await pedirFraseParaG1(B, 'firmar');
                     if (!frase) return null;
                     raiz = B.raizHex(frase);
                     localStorage.setItem(claveRaizG1(dir), raiz);
@@ -14853,7 +14855,7 @@
                     const B = await window.cwCargarBilleteraG1();
                     let raiz = localStorage.getItem(claveRaizG1(dir));
                     if (!raiz) {
-                        const frase = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic();
+                        const frase = fraseDisponible();
                         if (!frase) return null;
                         raiz = B.raizHex(frase);
                     }
@@ -23300,6 +23302,7 @@
                         localStorage.setItem(MUDANZA_AVISADA_KEY, 'nuevo');
                     }
                     localStorage.setItem(WALLET_MNEMONIC_KEY, wallet.mnemonic.phrase);
+                    fraseOlvidada = false;          // billetera nueva: su frase sí, hasta comprobarla
                     localStorage.removeItem(WALLET_BACKUP_DONE_KEY); // wallet nueva: backup pendiente
                     // Silenciar el aviso de la wallet anterior no puede silenciar el de la nueva.
                     sessionStorage.removeItem(BACKUP_NAG_DISMISSED_KEY);
@@ -23322,6 +23325,37 @@
                     } catch (e) { }
                 }
                 return null;
+            }
+
+            // La frase de esta billetera, si todavía está en el dispositivo: en memoria (recién
+            // creada, hasta recargar) o guardada. Después de comprobar el respaldo se borra
+            // (olvidarFraseTrasRespaldo) y desde ahí no está más, tampoco la de memoria.
+            var fraseOlvidada = false;
+            function fraseDisponible() {
+                if (!currentWallet || fraseOlvidada) return null;
+                return (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic();
+            }
+
+            // La frase no queda nunca en el dispositivo una vez anotada: con ella se entra a todo
+            // lo que se haya abierto con esas palabras (otras cuentas de MetaMask, Ğecko, otras
+            // cadenas), no solo a ChatWallet. La app no la necesita: la clave EVM ya está guardada,
+            // Monero y el respaldo de chats salen de esa clave, y Ğ1 de su raíz, que se guarda
+            // ANTES de borrar. Si eso falla, la frase queda y se reintenta en la próxima.
+            async function olvidarFraseTrasRespaldo() {
+                const frase = fraseDisponible();
+                if (!frase || !currentWallet) return true;
+                const dir = currentWallet.address;
+                try {
+                    const B = await window.cwCargarBilleteraG1();
+                    if (!localStorage.getItem(claveRaizG1(dir))) localStorage.setItem(claveRaizG1(dir), B.raizHex(frase));
+                    if (!localStorage.getItem(claveCandidatasG1(dir))) localStorage.setItem(claveCandidatasG1(dir), JSON.stringify(B.candidatas(frase)));
+                } catch (e) {
+                    console.warn('[respaldo] no se pudo guardar la llave Ğ1; la frase queda por ahora:', e);
+                    return false;
+                }
+                localStorage.removeItem(WALLET_MNEMONIC_KEY);
+                fraseOlvidada = true;
+                return true;
             }
 
             // El ✕ del aviso de backup lo silencia SOLO por esta sesión (sessionStorage, no
@@ -23352,11 +23386,15 @@
                 if (!backupNagBanner) return;
                 const porInvitacion = localStorage.getItem(WALLET_ORIGIN_KEY) === 'invitacion';
                 const conFondos = walletTuvoFondos();
+                const hecho = !!localStorage.getItem(WALLET_BACKUP_DONE_KEY);
+                const frase = !!fraseDisponible();
+                // Respaldo confirmado antes de la 3.94: la frase sigue guardada. Se pide comprobarla
+                // una vez para poder borrarla.
+                const borrarPendiente = hecho && frase;
                 const show = !!currentWallet
-                    && !localStorage.getItem(WALLET_BACKUP_DONE_KEY)
                     && !sessionStorage.getItem(BACKUP_NAG_DISMISSED_KEY)
-                    && !!getStoredMnemonic()
-                    && (!porInvitacion || conFondos);
+                    && frase
+                    && (borrarPendiente || (!porInvitacion || conFondos));
                 // Si aparece recién ahora porque entró plata, hay que decir por qué: un cartel
                 // rojo que se materializa sin explicación se lee como que algo se rompió.
                 // Selector por prefijo, no el primer [data-i18n-key] que aparezca: en el banner
@@ -23364,9 +23402,16 @@
                 // ganar en silencio, escribiendo el texto del aviso encima del botón.
                 const textoEl = backupNagBanner.querySelector('[data-i18n-key^="backup_nag_text"]');
                 if (textoEl) {
-                    const key = (porInvitacion && conFondos) ? 'backup_nag_text_fondos' : 'backup_nag_text';
+                    const key = borrarPendiente ? 'backup_nag_text_borrar'
+                        : (porInvitacion && conFondos) ? 'backup_nag_text_fondos' : 'backup_nag_text';
                     textoEl.dataset.i18nKey = key;   // así translateUI lo sigue al cambiar de idioma
                     textoEl.textContent = t(key);
+                }
+                const cta = document.getElementById('backupNagCta');
+                if (cta) {
+                    const k = borrarPendiente ? 'backup_nag_cta_borrar' : 'backup_nag_cta';
+                    cta.dataset.i18nKey = k;
+                    cta.textContent = t(k);
                 }
                 backupNagBanner.classList.toggle('hidden', !show);
                 backupNagBanner.classList.toggle('flex', show);
@@ -23380,7 +23425,7 @@
                 const btn = document.getElementById('backupWalletSettingsBtn');
                 if (!btn) return;
                 const done = !!localStorage.getItem(WALLET_BACKUP_DONE_KEY);
-                const tieneFrase = !!currentWallet && !!((currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic());
+                const tieneFrase = !!currentWallet && !!(fraseDisponible());
                 const key = !done ? 'backup_wallet_button' : (tieneFrase ? 'settings_show_private_key' : 'settings_show_pk_only');
                 btn.dataset.i18nKey = key;   // así translateUI lo sigue al cambiar de idioma
                 btn.textContent = t(key);
@@ -23401,7 +23446,7 @@
                 document.getElementById('backupKeysView').classList.add('hidden');
                 document.getElementById('backupVerifyView').classList.add('hidden');
 
-                const phrase = (currentWallet.mnemonic && currentWallet.mnemonic.phrase) || getStoredMnemonic();
+                const phrase = fraseDisponible();
                 const advanced = document.getElementById('backupAdvanced');
                 const grid = document.getElementById('backupWordsGrid');
                 grid.innerHTML = '';
@@ -23429,8 +23474,7 @@
                     advanced.open = true;
                 }
                 // Ya confirmado antes (o sin frase): no hace falta volver a comprobar.
-                const yaHecho = !!localStorage.getItem(WALLET_BACKUP_DONE_KEY);
-                const finKey = (!phrase || yaHecho) ? 'backup_done_btn' : 'backup_words_written';
+                const finKey = !phrase ? 'backup_done_btn' : 'backup_words_written';
                 closeBackupModalBtn.dataset.i18nKey = finKey;
                 closeBackupModalBtn.textContent = t(finKey);
 
@@ -23475,13 +23519,14 @@
                 setTimeout(() => input.focus(), 50);
             }
 
-            function comprobarPalabraBackup() {
+            async function comprobarPalabraBackup() {
                 const input = document.getElementById('backupVerifyInput');
                 const msg = document.getElementById('backupVerifyMsg');
                 if (backupVerifyIdx < 0 || !backupWords[backupVerifyIdx]) return;
                 if (normalizarPalabra(input.value) === normalizarPalabra(backupWords[backupVerifyIdx])) {
+                    const olvidada = await olvidarFraseTrasRespaldo();
                     marcarBackupHecho();
-                    showToast(t('backup_verify_ok'), 'success', 4000);
+                    showToast(t(olvidada ? 'backup_verify_ok_borrada' : 'backup_verify_ok'), 'success', olvidada ? 9000 : 4000);
                 } else {
                     msg.textContent = t('backup_verify_bad');
                     input.select();
@@ -23507,7 +23552,9 @@
             // recordatorio. Sin frase (importada por clave) o ya confirmado antes, cierra directo.
             // Cancelar y ✕ NO confirman.
             closeBackupModalBtn.addEventListener('click', () => {
-                if (backupWords.length && !localStorage.getItem(WALLET_BACKUP_DONE_KEY)) {
+                // Con palabras a la vista siempre se comprueba: acertar es lo que las borra del
+                // dispositivo (también en billeteras que ya habían confirmado antes de la 3.94).
+                if (backupWords.length) {
                     mostrarComprobacionBackup();
                 } else {
                     if (!localStorage.getItem(WALLET_BACKUP_DONE_KEY)) marcarBackupHecho();
@@ -23806,9 +23853,19 @@
                     let cifrado;
                     try {
                         const redes = localStorage.getItem(NETWORKS_STORAGE_KEY) || '';
+                        // Respaldo confirmado: la app no va a guardar la frase, así que la llave Ğ1
+                        // tiene que viajar ya calculada.
+                        if (localStorage.getItem(WALLET_BACKUP_DONE_KEY) && fraseDisponible()
+                            && !localStorage.getItem(claveRaizG1(currentWallet.address))) {
+                            const B = await window.cwCargarBilleteraG1();
+                            localStorage.setItem(claveRaizG1(currentWallet.address), B.raizHex(fraseDisponible()));
+                            if (!localStorage.getItem(claveCandidatasG1(currentWallet.address)))
+                                localStorage.setItem(claveCandidatasG1(currentWallet.address), JSON.stringify(B.candidatas(fraseDisponible())));
+                        }
                         const datos = {
                             v: 1, a: currentWallet.address, k: currentWallet.privateKey,
-                            m: getStoredMnemonic() || '',
+                            // Ya respaldada: la frase no viaja (la app no la guardaría).
+                            m: localStorage.getItem(WALLET_BACKUP_DONE_KEY) ? '' : (getStoredMnemonic() || ''),
                             o: localStorage.getItem(WALLET_ORIGIN_KEY) || '',
                             b: localStorage.getItem(WALLET_BACKUP_DONE_KEY) ? 1 : 0,
                             l: localStorage.getItem(LANGUAGE_STORAGE_KEY) || '',
@@ -23882,7 +23939,9 @@
                     return;
                 }
                 localStorage.setItem(WALLET_STORAGE_KEY, datos.k);
-                if (datos.m) localStorage.setItem(WALLET_MNEMONIC_KEY, datos.m); else localStorage.removeItem(WALLET_MNEMONIC_KEY);
+                // Con el respaldo confirmado, la frase no se guarda en la app (ver
+                // olvidarFraseTrasRespaldo); la llave Ğ1 viaja aparte, en datos.g.
+                if (datos.m && !datos.b) localStorage.setItem(WALLET_MNEMONIC_KEY, datos.m); else localStorage.removeItem(WALLET_MNEMONIC_KEY);
                 if (datos.o) localStorage.setItem(WALLET_ORIGIN_KEY, datos.o);
                 if (datos.b) localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
                 if (datos.l) localStorage.setItem(LANGUAGE_STORAGE_KEY, datos.l);
@@ -24160,6 +24219,10 @@
                     "backup_verify_btn": "Comprobar",
                     "backup_verify_back": "Volver a ver las palabras",
                     "backup_verify_bad": "No coincide. Revisá el número en tu papel o volvé a ver las palabras.",
+                    "backup_verify_ok_borrada": "¡Listo! Tus palabras se borraron de este dispositivo. Guardá bien tu papel: es la única copia.",
+                    "backup_nag_text_borrar": "Por seguridad, tus 12 palabras van a dejar de guardarse en este dispositivo. Comprobá que las tenés anotadas.",
+                    "backup_nag_cta_borrar": "Comprobar",
+                    "backup_words_se_borran": "Cuando compruebes que las anotaste, se borran de este dispositivo: tu papel va a ser la única copia.",
                     "backup_verify_ok": "¡Listo! Tu copia de seguridad está guardada.",
                     "backup_nag_text": "Anotá tus 12 palabras secretas: con ellas recuperás tu cuenta si cambiás de teléfono.",
                     "backup_nag_text_fondos": "Ya tenés fondos 🎉 Anotá tus 12 palabras secretas para no perderlos si cambiás de teléfono.",
@@ -24911,6 +24974,10 @@
                     "backup_verify_btn": "Check",
                     "backup_verify_back": "Show the words again",
                     "backup_verify_bad": "That doesn't match. Check the number on your paper or view the words again.",
+                    "backup_verify_ok_borrada": "Done! Your words were erased from this device. Keep your paper safe: it's the only copy.",
+                    "backup_nag_text_borrar": "For your safety, your 12 words will stop being stored on this device. Check that you have them written down.",
+                    "backup_nag_cta_borrar": "Check",
+                    "backup_words_se_borran": "Once you confirm you wrote them down, they're erased from this device: your paper will be the only copy.",
                     "backup_verify_ok": "Done! Your backup is saved.",
                     "backup_nag_text": "Write down your 12 secret words: they restore your account if you change phones.",
                     "backup_nag_text_fondos": "You have funds now 🎉 Write down your 12 secret words so you don't lose them if you change phones.",
@@ -25662,6 +25729,10 @@
                     "backup_verify_btn": "Vérifier",
                     "backup_verify_back": "Revoir les mots",
                     "backup_verify_bad": "Ça ne correspond pas. Vérifiez le numéro sur votre papier ou revoyez les mots.",
+                    "backup_verify_ok_borrada": "C'est fait ! Vos mots ont été effacés de cet appareil. Gardez bien votre papier : c'est la seule copie.",
+                    "backup_nag_text_borrar": "Pour votre sécurité, vos 12 mots ne seront plus conservés sur cet appareil. Vérifiez que vous les avez notés.",
+                    "backup_nag_cta_borrar": "Vérifier",
+                    "backup_words_se_borran": "Une fois que vous aurez confirmé les avoir notés, ils seront effacés de cet appareil : votre papier sera la seule copie.",
                     "backup_verify_ok": "C'est fait ! Votre sauvegarde est enregistrée.",
                     "backup_nag_text": "Notez vos 12 mots secrets : ils restaurent votre compte si vous changez de téléphone.",
                     "backup_nag_text_fondos": "Vous avez des fonds 🎉 Notez vos 12 mots secrets pour ne pas les perdre si vous changez de téléphone.",

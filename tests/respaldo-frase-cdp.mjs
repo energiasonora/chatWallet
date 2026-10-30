@@ -2,11 +2,14 @@
 // Cubre: palabras numeradas en orden, clave privada escondida en "Opciones avanzadas",
 // comprobación de una palabra (falla con la equivocada, acepta sin tildes/mayúsculas),
 // y que recién al acertar se apaga el aviso. También el caso sin frase (importada por clave).
+// Desde la 3.94: al acertar, la frase se BORRA del dispositivo (antes se guarda la llave Ğ1), y
+// a quien ya había confirmado antes con la frase guardada se le pide comprobar para borrarla.
 //
 // Uso: servir el build en :8817 (python3 -m http.server 8817 -d dist-respaldo-test) y
 //      node tests/respaldo-frase-cdp.mjs
 import { spawn } from 'node:child_process';
 import os from 'node:os';
+import { raizHex } from '../src/js/g1-billetera.js';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const CDP_PORT = 9461;
@@ -44,7 +47,7 @@ async function cargar(seed) {
 
 try {
     let target;
-    for (let i = 0; i < 40 && !target; i++) {
+    for (let i = 0; i < 120 && !target; i++) {
         try { target = (await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json()).find(t => t.type === 'page'); } catch { }
         await sleep(300);
     }
@@ -83,16 +86,41 @@ try {
     const n2 = Number(await ev(`document.getElementById('backupVerifyNum').textContent`));
     await ev(`document.getElementById('backupVerifyInput').value='  ${PALABRAS[n2 - 1].toUpperCase()} ';
         document.getElementById('backupVerifyInput').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}))`);
+    await sleep(1500);
     ok(await ev(`localStorage.getItem('xmtp-chat-wallet-backup-done')`) === '1', 'palabra correcta (mayúsculas/espacios, Enter) → respaldo hecho');
     ok(await ev(`document.getElementById('backupWalletModal').classList.contains('hidden')`), 'el modal se cierra');
     ok(await ev(`document.getElementById('backupWordsGrid').children.length`) === 0, 'las palabras no quedan en el DOM');
-    ok(await ev(`document.getElementById('backupWalletSettingsBtn').textContent.trim()`) === 'Ver mis palabras secretas', 'Configuración ofrece "Ver mis palabras secretas"');
+    const dirW = (await ev(`currentWallet.address`)).toLowerCase();
+    ok(await ev(`localStorage.getItem('xmtp-chat-wallet-mnemonic')`) === null, 'la frase se BORRA del dispositivo al acertar');
+    ok(await ev(`localStorage.getItem('cw-g1-raiz-${dirW}')`) === raizHex(FRASE), 'antes de borrarla guarda la llave Ğ1 (raíz)');
+    ok((await ev(`JSON.parse(localStorage.getItem('cw-g1-candidatas-${dirW}') || '[]').length`)) === 31, 'y las 31 cuentas Ğ1 posibles');
+    ok(await ev(`localStorage.getItem('xmtp-chat-wallet')`) === PK, 'la clave privada sigue (la app la necesita)');
+    ok(await ev(`fraseDisponible()`) === null, 'tampoco queda disponible en esta sesión');
+    ok(await ev(`document.getElementById('backupWalletSettingsBtn').textContent.trim()`) === 'Mostrar clave privada', 'Configuración ya solo ofrece "Mostrar clave privada"');
 
-    // Ya hecho: volver a abrir no pide comprobar de nuevo.
+    // Ya hecho y borrada: reabrir muestra solo la clave privada y cierra sin comprobar.
     await ev(`openBackupModal(); document.getElementById('showBackupKeysBtn').click()`);
-    ok(await ev(`document.getElementById('closeBackupModalBtn').textContent.trim()`) === 'Listo', 'ya respaldada: el botón es "Listo"');
+    ok(await ev(`document.getElementById('backupMnemonicContainer').classList.contains('hidden')`), 'reabrir: ya no hay palabras');
+    ok(await ev(`document.getElementById('closeBackupModalBtn').textContent.trim()`) === 'Listo', 'el botón es "Listo"');
     await ev(`document.getElementById('closeBackupModalBtn').click()`);
     ok(await ev(`document.getElementById('backupWalletModal').classList.contains('hidden')`), '"Listo" cierra sin comprobar');
+
+    // ── Respaldo confirmado antes de la 3.94, con la frase todavía guardada ──
+    await cargar(`localStorage.setItem('xmtp-chat-wallet', '${PK}');
+        localStorage.setItem('xmtp-chat-wallet-mnemonic', '${FRASE}');
+        localStorage.setItem('xmtp-chat-wallet-backup-done', '1');`);
+    await sleep(800);
+    ok(await visible('backupNagBanner'), 'respaldo viejo con frase guardada: aparece la franja');
+    ok(/dejar de guardarse/.test(await ev(`document.getElementById('backupNagBanner').innerText`)) && (await ev(`document.getElementById('backupNagCta').textContent.trim()`)) === 'Comprobar', 'dice que se van a dejar de guardar, con "Comprobar"');
+    await ev(`document.getElementById('backupNagCta').click(); document.getElementById('showBackupKeysBtn').click()`);
+    ok(await ev(`document.getElementById('backupWordsGrid').children.length`) === 12, 'muestra las palabras para comprobar');
+    await ev(`document.getElementById('closeBackupModalBtn').click()`);
+    ok(await visible('backupVerifyView'), '"Ya las anoté" pide comprobar aunque ya estuviera confirmado');
+    const n3 = Number(await ev(`document.getElementById('backupVerifyNum').textContent`));
+    await ev(`document.getElementById('backupVerifyInput').value='${PALABRAS[n3 - 1]}'; document.getElementById('backupVerifyBtn').click()`);
+    await sleep(800);
+    ok(await ev(`localStorage.getItem('xmtp-chat-wallet-mnemonic')`) === null, 'al acertar se borra');
+    ok(!(await visible('backupNagBanner')), 'y la franja se va');
 
     // Acentos: en la lista española la comparación ignora tildes.
     ok(await ev(`normalizarPalabra('Ábaco') === normalizarPalabra('abaco')`), 'compara sin tildes (ábaco = abaco)');
