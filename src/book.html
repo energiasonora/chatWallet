@@ -24,14 +24,16 @@
     <meta name="twitter:description"
         content="Guía práctica para arrancar en cripto desde cero, con soberanía: 13 capítulos, 251 páginas.">
     <meta name="twitter:image" content="https://chatwallet.org/img/og-libro.jpg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap"
-        rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+    <!-- Web3Modal trae metido en su código un @import de Inter desde fonts.googleapis.com (le
+         pasaría la IP del visitante a Google). Esta política lo bloquea: Inter ya la servimos
+         nosotros en fuentes.css. -->
+    <meta http-equiv="Content-Security-Policy" content="style-src 'self' 'unsafe-inline'; font-src 'self' data:">
+    <!-- Fuentes servidas por la app, no por Google (ver src/fonts/fuentes.css) -->
+    <link rel="stylesheet" href="fonts/fuentes.css">
+    <script src="js/canvas-confetti-1.9.3.js"></script>
+    <script src="js/ethers-6.13.2.umd.min.js"></script>
     <!-- QR del pago con ChatWallet (misma versión que dapp.html) -->
-    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <script src="js/qr-code-styling.js"></script>
 
     <style>
         /* Estética energiasonora.xyz: monocromo, bordes finos, Syne + DM Sans */

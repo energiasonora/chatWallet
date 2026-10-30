@@ -87,12 +87,10 @@
     </script>
 
     <link rel="stylesheet" href="css/pico.min.css" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Fuentes servidas por la app, no por Google (ver src/fonts/fuentes-landing.css) -->
+    <link rel="stylesheet" href="fonts/fuentes-landing.css">
     <!-- Vanilla-Tilt.js for tilt effect -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
+    <script src="js/vanilla-tilt-1.8.1.min.js"></script>
 
 
     <style>
@@ -1858,8 +1856,6 @@
   .book-grid { display:grid; grid-template-columns:1fr 1.1fr; gap:clamp(2rem,6vw,5rem); align-items:center; }
   @media (max-width:900px) { .book-grid { grid-template-columns:1fr; } }
 </style>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
   /* ── botones del hero: mismo alto, mismo ancho, una sola familia ── */
   .hero__cta-group-static { align-items:center !important; flex-wrap:wrap; }
@@ -2244,8 +2240,6 @@
         </div>
     </div>
 
-    <!-- Confetti.js library -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 
     <script src="js/gsap.min.js" defer></script>
     <script src="js/ScrollToPlugin.min.js" defer></script>

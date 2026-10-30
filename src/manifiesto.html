@@ -6,10 +6,8 @@
     <title>Manifiesto ChatWallet</title>
     <meta name="description" content="El manifiesto de ChatWallet: por qué una wallet soberana, sin KYC, sin SIM, sin cuenta y sin intermediario.">
     <link rel="canonical" href="https://chatwallet.org/manifiesto">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fuentes servidas por la app, no por Google (ver src/fonts/fuentes-landing.css) -->
+    <link rel="stylesheet" href="fonts/fuentes-landing.css">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -32,6 +30,8 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
     </style>
+    <!-- Tailwind compilado (scripts/tailwind.sh), al final del <head> donde lo inyectaba la CDN -->
+    <link rel="stylesheet" href="css/tailwind-manifiesto.css">
 </head>
 
 <body class="bg-gray-900 text-gray-100 antialiased">

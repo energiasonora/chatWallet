@@ -13,7 +13,8 @@
     <meta name="apple-mobile-web-app-title" content="ChatWallet">
     <!-- <title>Crypto Wallet & Chat XMTP</title> -->
     <title>Crypto Wallet & Chat XMTP</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Fuentes servidas por la app, no por Google (ver src/fonts/fuentes.css) -->
+    <link rel="stylesheet" href="fonts/fuentes.css">
     <!-- Librerías empaquetadas con la app (antes venían de unpkg/cdnjs en cada carga): código de
          terceros que corre en la misma página que las llaves no se baja más de internet. -->
     <script src="js/qr-code-styling.js"></script>
@@ -32,11 +33,6 @@
 
     <!-- Google Fonts -->
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Major+Mono+Display&display=swap"
-        rel="stylesheet">
     <!-- Mismo manifest que la landing (site.webmanifest): un solo start_url (/dapp.html) y un solo id
          (/chatwallet-dapp) sin riesgo de que las dos copias diverjan. OJO: una PWA ya instalada congela
          su start_url — cambios acá requieren desinstalar + reinstalar en el dispositivo. -->
@@ -2007,7 +2003,7 @@
             border-radius: 50%;
         }
     </style>
-    <!-- Tailwind compilado (scripts/tailwind-dapp.sh); va al final del <head>, donde lo
+    <!-- Tailwind compilado (scripts/tailwind.sh); va al final del <head>, donde lo
          inyectaba la CDN, para que gane sobre los <style> de arriba como antes. -->
     <link rel="stylesheet" href="css/tailwind-dapp.css">
 </head>

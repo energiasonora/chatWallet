@@ -84,7 +84,7 @@ echo "✦ Build con Node $(node -v)…"
 # public/ en el siguiente deploy → el panel de ventas se cae con 404 sin avisar.
 # Tailwind de dapp.html compilado acá (ya no se baja de la CDN en cada carga): si alguien
 # usó una clase nueva, entra en este build.
-./scripts/tailwind-dapp.sh
+./scripts/tailwind.sh
 yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html src/book-admin.html \
   --dist-dir public --public-url ./ --cache-dir .parcel-cache-build
 
