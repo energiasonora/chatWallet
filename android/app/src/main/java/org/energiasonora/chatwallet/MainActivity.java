@@ -19,6 +19,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(KeepAlivePlugin.class);
         registerPlugin(UpdaterPlugin.class);
         registerPlugin(FilesPlugin.class);
+        registerPlugin(BovedaPlugin.class);
         super.onCreate(savedInstanceState);
         respetarBarrasDelSistema();
         stashChatExtra(getIntent());

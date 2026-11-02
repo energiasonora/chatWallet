@@ -5507,6 +5507,113 @@
             const WALLET_MNEMONIC_KEY = 'xmtp-chat-wallet-mnemonic';
             // '1' cuando el usuario confirmó "He guardado mis claves" — apaga el recordatorio.
             const WALLET_BACKUP_DONE_KEY = 'xmtp-chat-wallet-backup-done';
+
+            // --- Bóveda de secretos ---
+            // En el APK, la clave privada, la frase y la llave Ğ1 se guardan cifradas con una llave
+            // del Android Keystore (plugin nativo Boveda) que no sale del chip: lo guardado no sirve
+            // fuera de este teléfono. No se pide huella ni PIN: el candado es el bloqueo de pantalla.
+            // En la web (todavía) se guardan como antes. Los secretos se abren UNA vez al arrancar
+            // (cwBovedaAbrir) y desde ahí se leen de memoria: TODA lectura o escritura de estas
+            // claves pasa por cwSecretoLeer / cwSecretoGuardar / cwSecretoBorrar.
+            const CW_BOVEDA_PREFIJO = 'cwk1:';
+            const cwSecretosClaros = new Map();
+            const cwSecretosCrudos = new Map();   // lo último que esta ventana vio/escribió en disco
+            function cwEsSecreto(k) {
+                k = String(k || '');
+                return k === WALLET_STORAGE_KEY || k === WALLET_MNEMONIC_KEY || k.startsWith('cw-g1-raiz-')
+                    || k.startsWith(WALLET_STORAGE_KEY + '-rescate-');
+            }
+            function cwBovedaNativa() {
+                const cap = window.Capacitor;
+                return (cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.Boveda) || null;
+            }
+            function cwSecretoLeer(k) {
+                const crudo = localStorage.getItem(k);
+                // El disco manda: si otra ventana lo borró o lo cambió, la memoria ya no vale.
+                if (cwSecretosClaros.has(k) && crudo === cwSecretosCrudos.get(k)) return cwSecretosClaros.get(k);
+                if (crudo == null || crudo.startsWith(CW_BOVEDA_PREFIJO)) return null; // cifrado y sin abrir
+                return crudo;
+            }
+            // Devuelve una promesa que se cumple cuando quedó cifrado (no hace falta esperarla:
+            // mientras tanto el valor ya está en memoria y en disco).
+            function cwSecretoGuardar(k, valor) {
+                if (valor == null) { cwSecretoBorrar(k); return Promise.resolve(); }
+                valor = String(valor);
+                cwSecretosClaros.set(k, valor);
+                cwSecretosCrudos.set(k, valor);
+                // Primero en claro: si la app se cierra en el medio, una clave recién creada no se
+                // pierde (la próxima apertura la cifra). Enseguida se reemplaza por la cifrada.
+                localStorage.setItem(k, valor);
+                return cwBovedaCifrarEnLugar(k, valor);
+            }
+            function cwSecretoBorrar(k) {
+                cwSecretosClaros.delete(k);
+                cwSecretosCrudos.delete(k);
+                localStorage.removeItem(k);
+            }
+            async function cwBovedaCifrarEnLugar(k, valor) {
+                const B = cwBovedaNativa();
+                if (!B) return;
+                try {
+                    const { c } = await B.cifrar({ texto: valor });
+                    // Ida y vuelta antes de pisar el texto en claro: nunca guardar algo que no se pueda abrir.
+                    const { texto } = await B.descifrar({ c });
+                    if (texto !== valor) throw new Error('la ida y vuelta no coincide');
+                    if (localStorage.getItem(k) === valor) {
+                        localStorage.setItem(k, CW_BOVEDA_PREFIJO + c);
+                        cwSecretosCrudos.set(k, CW_BOVEDA_PREFIJO + c);
+                    }
+                } catch (e) {
+                    console.warn('[bóveda] queda en claro por ahora:', k, e?.message || e);
+                }
+            }
+            // Abre los secretos guardados y cifra los que estaban en claro (migración). Nunca borra
+            // nada: si uno no se puede abrir, lo informa y queda como está.
+            async function cwBovedaAbrir() {
+                const B = cwBovedaNativa();
+                const claves = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (cwEsSecreto(k)) claves.push(k);
+                }
+                const fallas = {};
+                for (const k of claves) {
+                    const crudo = localStorage.getItem(k);
+                    if (crudo == null) continue;
+                    cwSecretosCrudos.set(k, crudo);
+                    if (!crudo.startsWith(CW_BOVEDA_PREFIJO)) {
+                        cwSecretosClaros.set(k, crudo);
+                        if (B) await cwBovedaCifrarEnLugar(k, crudo);
+                        continue;
+                    }
+                    if (!B) { fallas[k] = 'SIN_BOVEDA'; continue; }
+                    let ultimo = null;
+                    for (let intento = 0; intento < 3; intento++) {
+                        try {
+                            const { texto } = await B.descifrar({ c: crudo.slice(CW_BOVEDA_PREFIJO.length) });
+                            cwSecretosClaros.set(k, texto);
+                            ultimo = null;
+                            break;
+                        } catch (e) {
+                            ultimo = e?.code || 'ERROR';
+                            console.error('[bóveda] no se pudo abrir', k, ultimo, e?.message || e);
+                            if (ultimo === 'SIN_LLAVE' || ultimo === 'INVALIDO') break;
+                            await new Promise(r => setTimeout(r, 700));
+                        }
+                    }
+                    if (ultimo) fallas[k] = ultimo;
+                }
+                return fallas;
+            }
+            // Sin bloqueo de pantalla, el candado no existe: avisarlo una vez por arranque.
+            async function cwBovedaAvisarSinBloqueo() {
+                const B = cwBovedaNativa();
+                if (!B || !cwSecretoLeer(WALLET_STORAGE_KEY)) return;
+                try {
+                    const { bloqueoPantalla } = await B.estado();
+                    if (!bloqueoPantalla) showToast(escHtml(t('boveda_sin_bloqueo')), 'error', 15000);
+                } catch (_) { }
+            }
             // De dónde salió esta wallet: 'invitacion' = se creó sola al tocar un link para
             // chatear; 'propia' = la pidió el usuario. Sin marca se asume 'propia', así que
             // ninguna wallet ya existente cambia de conducta.
@@ -8250,14 +8357,14 @@
                         // NO persistir la frase: quien restaura ya la tiene a resguardo afuera;
                         // guardarla acá solo agranda la superficie de ataque. Solo se persiste
                         // en la CREACIÓN (donde sin eso se perdería antes del backup).
-                        localStorage.removeItem(WALLET_MNEMONIC_KEY);
+                        cwSecretoBorrar(WALLET_MNEMONIC_KEY);
                     } else {
                         const pk = raw.startsWith('0x') ? raw : '0x' + raw; // tolerar clave sin prefijo 0x
                         restoredWallet = new ethers.Wallet(pk);
-                        localStorage.removeItem(WALLET_MNEMONIC_KEY); // la frase guardada era de otra wallet
+                        cwSecretoBorrar(WALLET_MNEMONIC_KEY); // la frase guardada era de otra wallet
                     }
 
-                    localStorage.setItem(WALLET_STORAGE_KEY, restoredWallet.privateKey);
+                    cwSecretoGuardar(WALLET_STORAGE_KEY, restoredWallet.privateKey);
                     // Quien restaura ya tiene su secreto a resguardo: no hace falta recordárselo.
                     localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
                     restoreWalletModal.classList.add('hidden');
@@ -14390,7 +14497,7 @@
                 try {
                     const B = await window.cwCargarBilleteraG1();
                     localStorage.setItem(claveCandidatasG1(wallet.address), JSON.stringify(B.candidatas(frase)));
-                    localStorage.setItem(claveRaizG1(wallet.address), B.raizHex(frase));
+                    cwSecretoGuardar(claveRaizG1(wallet.address), B.raizHex(frase));
                 } catch (e) { console.warn('[g1] candidatas al restaurar:', e?.message || e); }
             }
 
@@ -14454,7 +14561,7 @@
                             if (!frase) return;                       // canceló
                             cands = B.candidatas(frase);
                             localStorage.setItem(claveCandidatasG1(dir), JSON.stringify(cands));
-                            if (!guardada) localStorage.setItem(claveRaizG1(dir), B.raizHex(frase));
+                            if (!guardada) cwSecretoGuardar(claveRaizG1(dir), B.raizHex(frase));
                         }
                         showToast(t('g1_searching'), 'info');
                         const elegida = await B.elegirCuenta(cands);
@@ -14837,12 +14944,12 @@
                 if (!c) return null;
                 const B = await window.cwCargarBilleteraG1();
                 const dir = currentWallet.address;
-                let raiz = localStorage.getItem(claveRaizG1(dir));
+                let raiz = cwSecretoLeer(claveRaizG1(dir));
                 if (!raiz) {
                     const frase = fraseDisponible() || await pedirFraseParaG1(B, 'firmar');
                     if (!frase) return null;
                     raiz = B.raizHex(frase);
-                    localStorage.setItem(claveRaizG1(dir), raiz);
+                    cwSecretoGuardar(claveRaizG1(dir), raiz);
                 }
                 const cuenta = B.cuentaDeRaizHex(raiz, c.ruta);
                 if (cuenta.direccion !== c.g1) throw new Error('la llave guardada no corresponde a tu cuenta Ğ1');
@@ -14862,7 +14969,7 @@
                     const hecho = leerJSONLocal(claveVinculoG1(dir));
                     if (hecho && hecho.cuenta === c.g1) return hecho;
                     const B = await window.cwCargarBilleteraG1();
-                    let raiz = localStorage.getItem(claveRaizG1(dir));
+                    let raiz = cwSecretoLeer(claveRaizG1(dir));
                     if (!raiz) {
                         const frase = fraseDisponible();
                         if (!frase) return null;
@@ -20226,7 +20333,7 @@
                 if (!currentWallet) {
                     statusEl.textContent = "Creando billetera para chatear...";
                     const randomWallet = window.Wallet.createRandom();
-                    localStorage.setItem(WALLET_STORAGE_KEY, randomWallet.privateKey);
+                    cwSecretoGuardar(WALLET_STORAGE_KEY, randomWallet.privateKey);
                     // Vino a chatear, no a abrir una billetera: la wallet es un medio, no el
                     // tema. El aviso de respaldo espera a que haya fondos (ver
                     // updateBackupNagBanner); el acceso al backup vive en Configuración desde
@@ -22137,7 +22244,7 @@
                     }
 
                     const randomWallet = window.ethers.HDNodeWallet.createRandom(undefined, undefined, wordlist);
-                    localStorage.setItem(WALLET_STORAGE_KEY, randomWallet.privateKey);
+                    cwSecretoGuardar(WALLET_STORAGE_KEY, randomWallet.privateKey);
                     rememberCreatedMnemonic(randomWallet);
 
                     // Solo inicializamos la UI inmediatamente
@@ -22193,16 +22300,16 @@
                         let restoredWallet = null;
                         if (pendingSecret.type === 'privateKey') {
                             restoredWallet = new ethers.Wallet(pendingSecret.value);
-                            localStorage.removeItem(WALLET_MNEMONIC_KEY); // la frase guardada era de otra wallet
+                            cwSecretoBorrar(WALLET_MNEMONIC_KEY); // la frase guardada era de otra wallet
                         } else {
                             const r = await walletDesdeFrase(pendingSecret.value);
                             restoredWallet = r.wallet;
                             await recordarCandidatasG1(r);
                             // NO persistir la frase (ver restore manual): el que restaura ya la tiene.
-                            localStorage.removeItem(WALLET_MNEMONIC_KEY);
+                            cwSecretoBorrar(WALLET_MNEMONIC_KEY);
                         }
 
-                        localStorage.setItem(WALLET_STORAGE_KEY, restoredWallet.privateKey);
+                        cwSecretoGuardar(WALLET_STORAGE_KEY, restoredWallet.privateKey);
                         // Quien restaura ya tiene su secreto a resguardo: no hace falta recordárselo.
                         localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
                         autoRestoreModal.classList.add('hidden');
@@ -22270,7 +22377,7 @@
                 forgetWalletModal.classList.remove('flex');
                 const dir = currentWallet ? currentWallet.address.toLowerCase() : null;
                 window.__cwOlvidando = true;                 // desde acá nada vuelve a escribir esta cuenta
-                localStorage.removeItem(WALLET_STORAGE_KEY); // primero: las otras ventanas se enteran y se recargan
+                cwSecretoBorrar(WALLET_STORAGE_KEY); // primero: las otras ventanas se enteran y se recargan
                 await new Promise(r => setTimeout(r, 800));
                 await olvidarDatosLocales(dir);
                 try { sessionStorage.setItem('cw-olvidada', '1'); } catch (e) { }
@@ -22288,8 +22395,9 @@
             // sus chats en el almacén compartido): se recarga y toma lo que haya ahora.
             window.addEventListener('storage', (e) => {
                 if (e.key !== WALLET_STORAGE_KEY && e.key !== null) return;
+                // Se compara lo que hay en disco (puede estar cifrado) con lo último que vio esta ventana.
                 const ahora = localStorage.getItem(WALLET_STORAGE_KEY);
-                if (currentWallet ? ahora !== currentWallet.privateKey : !!ahora) location.reload();
+                if (currentWallet ? ahora !== (cwSecretosCrudos.get(WALLET_STORAGE_KEY) ?? null) : !!ahora) location.reload();
             });
 
             // El botón del header copia el LINK DE INVITACIÓN (la address se copia bajo el QR).
@@ -23310,7 +23418,7 @@
                     if (!localStorage.getItem(MUDANZA_AVISADA_KEY)) {
                         localStorage.setItem(MUDANZA_AVISADA_KEY, 'nuevo');
                     }
-                    localStorage.setItem(WALLET_MNEMONIC_KEY, wallet.mnemonic.phrase);
+                    cwSecretoGuardar(WALLET_MNEMONIC_KEY, wallet.mnemonic.phrase);
                     fraseOlvidada = false;          // billetera nueva: su frase sí, hasta comprobarla
                     localStorage.removeItem(WALLET_BACKUP_DONE_KEY); // wallet nueva: backup pendiente
                     // Silenciar el aviso de la wallet anterior no puede silenciar el de la nueva.
@@ -23321,7 +23429,7 @@
             // Devuelve la frase persistida SOLO si deriva a la wallet actual (probamos las
             // wordlists con las que se pudo crear: en/es/fr). Si no matchea, es de otra wallet.
             function getStoredMnemonic() {
-                const phrase = localStorage.getItem(WALLET_MNEMONIC_KEY);
+                const phrase = cwSecretoLeer(WALLET_MNEMONIC_KEY);
                 if (!phrase || !currentWallet) return null;
                 const wordlists = [undefined];
                 try {
@@ -23356,13 +23464,13 @@
                 const dir = currentWallet.address;
                 try {
                     const B = await window.cwCargarBilleteraG1();
-                    if (!localStorage.getItem(claveRaizG1(dir))) localStorage.setItem(claveRaizG1(dir), B.raizHex(frase));
+                    if (!cwSecretoLeer(claveRaizG1(dir))) cwSecretoGuardar(claveRaizG1(dir), B.raizHex(frase));
                     if (!localStorage.getItem(claveCandidatasG1(dir))) localStorage.setItem(claveCandidatasG1(dir), JSON.stringify(B.candidatas(frase)));
                 } catch (e) {
                     console.warn('[respaldo] no se pudo guardar la llave Ğ1; la frase queda por ahora:', e);
                     return false;
                 }
-                localStorage.removeItem(WALLET_MNEMONIC_KEY);
+                cwSecretoBorrar(WALLET_MNEMONIC_KEY);
                 fraseOlvidada = true;
                 return true;
             }
@@ -23865,9 +23973,9 @@
                         // Respaldo confirmado: la app no va a guardar la frase, así que la llave Ğ1
                         // tiene que viajar ya calculada.
                         if (localStorage.getItem(WALLET_BACKUP_DONE_KEY) && fraseDisponible()
-                            && !localStorage.getItem(claveRaizG1(currentWallet.address))) {
+                            && !cwSecretoLeer(claveRaizG1(currentWallet.address))) {
                             const B = await window.cwCargarBilleteraG1();
-                            localStorage.setItem(claveRaizG1(currentWallet.address), B.raizHex(fraseDisponible()));
+                            cwSecretoGuardar(claveRaizG1(currentWallet.address), B.raizHex(fraseDisponible()));
                             if (!localStorage.getItem(claveCandidatasG1(currentWallet.address)))
                                 localStorage.setItem(claveCandidatasG1(currentWallet.address), JSON.stringify(B.candidatas(fraseDisponible())));
                         }
@@ -23884,7 +23992,7 @@
                             // Cuenta Ğ1: sin la raíz, la app pediría la frase para enviar Ğ1
                             // (la llave Ğ1 sale de la frase, no de la clave EVM).
                             g: {
-                                r: localStorage.getItem(claveRaizG1(currentWallet.address)) || '',
+                                r: cwSecretoLeer(claveRaizG1(currentWallet.address)) || '',
                                 c: localStorage.getItem(claveCuentaG1(currentWallet.address)) || '',
                                 d: localStorage.getItem(claveCandidatasG1(currentWallet.address)) || '',
                             },
@@ -23910,10 +24018,10 @@
                             <button type="button" id="cwTrDejar" class="${CW_BTN_TENUE}">${escHtml(t('traspaso_dejar'))}</button>`);
                         m.querySelector('#cwTrDejar').onclick = () => m.remove();
                         m.querySelector('#cwTrBorrar').onclick = () => {
-                            localStorage.removeItem(WALLET_STORAGE_KEY);
-                            localStorage.removeItem(WALLET_MNEMONIC_KEY);
+                            cwSecretoBorrar(WALLET_STORAGE_KEY);
+                            cwSecretoBorrar(WALLET_MNEMONIC_KEY);
                             localStorage.removeItem(WALLET_BACKUP_DONE_KEY);
-                            localStorage.removeItem(claveRaizG1(currentWallet.address));   // la llave Ğ1 también es secreta
+                            cwSecretoBorrar(claveRaizG1(currentWallet.address));   // la llave Ğ1 también es secreta
                             showToast(escHtml(t('traspaso_borrada')), 'success', 4000);
                             setTimeout(() => location.reload(), 1500);
                         };
@@ -23947,10 +24055,10 @@
                     showToast(escHtml(t(misma ? 'traspaso_ya_esta' : 'traspaso_otra')), misma ? 'info' : 'error', 12000);
                     return;
                 }
-                localStorage.setItem(WALLET_STORAGE_KEY, datos.k);
+                cwSecretoGuardar(WALLET_STORAGE_KEY, datos.k);
                 // Con el respaldo confirmado, la frase no se guarda en la app (ver
                 // olvidarFraseTrasRespaldo); la llave Ğ1 viaja aparte, en datos.g.
-                if (datos.m && !datos.b) localStorage.setItem(WALLET_MNEMONIC_KEY, datos.m); else localStorage.removeItem(WALLET_MNEMONIC_KEY);
+                if (datos.m && !datos.b) cwSecretoGuardar(WALLET_MNEMONIC_KEY, datos.m); else cwSecretoBorrar(WALLET_MNEMONIC_KEY);
                 if (datos.o) localStorage.setItem(WALLET_ORIGIN_KEY, datos.o);
                 if (datos.b) localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
                 if (datos.l) localStorage.setItem(LANGUAGE_STORAGE_KEY, datos.l);
@@ -23959,7 +24067,7 @@
                 if (datos.s) localStorage.setItem(SELECTED_NETWORK_KEY, datos.s);
                 if (datos.g && typeof datos.g === 'object') {
                     const a = String(datos.a);
-                    if (/^[0-9a-fA-F]{64}$/.test(String(datos.g.r || '').replace(/^0x/, ''))) localStorage.setItem(claveRaizG1(a), datos.g.r);
+                    if (/^[0-9a-fA-F]{64}$/.test(String(datos.g.r || '').replace(/^0x/, ''))) cwSecretoGuardar(claveRaizG1(a), datos.g.r);
                     for (const [campo, clave] of [['c', claveCuentaG1(a)], ['d', claveCandidatasG1(a)]]) {
                         if (datos.g[campo]) { try { JSON.parse(datos.g[campo]); localStorage.setItem(clave, datos.g[campo]); } catch (_) { } }
                     }
@@ -23984,7 +24092,36 @@
                     currentTokenIndex = parseInt(savedNetworkIndex, 10);
                 }
 
-                const savedPrivateKey = localStorage.getItem(WALLET_STORAGE_KEY);
+                // Abrir la bóveda ANTES de mirar si hay billetera: una clave cifrada que no se pudo
+                // abrir NO es "no hay billetera" (eso ofrecería crear otra encima).
+                const fallasBoveda = await cwBovedaAbrir();
+                const fallaClave = fallasBoveda[WALLET_STORAGE_KEY];
+                if (fallaClave) {
+                    document.getElementById('initLoader').classList.add('hidden');
+                    if (fallaClave === 'SIN_LLAVE' || fallaClave === 'INVALIDO') {
+                        // La llave del chip ya no está (o el dato se dañó): lo cifrado no se puede abrir
+                        // nunca más. Se guarda aparte por las dudas y se ofrece restaurar con las palabras.
+                        const cifrada = localStorage.getItem(WALLET_STORAGE_KEY);
+                        try { localStorage.setItem(WALLET_STORAGE_KEY + '-sin-abrir-' + Date.now(), cifrada); } catch (_) { }
+                        cwSecretoBorrar(WALLET_STORAGE_KEY);
+                        statusEl.textContent = t('boveda_sin_llave');
+                        showToast(escHtml(t('boveda_sin_llave')), 'error', 20000);
+                        document.getElementById('initActions').classList.remove('hidden');
+                        resetUI();
+                    } else {
+                        // Falla pasajera: la billetera sigue guardada. Reintentar, nunca crear otra.
+                        statusEl.textContent = t('boveda_error');
+                        const reintentar = document.createElement('button');
+                        reintentar.type = 'button';
+                        reintentar.className = 'mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm text-white';
+                        reintentar.textContent = t('recargar_app');
+                        reintentar.onclick = () => location.reload();
+                        statusEl.insertAdjacentElement('afterend', reintentar);
+                    }
+                    return;
+                }
+
+                const savedPrivateKey = cwSecretoLeer(WALLET_STORAGE_KEY);
                 if (savedPrivateKey) {
                     // La clave guardada NO se borra por un error al arrancar. Antes cualquier
                     // excepción de initializeWalletAndXmtp o de handleUrlParameters (que abre el
@@ -23997,15 +24134,15 @@
                     try { savedWallet = new ethers.Wallet(savedPrivateKey); }
                     catch (e) {
                         console.error('[init] La clave guardada no se puede leer:', e?.stack || e);
-                        try { localStorage.setItem(WALLET_STORAGE_KEY + '-rescate-' + Date.now(), savedPrivateKey); } catch (_) { }
-                        localStorage.removeItem(WALLET_STORAGE_KEY);
+                        try { cwSecretoGuardar(WALLET_STORAGE_KEY + '-rescate-' + Date.now(), savedPrivateKey); } catch (_) { }
+                        cwSecretoBorrar(WALLET_STORAGE_KEY);
                         statusEl.textContent = "No se pudo leer la billetera guardada. Crea o restaura una.";
                         showToast('No se pudo leer la billetera guardada (quedó una copia de rescate). Crea o restaura una.', 'error', 12000);
                         resetUI();
                     }
                     if (savedWallet) {
                         statusEl.textContent = "Cargando billetera guardada...";
-                        try { await initializeWalletAndXmtp(savedWallet, false); }
+                        try { await initializeWalletAndXmtp(savedWallet, false); cwBovedaAvisarSinBloqueo(); }
                         catch (e) {
                             console.error('[init] Falló el arranque con la billetera guardada:', e?.stack || e);
                             statusEl.textContent = 'Hubo un problema al abrir la billetera: ' + String(e?.message || e).slice(0, 160);
@@ -24577,6 +24714,9 @@
                     "pin_preview": "📌 Fijó un mensaje",
                     "pin_preview_quito": "📌 Desfijó un mensaje",
                     "arranque_fallo": "Hubo un problema al abrir la billetera ({err}). Tu billetera sigue guardada: recargá la página.",
+                    "boveda_sin_bloqueo": "Tu teléfono no tiene bloqueo de pantalla: cualquiera que lo agarre puede usar tu billetera. Poné un PIN, patrón o huella en los Ajustes del teléfono.",
+                    "boveda_sin_llave": "No se pudo abrir la billetera guardada en este teléfono (la llave de seguridad del teléfono ya no está). Restaurala con tus 12 palabras.",
+                    "boveda_error": "No se pudo abrir la billetera guardada. Sigue guardada: tocá Recargar para reintentar.",
                     "xmtp_no_arranco": "Chat no disponible: {err}",
                     "xmtp_reintentando": "Reintentando conectar el chat…",
                     "chat_no_listo": "El chat no pudo arrancar.",
@@ -25332,6 +25472,9 @@
                     "pin_preview": "📌 Pinned a message",
                     "pin_preview_quito": "📌 Unpinned a message",
                     "arranque_fallo": "There was a problem opening the wallet ({err}). Your wallet is still saved: reload the page.",
+                    "boveda_sin_bloqueo": "Your phone has no screen lock: anyone who picks it up can use your wallet. Set a PIN, pattern or fingerprint in your phone's Settings.",
+                    "boveda_sin_llave": "The wallet saved on this phone could not be opened (the phone's security key is gone). Restore it with your 12 words.",
+                    "boveda_error": "The saved wallet could not be opened. It is still saved: tap Reload to try again.",
                     "xmtp_no_arranco": "Chat unavailable: {err}",
                     "xmtp_reintentando": "Retrying the chat connection…",
                     "chat_no_listo": "The chat could not start.",
@@ -26087,6 +26230,9 @@
                     "pin_preview": "📌 A épinglé un message",
                     "pin_preview_quito": "📌 A désépinglé un message",
                     "arranque_fallo": "Un problème est survenu à l'ouverture du portefeuille ({err}). Ton portefeuille est toujours enregistré : recharge la page.",
+                    "boveda_sin_bloqueo": "Ton téléphone n'a pas de verrouillage d'écran : n'importe qui peut utiliser ton portefeuille en le prenant. Mets un code, un schéma ou une empreinte dans les Réglages du téléphone.",
+                    "boveda_sin_llave": "Le portefeuille enregistré sur ce téléphone n'a pas pu être ouvert (la clé de sécurité du téléphone n'existe plus). Restaure-le avec tes 12 mots.",
+                    "boveda_error": "Le portefeuille enregistré n'a pas pu être ouvert. Il est toujours enregistré : touche Recharger pour réessayer.",
                     "xmtp_no_arranco": "Discussion indisponible : {err}",
                     "xmtp_reintentando": "Nouvelle tentative de connexion…",
                     "chat_no_listo": "La discussion n'a pas pu démarrer.",
