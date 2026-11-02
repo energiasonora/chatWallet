@@ -10,7 +10,8 @@
 //   5. Si la llave del chip ya no está, se guarda aparte lo cifrado y se ofrece restaurar.
 //   6. Sin bloqueo de pantalla aparece el aviso.
 //   7. Una wallet creada por invitación nace cifrada.
-//   8. En la web (sin plugin) todo sigue como antes, en claro.
+//   8. En la web cifra con WebCrypto (llave no exportable en IndexedDB) SOLO con el respaldo
+//      hecho; si el navegador borra IndexedDB pide restaurar; dos ventanas no pisan la llave.
 // XMTP se deja caído a propósito: no hace falta para nada de esto y así no se registran
 // instalaciones de prueba en la red.
 //
@@ -210,13 +211,54 @@ try {
     await B.rpc('Page.navigate', { url: BASE });
     ok((await B.listo(`currentWallet && currentWallet.privateKey`, 60)) === pk7, 'y abre la misma al recargar');
 
-    // ── 8: web sin plugin, como siempre ──
-    console.log('\n── web (sin plugin) ──');
-    await B.ev(`localStorage.clear(); sessionStorage.clear(); localStorage.setItem('xmtp-chat-wallet', ${JSON.stringify(PK)}); true`);
+    // ── 8: web (WebCrypto + IndexedDB) ──
+    console.log('\n── web sin respaldo hecho: queda en claro ──');
+    await B.ev(`localStorage.clear(); sessionStorage.clear(); indexedDB.deleteDatabase('cw-boveda');
+        localStorage.setItem('xmtp-chat-wallet', ${JSON.stringify(PK)}); true`);
     await B.rpc('Page.navigate', { url: BASE });
     ok((await B.listo(`currentWallet && currentWallet.address`, 60)) === DIR, 'abre la wallet');
     await sleep(1500);
-    ok((await B.ev(`localStorage.getItem('xmtp-chat-wallet')`)) === PK, 'y la deja en claro como antes (etapa 2 pendiente)');
+    ok((await B.ev(`localStorage.getItem('xmtp-chat-wallet')`)) === PK, 'sin las palabras anotadas NO cifra (perder IndexedDB sería perder la plata)');
+
+    console.log('\n── web: al marcar el respaldo hecho, cifra ──');
+    await B.ev(`marcarBackupHecho(); true`);
+    const c8 = await B.listo(`(localStorage.getItem('xmtp-chat-wallet') || '').startsWith('cwk1:')`, 15);
+    ok(!!c8, 'la clave quedó cifrada en disco');
+    ok((await B.ev(fugas)).length === 0, 'ningún secreto en claro en localStorage');
+    ok((await B.ev(`new Promise(r => { const q = indexedDB.open('cw-boveda'); q.onsuccess = () => { const g = q.result.transaction('llaves').objectStore('llaves').get('v1'); g.onsuccess = () => r(g.result && g.result.extractable === false && g.result.algorithm.name); }; })`)) === 'AES-GCM',
+        'la llave está en IndexedDB y NO es exportable');
+    ok((await B.ev(`crypto.subtle.exportKey('raw', cwBovedaWebLlaveMem).then(() => 'exportó', e => e.name)`)) === 'InvalidAccessError', 'ni la propia página puede leer sus bytes');
+
+    console.log('\n── web: recargar abre desde lo cifrado ──');
+    await B.rpc('Page.navigate', { url: BASE });
+    ok((await B.listo(`currentWallet && currentWallet.address`, 60)) === DIR, 'misma wallet');
+    ok((await B.ev(`(localStorage.getItem('xmtp-chat-wallet') || '').startsWith('cwk1:')`)), 'sigue cifrada');
+
+    console.log('\n── web: wallet restaurada con la clave: nace cifrada ──');
+    await B.ev(`localStorage.clear(); true`);
+    await B.rpc('Page.navigate', { url: BASE });
+    await B.listo(`typeof renderContacts === 'function'`);
+    await B.ev(`cwSecretoGuardar(WALLET_STORAGE_KEY, ${JSON.stringify(PK)}); localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1'); cwBovedaCifrarPendientes()`);
+    ok((await B.ev(`(localStorage.getItem('xmtp-chat-wallet') || '').startsWith('cwk1:')`)), 'cifrada al marcar el respaldo');
+
+    console.log('\n── web: el navegador borró IndexedDB ──');
+    await B.ev(`new Promise(r => { const q = indexedDB.deleteDatabase('cw-boveda'); q.onsuccess = q.onerror = q.onblocked = () => r(true); })`);
+    await B.rpc('Page.navigate', { url: BASE });
+    await B.listo(`typeof renderContacts === 'function'`);
+    const msg8 = await B.listo(`/12 palabras/.test(${estado}) && ${estado}`, 30);
+    ok(!!msg8, 'pide restaurar con las 12 palabras', JSON.stringify(msg8));
+
+    console.log('\n── web: dos ventanas crean la llave a la vez ──');
+    await B.ev(`new Promise(r => { const q = indexedDB.deleteDatabase('cw-boveda'); q.onsuccess = q.onerror = q.onblocked = () => r(true); })`);
+    const misma = await B.ev(`(async () => {
+        cwBovedaWebLlaveMem = null;
+        const ks = await Promise.all([1,2,3,4,5].map(() => cwBovedaWebLlave(true)));
+        const iv = new Uint8Array(12);
+        const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, ks[0], new Uint8Array([1,2,3]));
+        for (const k of ks) await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, k, ct);
+        return true;
+    })()`);
+    ok(misma === true, 'todas terminan usando la misma llave');
 
     const exc = B.excepciones.filter(e => !/XMTP caído a propósito/.test(e || ''));
     ok(exc.length === 0, 'sin excepciones sin atrapar', JSON.stringify(exc.slice(0, 3)));

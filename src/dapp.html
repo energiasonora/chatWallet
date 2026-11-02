@@ -5512,7 +5512,10 @@
             // En el APK, la clave privada, la frase y la llave Ğ1 se guardan cifradas con una llave
             // del Android Keystore (plugin nativo Boveda) que no sale del chip: lo guardado no sirve
             // fuera de este teléfono. No se pide huella ni PIN: el candado es el bloqueo de pantalla.
-            // En la web (todavía) se guardan como antes. Los secretos se abren UNA vez al arrancar
+            // En la web, con una llave AES de WebCrypto NO exportable guardada en IndexedDB (ningún
+            // script puede leer sus bytes). En la web se cifra SOLO con el respaldo hecho: si el
+            // navegador borrara IndexedDB y no localStorage, lo cifrado no se podría abrir nunca más,
+            // y sin las palabras anotadas eso es perder la plata. Los secretos se abren UNA vez al arrancar
             // (cwBovedaAbrir) y desde ahí se leen de memoria: TODA lectura o escritura de estas
             // claves pasa por cwSecretoLeer / cwSecretoGuardar / cwSecretoBorrar.
             const CW_BOVEDA_PREFIJO = 'cwk1:';
@@ -5526,6 +5529,91 @@
             function cwBovedaNativa() {
                 const cap = window.Capacitor;
                 return (cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.Boveda) || null;
+            }
+            // Bóveda web: misma interfaz que el plugin nativo (cifrar/descifrar/estado, errores con .code).
+            let cwBovedaWebLlaveMem = null;
+            function cwBovedaWebIdb() {
+                return new Promise((res, rej) => {
+                    const r = indexedDB.open('cw-boveda', 1);
+                    r.onupgradeneeded = () => r.result.createObjectStore('llaves');
+                    r.onsuccess = () => res(r.result);
+                    r.onerror = () => rej(r.error);
+                    r.onblocked = () => rej(new Error('IndexedDB bloqueada'));
+                });
+            }
+            async function cwBovedaWebLlave(crear) {
+                if (cwBovedaWebLlaveMem) return cwBovedaWebLlaveMem;
+                const db = await cwBovedaWebIdb();
+                try {
+                    const leer = () => new Promise((res, rej) => {
+                        const q = db.transaction('llaves', 'readonly').objectStore('llaves').get('v1');
+                        q.onsuccess = () => res(q.result || null);
+                        q.onerror = () => rej(q.error);
+                    });
+                    let k = await leer();
+                    if (!k && crear) {
+                        const nueva = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+                        // Dos ventanas pueden llegar acá a la vez: se agrega solo si no hay ninguna (en la
+                        // misma transacción) y se usa la que quedó. Si no, una pisaría la llave de la otra
+                        // y lo que ésta cifró ya no se abriría.
+                        await new Promise((res, rej) => {
+                            const tx = db.transaction('llaves', 'readwrite');
+                            const st = tx.objectStore('llaves');
+                            const q = st.get('v1');
+                            q.onsuccess = () => { if (!q.result) st.add(nueva, 'v1'); };
+                            tx.oncomplete = res;
+                            tx.onerror = () => rej(tx.error);
+                            tx.onabort = () => rej(tx.error || new Error('transacción abortada'));
+                        });
+                        k = await leer();
+                    }
+                    if (k) cwBovedaWebLlaveMem = k;
+                    return k;
+                } finally { db.close(); }
+            }
+            function cwBovedaWebError(code, e) { const x = new Error((e && e.message) || code); x.code = code; return x; }
+            const cwBovedaWebObj = {
+                web: true,
+                async cifrar({ texto }) {
+                    let k;
+                    try { k = await cwBovedaWebLlave(true); } catch (e) { throw cwBovedaWebError('ERROR', e); }
+                    if (!k) throw cwBovedaWebError('ERROR');
+                    const iv = crypto.getRandomValues(new Uint8Array(12));
+                    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, new TextEncoder().encode(texto)));
+                    const todo = new Uint8Array(12 + ct.length);
+                    todo.set(iv); todo.set(ct, 12);
+                    let bin = ''; for (const b of todo) bin += String.fromCharCode(b);
+                    return { c: btoa(bin) };
+                },
+                async descifrar({ c }) {
+                    let k;
+                    try { k = await cwBovedaWebLlave(false); } catch (e) { throw cwBovedaWebError('ERROR', e); }
+                    if (!k) throw cwBovedaWebError('SIN_LLAVE');
+                    let todo;
+                    try { todo = Uint8Array.from(atob(c), ch => ch.charCodeAt(0)); } catch (e) { throw cwBovedaWebError('INVALIDO', e); }
+                    if (todo.length < 12 + 16) throw cwBovedaWebError('INVALIDO');
+                    try {
+                        const claro = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: todo.slice(0, 12) }, k, todo.slice(12));
+                        return { texto: new TextDecoder().decode(claro) };
+                    } catch (e) { throw cwBovedaWebError('SIN_LLAVE', e); }
+                },
+                async estado() { return { bloqueoPantalla: null, hardware: 'navegador' }; },
+            };
+            function cwBovedaWeb() {
+                return (window.crypto && crypto.subtle && window.indexedDB) ? cwBovedaWebObj : null;
+            }
+            function cwBoveda() { return cwBovedaNativa() || cwBovedaWeb(); }
+            // ¿Se puede cifrar ya? En el APK siempre; en la web, con el respaldo hecho (ver arriba).
+            function cwBovedaPuedeCifrar(B) {
+                return !!B && (!B.web || localStorage.getItem(WALLET_BACKUP_DONE_KEY) === '1');
+            }
+            // Al marcar el respaldo hecho en la web: cifrar lo que estaba esperando.
+            async function cwBovedaCifrarPendientes() {
+                const B = cwBoveda();
+                if (!cwBovedaPuedeCifrar(B)) return;
+                for (const [k, v] of [...cwSecretosClaros]) {
+                    if (localStorage.getItem(k) === v) await cwBovedaCifrarEnLugar(k, v);
+                }
             }
             function cwSecretoLeer(k) {
                 const crudo = localStorage.getItem(k);
@@ -5552,8 +5640,8 @@
                 localStorage.removeItem(k);
             }
             async function cwBovedaCifrarEnLugar(k, valor) {
-                const B = cwBovedaNativa();
-                if (!B) return;
+                const B = cwBoveda();
+                if (!cwBovedaPuedeCifrar(B)) return;
                 try {
                     const { c } = await B.cifrar({ texto: valor });
                     // Ida y vuelta antes de pisar el texto en claro: nunca guardar algo que no se pueda abrir.
@@ -5570,7 +5658,7 @@
             // Abre los secretos guardados y cifra los que estaban en claro (migración). Nunca borra
             // nada: si uno no se puede abrir, lo informa y queda como está.
             async function cwBovedaAbrir() {
-                const B = cwBovedaNativa();
+                const B = cwBoveda();
                 const claves = [];
                 for (let i = 0; i < localStorage.length; i++) {
                     const k = localStorage.key(i);
@@ -8367,6 +8455,7 @@
                     cwSecretoGuardar(WALLET_STORAGE_KEY, restoredWallet.privateKey);
                     // Quien restaura ya tiene su secreto a resguardo: no hace falta recordárselo.
                     localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
+                    cwBovedaCifrarPendientes();
                     restoreWalletModal.classList.add('hidden');
                     restoreWalletModal.classList.remove('flex');
                     statusEl.textContent = "Billetera restaurada. Conectando...";
@@ -22312,6 +22401,7 @@
                         cwSecretoGuardar(WALLET_STORAGE_KEY, restoredWallet.privateKey);
                         // Quien restaura ya tiene su secreto a resguardo: no hace falta recordárselo.
                         localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
+                        cwBovedaCifrarPendientes();
                         autoRestoreModal.classList.add('hidden');
                         autoRestoreModal.classList.remove('flex');
 
@@ -23619,6 +23709,7 @@
 
             function marcarBackupHecho() {
                 localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
+                cwBovedaCifrarPendientes();
                 updateBackupNagBanner();
                 updateBackupSettingsBtn();
                 doCloseBackupModal();
@@ -24060,7 +24151,7 @@
                 // olvidarFraseTrasRespaldo); la llave Ğ1 viaja aparte, en datos.g.
                 if (datos.m && !datos.b) cwSecretoGuardar(WALLET_MNEMONIC_KEY, datos.m); else cwSecretoBorrar(WALLET_MNEMONIC_KEY);
                 if (datos.o) localStorage.setItem(WALLET_ORIGIN_KEY, datos.o);
-                if (datos.b) localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1');
+                if (datos.b) { localStorage.setItem(WALLET_BACKUP_DONE_KEY, '1'); cwBovedaCifrarPendientes(); }
                 if (datos.l) localStorage.setItem(LANGUAGE_STORAGE_KEY, datos.l);
                 if (datos.c) localStorage.setItem(CW_MONEDA_KEY, datos.c);
                 if (datos.n) { try { JSON.parse(datos.n); localStorage.setItem(NETWORKS_STORAGE_KEY, datos.n); } catch (_) { } }

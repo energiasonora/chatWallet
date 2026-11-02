@@ -92,9 +92,12 @@ try {
     ok(await ev(`document.getElementById('backupWordsGrid').children.length`) === 0, 'las palabras no quedan en el DOM');
     const dirW = (await ev(`currentWallet.address`)).toLowerCase();
     ok(await ev(`localStorage.getItem('xmtp-chat-wallet-mnemonic')`) === null, 'la frase se BORRA del dispositivo al acertar');
-    ok(await ev(`localStorage.getItem('cw-g1-raiz-${dirW}')`) === raizHex(FRASE), 'antes de borrarla guarda la llave Ğ1 (raíz)');
+    // Desde la 3.98 la web cifra los secretos al quedar hecho el respaldo (bóveda): se lee lo que ve la app.
+    ok(await ev(`cwSecretoLeer('cw-g1-raiz-${dirW}')`) === raizHex(FRASE), 'antes de borrarla guarda la llave Ğ1 (raíz)');
+    ok(await ev(`new Promise(r => setTimeout(() => r((localStorage.getItem('cw-g1-raiz-${dirW}') || '').startsWith('cwk1:')), 1500))`), '…cifrada (respaldo hecho → bóveda)');
     ok((await ev(`JSON.parse(localStorage.getItem('cw-g1-candidatas-${dirW}') || '[]').length`)) === 31, 'y las 31 cuentas Ğ1 posibles');
-    ok(await ev(`localStorage.getItem('xmtp-chat-wallet')`) === PK, 'la clave privada sigue (la app la necesita)');
+    ok(await ev(`cwSecretoLeer('xmtp-chat-wallet')`) === PK, 'la clave privada sigue (la app la necesita)');
+    ok(await ev(`(localStorage.getItem('xmtp-chat-wallet') || '').startsWith('cwk1:')`), '…cifrada en disco');
     ok(await ev(`fraseDisponible()`) === null, 'tampoco queda disponible en esta sesión');
     ok(await ev(`document.getElementById('backupWalletSettingsBtn').textContent.trim()`) === 'Mostrar clave privada', 'Configuración ya solo ofrece "Mostrar clave privada"');
 
