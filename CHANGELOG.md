@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.97 — 2026-11-02
+
+- **En la app de Android, tu clave queda guardada bajo llave.** Hasta ahora la clave de tu billetera se guardaba tal cual dentro de los datos de la app. Ahora se guarda cifrada con una llave que vive en el chip de seguridad del teléfono y no se puede sacar de ahí: aunque alguien copiara los datos de ChatWallet, sin tu teléfono no le sirven de nada. Lo mismo vale para tu llave Ğ1 y para tus 12 palabras mientras no las hayas comprobado. No tenés que hacer nada ni se te pide PIN ni huella: al abrir esta versión, la app guarda todo bajo llave sola, y se usa igual que antes. El candado pasa a ser el bloqueo de pantalla de tu teléfono: si no tenés uno puesto, la app te avisa para que pongas un PIN, un patrón o tu huella en los Ajustes del teléfono. Si algún día la llave del teléfono se perdiera, la billetera se recupera como siempre, con tus 12 palabras.
+
 ## 3.96 — 2026-10-30
 
 - **La app ya no le avisa a Google ni a otros sitios cada vez que la abrís.** Los estilos, las letras y las librerías que dibujan y leen los QR venían de servidores ajenos (Google Fonts, Tailwind, unpkg, cdnjs, jsdelivr) cada vez que abrías ChatWallet, la página principal o la del libro. Así Google y esos sitios se enteraban de tu IP en cada visita, y además podían meter código en la misma página donde están tus llaves si los comprometían. Ahora todo viaja dentro de la app. Además abre más rápido y, en Android, se ve igual aunque arranque sin conexión, que es justamente lo que hace falta para usarla como billetera fría. Por fuera se ve igual que antes.
