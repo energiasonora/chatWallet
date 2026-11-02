@@ -97,7 +97,15 @@ for F in _redirects _headers .well-known/assetlinks.json; do
   [ -f "public/$F" ] || { echo "✗ Falta public/$F — ¿se movió src/static?"; exit 1; }
 done
 echo "✦ Deploy a Cloudflare con Node $(node -v)…"
-npx wrangler deploy
+# chatwallet.org vive en la cuenta de xunorus@gmail.com, pero el login de wrangler puede estar en
+# otra (energiasonora, para otros proyectos). Con CF_WORKERS_TOKEN en .cloudflare.env, el deploy
+# usa ese token SOLO para este comando y no depende de quién esté logueado.
+[ -f .cloudflare.env ] && . ./.cloudflare.env
+if [ -n "${CF_WORKERS_TOKEN:-}" ]; then
+  CLOUDFLARE_API_TOKEN="$CF_WORKERS_TOKEN" CLOUDFLARE_ACCOUNT_ID="${CF_ACCOUNT_ID:-b40dda71c4e4812d9dd427e06cff7de8}" npx wrangler deploy
+else
+  npx wrangler deploy
+fi
 
 # ── 4a. Espejo en el nodo IPFS soberano ──
 # Vía alternativa si Firebase/Fastly falla (ver publish-ipfs.sh). Nunca rompe el deploy.
