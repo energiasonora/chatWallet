@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.98 — 2026-11-02
+
+- **En la web también, tu clave queda guardada bajo llave.** Si usás ChatWallet en el navegador (o la instalaste como app desde el navegador), la clave de tu billetera y tu llave Ğ1 ahora se guardan cifradas con una llave que el navegador guarda aparte y que ninguna página puede leer, ni siquiera ChatWallet: solo puede usarla para abrir lo tuyo. Así, un programa que revise los datos del navegador buscando claves de billeteras ya no la encuentra escrita tal cual. Esto se activa cuando ya anotaste tus 12 palabras (o si restauraste tu billetera): si el navegador llegara a borrar esa llave, la recuperás con tus palabras. Mientras no las hayas anotado, todo queda como antes, para que nunca pierdas tu billetera por eso. No cambia nada en cómo usás la app ni se pide PIN.
+
 ## 3.97 — 2026-11-02
 
 - **En la app de Android, tu clave queda guardada bajo llave.** Hasta ahora la clave de tu billetera se guardaba tal cual dentro de los datos de la app. Ahora se guarda cifrada con una llave que vive en el chip de seguridad del teléfono y no se puede sacar de ahí: aunque alguien copiara los datos de ChatWallet, sin tu teléfono no le sirven de nada. Lo mismo vale para tu llave Ğ1 y para tus 12 palabras mientras no las hayas comprobado. No tenés que hacer nada ni se te pide PIN ni huella: al abrir esta versión, la app guarda todo bajo llave sola, y se usa igual que antes. El candado pasa a ser el bloqueo de pantalla de tu teléfono: si no tenés uno puesto, la app te avisa para que pongas un PIN, un patrón o tu huella en los Ajustes del teléfono. Si algún día la llave del teléfono se perdiera, la billetera se recupera como siempre, con tus 12 palabras.
