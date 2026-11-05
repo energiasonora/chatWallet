@@ -443,6 +443,16 @@ try {
     ok(await listo(`JSON.parse(localStorage.getItem('chatwallet-user-profile') || '{}').alias === 'pepe'`, 10), 'y se guarda igual');
     await ev(`localStorage.removeItem('chatwallet-user-profile'); document.getElementById('userDidWindow')?.classList.add('hidden')`);
 
+    // El botón de la billetera lleva a tu DID; ahí está el paso, que abre la ventana.
+    const pasoDesdeDid = async () => {
+        await ev(`document.getElementById('g1WalletPasoBtn').click()`);
+        ok(await listo(`document.getElementById('userInfoCard').style.display === 'block' && !document.getElementById('userCardG1Paso').classList.contains('hidden')`, 15),
+            'la billetera lleva a tu DID, con el paso a la vista', await texto('#userCardG1Paso'));
+        ok(await texto('#userCardG1Paso') === await texto('#g1WalletPasoBtn'), 'el mismo paso en los dos lados');
+        await ev(`document.getElementById('userCardG1Paso').click()`);
+        ok(await listo(`!!document.getElementById('g1IdentidadModal') && document.getElementById('userInfoCard').style.display === 'none'`, 10), 'y desde tu DID se abre la ventana (la tarjeta se cierra)');
+    };
+
     // ── G) identidad: de "sin confirmar" a miembro ─────────────────────────────────
     // Caso real (4/11/2026): Shalom creó la identidad del usuario y lo certificó; Ğecko
     // mostraba "Identité non confirmée" y ChatWallet no tenía cómo confirmarla.
@@ -458,7 +468,7 @@ try {
     ok(await texto('#g1WalletPasoBtn') === 'Confirmá tu identidad Ğ1 · quedan 55 días', 'con el plazo', await texto('#g1WalletPasoBtn'));
     ok(await texto('#g1WalletIdentidad') === 'Identidad Ğ1 sin confirmar', 'y no el nombre de relleno del indexador', await texto('#g1WalletIdentidad'));
     await ev(`localStorage.setItem('chatwallet-user-profile', JSON.stringify({ alias: 'Xúnorus Él' }))`);
-    await ev(`document.getElementById('g1WalletPasoBtn').click()`);
+    await pasoDesdeDid();
     ok(await listo(`document.querySelector('#g1IdentidadModal [data-g1="nombre"]')?.value === 'Xunorus_El'`, 10), 'sugiere el seudónimo a partir de tu alias, sin tildes ni espacios',
         await ev(`document.querySelector('#g1IdentidadModal [data-g1="nombre"]')?.value`));
     await ev(`localStorage.removeItem('chatwallet-user-profile')`);
@@ -490,7 +500,7 @@ try {
     ok(await listo(`document.getElementById('g1WalletPasoBtn').textContent === '1 de 5 certificaciones · ver'`, 10), 'la billetera pasa a mostrar las certificaciones', await texto('#g1WalletPasoBtn'));
 
     console.log('\n── G) juntar certificaciones y pedir la membresía ──');
-    await ev(`document.getElementById('g1WalletPasoBtn').click()`);
+    await pasoDesdeDid();
     ok(await listo(`/1 de 5/.test(document.querySelector('#g1IdentidadModal [data-g1="texto"]')?.textContent || '')`, 10), 'cuántas tiene y cuántas faltan', await idm('texto'));
     ok(await idm('cuenta') === MIEMBRO, 'muestra la cuenta para pasársela a quien certifique');
     ok(/✓ Shalom/.test(await idm('certs')), 'y quién ya lo certificó', await idm('certs'));
@@ -498,7 +508,7 @@ try {
     await ev(`document.querySelector('#g1IdentidadModal [data-g1="cancelar"]').click()`);
     await ev(`window.__g1idty = { ...window.__g1idty, certificaciones: 5 }; g1Lectura = null; pintarRedG1(true)`);
     ok(await listo(`document.getElementById('g1WalletPasoBtn').textContent === 'Ya tenés 5 certificaciones · pedí la membresía'`, 10), 'con 5, ofrece pedir la membresía', await texto('#g1WalletPasoBtn'));
-    await ev(`document.getElementById('g1WalletPasoBtn').click()`);
+    await pasoDesdeDid();
     ok(await listo(`/10,00 Ğ1/.test(document.querySelector('#g1IdentidadModal [data-g1="texto"]')?.textContent || '')`, 10), 'avisa que reserva 10 Ğ1 y que se pierden si no pasa', await idm('texto'));
     await idSeguir();
     ok(await listo(`/Pedido enviado/.test(document.querySelector('#g1IdentidadModal [data-g1="estado"]').textContent)`, 10), 'pide la membresía', await idm('estado'));

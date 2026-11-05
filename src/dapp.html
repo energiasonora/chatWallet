@@ -973,7 +973,8 @@
             color: #a16207;
         }
 
-        #g1WalletPasoBtn {
+        #g1WalletPasoBtn,
+        #userCardG1Paso {
             margin: .35rem auto 0;
             padding: .3rem .75rem;
             border-radius: 9999px;
@@ -984,7 +985,17 @@
             border: 1px solid rgba(234, 179, 8, .35);
         }
 
-        body.theme-light #g1WalletPasoBtn {
+        #userCardG1Paso {
+            display: block;
+            margin: -.6rem auto 1rem;
+        }
+
+        #userCardG1Paso.hidden {
+            display: none;
+        }
+
+        body.theme-light #g1WalletPasoBtn,
+        body.theme-light #userCardG1Paso {
             color: #a16207;
             background: rgba(234, 179, 8, .12);
         }
@@ -2402,6 +2413,8 @@
         <!-- Ser vivo · Ğ1: sólo aparece si la 0x tiene un vínculo vigente en la cadena Ğ1
              (norma ius-naturalis/vinculo-g1/1). Se lee cada vez; no se guarda en el perfil. -->
         <div id="userCardG1" class="hidden"></div>
+        <!-- Solo en TU tarjeta: el paso que falta para ser miembro Ğ1 (confirmar, certificaciones, membresía). -->
+        <button type="button" id="userCardG1Paso" class="hidden"></button>
         <!-- Links del DID del contacto (poblados desde el perfil soberano recibido por XMTP) -->
         <div id="userCardLinks"></div>
     </div>
@@ -14626,7 +14639,9 @@
                 const G1 = await window.cwCargarG1();
                 const vinculo = await G1.vinculoDeEvm(address, window.ethers);
                 // Sin vínculo público, el privado que llegó en su perfil firmado (ya comprobado).
-                const g1 = (vinculo && vinculo.g1) || contacts.find(c => c.address && c.address.toLowerCase() === k)?.g1 || null;
+                const propia = currentWallet && currentWallet.address.toLowerCase() === k ? cuentaG1Guardada() : null;
+                const g1 = (vinculo && vinculo.g1) || (propia && propia.g1)
+                    || contacts.find(c => c.address && c.address.toLowerCase() === k)?.g1 || null;
                 const r = g1 ? { g1, identidad: await G1.identidad(g1) } : null;
                 g1Cache.set(k, { t: Date.now(), r });
                 return r;
@@ -14646,6 +14661,8 @@
                 if (!r || card?.style.display !== 'block'
                     || document.getElementById('userCardAddress')?.textContent.toLowerCase() !== address.toLowerCase()) return;
                 const id = r.identidad, miembro = !!(id && id.miembro);
+                // Sin confirmar, el "nombre" del indexador es un relleno ("0003405735-518ff-000001").
+                const sinConfirmar = !!(id && id.estado === 'Unconfirmed');
                 const linea = (clase, texto) => {
                     const el = document.createElement('span');
                     el.className = clase;
@@ -14653,7 +14670,8 @@
                     box.appendChild(el);
                 };
                 linea('g1-sello', miembro ? '✦ ' + t('g1_card_member') : t('g1_card_linked'));
-                if (id && id.nombre) linea('g1-nombre', id.nombre);
+                if (sinConfirmar) linea('g1-det', t('g1_idty_unconfirmed_line'));
+                else if (id && id.nombre) linea('g1-nombre', id.nombre);
                 linea('g1-cuenta font-mono', `${t('g1_card_account')}: ${r.g1}`);
                 if (miembro) {
                     const det = [t('g1_card_certs', { n: id.certificaciones })];
@@ -16159,7 +16177,14 @@
                 });
             }
             document.getElementById('xmrPalabrasBtn')?.addEventListener('click', (e) => { e.stopPropagation(); abrirPalabrasXmr(); });
-            document.getElementById('g1WalletPasoBtn')?.addEventListener('click', (e) => { e.stopPropagation(); abrirIdentidadG1(); });
+            // En la billetera el botón solo avisa y lleva a tu DID, donde vive la identidad.
+            document.getElementById('g1WalletPasoBtn')?.addEventListener('click', (e) => { e.stopPropagation(); showOwnCard(); });
+            // La tarjeta va por encima de todo (z-index 100): se cierra para que se vea la ventana.
+            document.getElementById('userCardG1Paso')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.getElementById('userInfoCard').style.display = 'none';
+                abrirIdentidadG1();
+            });
             document.getElementById('xmrAjustesBtn')?.addEventListener('click', (e) => { e.stopPropagation(); abrirAjustesXmr(); });
 
             // ── Mandar Monero ──
@@ -16512,7 +16537,30 @@
                 pintarLinks(document.getElementById('userCardLinks'), me.links);
                 document.getElementById('userCardEditBtn')?.classList.remove('hidden');
                 card.style.display = 'block';
+                g1Cache.delete(currentWallet.address.toLowerCase());   // lo tuyo, siempre al día
                 pintarSerVivoG1(currentWallet.address);
+                pintarMiPasoG1();
+            }
+
+            // El paso que falta para ser miembro Ğ1, en tu tarjeta del DID: la identidad es tuya,
+            // no de la billetera. El estado sale de la cadena (el indexador tarda en verlo).
+            async function pintarMiPasoG1() {
+                const btn = document.getElementById('userCardG1Paso');
+                if (!btn) return;
+                btn.classList.add('hidden');
+                const c = currentWallet && cuentaG1Guardada();
+                if (!c || isOffline || typeof window.cwCargarCadenaG1 !== 'function') return;
+                const dir = currentWallet.address.toLowerCase();
+                try {
+                    const C = await window.cwCargarCadenaG1();
+                    const ic = await withTimeout(C.identidad(c.g1), 20000, 'identidad Ğ1');
+                    // La tarjeta pudo cerrarse o pasar a otra persona mientras se consultaba.
+                    if (document.getElementById('userInfoCard')?.style.display !== 'block'
+                        || document.getElementById('userCardAddress')?.textContent.toLowerCase() !== dir) return;
+                    const txt = textoPasoIdentidadG1(ic);
+                    btn.textContent = txt || '';
+                    btn.classList.toggle('hidden', !txt);
+                } catch (e) { console.warn('[g1] paso de la identidad:', e?.message || e); }
             }
 
             function updateChainName() {

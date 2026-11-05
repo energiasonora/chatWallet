@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Tu identidad Ğ1 ahora está en tu DID.** Confirmar el seudónimo, ver tus certificaciones y pedir la membresía se hace desde tu tarjeta del DID, que es donde está tu identidad. Ahí también ves tu cuenta Ğ1 y si sos miembro. En la billetera Ğ1 sigue el aviso del paso que te falta, y al tocarlo te lleva a tu DID.
+
 ## 3.99 — 2026-11-05
 
 - **Ya podés confirmar tu identidad Ğ1 desde ChatWallet.** Si un miembro de la Ğ1 creó tu identidad, en la red Ğ1 de la billetera aparece un botón con el paso que te falta y los días que te quedan. Primero elegís tu seudónimo: la app te avisa si no es válido o si ya lo tiene otra persona, y antes de firmar te recuerda que es público y no se puede cambiar. Después ves cuántas de las 5 certificaciones tenés, quiénes te certificaron y tu cuenta para pasársela a quien te vaya a certificar. Con las 5, pedís la membresía desde el mismo lugar (se reservan 10 Ğ1 mientras la red lo evalúa).
