@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.100 — 2026-11-05
+
 - **Tu identidad Ğ1 ahora está en tu DID.** Confirmar el seudónimo, ver tus certificaciones y pedir la membresía se hace desde tu tarjeta del DID, que es donde está tu identidad. Ahí también ves tu cuenta Ğ1 y si sos miembro. En la billetera Ğ1 sigue el aviso del paso que te falta, y al tocarlo te lleva a tu DID.
 
 ## 3.99 — 2026-11-05
