@@ -4856,7 +4856,6 @@
                         <label for="userDidAlias" class="block text-sm text-gray-400 mb-1">Alias Name</label>
                         <input type="text" id="userDidAlias" placeholder="Your Alias"
                             class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
-                        <p id="usernameStatus" class="text-xs mt-1 min-h-[1rem] font-medium break-words"></p>
                     </div>
                 </div>
 
@@ -4865,7 +4864,7 @@
                         line)</label>
                     <textarea id="userDidLinks" rows="3"
                         class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="https://my-website.com\nhttps://twitter.com/my-handle"></textarea>
+                        placeholder="https://my-website.com&#10;https://twitter.com/my-handle"></textarea>
                 </div>
 
                 <!-- Sección de Documentos -->
@@ -4896,9 +4895,6 @@
                 <!-- Fin Sección de Documentos -->
 
                 <div class="flex justify-end space-x-3 pt-2">
-                    <button id="reserveDidButton"
-                        class="hidden px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 flex items-center space-x-2"><span>Reservar
-                            Alias</span></button>
                     <button id="saveUserDid"
                         class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700">Guardar</button>
                 </div>
@@ -27265,9 +27261,7 @@
             const saveUserDid = document.getElementById('saveUserDid');
             const avatarUpload = document.getElementById('avatarUpload');
             const userDidAliasInput = document.getElementById('userDidAlias');
-            const usernameStatusEl = document.getElementById('usernameStatus');
             const contactNameInput = document.getElementById('contactName');
-            const reserveDidButton = document.getElementById('reserveDidButton');
             const modeToggle = document.getElementById('mode-toggle');
             const contactNameStatusEl = document.getElementById('contactNameStatus');
 
@@ -27815,132 +27809,6 @@
                 document.getElementById('confirmColdTxBroadcastBtn').addEventListener('click', confirmColdTxBroadcast);
             })();
 
-            // Contract Configuration
-            // const CHATWALLET_DID_ADDRESS = "0x96Df83456f0B4d161C3E00278Ba33670c796523d";
-            // const CHATWALLET_DID_ABI = [
-            //     "function usernameToAddress(string memory) public view returns (address)"
-            // ];
-
-            let usernameCheckTimeout;
-
-            // --- Username Check for User DID Alias ---
-            userDidAliasInput.addEventListener('input', (e) => {
-                const username = e.target.value.trim().toLowerCase();
-                clearTimeout(usernameCheckTimeout);
-                usernameStatusEl.textContent = '';
-                usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem]'; // Reset classes
-
-                if (username.length < 3) {
-                    if (username.length > 0) {
-                        reserveDidButton.classList.add('hidden');
-                        usernameStatusEl.textContent = 'Debe tener al menos 3 caracteres.';
-                        usernameStatusEl.classList.add('text-gray-400');
-                    }
-                    return;
-                }
-                if (!/^[a-z0-9_]+$/.test(username)) {
-                    usernameStatusEl.textContent = 'Solo letras minúsculas, números y _';
-                    reserveDidButton.classList.add('hidden');
-                    usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-red-400';
-                    return;
-                }
-
-                usernameStatusEl.textContent = 'Verificando disponibilidad...';
-                usernameStatusEl.classList.add('text-yellow-400');
-
-                usernameCheckTimeout = setTimeout(async () => {
-                    await checkUsernameAvailability(username, usernameStatusEl);
-                }, 500); // Debounce 500ms
-            });
-
-            async function checkUsernameAvailability(username, statusElement) {
-                console.log('checkUsernameAvailability of:', username)
-                try {
-                    // const arbSepoliaRpc = "https://sepolia-rollup.arbitrum.io/rpc";
-
-                    const sepoliaRPCs = ["https://sepolia-rollup.arbitrum.io/rpc"];
-                    console.log('currentTokenIndex?:', currentTokenIndex)
-
-                    const checkProvider = new ethers.JsonRpcProvider(sepoliaRPCs[currentRpcIndex]);
-
-
-                    // const provider = new ethers.JsonRpcProvider(optionsList[0].API);
-                    // let signer = await new ethers.Wallet(chatETHPrivKey)
-                    // const connectedSigner = await signer.connect(provider);
-                    // const contract = new ethers.Contract(contractAddress, contractABI, connectedSigner);
-
-                    const contract = new ethers.Contract(generalOptions.CHATWALLET_DID_ADDRESS, CHATWALLET_DID_ABI, checkProvider);
-                    // const contract = new ethers.Contract(defaultNetworks[currentTokenIndex].CHATWALLET_DID_ADDRESS, defaultNetworks[currentTokenIndex].CHATWALLET_DID_ABI, checkProvider);
-                    didc = contract
-                    const address = await contract.usernameToAddress(username);
-
-                    console.log('available?:', ethers.getAddress(address))
-
-
-                    // ethers.getAddress("0x0000000000000000000000000000000000000000") === ethers.ZeroAddress
-
-                    if (ethers.getAddress(address) === ethers.ZeroAddress) {
-                        console.log('✅ Nombre disponible')
-                        reserveDidButton.classList.remove('hidden');
-                        statusElement.textContent = '✅ Nombre disponible';
-                        statusElement.className = 'text-xs mt-1 min-h-[1rem] text-green-400';
-                    } else {
-                        reserveDidButton.classList.add('hidden');
-                        console.log('❌ Nombre no disponible')
-
-                        statusElement.textContent = '❌ Nombre no disponible';
-                        statusElement.className = 'text-xs mt-1 min-h-[1rem] text-red-400';
-                    }
-                } catch (error) {
-                    console.error("Error checking username:", error);
-                    statusElement.textContent = 'Error al verificar.';
-                    statusElement.className = 'text-xs mt-1 min-h-[1rem] text-red-400';
-                }
-            }
-
-            async function handleReserveDid() {
-                const username = userDidAliasInput.value.trim().toLowerCase();
-                if (!username) {
-                    showToast("Por favor, introduce un alias.", 'error');
-                    return;
-                }
-
-                const button = document.getElementById('reserveDidButton');
-                button.disabled = true;
-                button.innerHTML = `<span>Reservando...</span>`;
-
-                try {
-                    const didProvider = new ethers.JsonRpcProvider(sepoliaRPCs[currentRpcIndex]);
-                    const didSigner = currentWallet.connect(didProvider);
-                    const contract = new ethers.Contract(generalOptions.CHATWALLET_DID_ADDRESS, CHATWALLET_DID_ABI, didSigner);
-
-                    // Obtener el precio de registro del contrato
-                    const registrationPrice = await contract.nativePrice();
-
-                    // Preparar la transacción
-                    const tx = await contract.setProfile(username, "", {
-                        value: registrationPrice
-                    });
-
-                    usernameStatusEl.textContent = 'Esperando confirmación de la transacción...';
-                    usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-yellow-400';
-
-                    await tx.wait(); // Esperar a que la transacción se mine
-
-                    usernameStatusEl.textContent = `¡Alias "${username}" reservado con éxito!`;
-                    usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-green-400 break-words';
-                    reserveDidButton.classList.add('hidden');
-
-                } catch (error) {
-                    console.error("Error al reservar el DID:", error);
-                    usernameStatusEl.textContent = `Error: ${error.reason || error.message}`;
-                    usernameStatusEl.className = 'text-xs mt-1 min-h-[1rem] text-red-400 break-words';
-                } finally {
-                    button.disabled = false;
-                    button.innerHTML = `<span>Reservar Alias</span>`;
-                }
-            }
-
             function abrirEditorDePerfil() {
                 loadUserProfile();
                 userDidWindow.classList.remove('hidden');
@@ -27988,8 +27856,6 @@
                 userDidWindow.classList.add('hidden');
                 userDidWindow.classList.remove('flex');
             });
-
-            reserveDidButton.addEventListener('click', handleReserveDid);
 
             saveUserDid.addEventListener('click', saveUserProfile);
 

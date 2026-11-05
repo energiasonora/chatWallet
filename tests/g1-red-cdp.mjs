@@ -431,6 +431,18 @@ try {
     await ev(`switchNetwork(${idxUsdc})`); await sleep(800);
     ok(!(await ev(`document.getElementById('cctpOpenBtn').parentElement.classList.contains('hidden')`)), 'con USDC de Base: visible');
 
+    // ── Perfil: el alias se guarda sin chequeo de disponibilidad (se sacó el registro de testnet) ──
+    console.log('\n── perfil: alias sin "reservar" ──');
+    await ev(`window.__rpcAlias = 0; const f0 = window.fetch; window.fetch = (u, o) => { if (/sepolia/.test(String(u))) window.__rpcAlias++; return f0(u, o); }`);
+    await ev(`abrirEditorDePerfil()`);
+    await ev(`(() => { const e = document.getElementById('userDidAlias'); e.value = 'pepe'; e.dispatchEvent(new Event('input')); })()`);
+    await sleep(1200);
+    ok(!(await ev(`!!document.getElementById('reserveDidButton') || !!document.getElementById('usernameStatus')`)), 'no hay botón de reservar ni "nombre disponible"');
+    ok((await ev(`window.__rpcAlias`)) === 0, 'escribir el alias no consulta ningún nodo');
+    await ev(`document.getElementById('saveUserDid').click()`);
+    ok(await listo(`JSON.parse(localStorage.getItem('chatwallet-user-profile') || '{}').alias === 'pepe'`, 10), 'y se guarda igual');
+    await ev(`localStorage.removeItem('chatwallet-user-profile'); document.getElementById('userDidWindow')?.classList.add('hidden')`);
+
     // ── G) identidad: de "sin confirmar" a miembro ─────────────────────────────────
     // Caso real (4/11/2026): Shalom creó la identidad del usuario y lo certificó; Ğecko
     // mostraba "Identité non confirmée" y ChatWallet no tenía cómo confirmarla.
