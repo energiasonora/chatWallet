@@ -973,6 +973,22 @@
             color: #a16207;
         }
 
+        #g1WalletPasoBtn {
+            margin: .35rem auto 0;
+            padding: .3rem .75rem;
+            border-radius: 9999px;
+            font-size: .75rem;
+            font-weight: 600;
+            color: #eab308;
+            background: rgba(234, 179, 8, .12);
+            border: 1px solid rgba(234, 179, 8, .35);
+        }
+
+        body.theme-light #g1WalletPasoBtn {
+            color: #a16207;
+            background: rgba(234, 179, 8, .12);
+        }
+
         .red-g1-sep {
             border-top: 1px solid rgba(148, 163, 184, .25);
             margin: .5rem .25rem;
@@ -2667,6 +2683,8 @@
                             <div id="g1WalletInfo" class="mt-1 text-xs text-gray-400 space-y-0.5">
                                 <p id="g1WalletPendiente" class="hidden"></p>
                                 <p id="g1WalletIdentidad" class="hidden"></p>
+                                <!-- El paso que falta para ser miembro Ğ1 (confirmar, certificaciones, membresía). -->
+                                <button type="button" id="g1WalletPasoBtn" class="hidden"></button>
                             </div>
                             <!-- Red Monero: estado de la puesta al día, lo que falta confirmar, 25 palabras y ajustes. -->
                             <div id="xmrWalletInfo" class="hidden mt-1 text-xs text-gray-400 space-y-0.5">
@@ -11698,7 +11716,7 @@
                 applyGroupChatChrome(contact);
                 cwPintarInvitacion(contact);
                 document.getElementById('cwChatSinSync')?.remove();
-                if (!contact.isGroup) updateChatHeaderStatus(contact);
+                if (!contact.isGroup) updateChatHeaderStatus(contactoDelChat() || contact);
 
                 // ── Grupo: sin modo offline (el circuito por QR es 1:1). ──
                 if (contact.isGroup) {
@@ -12321,6 +12339,13 @@
                                         return;
                                     }
                                 }
+                                // Cualquier cosa que mande el otro (mensaje, visto, presencia) dice
+                                // que estuvo: alimenta su "Últ. vez".
+                                if (message.senderInboxId !== chatwalletxmtp.inboxId && message.sentAt) {
+                                    const __ms = message.sentAt.getTime();
+                                    getAddressFromInboxId(message.senderInboxId)
+                                        .then(a => presenciaAnotarVisto(a, __ms)).catch(() => { });
+                                }
                                 if (message.contentType.typeId === 'readReceipt' ||
                                     message.contentType.typeId === 'read-receipt' ||
                                     message.contentType.typeId === 'presence' ||
@@ -12932,8 +12957,11 @@
                     const entries = [];
                     const conReacciones = [];   // las reacciones colgadas de los mensajes (ver abajo)
                     let ultimoAjenoMs = 0;       // el mensaje más nuevo del otro (para el visto)
+                    let ultimoDelOtroMs = 0;     // lo más nuevo que mandó, de cualquier tipo (para "Últ. vez")
                     for (const message of existingMessages) {
                         const typeId = message.contentType.typeId;
+                        if (message.senderInboxId !== chatwalletxmtp.inboxId && message.sentAt)
+                            ultimoDelOtroMs = Math.max(ultimoDelOtroMs, message.sentAt.getTime());
                         if (typeId === 'readReceipt' || typeId === 'read-receipt' || typeId === 'presence') continue;
                         if (message.senderInboxId !== chatwalletxmtp.inboxId && cwPideVisto(message) && message.sentAt)
                             ultimoAjenoMs = Math.max(ultimoAjenoMs, message.sentAt.getTime());
@@ -12990,6 +13018,8 @@
                     if (peerAddr && !convIsGroup(conv)) syncMandarResumen(conv, peerAddr);
                     // Tildes: hasta dónde leyó el otro, y mi visto si quedó alguno sin mandar.
                     if (!convIsGroup(conv)) cwRevisarVistos(conv, ultimoAjenoMs);
+                    // Lo que mandó mientras esta app estaba cerrada también cuenta para su "Últ. vez".
+                    if (!convIsGroup(conv)) presenciaAnotarVisto(peerAddr, ultimoDelOtroMs);
                 } catch (error) {
                     console.error("Error al cargar mensajes:", error);
                     if (token !== chatOpenToken) return;
@@ -13085,8 +13115,11 @@
                             await currentConversation.sync();
                             const msgs = await currentConversation.messages({ limit: 1000n });
                             let ultimoAjenoMs = 0;
+                            let ultimoDelOtroMs = 0;
                             for (const message of msgs) {
                                 const typeId = message.contentType.typeId;
+                                if (message.senderInboxId !== chatwalletxmtp.inboxId && message.sentAt)
+                                    ultimoDelOtroMs = Math.max(ultimoDelOtroMs, message.sentAt.getTime());
                                 if (typeId === 'readReceipt' || typeId === 'read-receipt' || typeId === 'presence' || typeId === 'profile') continue;
                                 const type = message.senderInboxId === chatwalletxmtp.inboxId ? 'sent' : 'received';
                                 if (type === 'received' && cwPideVisto(message) && message.sentAt)
@@ -13095,6 +13128,7 @@
                             }
                             // Al volver al primer plano: vistos del otro y el mío si quedó pendiente.
                             if (!convIsGroup(currentConversation)) cwRevisarVistos(currentConversation, ultimoAjenoMs);
+                            if (!convIsGroup(currentConversation)) presenciaAnotarVisto(currentConversation.peerAddress, ultimoDelOtroMs);
                             const added = processedMessages.size - before;
                             if (added > 0) console.log(`🔄 Resync: ${added} mensaje(s) nuevo(s) recuperado(s).`);
                         }
@@ -14699,10 +14733,218 @@
                 pend.textContent = t('g1_ud_pending', { monto: isBalanceHidden() ? '••••' : formatoG1(r.pendiente) });
                 pend.classList.toggle('hidden', !(r.pendiente > 0));
                 const id = r.identidad;
-                idl.textContent = id ? (id.miembro ? t('g1_member_line', { nombre: id.nombre }) : t('g1_idty_line', { nombre: id.nombre }))
+                const ic = r.idCadena;
+                // Sin confirmar, el "nombre" del indexador es un relleno ("0003405735-518ff-000001").
+                const sinConfirmar = (ic && ic.estado === 'Unconfirmed') || (!ic && id && id.estado === 'Unconfirmed');
+                idl.textContent = sinConfirmar ? t('g1_idty_unconfirmed_line')
+                    : id ? (id.miembro ? t('g1_member_line', { nombre: id.nombre }) : t('g1_idty_line', { nombre: id.nombre }))
                     : (r.existe ? '' : t('g1_no_account'));
-                idl.classList.toggle('miembro', !!(id && id.miembro));
+                idl.classList.toggle('miembro', !!(id && id.miembro) && !sinConfirmar);
                 idl.classList.toggle('hidden', !idl.textContent);
+                const paso = document.getElementById('g1WalletPasoBtn');
+                if (paso) {
+                    const txt = textoPasoIdentidadG1(ic);
+                    paso.textContent = txt || '';
+                    paso.classList.toggle('hidden', !txt);
+                }
+            }
+
+            // ── Identidad Ğ1: de "sin confirmar" a miembro ────────────────────────────────
+            // Un miembro crea tu identidad y te certifica; vos la confirmás con un seudónimo,
+            // juntás 5 certificaciones y pedís la membresía (evaluación de distancia). Ver
+            // src/js/g1-cadena.js. Texto del botón de la billetera para el paso que toca, o null.
+            function textoPasoIdentidadG1(ic) {
+                if (!ic) return null;
+                const n = ic.certificaciones;
+                if (ic.estado === 'Unconfirmed') return t('g1_step_confirm', { d: ic.diasPlazo ?? '?' });
+                if (ic.estado === 'Unvalidated') {
+                    if (ic.enEvaluacion) return t('g1_step_evaluating');
+                    return n >= 5 ? t('g1_step_membership') : t('g1_step_certs', { n });
+                }
+                return null;
+            }
+
+            // Errores de la cadena → algo que se entienda.
+            function motivoIdentidadG1(e) {
+                const m = String(e?.message || e);
+                const tabla = {
+                    'identity.IdtyNameAlreadyExist': 'g1_idty_err_taken',
+                    'identity.IdtyNameInvalid': 'g1_idty_err_invalid',
+                    'identity.IdtyAlreadyConfirmed': 'g1_idty_err_already',
+                    'distance.AlreadyInEvaluation': 'g1_idty_err_evaluating',
+                    'wot.NotEnoughCerts': 'g1_idty_err_certs',
+                };
+                for (const k in tabla) if (m.includes(k)) return t(tabla[k]);
+                if (/Funds|Balance|Inability to pay|1010/i.test(m)) return t('g1_idty_err_funds');
+                return t('g1_send_err', { e: m });
+            }
+
+            async function abrirIdentidadG1() {
+                if (!currentWallet || !cuentaG1Guardada()) return;
+                document.getElementById('g1IdentidadModal')?.remove();
+                const miCuenta = cuentaG1Guardada().g1;
+                const modal = document.createElement('div');
+                modal.id = 'g1IdentidadModal';
+                modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50';
+                modal.innerHTML = `
+                    <form class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-3" novalidate>
+                        <h3 class="text-lg font-bold" data-g1="titulo"></h3>
+                        <p class="text-sm text-gray-300" data-g1="texto"></p>
+                        <ul class="text-sm space-y-1 hidden" data-g1="certs"></ul>
+                        <div data-g1="nombreBox" class="hidden space-y-1">
+                            <input data-g1="nombre" maxlength="42" autocomplete="off" autocapitalize="off" spellcheck="false"
+                                class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                            <p class="text-xs min-h-[1rem]" data-g1="nombreEstado"></p>
+                        </div>
+                        <div data-g1="cuentaBox" class="hidden space-y-2">
+                            <p class="font-mono text-xs break-all bg-gray-900/60 rounded-lg p-2" data-g1="cuenta"></p>
+                            <button type="button" data-g1="compartir" class="w-full py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm"></button>
+                        </div>
+                        <p class="text-xs text-gray-400" data-g1="plazo"></p>
+                        <p class="text-sm min-h-[1.25rem]" data-g1="estado"></p>
+                        <div class="flex justify-end gap-3">
+                            <button type="button" data-g1="cancelar" class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500"></button>
+                            <button type="submit" data-g1="seguir" class="hidden px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold"></button>
+                        </div>
+                    </form>`;
+                const q = (k) => modal.querySelector(`[data-g1="${k}"]`);
+                const mostrar = (k, si = true) => q(k).classList.toggle('hidden', !si);
+                const estado = (txt, clase = 'text-gray-300') => { q('estado').textContent = txt; q('estado').className = 'text-sm min-h-[1.25rem] ' + clase; };
+                q('titulo').textContent = t('g1_idty_title');
+                q('cancelar').textContent = t('g1_cancel_close');
+                let cerrado = false;
+                q('cancelar').onclick = () => { cerrado = true; modal.remove(); };
+                document.body.appendChild(modal);
+                estado(t('g1_connecting'));
+
+                let C, B, ic, quienes = [];
+                try {
+                    [C, B] = await Promise.all([window.cwCargarCadenaG1(), window.cwCargarBilleteraG1()]);
+                    [ic, quienes] = await Promise.all([
+                        withTimeout(C.identidad(miCuenta), 20000, 'identidad Ğ1'),
+                        B.certificadores(miCuenta).catch(() => []),
+                    ]);
+                } catch (e) {
+                    if (!cerrado) estado(t('g1_err', { e: e?.message || e }), 'text-red-400');
+                    return;
+                }
+                if (cerrado) return;
+                estado('');
+                // Los nombres los pone cada uno en la cadena: van como texto, nunca como HTML.
+                const nombres = quienes.map(x => x.nombre).filter(Boolean);
+                const pintarCerts = () => {
+                    q('certs').innerHTML = '';
+                    for (const n of nombres) {
+                        const li = document.createElement('li');
+                        li.textContent = '✓ ' + n;
+                        q('certs').appendChild(li);
+                    }
+                    mostrar('certs', nombres.length > 0);
+                };
+                const plazo = (clave) => { q('plazo').textContent = ic.diasPlazo != null ? t(clave, { d: ic.diasPlazo }) : ''; };
+                const listo = (txt) => {
+                    estado(txt, 'text-green-400');
+                    mostrar('seguir', false);
+                    g1Lectura = null;
+                    if (redG1Activa()) pintarRedG1(true);
+                };
+                // Firma con la llave Ğ1 y manda; pide la frase si hace falta (igual que enviar).
+                const firmarYMandar = async (fn) => {
+                    q('seguir').disabled = true; q('cancelar').disabled = true;
+                    try {
+                        estado(t('g1_connecting'));
+                        const cuenta = await cuentaFirmanteG1();
+                        if (!cuenta) { estado(''); return null; }
+                        estado(t('g1_send_sending'));
+                        return await fn(cuenta);
+                    } catch (e) {
+                        console.warn('[g1] identidad:', e);
+                        estado(motivoIdentidadG1(e), 'text-red-400');
+                        return null;
+                    } finally {
+                        q('seguir').disabled = false; q('cancelar').disabled = false;
+                    }
+                };
+
+                if (!ic) { q('texto').textContent = t('g1_idty_none'); return; }
+
+                if (ic.estado === 'Unconfirmed') {
+                    q('texto').textContent = nombres.length ? t('g1_idty_unconfirmed_by', { quien: nombres.join(', ') }) : t('g1_idty_unconfirmed');
+                    plazo('g1_idty_confirm_deadline');
+                    mostrar('nombreBox');
+                    q('nombre').placeholder = t('g1_idty_name_ph');
+                    q('seguir').textContent = t('g1_send_review');
+                    mostrar('seguir');
+                    let libre = null, consulta = 0;
+                    const revisar = async () => {
+                        const n = q('nombre').value.trim();
+                        const el = q('nombreEstado');
+                        libre = null;
+                        el.className = 'text-xs min-h-[1rem]';
+                        if (!n) { el.textContent = t('g1_idty_name_rules'); el.classList.add('text-gray-400'); return; }
+                        if (!C.nombreValido(n)) { el.textContent = t('g1_idty_name_rules'); el.classList.add('text-red-400'); return; }
+                        const mia = ++consulta;
+                        el.textContent = t('g1_scan_loading');
+                        const ok = await C.nombreLibre(n).catch(() => null);
+                        if (mia !== consulta || cerrado) return;
+                        libre = ok;
+                        el.textContent = ok === null ? '' : ok ? t('g1_idty_name_free') : t('g1_idty_err_taken');
+                        el.classList.add(ok ? 'text-green-400' : 'text-red-400');
+                    };
+                    revisar();
+                    q('nombre').addEventListener('input', revisar);
+                    let paso = 1;
+                    modal.querySelector('form').onsubmit = async (e) => {
+                        e.preventDefault();
+                        const n = q('nombre').value.trim();
+                        if (paso === 1) {
+                            await revisar();
+                            if (!C.nombreValido(n) || libre === false) return;
+                            q('nombre').disabled = true;
+                            q('texto').textContent = t('g1_idty_confirm_summary', { nombre: n });
+                            q('seguir').textContent = t('g1_idty_confirm_btn', { nombre: n });
+                            paso = 2;
+                            return;
+                        }
+                        const res = await firmarYMandar(cuenta => C.confirmarIdentidad(cuenta, n));
+                        if (res) { listo(t('g1_idty_confirmed', { nombre: n, b: res.bloque ?? '?' })); q('plazo').textContent = ''; }
+                        else { paso = 1; q('nombre').disabled = false; }
+                    };
+                    return;
+                }
+
+                if (ic.estado === 'Unvalidated') {
+                    pintarCerts();
+                    plazo('g1_idty_member_deadline');
+                    if (ic.enEvaluacion) { q('texto').textContent = t('g1_idty_evaluating'); return; }
+                    if (ic.certificaciones < 5) {
+                        q('texto').textContent = t('g1_idty_need_certs', { n: ic.certificaciones });
+                        mostrar('cuentaBox');
+                        q('cuenta').textContent = miCuenta;
+                        q('compartir').textContent = navigator.share ? t('g1_idty_share') : t('g1_idty_copy');
+                        q('compartir').onclick = async () => {
+                            try {
+                                if (navigator.share) await navigator.share({ text: miCuenta });
+                                else { await navigator.clipboard.writeText(miCuenta); showToast(t('g1_idty_copied'), 'success', 3000); }
+                            } catch (_) { }
+                        };
+                        return;
+                    }
+                    const precio = ic.precioEvaluacion;
+                    q('texto').textContent = t('g1_idty_ready', { monto: formatoG1(precio) });
+                    q('seguir').textContent = t('g1_idty_request_btn');
+                    mostrar('seguir');
+                    modal.querySelector('form').onsubmit = async (e) => {
+                        e.preventDefault();
+                        const res = await firmarYMandar(cuenta => C.pedirMembresia(cuenta));
+                        if (res) listo(t('g1_idty_requested'));
+                    };
+                    return;
+                }
+
+                // Miembro, membresía vencida o revocada: nada que hacer desde acá todavía.
+                q('texto').textContent = ic.estado === 'Member' ? t('g1_idty_is_member') : t(ic.estado === 'Revoked' ? 'g1_st_revoked' : 'g1_st_notmember');
+                pintarCerts();
             }
 
             async function pintarRedG1(forzar = false) {
@@ -14724,9 +14966,12 @@
                         // Identidad del indexador; saldo y dividendo de la CADENA, que manda (el
                         // squid llegó a dar 214 Ğ1 menos en el mismo bloque). Si la cadena no
                         // contesta, queda el saldo del indexador.
-                        const [ind, cad] = await Promise.allSettled([
+                        const [ind, cad, idc] = await Promise.allSettled([
                             B.leerCuenta(cuenta.g1),
                             window.cwCargarCadenaG1().then(C => withTimeout(C.saldo(cuenta.g1), 20000, 'saldo Ğ1')),
+                            // El estado de la identidad, también de la cadena: recién confirmada, el
+                            // indexador tarda en enterarse.
+                            window.cwCargarCadenaG1().then(C => withTimeout(C.identidad(cuenta.g1), 20000, 'identidad Ğ1')),
                         ]);
                         if (ind.status === 'rejected' && cad.status === 'rejected') throw ind.reason;
                         const r = ind.status === 'fulfilled' ? ind.value : { g1: cuenta.g1, existe: false, saldo: 0, pendiente: 0, identidad: null };
@@ -14736,6 +14981,7 @@
                             r.existe = r.existe || r.saldo > 0;
                             r.deCadena = true;
                         } else console.warn('[g1] saldo de la cadena:', cad.reason?.message || cad.reason);
+                        r.idCadena = idc.status === 'fulfilled' ? idc.value : undefined;
                         if (!redG1Activa()) return;                   // se cambió de red mientras tanto
                         g1Lectura = { t: Date.now(), r };
                         setBalanceText('main', `${formatoG1(r.saldo)} Ğ1`);
@@ -15804,6 +16050,7 @@
                 });
             }
             document.getElementById('xmrPalabrasBtn')?.addEventListener('click', (e) => { e.stopPropagation(); abrirPalabrasXmr(); });
+            document.getElementById('g1WalletPasoBtn')?.addEventListener('click', (e) => { e.stopPropagation(); abrirIdentidadG1(); });
             document.getElementById('xmrAjustesBtn')?.addEventListener('click', (e) => { e.stopPropagation(); abrirAjustesXmr(); });
 
             // ── Mandar Monero ──
@@ -22226,7 +22473,27 @@
                     if (c.status === 'online' && !estaEnLinea(c)) { c.status = 'offline'; cambios++; }
                 }
                 if (cambios) { saveContacts(); renderContacts(); }
-                if (currentChatContact && !currentChatContact.isGroup) updateChatHeaderStatus(currentChatContact);
+                // contactoDelChat(), no currentChatContact: ése es el objeto de cuando se abrió
+                // el chat y puede ser una copia vieja (la agenda se recarga al arrancar). Pintar
+                // con él volvía el "Últ. vez" a la fecha de esa copia a los 30 s de salir el otro.
+                const abierto = contactoDelChat();
+                if (abierto) updateChatHeaderStatus(abierto);
+            }
+
+            // "Últ. vez" = lo último que se supo del otro: un aviso de presencia, un mensaje o un
+            // visto suyo, con la hora de la red (nunca en el futuro). Sólo avanza y no toca el
+            // estado: algo que llega atrasado dice que ESTUVO, no que está en línea.
+            function presenciaAnotarVisto(address, ms) {
+                if (!address || !ms) return;
+                const a = String(address).toLowerCase();
+                const c = contacts.find(x => x.address && x.address.toLowerCase() === a);
+                if (!c) return;
+                const visto = Math.min(ms, Date.now());
+                if (c.lastSeen && c.lastSeen >= visto) return;
+                c.lastSeen = visto;
+                saveContacts();
+                const abierto = contactoDelChat();
+                if (abierto && abierto.address.toLowerCase() === a) updateChatHeaderStatus(abierto);
             }
 
             // Mientras el chat está abierto Y la app a la vista, se renueva el permiso. Fuera de
@@ -23282,7 +23549,11 @@
                 window.matchMedia('(display-mode: fullscreen)').matches ||
                 window.navigator.standalone === true;
 
-            if (isStandalonePWA()) {
+            // Y sólo en pantallas táctiles: en la compu, la app instalada saltaba a pantalla
+            // completa con cualquier botón (molestaba, 4/11/2026). Ahí la ventana la maneja el usuario.
+            const esPantallaTactil = () => window.matchMedia('(pointer: coarse)').matches;
+
+            if (isStandalonePWA() && esPantallaTactil()) {
                 document.addEventListener('click', (e) => {
                     if (e.target.closest('button')) {
                         if (!document.fullscreenElement) {
@@ -24643,6 +24914,38 @@
                     "g1_st_unvalidated": "identidad esperando certificaciones",
                     "g1_st_notmember": "membresía vencida",
                     "g1_st_revoked": "identidad revocada",
+                    "g1_idty_unconfirmed_line": "Identidad Ğ1 sin confirmar",
+                    "g1_step_confirm": "Confirmá tu identidad Ğ1 · quedan {d} días",
+                    "g1_step_certs": "{n} de 5 certificaciones · ver",
+                    "g1_step_membership": "Ya tenés 5 certificaciones · pedí la membresía",
+                    "g1_step_evaluating": "Membresía en evaluación…",
+                    "g1_idty_title": "Tu identidad Ğ1",
+                    "g1_idty_none": "Tu cuenta Ğ1 todavía no tiene identidad. La crea un miembro de la red de confianza que te conozca en persona: pasale tu cuenta Ğ1.",
+                    "g1_idty_unconfirmed_by": "{quien} creó tu identidad en la red de confianza Ğ1 y te certificó. Para seguir, confirmala eligiendo tu seudónimo.",
+                    "g1_idty_unconfirmed": "Un miembro creó tu identidad en la red de confianza Ğ1. Para seguir, confirmala eligiendo tu seudónimo.",
+                    "g1_idty_confirm_deadline": "Quedan {d} días para confirmarla. Si no, se borra y hay que empezar de nuevo.",
+                    "g1_idty_name_ph": "Tu seudónimo",
+                    "g1_idty_name_rules": "Es público y para siempre. De 3 a 42 caracteres: letras sin tilde, números, - o _.",
+                    "g1_idty_name_free": "Está libre.",
+                    "g1_idty_confirm_summary": "Vas a confirmar tu identidad Ğ1 como «{nombre}». Todos lo van a ver y no se puede cambiar.",
+                    "g1_idty_confirm_btn": "Confirmar como {nombre}",
+                    "g1_idty_confirmed": "Listo: sos «{nombre}» en la red Ğ1 (bloque {b}). Ahora te faltan 5 certificaciones.",
+                    "g1_idty_member_deadline": "Quedan {d} días para llegar a miembro.",
+                    "g1_idty_need_certs": "Tenés {n} de 5 certificaciones. Pedile a miembros Ğ1 que te conozcan en persona que te certifiquen con tu cuenta:",
+                    "g1_idty_share": "Compartir mi cuenta Ğ1",
+                    "g1_idty_copy": "Copiar mi cuenta Ğ1",
+                    "g1_idty_copied": "Cuenta Ğ1 copiada",
+                    "g1_idty_ready": "Ya tenés 5 certificaciones. Falta pedir la membresía: la red revisa que estés cerca del resto de los miembros. Se reservan {monto} Ğ1: si da bien sos miembro y empezás a cobrar el dividendo; si no, esos {monto} Ğ1 se pierden.",
+                    "g1_idty_request_btn": "Pedir la membresía",
+                    "g1_idty_requested": "Pedido enviado. La red lo evalúa y, si da bien, pasás a ser miembro.",
+                    "g1_idty_evaluating": "Tu pedido de membresía está en evaluación. Cuando termine, la billetera lo va a mostrar.",
+                    "g1_idty_is_member": "Sos miembro de la red de confianza Ğ1.",
+                    "g1_idty_err_taken": "Ese seudónimo ya lo tiene otra persona.",
+                    "g1_idty_err_invalid": "Ese seudónimo no vale: de 3 a 42 caracteres, letras sin tilde, números, - o _.",
+                    "g1_idty_err_already": "Tu identidad ya estaba confirmada.",
+                    "g1_idty_err_evaluating": "Ya hay un pedido de membresía en evaluación.",
+                    "g1_idty_err_certs": "Todavía no tenés 5 certificaciones vigentes.",
+                    "g1_idty_err_funds": "No te alcanza el saldo Ğ1 para esto.",
                     "phrase_lang_title": "Frase en {idioma}",
                     "phrase_lang_body": "Para volver siempre a este mismo chat, restaurá con esta misma frase y en este mismo idioma: la misma frase en otro idioma abre otra identidad de chat.",
                     "apk_banner_text": "¿Querés avisos aunque cierres el navegador? Probá la app de Android.",
@@ -25401,6 +25704,38 @@
                     "g1_st_unvalidated": "identity awaiting certifications",
                     "g1_st_notmember": "membership expired",
                     "g1_st_revoked": "revoked identity",
+                    "g1_idty_unconfirmed_line": "Unconfirmed Ğ1 identity",
+                    "g1_step_confirm": "Confirm your Ğ1 identity · {d} days left",
+                    "g1_step_certs": "{n} of 5 certifications · view",
+                    "g1_step_membership": "You have 5 certifications · request membership",
+                    "g1_step_evaluating": "Membership being evaluated…",
+                    "g1_idty_title": "Your Ğ1 identity",
+                    "g1_idty_none": "Your Ğ1 account has no identity yet. A member of the web of trust who knows you in person creates it: give them your Ğ1 account.",
+                    "g1_idty_unconfirmed_by": "{quien} created your identity in the Ğ1 web of trust and certified you. To continue, confirm it by choosing your pseudonym.",
+                    "g1_idty_unconfirmed": "A member created your identity in the Ğ1 web of trust. To continue, confirm it by choosing your pseudonym.",
+                    "g1_idty_confirm_deadline": "{d} days left to confirm it. Otherwise it is deleted and you have to start over.",
+                    "g1_idty_name_ph": "Your pseudonym",
+                    "g1_idty_name_rules": "Public and permanent. 3 to 42 characters: unaccented letters, numbers, - or _.",
+                    "g1_idty_name_free": "It's available.",
+                    "g1_idty_confirm_summary": "You are about to confirm your Ğ1 identity as “{nombre}”. Everyone will see it and it cannot be changed.",
+                    "g1_idty_confirm_btn": "Confirm as {nombre}",
+                    "g1_idty_confirmed": "Done: you are “{nombre}” on the Ğ1 network (block {b}). Now you need 5 certifications.",
+                    "g1_idty_member_deadline": "{d} days left to become a member.",
+                    "g1_idty_need_certs": "You have {n} of 5 certifications. Ask Ğ1 members who know you in person to certify you with your account:",
+                    "g1_idty_share": "Share my Ğ1 account",
+                    "g1_idty_copy": "Copy my Ğ1 account",
+                    "g1_idty_copied": "Ğ1 account copied",
+                    "g1_idty_ready": "You have 5 certifications. Now request membership: the network checks that you are close to the other members. {monto} Ğ1 are reserved: if it passes you become a member and start receiving the dividend; if not, those {monto} Ğ1 are lost.",
+                    "g1_idty_request_btn": "Request membership",
+                    "g1_idty_requested": "Request sent. The network evaluates it and, if it passes, you become a member.",
+                    "g1_idty_evaluating": "Your membership request is being evaluated. The wallet will show it when it's done.",
+                    "g1_idty_is_member": "You are a member of the Ğ1 web of trust.",
+                    "g1_idty_err_taken": "That pseudonym is already taken.",
+                    "g1_idty_err_invalid": "That pseudonym isn't valid: 3 to 42 characters, unaccented letters, numbers, - or _.",
+                    "g1_idty_err_already": "Your identity was already confirmed.",
+                    "g1_idty_err_evaluating": "A membership request is already being evaluated.",
+                    "g1_idty_err_certs": "You don't have 5 active certifications yet.",
+                    "g1_idty_err_funds": "Your Ğ1 balance isn't enough for this.",
                     "phrase_lang_title": "Phrase in {idioma}",
                     "phrase_lang_body": "To always come back to this same chat, restore with this same phrase in this same language: the same phrase in another language opens a different chat identity.",
                     "apk_banner_text": "Want alerts even with the browser closed? Try the Android app.",
@@ -26159,6 +26494,38 @@
                     "g1_st_unvalidated": "identité en attente de certifications",
                     "g1_st_notmember": "adhésion expirée",
                     "g1_st_revoked": "identité révoquée",
+                    "g1_idty_unconfirmed_line": "Identité Ğ1 non confirmée",
+                    "g1_step_confirm": "Confirmez votre identité Ğ1 · {d} jours restants",
+                    "g1_step_certs": "{n} certifications sur 5 · voir",
+                    "g1_step_membership": "Vous avez 5 certifications · demandez l'adhésion",
+                    "g1_step_evaluating": "Adhésion en cours d'évaluation…",
+                    "g1_idty_title": "Votre identité Ğ1",
+                    "g1_idty_none": "Votre compte Ğ1 n'a pas encore d'identité. Un membre de la toile de confiance qui vous connaît en personne la crée : donnez-lui votre compte Ğ1.",
+                    "g1_idty_unconfirmed_by": "{quien} a créé votre identité dans la toile de confiance Ğ1 et vous a certifié. Pour continuer, confirmez-la en choisissant votre pseudonyme.",
+                    "g1_idty_unconfirmed": "Un membre a créé votre identité dans la toile de confiance Ğ1. Pour continuer, confirmez-la en choisissant votre pseudonyme.",
+                    "g1_idty_confirm_deadline": "Il reste {d} jours pour la confirmer. Sinon elle est supprimée et il faut recommencer.",
+                    "g1_idty_name_ph": "Votre pseudonyme",
+                    "g1_idty_name_rules": "Public et définitif. De 3 à 42 caractères : lettres sans accent, chiffres, - ou _.",
+                    "g1_idty_name_free": "Il est libre.",
+                    "g1_idty_confirm_summary": "Vous allez confirmer votre identité Ğ1 sous le nom « {nombre} ». Tout le monde le verra et il ne pourra pas être changé.",
+                    "g1_idty_confirm_btn": "Confirmer en tant que {nombre}",
+                    "g1_idty_confirmed": "C'est fait : vous êtes « {nombre} » sur le réseau Ğ1 (bloc {b}). Il vous faut maintenant 5 certifications.",
+                    "g1_idty_member_deadline": "Il reste {d} jours pour devenir membre.",
+                    "g1_idty_need_certs": "Vous avez {n} certifications sur 5. Demandez à des membres Ğ1 qui vous connaissent en personne de vous certifier avec votre compte :",
+                    "g1_idty_share": "Partager mon compte Ğ1",
+                    "g1_idty_copy": "Copier mon compte Ğ1",
+                    "g1_idty_copied": "Compte Ğ1 copié",
+                    "g1_idty_ready": "Vous avez 5 certifications. Il reste à demander l'adhésion : le réseau vérifie que vous êtes proche des autres membres. {monto} Ğ1 sont réservées : si c'est bon vous devenez membre et commencez à recevoir le dividende ; sinon ces {monto} Ğ1 sont perdues.",
+                    "g1_idty_request_btn": "Demander l'adhésion",
+                    "g1_idty_requested": "Demande envoyée. Le réseau l'évalue et, si c'est bon, vous devenez membre.",
+                    "g1_idty_evaluating": "Votre demande d'adhésion est en cours d'évaluation. Le portefeuille l'affichera une fois terminée.",
+                    "g1_idty_is_member": "Vous êtes membre de la toile de confiance Ğ1.",
+                    "g1_idty_err_taken": "Ce pseudonyme est déjà pris.",
+                    "g1_idty_err_invalid": "Ce pseudonyme n'est pas valide : de 3 à 42 caractères, lettres sans accent, chiffres, - ou _.",
+                    "g1_idty_err_already": "Votre identité était déjà confirmée.",
+                    "g1_idty_err_evaluating": "Une demande d'adhésion est déjà en cours d'évaluation.",
+                    "g1_idty_err_certs": "Vous n'avez pas encore 5 certifications actives.",
+                    "g1_idty_err_funds": "Votre solde Ğ1 ne suffit pas.",
                     "phrase_lang_title": "Phrase en {idioma}",
                     "phrase_lang_body": "Pour revenir toujours à ce même chat, restaure avec cette même phrase dans cette même langue : la même phrase dans une autre langue ouvre une autre identité de chat.",
                     "apk_banner_text": "Des alertes même navigateur fermé ? Essayez l'app Android.",
@@ -26747,7 +27114,7 @@
                 if (typeof syncHideBalanceUI === 'function') syncHideBalanceUI();
                 // El renglón de presencia del chat abierto también es dinámico ("Últ. vez hace…"):
                 // sin esto se quedaba en el idioma anterior hasta el próximo latido del otro.
-                if (currentChatContact) updateChatHeaderStatus(currentChatContact);
+                if (currentChatContact) updateChatHeaderStatus(contactoDelChat() || currentChatContact);
                 if (currentWallet && redG1Activa()) pintarRedG1();
                 if (currentWallet && redXmrActiva()) pintarRedXmr();
             }

@@ -104,16 +104,90 @@ export async function prepararEnvio(cuenta, destino, centimos, comentario) {
     llamadas.push(api.tx.balances.transferKeepAlive(destino, centimos));
     if (comentario) llamadas.push(api.tx.system.remarkWithEvent(comentario));
     const tx = llamadas.length > 1 ? api.tx.utility.batchAll(llamadas) : llamadas[0];
-    const nonce = await api.rpc.system.accountNextIndex(cuenta.direccion);
-    await tx.signAsync(parFirmante(cuenta), { era: 64, nonce });
+    await firmar(api, tx, cuenta);
     return { tx, conCobro: pendiente > 0 };
 }
 
 // Manda y espera a que entre en un bloque. alEstado('enviada'|'en-bloque') para la UI.
 // → { hash, bloque } o tira con el motivo que da la cadena (p. ej. balances.FundsUnavailable).
 export async function enviar(cuenta, destino, centimos, comentario, alEstado = () => { }) {
-    const api = await conectar();
     const { tx } = await prepararEnvio(cuenta, destino, centimos, comentario);
+    return mandar(tx, alEstado);
+}
+
+// ── Identidad: de "sin confirmar" a miembro ──────────────────────────────────────
+// Leído del runtime en vivo (4/11/2026):
+//   1. un miembro crea la identidad (identity.createIdentity) y suele certificarla;
+//   2. el dueño la CONFIRMA con un nombre (identity.confirmIdentity), antes de confirmPeriod
+//      (876.600 bloques ≈ 61 días) o la identidad se borra;
+//   3. junta 5 certificaciones (wot.minCertForMembership) antes de validationPeriod (otros ≈ 61 días);
+//   4. pide la evaluación de distancia (distance.requestDistanceEvaluation): reserva
+//      distance.evaluationPrice (10 Ğ1); si da bien se le da la membresía, si da mal la pierde.
+// El estado sale de la cadena y no del indexador: recién confirmada, el squid tarda en verlo.
+export const SEG_POR_BLOQUE = 6;
+export const CERTS_PARA_MIEMBRO = 5;
+
+// Regla del runtime (IdtyNameValidatorImpl): 3 a 42 caracteres ASCII alfanuméricos, '-' o '_'.
+export function nombreValido(nombre) {
+    return typeof nombre === 'string' && /^[A-Za-z0-9_-]{3,42}$/.test(nombre);
+}
+
+export async function nombreLibre(nombre) {
+    const api = await conectar();
+    return (await api.query.identity.identitiesNames(nombre)).isNone;
+}
+
+// → null (la cuenta no tiene identidad) o
+//   { indice, estado, certificaciones, vencePlazo (bloque), bloque (actual), diasPlazo, enEvaluacion, precioEvaluacion }
+// vencePlazo es nextScheduled: para Unconfirmed, hasta cuándo se puede confirmar; para
+// Unvalidated, hasta cuándo hay para llegar a miembro.
+export async function identidad(g1) {
+    const api = await conectar();
+    const idx = await api.query.identity.identityIndexOf(g1);
+    if (idx.isNone) return null;
+    const indice = idx.unwrap().toNumber();
+    const [idty, meta, cab, evaluando] = await Promise.all([
+        api.query.identity.identities(indice),
+        api.query.certification.storageIdtyCertMeta(indice),
+        api.rpc.chain.getHeader(),
+        api.query.distance.pendingEvaluationRequest(indice),
+    ]);
+    if (idty.isNone) return null;
+    const j = idty.unwrap().toJSON();
+    const bloque = cab.number.toNumber();
+    const vencePlazo = Number(j.nextScheduled) || 0;
+    return {
+        indice, estado: j.status, bloque, vencePlazo,
+        diasPlazo: vencePlazo > bloque ? Math.floor((vencePlazo - bloque) * SEG_POR_BLOQUE / 86400) : null,
+        certificaciones: Number(meta.toJSON().receivedCount) || 0,
+        enEvaluacion: evaluando.isSome,
+        precioEvaluacion: Number(api.consts.distance.evaluationPrice.toString()),
+    };
+}
+
+export async function confirmarIdentidad(cuenta, nombre, alEstado = () => { }) {
+    if (!nombreValido(nombre)) throw new Error('identity.IdtyNameInvalid');
+    const api = await conectar();
+    const tx = api.tx.identity.confirmIdentity(nombre);
+    await firmar(api, tx, cuenta);
+    return mandar(tx, alEstado);
+}
+
+export async function pedirMembresia(cuenta, alEstado = () => { }) {
+    const api = await conectar();
+    const tx = api.tx.distance.requestDistanceEvaluation();
+    await firmar(api, tx, cuenta);
+    return mandar(tx, alEstado);
+}
+
+async function firmar(api, tx, cuenta) {
+    const nonce = await api.rpc.system.accountNextIndex(cuenta.direccion);
+    await tx.signAsync(parFirmante(cuenta), { era: 64, nonce });
+}
+
+// Manda una transacción ya firmada y espera el bloque. Tira con "pallet.Error" si la cadena la rechaza.
+async function mandar(tx, alEstado = () => { }) {
+    const api = await conectar();
     const hash = tx.hash.toHex();
     return new Promise((resolver, rechazar) => {
         let cortar = null;

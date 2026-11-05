@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Ya podés confirmar tu identidad Ğ1 desde ChatWallet.** Si un miembro de la Ğ1 creó tu identidad, en la red Ğ1 de la billetera aparece un botón con el paso que te falta y los días que te quedan. Primero elegís tu seudónimo: la app te avisa si no es válido o si ya lo tiene otra persona, y antes de firmar te recuerda que es público y no se puede cambiar. Después ves cuántas de las 5 certificaciones tenés, quiénes te certificaron y tu cuenta para pasársela a quien te vaya a certificar. Con las 5, pedís la membresía desde el mismo lugar (se reservan 10 Ğ1 mientras la red lo evalúa).
+- **"Últ. vez" ya no queda atrasado.** El encabezado del chat a veces decía "Últ. vez hace 7 días" de alguien que había estado conectado hacía un rato, sobre todo justo después de que cerraba la app. Ahora cualquier mensaje de la otra persona actualiza cuándo la viste por última vez.
+- **En la computadora la app ya no se pone en pantalla completa al tocar algo.** Eso queda solo para teléfonos y tablets.
+
 ## 3.98 — 2026-11-02
 
 - **En la web también, tu clave queda guardada bajo llave.** Si usás ChatWallet en el navegador (o la instalaste como app desde el navegador), la clave de tu billetera y tu llave Ğ1 ahora se guardan cifradas con una llave que el navegador guarda aparte y que ninguna página puede leer, ni siquiera ChatWallet: solo puede usarla para abrir lo tuyo. Así, un programa que revise los datos del navegador buscando claves de billeteras ya no la encuentra escrita tal cual. Esto se activa cuando ya anotaste tus 12 palabras (o si restauraste tu billetera): si el navegador llegara a borrar esa llave, la recuperás con tus palabras. Mientras no las hayas anotado, todo queda como antes, para que nunca pierdas tu billetera por eso. No cambia nada en cómo usás la app ni se pide PIN.

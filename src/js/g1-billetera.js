@@ -70,6 +70,16 @@ export async function leerCuenta(g1, fetchFn) {
     return { g1, existe: !!n, saldo: n ? Number(n.balance || 0) : 0, pendiente, identidad };
 }
 
+// Quiénes certifican hoy a esta cuenta (vigentes), para mostrar el avance hacia miembro.
+// → [{ nombre, g1 }]. El número de la cadena manda; esto es solo para ponerles nombre.
+const Q_CERTIFICADORES = `query($id:String!){
+  identityByAccountId(accountId:$id){ certReceived(filter:{isActive:{equalTo:true}}){ nodes{ issuer{ name accountId } } } } }`;
+export async function certificadores(g1, fetchFn) {
+    const d = await IusG1.consultar(Q_CERTIFICADORES, { id: g1 }, fetchFn);
+    const nodos = d.identityByAccountId?.certReceived?.nodes || [];
+    return nodos.map((n) => ({ nombre: n.issuer?.name || '', g1: n.issuer?.accountId || '' }));
+}
+
 // ── QR de Ğ1 ────────────────────────────────────────────────────────────────────
 // Lo mismo que leen Ğecko y Cesium² (cesium2s/src/app/scan/payment-request.ts):
 //   - la dirección sola (g1…): un perfil, no un pedido de pago;

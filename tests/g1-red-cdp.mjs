@@ -53,6 +53,25 @@ const FALSO = `(() => {
             return { hash: '0x01', bloque: 2923999 };
         },
     };
+    // Identidad (sección G): la de la prueba se pone en window.__g1idty; si no, la del miembro.
+    window.__g1idtyTx = [];
+    window.__g1nombresTomados = ['Tomado'];
+    Object.assign(cadena, {
+        identidad: async (g1) => window.__g1idty || (g1 === MIEMBRO ? { indice: 99, estado: 'Member', certificaciones: 7, diasPlazo: 300, enEvaluacion: false, precioEvaluacion: 1000 } : null),
+        nombreValido: (n) => typeof n === 'string' && /^[A-Za-z0-9_-]{3,42}$/.test(n),
+        nombreLibre: async (n) => !window.__g1nombresTomados.includes(n),
+        confirmarIdentidad: async (cuenta, nombre, alEstado = () => { }) => {
+            window.__g1idtyTx.push({ tipo: 'confirmar', de: cuenta.direccion, nombre });
+            if (window.__g1fallar) { const e = window.__g1fallar; window.__g1fallar = null; throw new Error(e); }
+            window.__g1idty = { ...window.__g1idty, estado: 'Unvalidated', diasPlazo: 60 };
+            return { hash: '0x02', bloque: 3500000 };
+        },
+        pedirMembresia: async (cuenta) => {
+            window.__g1idtyTx.push({ tipo: 'membresia', de: cuenta.direccion });
+            window.__g1idty = { ...window.__g1idty, enEvaluacion: true };
+            return { hash: '0x03', bloque: 3500100 };
+        },
+    });
     Object.defineProperty(window, 'cwCargarCadenaG1', { configurable: true, get: () => async () => cadena, set: () => { } });
     const real = window.fetch.bind(window);
     window.__g1consultas = 0;
@@ -64,6 +83,7 @@ const FALSO = `(() => {
             if (/id:\\{ in:/.test(q)) return json({ accounts: { nodes: v.ids.filter(i => cuentas[i]).map(i => cuentas[i]) } });
             if (/accounts\\(filter:\\{ id:\\{ equalTo/.test(q)) return json({ accounts: { nodes: cuentas[v.id] ? [cuentas[v.id]] : [] } });
             if (/universalDividends/.test(q)) return json({ universalDividends: { nodes: v.desde === 202 ? [{ amount: '1217' }, { amount: '1217' }] : [] } });
+            if (/issuer/.test(q)) return json({ identityByAccountId: { certReceived: { nodes: (window.__g1certificadores || []).map(n => ({ issuer: { name: n, accountId: 'g1x' } })) } } });
             if (/identityByAccountId/.test(q)) {
                 const c = cuentas[v.id];
                 return json({ identityByAccountId: c ? { index: 99, name: c.identity.name, status: c.estado, isMember: c.identity.isMember, expireOn: 3000000,
@@ -381,6 +401,67 @@ try {
     ok(await ev(`document.getElementById('cctpOpenBtn').parentElement.classList.contains('hidden')`), 'con ETH de Base: oculto');
     await ev(`switchNetwork(${idxUsdc})`); await sleep(800);
     ok(!(await ev(`document.getElementById('cctpOpenBtn').parentElement.classList.contains('hidden')`)), 'con USDC de Base: visible');
+
+    // ── G) identidad: de "sin confirmar" a miembro ─────────────────────────────────
+    // Caso real (4/11/2026): Shalom creó la identidad del usuario y lo certificó; Ğecko
+    // mostraba "Identité non confirmée" y ChatWallet no tenía cómo confirmarla.
+    console.log('\n── G) confirmar la identidad Ğ1 ──');
+    await ev(`window.__g1idty = { indice: 18723, estado: 'Unconfirmed', certificaciones: 1, diasPlazo: 55, enEvaluacion: false, precioEvaluacion: 1000 };
+              window.__g1certificadores = ['Shalom', '<img src=x onerror="window.__xss2=1">'];`);
+    await abrirSelector();
+    await listo(`!!document.getElementById('redG1Item')`, 5);
+    await ev(`document.getElementById('redG1Item').click()`);
+    await listo(`document.body.classList.contains('red-g1')`, 10);
+    await ev(`g1Lectura = null; pintarRedG1(true)`);
+    ok(await listo(`!document.getElementById('g1WalletPasoBtn').classList.contains('hidden')`, 15), 'la billetera muestra el paso que falta');
+    ok(await texto('#g1WalletPasoBtn') === 'Confirmá tu identidad Ğ1 · quedan 55 días', 'con el plazo', await texto('#g1WalletPasoBtn'));
+    ok(await texto('#g1WalletIdentidad') === 'Identidad Ğ1 sin confirmar', 'y no el nombre de relleno del indexador', await texto('#g1WalletIdentidad'));
+    await ev(`document.getElementById('g1WalletPasoBtn').click()`);
+    const idm = (k) => ev(`(document.querySelector('#g1IdentidadModal [data-g1="${k}"]')?.textContent || '').trim()`);
+    const idTipear = (v) => ev(`(() => { const e = document.querySelector('#g1IdentidadModal [data-g1="nombre"]'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input')); })()`);
+    const idSeguir = () => ev(`document.querySelector('#g1IdentidadModal form').requestSubmit()`);
+    ok(await listo(`/Shalom/.test(document.querySelector('#g1IdentidadModal [data-g1="texto"]')?.textContent || '')`, 10), 'dice quién creó la identidad', await idm('texto'));
+    ok(!(await ev(`!!window.__xss2`)) && !(await ev(`!!document.querySelector('#g1IdentidadModal img')`)), 'los nombres de la cadena van como texto');
+    ok(/55 días/.test(await idm('plazo')), 'muestra cuánto queda para confirmar', await idm('plazo'));
+    await idTipear('ñandú'); await sleep(300);
+    ok(/De 3 a 42/.test(await idm('nombreEstado')), 'rechaza un seudónimo con tildes', await idm('nombreEstado'));
+    await idSeguir(); await sleep(300);
+    ok((await ev(`window.__g1idtyTx.length`)) === 0, 'y no avanza');
+    await idTipear('Tomado'); await sleep(500);
+    ok(await idm('nombreEstado') === 'Ese seudónimo ya lo tiene otra persona.', 'avisa si el seudónimo está tomado', await idm('nombreEstado'));
+    await idTipear('Xunorus'); await sleep(500);
+    ok(await idm('nombreEstado') === 'Está libre.', 'y si está libre', await idm('nombreEstado'));
+    await idSeguir(); await sleep(300);
+    ok(/«Xunorus».*no se puede cambiar/.test(await idm('texto')) && await idm('seguir') === 'Confirmar como Xunorus', 'pide confirmar antes de firmar', await idm('texto'));
+    ok((await ev(`window.__g1idtyTx.length`)) === 0, 'todavía no firmó nada');
+    await ev(`window.__g1fallar = 'identity.IdtyNameAlreadyExist'`);
+    await idSeguir();
+    ok(await listo(`/ya lo tiene otra persona/.test(document.querySelector('#g1IdentidadModal [data-g1="estado"]').textContent)`, 10), 'si la cadena rechaza el nombre, lo dice claro', await idm('estado'));
+    await idSeguir(); await sleep(300); await idSeguir();
+    ok(await listo(`/sos «Xunorus»/.test(document.querySelector('#g1IdentidadModal [data-g1="estado"]').textContent)`, 10), 'confirma la identidad', await idm('estado'));
+    const tx = await ev(`window.__g1idtyTx`);
+    ok(tx.length === 2 && tx[1].tipo === 'confirmar' && tx[1].nombre === 'Xunorus' && tx[1].de === MIEMBRO, 'firmada con tu cuenta Ğ1 y el seudónimo elegido', JSON.stringify(tx));
+    await ev(`document.querySelector('#g1IdentidadModal [data-g1="cancelar"]').click()`);
+    ok(await listo(`document.getElementById('g1WalletPasoBtn').textContent === '1 de 5 certificaciones · ver'`, 10), 'la billetera pasa a mostrar las certificaciones', await texto('#g1WalletPasoBtn'));
+
+    console.log('\n── G) juntar certificaciones y pedir la membresía ──');
+    await ev(`document.getElementById('g1WalletPasoBtn').click()`);
+    ok(await listo(`/1 de 5/.test(document.querySelector('#g1IdentidadModal [data-g1="texto"]')?.textContent || '')`, 10), 'cuántas tiene y cuántas faltan', await idm('texto'));
+    ok(await idm('cuenta') === MIEMBRO, 'muestra la cuenta para pasársela a quien certifique');
+    ok(/✓ Shalom/.test(await idm('certs')), 'y quién ya lo certificó', await idm('certs'));
+    ok(/60 días para llegar a miembro/.test(await idm('plazo')), 'con el plazo para ser miembro', await idm('plazo'));
+    await ev(`document.querySelector('#g1IdentidadModal [data-g1="cancelar"]').click()`);
+    await ev(`window.__g1idty = { ...window.__g1idty, certificaciones: 5 }; g1Lectura = null; pintarRedG1(true)`);
+    ok(await listo(`document.getElementById('g1WalletPasoBtn').textContent === 'Ya tenés 5 certificaciones · pedí la membresía'`, 10), 'con 5, ofrece pedir la membresía', await texto('#g1WalletPasoBtn'));
+    await ev(`document.getElementById('g1WalletPasoBtn').click()`);
+    ok(await listo(`/10,00 Ğ1/.test(document.querySelector('#g1IdentidadModal [data-g1="texto"]')?.textContent || '')`, 10), 'avisa que reserva 10 Ğ1 y que se pierden si no pasa', await idm('texto'));
+    await idSeguir();
+    ok(await listo(`/Pedido enviado/.test(document.querySelector('#g1IdentidadModal [data-g1="estado"]').textContent)`, 10), 'pide la membresía', await idm('estado'));
+    ok((await ev(`window.__g1idtyTx`)).at(-1)?.tipo === 'membresia', 'con la llamada de evaluación de distancia');
+    await ev(`document.querySelector('#g1IdentidadModal [data-g1="cancelar"]').click()`);
+    ok(await listo(`document.getElementById('g1WalletPasoBtn').textContent === 'Membresía en evaluación…'`, 10), 'y la billetera muestra que está en evaluación', await texto('#g1WalletPasoBtn'));
+    await ev(`window.__g1idty = null; g1Lectura = null; pintarRedG1(true)`);
+    ok(await listo(`document.getElementById('g1WalletPasoBtn').classList.contains('hidden')`, 10), 'un miembro no ve ningún paso pendiente');
 } finally {
     try { ws && ws.close(); } catch { }
     try { proc.kill('SIGKILL'); } catch { }

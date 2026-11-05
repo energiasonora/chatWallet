@@ -299,6 +299,37 @@ try {
     })()`);
     ok(seFue.estado === 'offline', 'y ana lo ve desconectado sin esperar la ventana', JSON.stringify(seFue));
 
+    // Caso real (4/11/2026): "En línea" al entrar y, al salir el otro, "Últ. vez hace 7 días".
+    // El repintado cada 30 s usaba currentChatContact, una copia del contacto de cuando se
+    // abrió el chat, con el visto viejo.
+    const copiaVieja = await A.eval(`(() => {
+        const c = contacts.find(x => (x.address||'').toLowerCase() === ${JSON.stringify(addrB)}.toLowerCase());
+        currentChatContact = { ...c, status: 'offline', lastSeen: Date.now() - 7 * 86400000 };
+        presenciaVencerEstados();
+        return (document.getElementById('chatStatusIndicator')?.innerText || '').trim();
+    })()`);
+    ok(!/7 d/.test(copiaVieja), 'el encabezado no vuelve al visto de una copia vieja del contacto', JSON.stringify(copiaVieja));
+
+    // Un mensaje común también dice que estuvo: el "Últ. vez" avanza aunque no haya presencia.
+    await A.eval(`(() => {
+        const c = contacts.find(x => (x.address||'').toLowerCase() === ${JSON.stringify(addrB)}.toLowerCase());
+        c.status = 'offline'; c.lastSeen = Date.now() - 7 * 86400000;
+        currentChatContact = c;
+    })()`);
+    await B.eval(`(async () => { await currentConversation.sendText('visto por mensaje ' + Date.now()); })()`);
+    const porMensaje = await A.eval(`(async () => {
+        for (let i = 0; i < 25; i++) {
+            const c = contacts.find(x => (x.address||'').toLowerCase() === ${JSON.stringify(addrB)}.toLowerCase());
+            if (c && Date.now() - c.lastSeen < 5 * 60 * 1000)
+                return { hace: Date.now() - c.lastSeen, estado: c.status, detalle: (document.getElementById('chatStatusIndicator')?.innerText || '').trim() };
+            await new Promise(r => setTimeout(r, 1500));
+        }
+        return { hace: 'no avanzó' };
+    })()`);
+    ok(typeof porMensaje.hace === 'number', 'un mensaje del otro actualiza su "Últ. vez"', JSON.stringify(porMensaje));
+    ok(porMensaje.estado === 'offline', 'sin hacerlo figurar en línea', JSON.stringify(porMensaje));
+    ok(!/7 d/.test(porMensaje.detalle || ''), 'y el encabezado lo muestra', JSON.stringify(porMensaje.detalle));
+
     // ── Reenviar de verdad ────────────────────────────────────────────────────
     // Hasta acá el test sólo miraba que el BOTÓN existiera. Existía, y no hacía nada:
     // abrirReenviar() llamaba a escHtml(), que vivía en un <script type="module"> y desde el
