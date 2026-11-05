@@ -296,6 +296,35 @@ try {
     const nuevo = await ev(`contacts.find(c => c.address.toLowerCase() === ${JSON.stringify(EVM_VINCULADA.address.toLowerCase())})`);
     ok(nuevo.name === 'TestMiembro', 'nombrado con su seudónimo Ğ1', nuevo.name);
     ok(await listo(`(currentChatContact?.address || '').toLowerCase() === ${JSON.stringify(EVM_VINCULADA.address.toLowerCase())}`, 20), 'y queda abierto su chat');
+
+    console.log('\n── D) sello Ğ1 del contacto ──');
+    const EVM_L = JSON.stringify(EVM_VINCULADA.address.toLowerCase());
+    ok(await listo(`document.getElementById('chatHeaderG1')?.textContent === '✦ Ğ1' && !document.getElementById('chatHeaderG1').classList.contains('hidden')`, 15),
+        'el encabezado muestra el sello (su nombre ya es el Ğ1: no se repite)', await texto('#chatHeaderG1'));
+    ok(/Miembro de la red de confianza Ğ1: TestMiembro/.test(await ev(`document.getElementById('chatHeaderG1').title`)), 'con la explicación al pasar el dedo');
+    ok(await ev(`(() => { const c = contacts.find(c => c.address.toLowerCase() === ${EVM_L}); return c.g1Id && c.g1Id.g1 === c.g1 && c.g1Id.estado === 'Member' && c.g1Id.nombre === 'TestMiembro'; })()`), 'la identidad queda anotada en el contacto (no se vuelve a pedir al abrir)');
+    const filaG1 = () => ev(`(() => { const r = [...document.querySelectorAll('.contact-item')].find(e => e.querySelector('[data-address="' + ${JSON.stringify(EVM_VINCULADA.address)} + '"]'));
+        return r ? { sello: r.querySelector('.g1-sello-mini')?.textContent || '', nombre: r.querySelector('p.font-semibold')?.textContent, sinConfirmar: !!r.querySelector('.contact-unconfirmed') } : null; })()`);
+    await ev(`renderContacts()`);
+    let fila = await filaG1();
+    ok(fila && fila.sello === '✦ Ğ1', 'y la lista de chats también', JSON.stringify(fila));
+    // Se pone un alias que no es el suyo: el sello deja ver cómo se llama de verdad.
+    await ev(`(() => { const c = contacts.find(c => c.address.toLowerCase() === ${EVM_L}); c.selfAlias = 'Impostor'; c.name = 'Impostor'; renderContacts(); updateChatHeaderStatus(contactoDelChat()); })()`);
+    fila = await filaG1();
+    ok(fila && fila.nombre === 'Impostor' && fila.sello === '✦ Ğ1 · TestMiembro' && fila.sinConfirmar, 'con otro alias, el sello muestra su seudónimo Ğ1 y el alias sigue marcado', JSON.stringify(fila));
+    ok(await texto('#chatHeaderG1') === '✦ Ğ1 · TestMiembro', 'lo mismo en el encabezado', await texto('#chatHeaderG1'));
+    // Su alias es su seudónimo Ğ1 (sin importar mayúsculas): ya no es un nombre "sin confirmar".
+    await ev(`(() => { const c = contacts.find(c => c.address.toLowerCase() === ${EVM_L}); c.selfAlias = 'testmiembro'; c.name = 'testmiembro'; renderContacts(); })()`);
+    fila = await filaG1();
+    ok(fila && fila.sello === '✦ Ğ1' && !fila.sinConfirmar, 'alias igual al seudónimo Ğ1: deja de marcarse como sin confirmar', JSON.stringify(fila));
+    // Una identidad sin confirmar trae un nombre de relleno: sin sello.
+    await ev(`(() => { const c = contacts.find(c => c.address.toLowerCase() === ${EVM_L}); c.g1Id = { ...c.g1Id, estado: 'Unconfirmed', nombre: '0003405735-518ff-000001' }; renderContacts(); pintarSelloG1Chat(c); })()`);
+    fila = await filaG1();
+    ok(fila && !fila.sello && await ev(`document.getElementById('chatHeaderG1').classList.contains('hidden')`), 'sin sello para una identidad sin confirmar', JSON.stringify(fila));
+    // Una cuenta Ğ1 distinta de la anotada: el sello viejo no vale.
+    await ev(`(() => { const c = contacts.find(c => c.address.toLowerCase() === ${EVM_L}); c.g1Id = { ...c.g1Id, estado: 'Member', nombre: 'TestMiembro', g1: 'g1Otra' }; renderContacts(); })()`);
+    fila = await filaG1();
+    ok(fila && !fila.sello, 'ni si la identidad anotada es de otra cuenta Ğ1', JSON.stringify(fila));
     await ev(`handleScannedData(${JSON.stringify(MIEMBRO)})`);
     ok(await listo(`document.querySelector('#g1EscaneoModal [data-g1="chat"]')?.textContent === 'Abrir chat'`, 15), 'escanearlo de nuevo: "Abrir chat" (ya está en la agenda)');
     await ev(`document.querySelector('#g1EscaneoModal [data-g1="cerrar"]').click()`);
@@ -416,7 +445,11 @@ try {
     ok(await listo(`!document.getElementById('g1WalletPasoBtn').classList.contains('hidden')`, 15), 'la billetera muestra el paso que falta');
     ok(await texto('#g1WalletPasoBtn') === 'Confirmá tu identidad Ğ1 · quedan 55 días', 'con el plazo', await texto('#g1WalletPasoBtn'));
     ok(await texto('#g1WalletIdentidad') === 'Identidad Ğ1 sin confirmar', 'y no el nombre de relleno del indexador', await texto('#g1WalletIdentidad'));
+    await ev(`localStorage.setItem('chatwallet-user-profile', JSON.stringify({ alias: 'Xúnorus Él' }))`);
     await ev(`document.getElementById('g1WalletPasoBtn').click()`);
+    ok(await listo(`document.querySelector('#g1IdentidadModal [data-g1="nombre"]')?.value === 'Xunorus_El'`, 10), 'sugiere el seudónimo a partir de tu alias, sin tildes ni espacios',
+        await ev(`document.querySelector('#g1IdentidadModal [data-g1="nombre"]')?.value`));
+    await ev(`localStorage.removeItem('chatwallet-user-profile')`);
     const idm = (k) => ev(`(document.querySelector('#g1IdentidadModal [data-g1="${k}"]')?.textContent || '').trim()`);
     const idTipear = (v) => ev(`(() => { const e = document.querySelector('#g1IdentidadModal [data-g1="nombre"]'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input')); })()`);
     const idSeguir = () => ev(`document.querySelector('#g1IdentidadModal form').requestSubmit()`);

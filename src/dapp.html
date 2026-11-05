@@ -1063,6 +1063,35 @@
             color: #a16207;
         }
 
+        /* Sello Ğ1 de un contacto (encabezado del chat y lista): su seudónimo en la cadena. */
+        .g1-sello-mini {
+            flex-shrink: 0;
+            font-size: .7rem;
+            font-weight: 600;
+            line-height: 1.1rem;
+            padding: 0 .35rem;
+            border-radius: .35rem;
+            border: 1px solid rgba(148, 163, 184, .4);
+            color: #94a3b8;
+            white-space: nowrap;
+            max-width: 9rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .g1-sello-mini.miembro {
+            border-color: rgba(234, 179, 8, .6);
+            color: #eab308;
+        }
+
+        .g1-sello-mini.hidden {
+            display: none;
+        }
+
+        body.theme-light .g1-sello-mini.miembro {
+            color: #a16207;
+        }
+
         #userCardLinks {
             display: flex;
             flex-direction: column;
@@ -2762,7 +2791,10 @@
                                 <img id="chatHeaderAvatar" src="static/anonym.jpg" alt="Chat Avatar">
                             </div>
                             <div class="flex flex-col overflow-hidden">
-                                <h2 id="chattingWith" class="text-lg font-bold truncate">Chat</h2>
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <h2 id="chattingWith" class="text-lg font-bold truncate">Chat</h2>
+                                    <span id="chatHeaderG1" class="g1-sello-mini hidden"></span>
+                                </div>
                                 <span id="chatStatusIndicator" class="text-xs text-gray-400"></span>
                             </div>
                         </div>
@@ -11340,7 +11372,8 @@
                         const nombreMostrado = contactOwnName(contact);
                         const corta = isG ? '' : shortAddr(contact.address);
                         // Un .eth no se marca: está verificado on-chain (ver contactOwnName).
-                        const sinConfirmar = !isG && !localAlias && !contact.ensName;
+                        // Tampoco si su nombre es su seudónimo Ğ1: ése es único y lo respalda la red.
+                        const sinConfirmar = !isG && !localAlias && !contact.ensName && !nombreEsG1(contact);
                         // Si lo que se ve arriba YA es la address, repetirla al lado es ruido.
                         // Y en una barra angosta el chip no entra: entre mostrar la address
                         // recortada a "0xe1…" o dejar el nombre y la hora legibles, gana lo
@@ -11375,6 +11408,7 @@
                             <div class="flex justify-between items-baseline">
                                 <div class="flex items-baseline gap-1.5 min-w-0 pr-2">
                                     <p class="font-semibold truncate ${sinConfirmar ? 'contact-unconfirmed' : ''}">${escHtml(nombreMostrado)}</p>
+                                    ${isG ? '' : selloG1Html(contact)}
                                     ${chipAddr}
                                 </div>
                                 <p class="text-xs text-gray-400 flex-shrink-0">${lastMessageTime}</p>
@@ -11585,6 +11619,76 @@
                 return name;
             }
 
+            // ── Sello Ğ1 de un contacto ────────────────────────────────────────────────
+            // El alias lo elige cada uno y se puede copiar; el seudónimo Ğ1 es único en la cadena,
+            // no se cambia y lo respaldan certificaciones de personas. El sello sale de contact.g1,
+            // que solo llega comprobado (perfil con las dos firmas, o QR con vínculo público ius1),
+            // y del indexador: nunca de algo que el otro diga de sí mismo. Una identidad sin
+            // confirmar trae un nombre de relleno ("0003405735-518ff-000001"): esa no cuenta.
+            const SELLO_G1_MS = 6 * 3600 * 1000;
+            function selloG1De(contact) {
+                const s = contact && !contact.isGroup && contact.g1 && contact.g1Id;
+                if (!s || s.g1 !== contact.g1 || !s.nombre) return null;
+                if (!['Member', 'Unvalidated', 'NotMember'].includes(s.estado)) return null;
+                return s;
+            }
+            // ¿El nombre que se ve arriba es su seudónimo Ğ1? Entonces ya no es un nombre "sin confirmar".
+            function nombreEsG1(contact) {
+                const s = selloG1De(contact);
+                return !!s && contactOwnName(contact).trim().toLowerCase() === s.nombre.toLowerCase();
+            }
+            // → { texto, miembro, titulo } o null. Si el nombre de arriba ya es el Ğ1, no se repite.
+            function textoSelloG1(contact) {
+                const s = selloG1De(contact);
+                if (!s) return null;
+                const base = s.miembro ? '✦ Ğ1' : 'Ğ1';
+                return {
+                    texto: nombreEsG1(contact) ? base : `${base} · ${s.nombre}`,
+                    miembro: !!s.miembro,
+                    titulo: t(s.miembro ? 'g1_seal_member' : 'g1_seal_not_member', { nombre: s.nombre }),
+                };
+            }
+            function selloG1Html(contact) {
+                const x = textoSelloG1(contact);
+                if (!x) return '';
+                return `<span class="g1-sello-mini${x.miembro ? ' miembro' : ''}" title="${escHtml(x.titulo).replace(/"/g, '&quot;')}">${escHtml(x.texto)}</span>`;
+            }
+            function pintarSelloG1Chat(contact) {
+                const el = document.getElementById('chatHeaderG1');
+                if (!el) return;
+                const x = contact ? textoSelloG1(contact) : null;
+                el.classList.toggle('hidden', !x);
+                el.classList.toggle('miembro', !!(x && x.miembro));
+                el.textContent = x ? x.texto : '';
+                el.title = x ? x.titulo : '';
+            }
+            // Lee la identidad de su cuenta Ğ1 al abrir su chat (como mucho cada 6 h). Solo para
+            // contactos con cuenta Ğ1: a los demás no se los consulta, así el indexador no se
+            // entera de con quién hablás.
+            async function refrescarSelloG1(contact) {
+                if (!contact || contact.isGroup || !contact.g1 || isOffline) return;
+                const s = contact.g1Id;
+                if (s && s.g1 === contact.g1 && Date.now() - (s.t || 0) < SELLO_G1_MS) return;
+                if (typeof window.cwCargarG1 !== 'function') return;
+                try {
+                    const G1 = await window.cwCargarG1();
+                    const g1 = contact.g1;
+                    const id = await G1.identidad(g1);
+                    const c = contacts.find(x => x.address && x.address.toLowerCase() === String(contact.address).toLowerCase());
+                    if (!c || c.g1 !== g1) return;
+                    const nuevo = { g1, nombre: (id && id.nombre) || '', estado: (id && id.estado) || '', miembro: !!(id && id.miembro), t: Date.now() };
+                    const antes = c.g1Id || {};
+                    const cambio = antes.g1 !== nuevo.g1 || antes.nombre !== nuevo.nombre || antes.estado !== nuevo.estado || antes.miembro !== nuevo.miembro;
+                    c.g1Id = nuevo;
+                    if (contact !== c) contact.g1Id = nuevo;
+                    await saveContacts();
+                    if (!cambio) return;
+                    renderContacts();
+                    const abierto = contactoDelChat();
+                    if (abierto && abierto.address.toLowerCase() === c.address.toLowerCase()) pintarSelloG1Chat(abierto);
+                } catch (e) { console.warn('[g1] sello del contacto:', e?.message || e); }
+            }
+
             // Busca el .eth de un contacto NUEVO, de fondo, y si aparece lo muestra. Sólo al
             // estrenarlo, a propósito: recorrer toda la agenda contra un RPC público le contaría
             // a ese RPC con quién hablás. Una dirección que igual vas a contactar no cuenta nada.
@@ -11717,6 +11821,8 @@
                 cwPintarInvitacion(contact);
                 document.getElementById('cwChatSinSync')?.remove();
                 if (!contact.isGroup) updateChatHeaderStatus(contactoDelChat() || contact);
+                pintarSelloG1Chat(contact.isGroup ? null : (contactoDelChat() || contact));
+                if (!contact.isGroup) refrescarSelloG1(contactoDelChat() || contact);
 
                 // ── Grupo: sin modo offline (el circuito por QR es 1:1). ──
                 if (contact.isGroup) {
@@ -14523,7 +14629,9 @@
                 if (typeof window.cwCargarG1 !== 'function') return null;
                 const G1 = await window.cwCargarG1();
                 const vinculo = await G1.vinculoDeEvm(address, window.ethers);
-                const r = vinculo ? { g1: vinculo.g1, identidad: await G1.identidad(vinculo.g1) } : null;
+                // Sin vínculo público, el privado que llegó en su perfil firmado (ya comprobado).
+                const g1 = (vinculo && vinculo.g1) || contacts.find(c => c.address && c.address.toLowerCase() === k)?.g1 || null;
+                const r = g1 ? { g1, identidad: await G1.identidad(g1) } : null;
                 g1Cache.set(k, { t: Date.now(), r });
                 return r;
             }
@@ -14873,6 +14981,11 @@
                     plazo('g1_idty_confirm_deadline');
                     mostrar('nombreBox');
                     q('nombre').placeholder = t('g1_idty_name_ph');
+                    // Sugerencia: tu alias de ChatWallet, llevado a lo que acepta la cadena
+                    // (sin tildes ni espacios). Se puede cambiar; lo que no se cambia es lo que firmes.
+                    const sugerido = String(readOwnProfile()?.alias || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                        .trim().replace(/\s+/g, '_').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 42);
+                    if (C.nombreValido(sugerido)) q('nombre').value = sugerido;
                     q('seguir').textContent = t('g1_send_review');
                     mostrar('seguir');
                     let libre = null, consulta = 0;
@@ -22574,6 +22687,7 @@
                     ? `<span class="${statusColor} font-medium">${escHtml(aliasAbajo)}</span> · `
                     : `<span class="${statusColor}">●</span> `;
                 chatStatusIndicator.innerHTML = `${aliasBit}<span class="text-gray-400">${detail}</span>`;
+                if (!currentGroup) pintarSelloG1Chat(contact);
             }
             // --- FIN: PRESENCIA Y RECIBOS DE LECTURA ---
 
@@ -24914,6 +25028,8 @@
                     "g1_st_unvalidated": "identidad esperando certificaciones",
                     "g1_st_notmember": "membresía vencida",
                     "g1_st_revoked": "identidad revocada",
+                    "g1_seal_member": "Miembro de la red de confianza Ğ1: {nombre}. Comprobado en la cadena; no se puede copiar ni cambiar.",
+                    "g1_seal_not_member": "Identidad Ğ1 {nombre}, todavía sin membresía. Comprobada en la cadena.",
                     "g1_idty_unconfirmed_line": "Identidad Ğ1 sin confirmar",
                     "g1_step_confirm": "Confirmá tu identidad Ğ1 · quedan {d} días",
                     "g1_step_certs": "{n} de 5 certificaciones · ver",
@@ -25704,6 +25820,8 @@
                     "g1_st_unvalidated": "identity awaiting certifications",
                     "g1_st_notmember": "membership expired",
                     "g1_st_revoked": "revoked identity",
+                    "g1_seal_member": "Member of the Ğ1 web of trust: {nombre}. Checked on-chain; it cannot be copied or changed.",
+                    "g1_seal_not_member": "Ğ1 identity {nombre}, not a member yet. Checked on-chain.",
                     "g1_idty_unconfirmed_line": "Unconfirmed Ğ1 identity",
                     "g1_step_confirm": "Confirm your Ğ1 identity · {d} days left",
                     "g1_step_certs": "{n} of 5 certifications · view",
@@ -26494,6 +26612,8 @@
                     "g1_st_unvalidated": "identité en attente de certifications",
                     "g1_st_notmember": "adhésion expirée",
                     "g1_st_revoked": "identité révoquée",
+                    "g1_seal_member": "Membre de la toile de confiance Ğ1 : {nombre}. Vérifié sur la chaîne ; impossible à copier ou à changer.",
+                    "g1_seal_not_member": "Identité Ğ1 {nombre}, pas encore membre. Vérifiée sur la chaîne.",
                     "g1_idty_unconfirmed_line": "Identité Ğ1 non confirmée",
                     "g1_step_confirm": "Confirmez votre identité Ğ1 · {d} jours restants",
                     "g1_step_certs": "{n} certifications sur 5 · voir",
