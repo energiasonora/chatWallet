@@ -17,6 +17,9 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Enviar Ğ1 se confirma deslizando, como en las demás redes.** Antes era un botón, y además la dirección de quien recibe se salía de la ventana. Ahora el resumen muestra la dirección completa en su propio recuadro, cortada para que entre, y para enviar deslizás hasta el final. Si lo soltás a mitad de camino, vuelve y no se manda nada.
+- **Link al explorador de bloques en cada pago Ğ1.** Al terminar un envío, en la tarjeta del pago del chat y en el detalle del historial aparece "Ver en el explorador de bloques", que abre ese bloque para comprobar la transferencia por tu cuenta. Antes solo se veía el número de bloque.
+
 ## 3.100 — 2026-11-05
 
 - **Tu identidad Ğ1 ahora está en tu DID.** Confirmar el seudónimo, ver tus certificaciones y pedir la membresía se hace desde tu tarjeta del DID, que es donde está tu identidad. Ahí también ves tu cuenta Ğ1 y si sos miembro. En la billetera Ğ1 sigue el aviso del paso que te falta, y al tocarlo te lleva a tu DID.

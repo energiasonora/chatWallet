@@ -177,11 +177,12 @@ try {
     await A.listo(`/Podés|disponible|available/i.test(document.querySelector('#g1EnvioModal [data-g1="disponible"]')?.textContent || '')`, 20);
     await A.ev(`(() => { const m = document.getElementById('g1EnvioModal'); m.querySelector('[data-g1="monto"]').value = '12,5'; m.querySelector('[data-g1="comentario"]').value = 'café'; m.querySelector('form').requestSubmit(); return true; })()`);
     await A.listo(`!document.querySelector('#g1EnvioModal [data-g1="paso2"]').classList.contains('hidden')`, 30);
-    await A.ev(`document.querySelector('#g1EnvioModal form').requestSubmit(); true`);
+    await A.ev(`(() => { const r = document.querySelector('#g1EnvioModal [data-g1="deslizador"] input[type=range]'); r.value = 100; r.dispatchEvent(new Event('input')); return true; })()`);
     const env = await A.listo(`window.__g1env`, 30);
     ok(env && env.desde === ga && env.destino === gb && env.centimos === 1250 && env.comentario === 'café', 'firma desde la cuenta Ğ1 de A hacia la de B, 12,50 Ğ1', JSON.stringify(env));
     let ta = await esperarTarjeta(A, /Enviaste/, 30);
     ok(ta.some(x => /Enviaste 12,50 Ğ1 bloque #4242/.test(x)), 'en el chat de A queda «Enviaste 12,50 Ğ1»', ta.join(' | '));
+    ok(await A.ev(`[...document.querySelectorAll('#messagesContainer .g1-tarjeta [data-g1="explorador"]')].some(a => a.href.endsWith('#/explorer/query/4242'))`), 'con el link al bloque en el explorador');
     await A.ev(`document.getElementById('g1EnvioModal')?.remove(); true`);
 
     console.log('\n── B lo ve y lo verifica ──');

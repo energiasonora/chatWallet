@@ -15285,7 +15285,8 @@
                 det.className = 'hist-detalle col-span-3 hidden text-xs text-gray-400 break-all space-y-1 pt-1';
                 for (const linea of detalle) {
                     const p = document.createElement('p');
-                    p.textContent = linea;
+                    if (linea instanceof Node) p.appendChild(linea);
+                    else p.textContent = linea;
                     det.appendChild(p);
                 }
                 fila.append(fecha, medio, m, det);
@@ -15327,6 +15328,7 @@
                             m.nombre ? `${t('hist_g1_name')}: ${m.nombre}` : null,
                             m.comentario ? `${t('hist_comment')}: ${m.comentario}` : null,
                             `${t('hist_block')} #${m.bloque}`,
+                            enlaceBloqueG1(Number(m.bloque)),
                         ].filter(Boolean),
                     }));
                 }
@@ -15474,6 +15476,76 @@
             }
 
             // Formulario de envío. prellenado: { destino, monto (céntimos), comentario }.
+            // ── Explorador de bloques Ğ1 ─────────────────────────────────────────────────
+            // Duniter v2 no tiene un explorador propio que ande hoy; polkadot.js Apps lee
+            // cualquier cadena Substrate conectándose a un nodo, y muestra el bloque con sus
+            // transferencias y comentarios. Se abre afuera, como los exploradores de las redes EVM.
+            const NODO_EXPLORADOR_G1 = 'wss://g1.gyroi.de:443';
+            function urlBloqueG1(bloque) {
+                if (!Number.isSafeInteger(bloque) || bloque < 0) return null;
+                return `https://polkadot.js.org/apps/?rpc=${encodeURIComponent(NODO_EXPLORADOR_G1)}#/explorer/query/${bloque}`;
+            }
+            function enlaceBloqueG1(bloque, clase = 'text-xs text-indigo-400 hover:underline') {
+                const url = urlBloqueG1(bloque);
+                if (!url) return null;
+                const a = document.createElement('a');
+                a.href = url;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.className = clase;
+                a.dataset.g1 = 'explorador';
+                a.textContent = t('g1_explorer_link');
+                a.addEventListener('click', (e) => e.stopPropagation());
+                return a;
+            }
+
+            // Deslizar para confirmar: el mismo gesto que el envío de las redes EVM (#confirmTxModal),
+            // para que mandar plata nunca sea un toque suelto ni un Enter.
+            // → { el, reiniciar(), ocupado(texto) }
+            function crearDeslizador(texto, alConfirmar) {
+                const el = document.createElement('div');
+                el.className = 'relative w-full h-12 bg-gray-700 rounded-lg overflow-hidden flex items-center';
+                el.innerHTML = `
+                    <div data-d="texto" class="absolute inset-0 flex items-center justify-center text-gray-400 text-sm font-semibold pointer-events-none z-0 px-12 text-center"></div>
+                    <div data-d="relleno" class="absolute left-0 top-0 bottom-0 bg-indigo-500/20 w-0 z-0 transition-all duration-75"></div>
+                    <input type="range" data-d="rango" min="0" max="100" value="0" class="w-full h-full opacity-0 z-10 cursor-pointer absolute inset-0">
+                    <div data-d="pulgar" class="absolute left-1 w-10 h-10 bg-indigo-600 rounded-md flex items-center justify-center shadow-md pointer-events-none z-10 transition-transform duration-75 text-white"></div>`;
+                const d = (k) => el.querySelector(`[data-d="${k}"]`);
+                const flecha = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>';
+                let disparado = false;
+                const mover = (v) => {
+                    const max = Math.max(0, d('rango').offsetWidth - 40 - 8);
+                    d('pulgar').style.transform = `translateX(${(v / 100) * max}px)`;
+                    d('relleno').style.width = `${v}%`;
+                };
+                const api = {
+                    el,
+                    reiniciar() {
+                        disparado = false;
+                        d('rango').disabled = false;
+                        d('rango').value = 0;
+                        mover(0);
+                        d('texto').textContent = texto;
+                        d('pulgar').innerHTML = flecha;
+                    },
+                    ocupado(txt) {
+                        d('rango').disabled = true;
+                        d('texto').textContent = txt;
+                        d('pulgar').innerHTML = '<span class="spinner" style="margin:0;width:14px;height:14px;"></span>';
+                    },
+                };
+                d('rango').addEventListener('input', (e) => {
+                    const v = parseInt(e.target.value, 10);
+                    mover(v);
+                    if (v === 100 && !disparado) { disparado = true; alConfirmar(); }
+                });
+                d('rango').addEventListener('change', (e) => {
+                    if (!disparado && parseInt(e.target.value, 10) < 100) { e.target.value = 0; mover(0); }
+                });
+                api.reiniciar();
+                return api;
+            }
+
             async function abrirEnvioG1(prellenado = {}) {
                 if (!currentWallet) return;
                 if (!cuentaG1Guardada()) { await activarRedG1(); if (!cuentaG1Guardada()) return; }
@@ -15500,12 +15572,15 @@
                             <input data-g1="comentario" maxlength="140" autocomplete="off"
                                 class="w-full bg-gray-700 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
                         </div>
-                        <div data-g1="paso2" class="hidden space-y-2 text-center">
-                            <p class="text-sm" data-g1="resumen"></p>
+                        <div data-g1="paso2" class="hidden space-y-2 text-center min-w-0">
+                            <p class="text-sm break-words" data-g1="resumen"></p>
+                            <p class="font-mono text-[11px] text-gray-400 break-all bg-gray-900/50 rounded-lg p-2" data-g1="resumenDestino"></p>
                             <p class="text-xs text-gray-400" data-g1="cobro"></p>
-                            <p class="text-sm italic text-gray-300" data-g1="resumenComentario"></p>
+                            <p class="text-sm italic text-gray-300 break-words" data-g1="resumenComentario"></p>
+                            <div data-g1="deslizador" class="pt-1"></div>
                         </div>
-                        <p class="text-sm min-h-[1.25rem]" data-g1="estado"></p>
+                        <p class="text-sm min-h-[1.25rem] break-words" data-g1="estado"></p>
+                        <p class="hidden text-center" data-g1="exploradorBox"></p>
                         <div class="flex justify-end gap-3">
                             <button type="button" data-g1="cancelar" class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500"></button>
                             <button type="submit" data-g1="seguir" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold"></button>
@@ -15592,31 +15667,45 @@
                         if (!montoC) { estado(t('g1_err_amount'), 'text-red-400'); return; }
                         if (disponible != null && montoC > disponible) { estado(t('g1_err_funds', { monto: formatoG1(disponible) }), 'text-red-400'); return; }
                         const nombre = q('destino').dataset.nombre;
-                        q('resumen').textContent = t('g1_send_summary', { monto: formatoG1(montoC), quien: nombre ? `${nombre} (${destino.slice(0, 8)}…${destino.slice(-6)})` : destino });
+                        q('resumen').textContent = t('g1_send_summary', { monto: formatoG1(montoC), quien: nombre ? `${nombre} (${destino.slice(0, 8)}…${destino.slice(-6)})` : `${destino.slice(0, 8)}…${destino.slice(-6)}` });
+                        // La dirección completa va aparte y cortable: para revisarla sin que se salga de la ventana.
+                        q('resumenDestino').textContent = destino;
                         q('cobro').textContent = pendiente > 0 ? t('g1_send_with_ud', { monto: formatoG1(pendiente) }) : '';
                         const com = q('comentario').value.trim();
                         q('resumenComentario').textContent = com ? `“${com}”` : '';
                         q('paso1').classList.add('hidden');
                         q('paso2').classList.remove('hidden');
-                        q('seguir').textContent = t('g1_send_confirm', { monto: formatoG1(montoC) });
+                        // El botón de seguir se va: confirmar es deslizar.
+                        q('seguir').classList.add('hidden');
+                        deslizador = crearDeslizador(t('g1_send_slide', { monto: formatoG1(montoC) }), mandarAhora);
+                        q('deslizador').replaceChildren(deslizador.el);
+                        deslizador.reiniciar();
                         estado('');
                         paso = 2;
                         return;
                     }
+                    // En el paso 2 un Enter no manda nada: solo el deslizador.
+                };
+                let deslizador = null;
+                async function mandarAhora() {
                     if (paso !== 2) return;
                     paso = 3;
-                    q('seguir').disabled = true;
+                    deslizador.ocupado(t('g1_send_sending'));
                     q('cancelar').disabled = true;
+                    const volver = () => { paso = 2; deslizador.reiniciar(); q('cancelar').disabled = false; };
                     try {
                         estado(t('g1_connecting'));
                         const cuenta = await cuentaFirmanteG1();
-                        if (!cuenta) { paso = 2; q('seguir').disabled = false; q('cancelar').disabled = false; estado(''); return; }
+                        if (!cuenta) { volver(); estado(''); return; }
                         const C = await window.cwCargarCadenaG1();
                         estado(t('g1_send_sending'));
                         const res = await C.enviar(cuenta, destino, montoC, q('comentario').value.trim(), (st) => {
                             if (st === 'en-bloque') estado(t('g1_send_sending'));
                         });
                         estado(t('g1_send_inblock', { b: res.bloque ?? '?' }), 'text-green-400');
+                        const enlace = enlaceBloqueG1(res.bloque, 'text-sm text-indigo-400 hover:underline');
+                        if (enlace) { q('exploradorBox').replaceChildren(enlace); q('exploradorBox').classList.remove('hidden'); }
+                        q('deslizador').classList.add('hidden');
                         showToast(t('g1_send_done', { monto: formatoG1(montoC) }), 'success', 5000);
                         // Desde el chat: dejar la tarjeta del pago en la conversación.
                         if (prellenado.alEnviar) {
@@ -15627,15 +15716,12 @@
                         if (redG1Activa()) pintarRedG1(true);
                         q('cancelar').disabled = false;
                         q('cancelar').textContent = t('g1_cancel_close');
-                        q('seguir').classList.add('hidden');
                     } catch (err) {
                         console.warn('[g1] enviar:', err);
                         estado(t('g1_send_err', { e: err?.message || err }), 'text-red-400');
-                        paso = 2;
-                        q('seguir').disabled = false;
-                        q('cancelar').disabled = false;
+                        volver();
                     }
-                };
+                }
             }
 
             // ── Ğ1 en el chat ──────────────────────────────────────────────────────────────
@@ -15758,6 +15844,8 @@
                     monto.classList.add(mio ? 'text-red-400' : 'text-green-400');
                     monto.appendChild(sim);
                     sub.textContent = d.block != null ? t('g1_chat_bloque', { b: d.block }) : `${d.to.slice(0, 8)}…${d.to.slice(-6)}`;
+                    const enlace = d.block != null ? enlaceBloqueG1(d.block) : null;
+                    if (enlace) { const p = document.createElement('p'); p.className = 'mt-1'; p.appendChild(enlace); card.appendChild(p); }
                     if (!mio) {
                         const linea = document.createElement('p');
                         linea.className = 'mt-2 text-xs text-gray-400';
@@ -25057,6 +25145,8 @@
                     "g1_send_with_ud": "En la misma operación se cobra tu dividendo pendiente ({monto} Ğ1).",
                     "g1_send_sending": "Enviando…",
                     "g1_send_inblock": "Listo: confirmado en el bloque #{b}.",
+                    "g1_explorer_link": "Ver en el explorador de bloques ↗",
+                    "g1_send_slide": "Deslizá para enviar {monto} Ğ1 →",
                     "g1_send_done": "Enviaste {monto} Ğ1",
                     "g1_send_err": "No se pudo enviar: {e}",
                     "g1_err_dest": "Esa no es una cuenta Ğ1 válida.",
@@ -25849,6 +25939,8 @@
                     "g1_send_with_ud": "Your pending dividend ({monto} Ğ1) is claimed in the same operation.",
                     "g1_send_sending": "Sending…",
                     "g1_send_inblock": "Done: confirmed in block #{b}.",
+                    "g1_explorer_link": "View in block explorer ↗",
+                    "g1_send_slide": "Slide to send {monto} Ğ1 →",
                     "g1_send_done": "You sent {monto} Ğ1",
                     "g1_send_err": "Couldn't send: {e}",
                     "g1_err_dest": "That isn't a valid Ğ1 account.",
@@ -26641,6 +26733,8 @@
                     "g1_send_with_ud": "Ton dividende en attente ({monto} Ğ1) est réclamé dans la même opération.",
                     "g1_send_sending": "Envoi…",
                     "g1_send_inblock": "Fait : confirmé dans le bloc #{b}.",
+                    "g1_explorer_link": "Voir dans l\u2019explorateur de blocs ↗",
+                    "g1_send_slide": "Glissez pour envoyer {monto} Ğ1 →",
                     "g1_send_done": "Tu as envoyé {monto} Ğ1",
                     "g1_send_err": "Impossible d'envoyer : {e}",
                     "g1_err_dest": "Ce n'est pas un compte Ğ1 valide.",

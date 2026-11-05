@@ -342,6 +342,9 @@ try {
                  monto: q('monto').value, comentario: q('comentario').value, paso2: !q('paso2').classList.contains('hidden') }; })()`);
     const tipear = (k, v) => ev(`(() => { const e = document.querySelector('#g1EnvioModal [data-g1="${k}"]'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input')); })()`);
     const seguir = () => ev(`document.querySelector('#g1EnvioModal form').requestSubmit()`);
+    // Confirmar es deslizar hasta el final (como en las redes EVM).
+    const deslizar = () => ev(`(() => { const r = document.querySelector('#g1EnvioModal [data-g1="deslizador"] input[type=range]'); if (!r) return false;
+        r.value = 100; r.dispatchEvent(new Event('input')); return true; })()`);
     await ev(`document.getElementById('sendBtn').click()`);
     ok(await listo(`/Disponible/.test(document.querySelector('#g1EnvioModal [data-g1="disponible"]')?.textContent || '')`, 15), 'Enviar abre el envío Ğ1');
     let e1 = await envio();
@@ -367,8 +370,18 @@ try {
     ok(e1.paso2 && e1.resumen === `Vas a enviar 12,50 Ğ1 a Novata (${PENDIENTE.slice(0, 8)}…${PENDIENTE.slice(-6)}).`, 'revisión antes de firmar', e1.resumen);
     ok(e1.cobro === 'En la misma operación se cobra tu dividendo pendiente (24,34 Ğ1).', 'avisa que cobra el dividendo', e1.cobro);
     ok((await ev(`window.__g1envios.length`)) === 0, 'todavía no mandó nada');
-    await seguir();
+    ok(await ev(`document.querySelector('#g1EnvioModal [data-g1="resumenDestino"]').textContent`) === PENDIENTE, 'la dirección completa va aparte, para revisarla');
+    ok(await ev(`(() => { const m = document.querySelector('#g1EnvioModal form'); return [...m.querySelectorAll('[data-g1="paso2"] *')].every(e => e.scrollWidth <= m.clientWidth + 1); })()`), 'y nada se sale de la ventana');
+    ok(await ev(`document.querySelector('#g1EnvioModal [data-g1="seguir"]').classList.contains('hidden') && !!document.querySelector('#g1EnvioModal [data-g1="deslizador"] input[type=range]')`), 'para enviar hay que deslizar (no hay botón)');
+    await seguir(); await sleep(500);
+    ok((await ev(`window.__g1envios.length`)) === 0, 'un Enter no manda nada');
+    await ev(`(() => { const r = document.querySelector('#g1EnvioModal [data-g1="deslizador"] input[type=range]'); r.value = 60; r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')); })()`);
+    await sleep(300);
+    ok((await ev(`window.__g1envios.length`)) === 0 && (await ev(`document.querySelector('#g1EnvioModal [data-g1="deslizador"] input[type=range]').value`)) === '0', 'soltarlo a mitad de camino vuelve al principio y no manda');
+    await deslizar();
     ok(await listo(`/bloque #2923999/.test(document.querySelector('#g1EnvioModal [data-g1="estado"]').textContent)`, 15), 'confirma con el bloque', (await envio())?.estado);
+    const exp = await ev(`(() => { const a = document.querySelector('#g1EnvioModal [data-g1="explorador"]'); return a ? { href: a.href, target: a.target, txt: a.textContent } : null; })()`);
+    ok(exp && exp.href === 'https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fg1.gyroi.de%3A443#/explorer/query/2923999' && exp.target === '_blank', 'con el link al bloque en el explorador', JSON.stringify(exp));
     const mandado = (await ev(`window.__g1envios`))[0];
     const esperada = cuentaG1(P1, '//0');
     ok(mandado && mandado.de === MIEMBRO && mandado.publica === hexDe(esperada.publica), 'firma con TU cuenta Ğ1 (la //0 de tu frase, desde la raíz guardada)', JSON.stringify(mandado));
@@ -382,7 +395,7 @@ try {
     await ev(`document.getElementById('sendBtn').click()`);
     ok(await listo(`!!document.getElementById('g1EnvioModal')`, 15), 'abre el envío');
     await tipear('destino', PENDIENTE); await tipear('monto', '1'); await sleep(300);
-    await seguir(); await sleep(500); await seguir();
+    await seguir(); await sleep(500); await deslizar();
     ok(await listo(`!!document.getElementById('g1FraseModal')`, 10), 'pide la frase para firmar');
     ok(await texto('#g1FraseModal h3') === 'Firmar con Ğ1', 'con título de firmar, no de activar', await texto('#g1FraseModal h3'));
     ok(/no de la clave de tu billetera/.test(await texto('#g1FraseModal [data-g1="cuerpo"]')) && !/solo se calcula tu dirección/.test(await texto('#g1FraseModal [data-g1="cuerpo"]')), 'explica por qué y no dice que no guarda nada');
@@ -415,6 +428,7 @@ try {
     ok(fs1[0].nota === '<img src=x onerror="window.__xss=1">pan' && !(await ev(`!!window.__xss`)), 'el comentario se muestra como texto (sin ejecutar nada)');
     ok(fs1[1].quien === 'g1Descon…1111' && fs1[1].monto === '−25,00 Ğ1' && fs1[1].nota === null, 'salida: cuenta sin nombre, en negativo', JSON.stringify(fs1[1]));
     ok(/Para: g1Desconocida/.test(fs1[1].det) && /Bloque #2922000/.test(fs1[1].det), 'el detalle trae la cuenta completa y el bloque');
+    ok(await ev(`[...document.querySelectorAll('.hist-fila [data-g1="explorador"]')].some(a => a.href.endsWith('#/explorer/query/2922000') && a.target === '_blank')`), 'y el link al bloque en el explorador');
     await ev(`document.querySelector('#transactionList .hist-fila').click()`);
     ok(await ev(`!document.querySelector('#transactionList .hist-detalle').classList.contains('hidden')`), 'tocar una fila abre el detalle');
     await ev(`document.getElementById('historyMas').click()`);
