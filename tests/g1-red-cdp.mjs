@@ -512,6 +512,13 @@ try {
     ok(tx.length === 2 && tx[1].tipo === 'confirmar' && tx[1].nombre === 'Xunorus' && tx[1].de === MIEMBRO, 'firmada con tu cuenta Ğ1 y el seudónimo elegido', JSON.stringify(tx));
     await ev(`document.querySelector('#g1IdentidadModal [data-g1="cancelar"]').click()`);
     ok(await listo(`document.getElementById('g1WalletPasoBtn').textContent === '1 de 5 certificaciones · ver'`, 10), 'la billetera pasa a mostrar las certificaciones', await texto('#g1WalletPasoBtn'));
+    // Caso real (5/11/2026): tu "1 de 5" quedaba colgado en la tarjeta del DID de otro contacto.
+    await ev(`showOwnCard()`);
+    await listo(`!document.getElementById('userCardG1Paso').classList.contains('hidden')`, 15);
+    await ev(`showUserInfo('0x${'ab'.repeat(20)}')`);
+    await sleep(1500);
+    ok(await ev(`document.getElementById('userCardG1Paso').classList.contains('hidden')`), 'en el DID de otro no aparece tu paso Ğ1', await texto('#userCardG1Paso'));
+    await ev(`document.getElementById('userInfoCard').style.display = 'none'`);
 
     console.log('\n── G) juntar certificaciones y pedir la membresía ──');
     await pasoDesdeDid();

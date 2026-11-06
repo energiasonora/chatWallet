@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **La tarjeta del DID de un contacto ya no muestra tus certificaciones Ğ1.** Si antes habías mirado tu propio DID, en el de otro quedaba tu «1 de 5 certificaciones». Ahora ese paso aparece solo en tu tarjeta.
+
 ## 3.101 — 2026-11-05
 
 - **Enviar Ğ1 se confirma deslizando, como en las demás redes.** Antes era un botón, y además la dirección de quien recibe se salía de la ventana. Ahora el resumen muestra la dirección completa en su propio recuadro, cortada para que entre, y para enviar deslizás hasta el final. Si lo soltás a mitad de camino, vuelve y no se manda nada.

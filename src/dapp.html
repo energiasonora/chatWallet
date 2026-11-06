@@ -14619,6 +14619,8 @@
                 pintarLinks(linksEl, contact && contact.links);
 
                 document.getElementById('userCardEditBtn')?.classList.add('hidden');   // no es la tuya
+                // El paso Ğ1 que falta es el TUYO (pintarMiPasoG1): en la tarjeta de otro no va.
+                document.getElementById('userCardG1Paso')?.classList.add('hidden');
                 card.style.display = 'block';
                 pintarSerVivoG1(address);
             }
