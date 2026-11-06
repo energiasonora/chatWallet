@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.102 — 2026-11-05
+
 - **La tarjeta del DID de un contacto ya no muestra tus certificaciones Ğ1.** Si antes habías mirado tu propio DID, en el de otro quedaba tu «1 de 5 certificaciones». Ahora ese paso aparece solo en tu tarjeta.
 
 ## 3.101 — 2026-11-05
