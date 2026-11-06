@@ -186,8 +186,8 @@ try {
         ok(/^Pagar con 12,\d\d USDC$/.test(f.pagarTxt) && !f.pagarOff, 'el botón dice cuánto USDC sale', f.pagarTxt);
         await tocar('payQrPay');
         f = await dev.eval(ficha);
-        ok(/confirmar/i.test(f.pagarTxt) && /20\.000/.test(f.pagarTxt) && await p.getTransactionCount(wallet.address) === 0,
-            'el primer toque sólo pide confirmar, con el monto en pesos', f.pagarTxt);
+        ok(/confirmar/i.test(f.pagarTxt) && /20\.000/.test(f.pagarTxt) && /\+ 0,0\d{3} de ChatWallet/.test(f.pagarTxt) && await p.getTransactionCount(wallet.address) === 0,
+            'el primer toque sólo pide confirmar, con el monto en pesos y la comisión de ChatWallet', f.pagarTxt);
         await dev.foto('1-confirmar');
         await tocar('payQrPay');
         const orderId = await ordenNueva(vistas);
@@ -205,6 +205,8 @@ try {
         await enviar(m, d.interface.encodeFunctionData('completeOrder', [orderId, '']));
         f = await hasta(x => /Pagado/.test(x.progreso), 30000);
         ok(/Pagado: .*20\.000.* por 12,\d\d USDC\. Orden #\d+\./.test(f.progreso) && /emerald/.test(f.progresoClase), 'cierra en verde con monto, USDC y número de orden', f.progreso);
+        f = await hasta(x => /Comisión de ChatWallet/.test(x.progreso), 20000);
+        ok(/Comisión de ChatWallet: 0,0\d{3} USDC\./.test(f.progreso), 'y dice la comisión de ChatWallet que se cobró', f.progreso);
         f = await hasta(x => /Tenés 27,/.test(x.saldo), 15000);
         ok(/Tenés 27,\d\d USDC/.test(f.saldo) && !f.pagar, 'la ficha muestra el saldo nuevo y no deja pagar dos veces el mismo QR', f.saldo);
         const monto = (await d.getOrdersById(orderId)).amount, cw = (monto * 50n + 9999n) / 10000n;
@@ -271,38 +273,74 @@ try {
         await recargar();
         return { orderId, m };
     };
-    const revisarHasta = async (id, cond, tope = 60000) => {
-        for (const t0 = Date.now(); Date.now() - t0 < tope; await sleep(1000)) {
-            await dev.eval(`window.cwP2pRevisarOrdenes()`);
-            const r = await registro(id); if (cond(r)) return r;
-        }
+    // La revisión espera la respuesta del usuario: se dispara sin esperarla y se mira la ventanita.
+    const pregunta = () => dev.eval(`(() => { const m = document.getElementById('p2pPreguntaModal');
+        return m && !m.classList.contains('hidden') ? document.getElementById('p2pPreguntaTitulo').textContent + ' | ' + document.getElementById('p2pPreguntaTexto').textContent : ''; })()`);
+    const disparar = () => dev.eval(`(window.cwP2pRevisarOrdenes(), true)`);
+    const esperarPregunta = async (tope = 45000) => {
+        for (const t0 = Date.now(); Date.now() - t0 < tope; await sleep(1000)) { await disparar(); const q = await pregunta(); if (q) return q; }
+        return '';
+    };
+    const revisarHasta = async (id, cond, tope = 45000) => {
+        for (const t0 = Date.now(); Date.now() - t0 < tope; await sleep(1000)) { await disparar(); const r = await registro(id); if (cond(r)) return r; }
         return registro(id);
     };
 
-    console.log('\n▶ cerrar la app antes de que termine: al volver, completa y cobra la comisión');
+    console.log('\n▶ cerrar la app antes de que termine: al volver, PREGUNTA por la comisión');
     {
         await fondear(40_000_000n, '0.02');
         const antes = await usdc.balanceOf(wallet.address);
         const { orderId, m } = await pagarYCerrar('ALMACÉN');
         await enviar(m, d.interface.encodeFunctionData('completeOrder', [orderId, '']));
-        const r = await revisarHasta(orderId, x => x?.estado === 'completada' && x.comisionTx);
-        // Pago chico: lo que tiró el contrato (r.usdc) ya trae la comisión fija; el 0,5 % va sobre el resto.
+        const nonce = await p.getTransactionCount(wallet.address);
+        const q = await esperarPregunta();
+        const r0 = await registro(orderId);
+        const tiro = ethers.parseUnits(r0?.usdc || '0', 6);
+        ok(/Falta la comisión de ChatWallet/.test(q) && q.includes('#' + orderId) && /0,0\d+ USDC/.test(q), 'al volver pregunta por la comisión, con el número de orden y el monto', q);
+        ok(await p.getTransactionCount(wallet.address) === nonce && antes - await usdc.balanceOf(wallet.address) === tiro, 'mientras no contesta, no sale nada de la wallet');
+        await dev.foto('5-pregunta-comision');
+        await tocar('p2pPreguntaSi');
+        const r = await revisarHasta(orderId, x => !!x?.comisionTx);
         const monto = (await d.getOrdersById(orderId)).amount, cw = (monto * 50n + 9999n) / 10000n;
-        const total = ethers.parseUnits(r?.usdc || '0', 6) + cw;
-        ok(r?.estado === 'completada' && /^0x/.test(r.comisionTx || '') && r.comision === ethers.formatUnits(cw, 6) && antes - await usdc.balanceOf(wallet.address) === total,
-            'la revisión ve la orden completada y cobra el 0,5 % una sola vez', JSON.stringify(r));
-        await dev.eval(`window.cwP2pRevisarOrdenes()`); await sleep(1500);
-        ok(antes - await usdc.balanceOf(wallet.address) === total, 'revisar de nuevo no vuelve a cobrar');
+        ok(/^0x/.test(r?.comisionTx || '') && r.comision === ethers.formatUnits(cw, 6) && antes - await usdc.balanceOf(wallet.address) === tiro + cw, 'con «Pagar comisión» sale el 0,5 %', JSON.stringify(r));
+        await disparar(); await sleep(2000);
+        ok(!(await pregunta()) && antes - await usdc.balanceOf(wallet.address) === tiro + cw, 'y no se vuelve a preguntar ni a cobrar');
     }
 
-    console.log('\n▶ cerrar la app y el comerciante no paga: al vencer, el USDC vuelve solo');
+    console.log('\n▶ «Ahora no»: no se cobra y no se insiste');
+    {
+        await fondear(40_000_000n, '0.02');
+        const { orderId, m } = await pagarYCerrar('VERDULERÍA');
+        await enviar(m, d.interface.encodeFunctionData('completeOrder', [orderId, '']));
+        const q = await esperarPregunta();
+        ok(/Falta la comisión/.test(q), 'pregunta', q.slice(0, 40));
+        const nonce = await p.getTransactionCount(wallet.address);
+        await tocar('p2pPreguntaNo');
+        await sleep(1500);
+        const r = await registro(orderId);
+        ok(r?.comisionRechazada === true && !r.comisionTx && await p.getTransactionCount(wallet.address) === nonce, '«Ahora no» no manda nada y queda anotado', JSON.stringify(r));
+        await recargar();
+        await disparar(); await sleep(3000);
+        ok(!(await pregunta()), 'ni después de reabrir la app se vuelve a preguntar');
+    }
+
+    console.log('\n▶ el comerciante no paga: nada se manda solo; a la hora ofrece recuperar el USDC');
     {
         await fondear(40_000_000n, '0.02');
         const { orderId } = await pagarYCerrar('FERRETERÍA');
         ok(await usdc.balanceOf(wallet.address) < 40_000_000n, 'el USDC está en custodia');
+        const nonce = await p.getTransactionCount(wallet.address);
         await p.send('evm_increaseTime', [15 * 60]); await p.send('evm_mine', []);
+        await disparar(); await sleep(4000);
+        ok(!(await pregunta()) && await p.getTransactionCount(wallet.address) === nonce && Number((await d.getOrdersById(orderId)).status) === 2,
+            'vencida a los 15 min: la app no manda nada (el protocolo la barre con su propio proceso)');
+        await p.send('evm_increaseTime', [50 * 60]); await p.send('evm_mine', []);
+        const q = await esperarPregunta();
+        ok(/siguen retenidos/.test(q) && q.includes('#' + orderId), 'pasada la hora, ofrece recuperarlo', q);
+        await dev.foto('6-recuperar');
+        await tocar('p2pPreguntaSi');
         const r = await revisarHasta(orderId, x => x?.estado === 'cancelada');
-        ok(r?.estado === 'cancelada' && Number((await d.getOrdersById(orderId)).status) === 4, 'la revisión barre la orden vencida', JSON.stringify(r));
+        ok(r?.estado === 'cancelada' && Number((await d.getOrdersById(orderId)).status) === 4, 'con «Recuperar mis USDC» se barre la orden', JSON.stringify(r));
         ok(await usdc.balanceOf(wallet.address) === 40_000_000n && !r.comisionTx, 'el USDC vuelve entero y ChatWallet no cobra nada');
     }
 
