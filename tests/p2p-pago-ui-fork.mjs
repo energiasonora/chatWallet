@@ -153,20 +153,31 @@ try {
     const QR = armarQr('CAFÉ MARTÍNEZ');
     const vistas = new Set();
 
-    console.log('\n▶ apagado (como le llega a todo el mundo)');
+    const aviso = `(() => { const el = id => document.getElementById(id);
+        return { abierto: !el('p2pActivarModal').classList.contains('hidden'), cotiz: el('p2pActCotiz').textContent, fija: el('p2pActFija').textContent,
+            spread: el('p2pActSpread').textContent, texto: el('p2pActivarModal').textContent }; })()`;
+    console.log('\n▶ sin activar: el primer toque abre el aviso');
     {
         await fondear(40_000_000n, '0.02');
         await escanear(QR); await tipear('20.000');
-        const f = await hasta(x => /USDC/.test(x.costo) && /Tenés/.test(x.saldo), 30000);
-        ok(f.abierta && !f.pagar && /Todavía no se puede pagar/.test(f.estado), 'sin activar no hay botón de pagar y la ficha lo dice', f.estado.slice(0, 50));
-    }
-
-    console.log('\n▶ cinco toques en la bandera lo prenden');
-    {
-        for (let i = 0; i < 5; i++) await tocar('payQrFlag');
-        const f = await hasta(x => x.pagar, 5000);
-        ok(f.pagar && /experimental/i.test(f.estado) && /cw-aviso-verde/.test(f.estadoClase), 'aparece el botón y el aviso pasa a verde', f.pagarTxt);
-        ok(await dev.eval(`localStorage.getItem('cw-p2p-pago')`) === '1', 'queda guardado para la próxima');
+        let f = await hasta(x => /USDC/.test(x.costo) && /Tenés/.test(x.saldo) && /ChatWallet/.test(x.fee), 30000);
+        ok(f.abierta && f.pagar && f.pagarTxt === 'Pagar con USDC (experimental)' && /cw-aviso-verde/.test(f.estadoClase), 'la ficha ofrece pagar (experimental) sin trucos', f.pagarTxt);
+        ok(/\+ 0,0\d{3} de ChatWallet \(0,5 %, solo si se completa\)/.test(f.fee), 'la comisión de ChatWallet está a la vista en la ficha', f.fee);
+        await tocar('payQrPay');
+        let a = await dev.eval(aviso);
+        for (let i = 0; i < 50 && /^(…|—)$/.test(a.fija); i++) { await sleep(300); a = await dev.eval(aviso); }
+        ok(a.abierto && /^1 USDC = \$/.test(a.cotiz) && /0,05 USDC en pagos de hasta 10 USDC/.test(a.fija) && /%/.test(a.spread),
+            'el aviso trae la cotización, el spread y la comisión fija leídos del contrato', `${a.cotiz} · ${a.spread} · ${a.fija}`);
+        ok(/0,5 %, solo si el pago se completa/.test(a.texto) && /300 USDC/.test(a.texto) && /vuelve entero/.test(a.texto) && /no se puede cancelar/.test(a.texto) && /t\.me\/p2pmeargentina/.test(a.texto),
+            'y dice ChatWallet 0,5 %, el límite, qué pasa si falla y dónde reclamar');
+        ok(await p.getTransactionCount(wallet.address) === 0, 'abrir el aviso no manda nada');
+        await dev.foto('0-aviso');
+        await tocar('p2pActNo');
+        a = await dev.eval(aviso);
+        ok(!a.abierto && await dev.eval(`localStorage.getItem('cw-p2p-pago')`) === null, '«Ahora no» lo cierra sin activar');
+        await tocar('payQrPay'); await tocar('p2pActOk');
+        f = await hasta(x => /^Pagar con 12,/.test(x.pagarTxt), 5000);
+        ok(!(await dev.eval(aviso)).abierto && await dev.eval(`localStorage.getItem('cw-p2p-pago')`) === '1', '«Entiendo, activar» lo deja activado para la próxima');
     }
 
     console.log('\n▶ pago completo: $ 20.000 a CAFÉ MARTÍNEZ');
@@ -196,9 +207,11 @@ try {
         ok(/Pagado: .*20\.000.* por 12,\d\d USDC\. Orden #\d+\./.test(f.progreso) && /emerald/.test(f.progresoClase), 'cierra en verde con monto, USDC y número de orden', f.progreso);
         f = await hasta(x => /Tenés 27,/.test(x.saldo), 15000);
         ok(/Tenés 27,\d\d USDC/.test(f.saldo) && !f.pagar, 'la ficha muestra el saldo nuevo y no deja pagar dos veces el mismo QR', f.saldo);
-        ok(40_000_000n - await usdc.balanceOf(wallet.address) === (await d.getOrdersById(orderId)).amount, 'en cadena salió exactamente lo de la orden');
+        const monto = (await d.getOrdersById(orderId)).amount, cw = (monto * 50n + 9999n) / 10000n;
+        ok(40_000_000n - await usdc.balanceOf(wallet.address) === monto + cw, 'en cadena salió lo de la orden + el 0,5 % de ChatWallet', `${ethers.formatUnits(monto, 6)} + ${ethers.formatUnits(cw, 6)}`);
         const reg = JSON.parse(await dev.eval(`localStorage.getItem('cw-p2p-ordenes-${wallet.address.toLowerCase()}')`) || '[]')[0];
-        ok(reg?.orderId === String(orderId) && reg.estado === 'completada' && reg.comercio === 'CAFÉ MARTÍNEZ' && reg.fiat === 20000, 'queda anotada con su número para reclamar', JSON.stringify(reg));
+        ok(reg?.orderId === String(orderId) && reg.estado === 'completada' && reg.comercio === 'CAFÉ MARTÍNEZ' && reg.fiat === 20000 && /^0x/.test(reg.comisionTx || ''),
+            'queda anotada con su número para reclamar (y la comisión cobrada)', JSON.stringify(reg));
         await dev.foto('3-pagado');
         await tocar('payQrOk');
     }
@@ -224,18 +237,73 @@ try {
         await escanear(QR); await tipear('500');
         const f = await hasta(x => x.pagar && /\+/.test(x.fee), 30000);
         const n = (f.costo.match(/^(0,\d{4}) USDC$/) || [])[1];
-        ok(!!n && f.pagarTxt === 'Pagar con ' + n + ' USDC' && /0,0500 de comisión/.test(f.fee), 'el total incluye la comisión y el botón repite el mismo número', f.costo + ' · ' + f.pagarTxt + ' · ' + f.fee);
+        ok(!!n && f.pagarTxt === 'Pagar con ' + n + ' USDC' && /0,0500 de comisión del protocolo/.test(f.fee) && /de ChatWallet/.test(f.fee), 'el total incluye las dos comisiones y el botón repite el mismo número', f.costo + ' · ' + f.pagarTxt + ' · ' + f.fee);
         const antes = await usdc.balanceOf(wallet.address);
         await tocar('payQrPay'); await tocar('payQrPay');
         const orderId = await ordenNueva(vistas);
         const { m } = await comercianteAcepta(orderId);
         await esperarEstado(orderId, 2);
-        const salio = Number(ethers.formatUnits(antes - await usdc.balanceOf(wallet.address), 6)).toLocaleString('es-AR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-        const g = await hasta(x => /custodia/.test(x.progreso), 20000);
-        ok(salio === n && g.progreso.includes(n + ' USDC'), 'y es exactamente lo que sale de la wallet', salio + ' · ' + g.progreso.slice(0, 40));
+        await hasta(x => /custodia/.test(x.progreso), 20000);
         await enviar(m, d.interface.encodeFunctionData('completeOrder', [orderId, '']));
         await hasta(x => /Pagado/.test(x.progreso), 30000);
+        const reg = JSON.parse(await dev.eval(`localStorage.getItem('cw-p2p-ordenes-${wallet.address.toLowerCase()}')`) || '[]').find(o => o.orderId === String(orderId));
+        for (let i = 0; i < 40 && !(reg?.comisionTx); i++) await sleep(300);
+        const salio = Number(ethers.formatUnits(antes - await usdc.balanceOf(wallet.address), 6)).toLocaleString('es-AR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+        ok(salio === n, 'y, con la comisión de ChatWallet, es exactamente lo que sale de la wallet', salio + ' · ficha ' + n);
         await tocar('payQrOk');
+    }
+
+    // ── Se cerró la app con el QR ya enviado: la revisión termina lo que quedó ──
+    const registro = async id => JSON.parse(await dev.eval(`localStorage.getItem('cw-p2p-ordenes-${wallet.address.toLowerCase()}')`) || '[]').find(o => o.orderId === String(id));
+    const recargar = async () => {
+        await dev.rpc('Page.reload', {});
+        for (let i = 0; i < 120; i++) { await sleep(500); if (await dev.eval(`typeof window.cwP2pRevisarOrdenes === 'function' && typeof currentWallet !== 'undefined' && !!currentWallet`).catch(() => false)) break; }
+    };
+    const pagarYCerrar = async (comercio) => {
+        await escanear(armarQr(comercio, '15000.00'));
+        await hasta(x => x.pagar && !x.pagarOff, 30000);
+        await tocar('payQrPay'); await tocar('payQrPay');
+        const orderId = await ordenNueva(vistas);
+        const { m } = await comercianteAcepta(orderId);
+        await esperarEstado(orderId, 2);
+        for (let i = 0; i < 50 && (await registro(orderId))?.estado !== 'enviada'; i++) await sleep(200);
+        ok((await registro(orderId))?.estado === 'enviada', `${comercio}: el QR salió y la orden quedó anotada antes de cerrar`);
+        await recargar();
+        return { orderId, m };
+    };
+    const revisarHasta = async (id, cond, tope = 60000) => {
+        for (const t0 = Date.now(); Date.now() - t0 < tope; await sleep(1000)) {
+            await dev.eval(`window.cwP2pRevisarOrdenes()`);
+            const r = await registro(id); if (cond(r)) return r;
+        }
+        return registro(id);
+    };
+
+    console.log('\n▶ cerrar la app antes de que termine: al volver, completa y cobra la comisión');
+    {
+        await fondear(40_000_000n, '0.02');
+        const antes = await usdc.balanceOf(wallet.address);
+        const { orderId, m } = await pagarYCerrar('ALMACÉN');
+        await enviar(m, d.interface.encodeFunctionData('completeOrder', [orderId, '']));
+        const r = await revisarHasta(orderId, x => x?.estado === 'completada' && x.comisionTx);
+        // Pago chico: lo que tiró el contrato (r.usdc) ya trae la comisión fija; el 0,5 % va sobre el resto.
+        const monto = (await d.getOrdersById(orderId)).amount, cw = (monto * 50n + 9999n) / 10000n;
+        const total = ethers.parseUnits(r?.usdc || '0', 6) + cw;
+        ok(r?.estado === 'completada' && /^0x/.test(r.comisionTx || '') && r.comision === ethers.formatUnits(cw, 6) && antes - await usdc.balanceOf(wallet.address) === total,
+            'la revisión ve la orden completada y cobra el 0,5 % una sola vez', JSON.stringify(r));
+        await dev.eval(`window.cwP2pRevisarOrdenes()`); await sleep(1500);
+        ok(antes - await usdc.balanceOf(wallet.address) === total, 'revisar de nuevo no vuelve a cobrar');
+    }
+
+    console.log('\n▶ cerrar la app y el comerciante no paga: al vencer, el USDC vuelve solo');
+    {
+        await fondear(40_000_000n, '0.02');
+        const { orderId } = await pagarYCerrar('FERRETERÍA');
+        ok(await usdc.balanceOf(wallet.address) < 40_000_000n, 'el USDC está en custodia');
+        await p.send('evm_increaseTime', [15 * 60]); await p.send('evm_mine', []);
+        const r = await revisarHasta(orderId, x => x?.estado === 'cancelada');
+        ok(r?.estado === 'cancelada' && Number((await d.getOrdersById(orderId)).status) === 4, 'la revisión barre la orden vencida', JSON.stringify(r));
+        ok(await usdc.balanceOf(wallet.address) === 40_000_000n && !r.comisionTx, 'el USDC vuelve entero y ChatWallet no cobra nada');
     }
 
     console.log('\n▶ sin plata para el gas');

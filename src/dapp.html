@@ -4069,6 +4069,42 @@
             </div>
         </div>
 
+        <!-- Aviso de una sola vez antes del primer pago de QR por P2P.me: costos, límites y qué pasa
+             si falla. Reemplaza al interruptor escondido (cinco toques en la bandera). Ver cwP2pActivar(). -->
+        <div id="p2pActivarModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center p-4 z-[80]">
+            <div class="bg-gray-800 rounded-xl px-6 pb-6 w-full max-w-sm space-y-4 max-h-[90dvh] overflow-y-auto">
+                <div class="sticky top-0 z-10 bg-gray-800 pt-6 pb-1">
+                    <h3 class="text-lg font-bold" data-i18n-key="p2p_act_title">Pagar QR con USDC</h3>
+                </div>
+                <p class="text-sm text-gray-300" data-i18n-key="p2p_act_intro"></p>
+                <div class="bg-gray-900/60 rounded-lg p-4 space-y-2">
+                    <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide" data-i18n-key="p2p_act_costos">Costos y límites</p>
+                    <dl id="p2pActTabla" class="text-sm">
+                        <dt class="text-xs text-gray-400 pt-2" data-i18n-key="p2p_act_cotiz">Cotización</dt><dd id="p2pActCotiz">—</dd>
+                        <dt class="text-xs text-gray-400 pt-2" data-i18n-key="p2p_act_spread">Spread del protocolo</dt><dd id="p2pActSpread">—</dd>
+                        <dt class="text-xs text-gray-400 pt-2" data-i18n-key="p2p_act_fija">Comisión fija del protocolo</dt><dd id="p2pActFija">—</dd>
+                        <dt class="text-xs text-gray-400 pt-2" data-i18n-key="p2p_act_cw">ChatWallet</dt><dd data-i18n-key="p2p_act_cw_v"></dd>
+                        <dt class="text-xs text-gray-400 pt-2" data-i18n-key="p2p_act_gas">Gas</dt><dd data-i18n-key="p2p_act_gas_v"></dd>
+                        <dt class="text-xs text-gray-400 pt-2" data-i18n-key="p2p_act_limite">Límite</dt><dd data-i18n-key="p2p_act_limite_v"></dd>
+                        <dt class="text-xs text-gray-400 pt-2" data-i18n-key="p2p_act_tiempo">Tiempo</dt><dd data-i18n-key="p2p_act_tiempo_v"></dd>
+                    </dl>
+                </div>
+                <div class="bg-gray-900/60 rounded-lg p-4 space-y-2">
+                    <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide" data-i18n-key="p2p_act_falla">Si algo falla</p>
+                    <ul class="text-sm space-y-1.5 list-disc pl-4">
+                        <li data-i18n-key="p2p_act_f1"></li>
+                        <li data-i18n-key="p2p_act_f2"></li>
+                        <li data-i18n-key="p2p_act_f3"></li>
+                        <li data-i18n-key="p2p_act_f4"></li>
+                    </ul>
+                </div>
+                <p class="text-xs text-gray-400" data-i18n-key="p2p_act_exp"></p>
+                <a id="p2pActMas" class="hidden block text-sm text-indigo-300 underline" target="_blank" rel="noopener noreferrer" data-i18n-key="p2p_act_mas">Cómo funciona, en detalle</a>
+                <button type="button" id="p2pActOk" class="w-full py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold" data-i18n-key="p2p_act_ok">Entiendo, activar</button>
+                <button type="button" id="p2pActNo" class="w-full py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm" data-i18n-key="p2p_act_no">Ahora no</button>
+            </div>
+        </div>
+
         <!-- Pasar USDC a otra red (CCTP de Circle): ver cwCctpAbrir(). -->
         <div id="cctpModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center p-4 z-[60]">
             <div class="bg-gray-800 rounded-xl px-6 pb-6 w-full max-w-sm space-y-3 max-h-[90dvh] overflow-y-auto">
@@ -20245,9 +20281,35 @@
                 'function getSmallOrderThreshold(bytes32 currency) view returns (uint256)',
                 'function getSmallOrderFixedFeePay(bytes32 currency) view returns (uint256)',
                 'function getPriceConfig(bytes32 _currency) view returns (tuple(uint256 buyPrice, uint256 sellPrice, int256 buyPriceOffset, uint256 baseSpread))',
+                'function isOrderExpired(uint256 orderId) view returns (bool)',
+                'function autoCancelExpiredOrders(uint256[] orderIds)',
                 `event OrderPlaced(uint256 indexed orderId,address indexed user,address indexed merchant,uint256 amount,uint8 orderType,uint256 placedTimestamp,${CW_P2P_ORDEN} _order)`,
             ];
-            const CW_P2P_USDC_ABI = ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)', 'function balanceOf(address) view returns (uint256)'];
+            const CW_P2P_USDC_ABI = ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)', 'function balanceOf(address) view returns (uint256)', 'function transfer(address,uint256) returns (bool)'];
+            // Comisión de ChatWallet: 0,5 % del USDC que se lleva el comerciante (sin la comisión del
+            // protocolo). Es una transferencia APARTE y sale sólo con la orden COMPLETED: si el pago
+            // falla y el USDC vuelve, no se cobra nada. Redondea para arriba al micro-USDC.
+            const CW_COMISION_DIR = '0xA3fDb2AadD797b0e7D6B9C595B79d67A1d23ef21';
+            const CW_COMISION_BPS = 50n;
+            const cwComisionDe = usdc6 => (usdc6 * CW_COMISION_BPS + 9999n) / 10000n;
+            // → { comision, comisionTx } (comisionTx null si la transferencia falló; se reintenta al revisar).
+            async function cwP2pCobrarComision(firmante, { usdc, fee }) {
+                const comision = cwComisionDe(usdc - fee);
+                if (comision <= 0n) return { comision: 0n, comisionTx: null };
+                // Si la transferencia ya salió y lo que falla es esperar el recibo, se guarda igual el
+                // hash: ante la duda, no se le cobra dos veces al usuario.
+                let hash = null;
+                try {
+                    const c = new ethers.Contract(CW_P2P_USDC, CW_P2P_USDC_ABI, firmante);
+                    const tx = await c.transfer(CW_COMISION_DIR, comision);
+                    hash = tx.hash;
+                    const r = await tx.wait();
+                    return { comision, comisionTx: r.status === 1 ? hash : null };
+                } catch (e) {
+                    console.warn('cwP2pCobrarComision:', e.shortMessage || e.message);
+                    return { comision, comisionTx: e.code === 'CALL_EXCEPTION' ? null : hash };
+                }
+            }
             const CW_P2P_ESTADO = { PLACED: 0, ACCEPTED: 1, PAID: 2, COMPLETED: 3, CANCELLED: 4 };
             const CW_P2P_MILLON = 1_000_000n;
 
@@ -20304,7 +20366,8 @@
                 if (!(venta > 0n)) throw cwP2pError('SIN_PRECIO', iso);
                 const usdc = (fiat6 * CW_P2P_MILLON + venta - 1n) / venta;
                 const fee = usdc <= umbral ? feeChica : 0n;
-                return { moneda, venta, usdc, fee, total: usdc + fee, umbral, feeChica, limite: limites[1] };
+                const cw = cwComisionDe(usdc);
+                return { moneda, venta, usdc, fee, cw, total: usdc + fee + cw, umbral, feeChica, limite: limites[1] };
             }
 
             // Qué grupo de comerciantes ("circle") atiende la orden. La lista sale del subgraph y
@@ -20446,7 +20509,10 @@
                 for (const t0 = Date.now(); Date.now() - t0 < esperaCierreMs;) {
                     const o = await d.getOrdersById(orderId).catch(() => null);
                     const st = o ? Number(o.status) : -1;
-                    if (st === CW_P2P_ESTADO.COMPLETED) { onPaso('completada', res); return { ...res, estado: 'completada' }; }
+                    if (st === CW_P2P_ESTADO.COMPLETED) {
+                        onPaso('completada', res);
+                        return { ...res, ...await cwP2pCobrarComision(firmante, res), estado: 'completada' };
+                    }
                     if (st === CW_P2P_ESTADO.CANCELLED) { onPaso('cancelada', { orderId, motivo: 'DESPUES_DE_ENVIAR' }); return { ...res, estado: 'cancelada', motivo: 'DESPUES_DE_ENVIAR' }; }
                     await dormir(cadaMs);
                 }
@@ -20492,7 +20558,8 @@
                 if (!precio || monto === null || monto === undefined) return null;
                 const usdc = monto / precio.venta;
                 const fee = comision && usdc <= comision.umbral ? comision.fee : 0;
-                return { usdc, fee, total: usdc + fee };
+                const cw = Math.ceil(usdc * Number(CW_COMISION_BPS) * 100) / 1e6;   // 0,5 %, al micro-USDC
+                return { usdc, fee, cw, total: usdc + fee + cw };
             }
             function cwPayQrUsdcTxt(v, info) {
                 const d = v < 1 ? 4 : 2;
@@ -20503,13 +20570,14 @@
                 const b = document.getElementById('payQrPay');
                 if (!b) return;
                 const { info, precio, monto, saldo, valido } = cwPayQrEstado;
-                const visible = cwP2pPagoActivo() && !!valido && !!info?.listo && !!currentWallet && !cwPayQrPago.corriendo && !cwPayQrPago.hecho;
+                const visible = !!valido && !!info?.listo && !!currentWallet && !cwPayQrPago.corriendo && !cwPayQrPago.hecho;
                 b.classList.toggle('hidden', !visible);
                 if (!visible) return;
                 const cuenta = cwPayQrCuenta();
                 const usdc = cuenta ? cuenta.total : null;
                 b.disabled = usdc === null || typeof saldo !== 'number' || usdc > saldo;
-                if (usdc === null) b.textContent = t('pay_qr_pay_btn_0');
+                if (!cwP2pPagoActivo()) { b.disabled = false; b.textContent = t('pay_qr_btn_activar'); }
+                else if (usdc === null) b.textContent = t('pay_qr_pay_btn_0');
                 else if (cwPayQrPago.armado) b.textContent = t('pay_qr_confirm_btn', { monto: cwPayQrFiatTxt(monto, info) });
                 else b.textContent = t('pay_qr_pay_btn', { n: cwPayQrUsdcTxt(usdc, info) });
             }
@@ -20529,14 +20597,17 @@
                 try {
                     const k = 'cw-p2p-ordenes-' + currentWallet.address.toLowerCase();
                     const lista = JSON.parse(localStorage.getItem(k) || '[]');
-                    lista.unshift(reg);
+                    const i = reg.orderId ? lista.findIndex(o => o.orderId === reg.orderId) : -1;
+                    if (i >= 0) lista[i] = { ...lista[i], ...reg }; else lista.unshift({ ...reg });
                     localStorage.setItem(k, JSON.stringify(lista.slice(0, 50)));
                 } catch (e) { }
             }
 
             async function cwPayQrPagar() {
                 const { info, monto, qr } = cwPayQrEstado;
-                if (cwPayQrPago.corriendo || cwPayQrPago.hecho || monto === null || !qr || !info || !currentWallet) return;
+                if (cwPayQrPago.corriendo || cwPayQrPago.hecho || !qr || !info || !currentWallet) return;
+                if (!cwP2pPagoActivo()) { cwP2pActivar(); return; }
+                if (monto === null) return;
                 if (!cwPayQrPago.armado) { cwPayQrPago.armado = true; pintarBotonPayQr(); return; }
                 cwPayQrPago = { corriendo: true, cortar: false, enviado: false, armado: false, hecho: false };
                 pintarBotonPayQr();
@@ -20546,7 +20617,8 @@
                 const u = v => cwPayQrUsdcTxt(Number(ethers.formatUnits(v, 6)), info);
                 const montoTxt = cwPayQrFiatTxt(monto, info);
                 const comercio = (el('payQrMerchant')?.textContent || '').trim();
-                const reg = { cuando: Date.now(), comercio, moneda: info.iso, fiat: monto, orderId: null, estado: 'abierta' };
+                // cobrar: la comisión de ChatWallet corre para esta orden (las de antes de la 3.103 no la tenían).
+                const reg = { cuando: Date.now(), comercio, moneda: info.iso, fiat: monto, orderId: null, estado: 'abierta', cobrar: true };
                 let fin = null;
                 try {
                     // El RPC oficial de Base corta por cantidad de pedidos (visto el 10/10/2026): se
@@ -20561,8 +20633,10 @@
                         onPaso: (paso, d) => {
                             // El número de orden queda también en el DOM: lo leen los tests y sirve para soporte.
                             if (d?.orderId != null) { reg.orderId = String(d.orderId); if (el('payQrProgress')) el('payQrProgress').dataset.orden = reg.orderId; }
-                            if (paso === 'colocada' && freno) freno.classList.remove('hidden');
+                            if (paso === 'colocada') { cwP2pAnotarOrden(reg); if (freno) freno.classList.remove('hidden'); }
                             if (paso === 'enviando') { cwPayQrPago.enviado = true; if (freno) freno.classList.add('hidden'); }
+                            // Desde acá el USDC está en custodia: si se cierra la app, la revisión lo termina.
+                            if (paso === 'enviada') { reg.estado = 'enviada'; cwP2pAnotarOrden(reg); }
                             const txt = {
                                 cotizando: () => t('pay_qr_p_cotizando'),
                                 colocando: () => t('pay_qr_p_colocando'),
@@ -20588,6 +20662,7 @@
                 }
                 if (fin) {
                     reg.estado = fin.estado; reg.usdc = fin.usdc !== undefined ? ethers.formatUnits(fin.usdc, 6) : undefined;
+                    if (fin.comision !== undefined) { reg.comision = ethers.formatUnits(fin.comision, 6); reg.comisionTx = fin.comisionTx; }
                     const id = String(fin.orderId);
                     if (fin.estado === 'completada') { cwPayQrProgreso(t('pay_qr_p_completada', { monto: montoTxt, n: u(fin.usdc), id }), 'ok'); try { playQRscanned(); } catch (e) { } }
                     else if (fin.estado === 'pendiente') cwPayQrProgreso(t('pay_qr_p_pendiente', { id }), 'ambar');
@@ -20611,22 +20686,100 @@
                 cwPayQrPago.cortar = true;
                 cwPayQrProgreso(t('pay_qr_p_frenando'));
             });
-            // Cinco toques seguidos en la bandera: prende o apaga el pago experimental.
-            (function () {
-                let toques = 0, ultimo = 0;
-                document.getElementById('payQrFlag')?.addEventListener('click', () => {
-                    const ahora = Date.now();
-                    toques = ahora - ultimo < 600 ? toques + 1 : 1;
-                    ultimo = ahora;
-                    if (toques < 5 || cwPayQrPago.corriendo) return;
-                    toques = 0;
-                    const prender = !cwP2pPagoActivo();
-                    try { prender ? localStorage.setItem(CW_P2P_PAGO_KEY, '1') : localStorage.removeItem(CW_P2P_PAGO_KEY); } catch (e) { }
-                    showToast(t(prender ? 'pay_qr_exp_on' : 'pay_qr_exp_off'), 'info', 4000);
-                    if (cwPayQrEstado.valido) cwPayQrAviso(t(prender ? 'pay_qr_status_exp' : 'pay_qr_status_soon'), prender ? 'verde' : 'ambar');
-                    pintarBotonPayQr();
-                });
-            })();
+            // ── Aviso de activación (una sola vez) ──────────────────────────────────────
+            // Lo que cuesta, los límites y qué pasa si falla, ANTES del primer pago. Los números del
+            // protocolo salen de la ficha (leídos del contrato); los fijos están probados en el fork
+            // (tests/p2p-cancelacion-fork.mjs: si el pago falla después de mandar el QR, vuelve todo).
+            const CW_P2P_INFO_URL = '';   // el artículo del blog; vacío = sin link
+            function cwP2pActivar() {
+                const m = document.getElementById('p2pActivarModal');
+                if (!m) return;
+                const { info, precio, comision } = cwPayQrEstado;
+                const loc = info?.locale || 'es-AR', num = (v, d = 2) => Number(v).toLocaleString(loc, { maximumFractionDigits: d });
+                const pon = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
+                pon('p2pActCotiz', precio ? `1 USDC = ${cwPayQrFiatTxt(precio.venta, info)}` : '—');
+                pon('p2pActSpread', precio ? t('p2p_act_spread_v', { n: num(precio.spread) }) : '—');
+                const fija = c => pon('p2pActFija', t('p2p_act_fija_v', { fee: num(c.fee), umbral: num(c.umbral, 0) }));
+                if (comision) fija(comision);
+                else {
+                    pon('p2pActFija', '…');
+                    if (info) cwP2pComision(info.iso).then(c => { cwPayQrEstado.comision = c; fija(c); }).catch(() => pon('p2pActFija', '—'));
+                }
+                const mas = document.getElementById('p2pActMas');
+                if (mas) { mas.href = CW_P2P_INFO_URL || '#'; mas.classList.toggle('hidden', !CW_P2P_INFO_URL); }
+                m.classList.remove('hidden'); m.classList.add('flex');
+            }
+            function cwP2pCerrarActivar() {
+                const m = document.getElementById('p2pActivarModal');
+                if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+            }
+            document.getElementById('p2pActNo')?.addEventListener('click', cwP2pCerrarActivar);
+            document.getElementById('p2pActOk')?.addEventListener('click', () => {
+                try { localStorage.setItem(CW_P2P_PAGO_KEY, '1'); } catch (e) { }
+                cwP2pCerrarActivar();
+                pintarCostoPayQr();
+            });
+
+            // ── Revisión de órdenes que quedaron a medias ───────────────────────────────
+            // Si se cerró la app con el QR ya enviado, nadie miraba cómo terminaba. Esto lo hace,
+            // al abrir y cada minuto, sobre las órdenes de la última semana:
+            //   · COMPLETED → cobra la comisión de ChatWallet si faltaba, y avisa si no se sabía;
+            //   · PAID vencida (el comerciante no pagó) → la barre (autoCancelExpiredOrders, la
+            //     puede llamar cualquiera) y el USDC vuelve entero;
+            //   · CANCELLED → avisa que el USDC volvió (si había salido).
+            let cwP2pRevisando = false;
+            async function cwP2pRevisarOrdenes() {
+                if (cwP2pRevisando || !currentWallet || cwPayQrPago.corriendo || isOffline) return;
+                const k = 'cw-p2p-ordenes-' + currentWallet.address.toLowerCase();
+                let lista;
+                try { lista = JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return; }
+                const semana = 7 * 86400e3;
+                const abiertas = lista.filter(o => o.orderId && Date.now() - o.cuando < semana && o.cobrar
+                    && (['abierta', 'enviada', 'pendiente'].includes(o.estado) || (o.estado === 'completada' && !o.comisionTx)));
+                if (!abiertas.length) return;
+                cwP2pRevisando = true;
+                const yo = currentWallet.address;
+                try {
+                    let prov = cwProveedor(CW_P2P_RPC, 8453);
+                    try { await withTimeout(prov.getBlockNumber(), 5000, 'rpc'); } catch (e) { prov = cwProveedor(CW_RPC_REPUESTO['8453'], 8453); }
+                    const firmante = currentWallet.connect(prov);
+                    const d = new ethers.Contract(CW_P2P_DIAMOND, CW_P2P_PAGO_ABI, firmante);
+                    for (const reg of abiertas) {
+                        const id = BigInt(reg.orderId);
+                        const o = await d.getOrdersById(id);
+                        if (o.user.toLowerCase() !== yo.toLowerCase()) continue;
+                        const st = Number(o.status), salio = reg.estado === 'enviada' || reg.estado === 'pendiente';
+                        if (st === CW_P2P_ESTADO.COMPLETED) {
+                            if (!reg.comisionTx) {
+                                const x = await d.getAdditionalOrderDetails(id);
+                                const c = await cwP2pCobrarComision(firmante, { usdc: x.actualUsdtAmount, fee: x.fixedFeePaid });
+                                reg.comision = ethers.formatUnits(c.comision, 6); reg.comisionTx = c.comisionTx;
+                                reg.usdc = ethers.formatUnits(x.actualUsdtAmount, 6);
+                            }
+                            if (salio) cwNotify({ title: t('p2p_rev_ok_t'), body: t('p2p_rev_ok_b', { id: reg.orderId }), type: 'success', duration: 10000 });
+                            reg.estado = 'completada';
+                        } else if (st === CW_P2P_ESTADO.CANCELLED) {
+                            if (salio) cwNotify({ title: t('p2p_rev_vuelta_t'), body: t('p2p_rev_vuelta_b', { id: reg.orderId }), type: 'info', duration: 10000 });
+                            reg.estado = salio ? 'cancelada' : 'vencida';
+                        } else if (await d.isOrderExpired(id)) {
+                            if (st === CW_P2P_ESTADO.PAID) {
+                                // El comerciante tiene el QR y no pagó: barrerla devuelve el USDC.
+                                const r = await (await d.autoCancelExpiredOrders([id])).wait();
+                                if (r.status === 1 && Number((await d.getOrdersById(id)).status) === CW_P2P_ESTADO.CANCELLED) {
+                                    cwNotify({ title: t('p2p_rev_vuelta_t'), body: t('p2p_rev_vuelta_b', { id: reg.orderId }), type: 'info', duration: 10000 });
+                                    reg.estado = 'cancelada';
+                                }
+                            } else if (!salio) reg.estado = 'vencida';   // nunca salió el QR: no se movió nada
+                        }
+                        cwP2pAnotarOrden(reg);
+                    }
+                } catch (e) { console.warn('cwP2pRevisarOrdenes:', e.shortMessage || e.message); }
+                finally { cwP2pRevisando = false; }
+            }
+            window.cwP2pRevisarOrdenes = cwP2pRevisarOrdenes;
+            setTimeout(cwP2pRevisarOrdenes, 8000);
+            setInterval(cwP2pRevisarOrdenes, 60000);
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') cwP2pRevisarOrdenes(); });
 
             function pintarCostoPayQr() {
                 pintarBotonPayQr();
@@ -20639,8 +20792,10 @@
                 const usdc = cuenta ? cuenta.total : null;
                 const elFee = document.getElementById('payQrFee');
                 if (elFee) {
-                    elFee.textContent = cuenta && cuenta.fee ? t('pay_qr_fee', { usdc: fmt(cuenta.usdc), fee: fmt(cuenta.fee) }) : '';
-                    elFee.classList.toggle('hidden', !(cuenta && cuenta.fee));
+                    elFee.textContent = !cuenta ? '' : cuenta.fee
+                        ? t('pay_qr_fee_cw', { usdc: fmt(cuenta.usdc), fee: fmt(cuenta.fee), cw: fmt(cuenta.cw) })
+                        : t('pay_qr_fee_cw0', { usdc: fmt(cuenta.usdc), cw: fmt(cuenta.cw) });
+                    elFee.classList.toggle('hidden', !cuenta);
                 }
                 if (usdc === null) {
                     // Un guion verde no le decía nada a nadie: se dice qué hacer.
@@ -20721,7 +20876,7 @@
                 cwPayQrEstado = { gen, info, precio: null, monto: montoFiat, saldo: currentWallet ? undefined : 'sin', qr: data.trim(), valido };
                 // Arriba de todo, antes de tipear: ¿se puede pagar desde acá? (y si el QR es sano)
                 // Activo va en verde: en ámbar era el mismo color del "todavía no se puede" y no se notaba.
-                cwPayQrAviso(valido ? t(cwP2pPagoActivo() ? 'pay_qr_status_exp' : 'pay_qr_status_soon') : t('ars_qr_bad_note'), !valido ? 'rojo' : cwP2pPagoActivo() ? 'verde' : 'ambar');
+                cwPayQrAviso(valido ? t('pay_qr_status_exp') : t('ars_qr_bad_note'), valido ? 'verde' : 'rojo');
                 // Con qué se paga y cuánto tenés ahí. No bloquea la ficha.
                 const filaCon = el('payQrWithRow');
                 if (filaCon) filaCon.classList.toggle('hidden', !valido);
@@ -25460,6 +25615,38 @@
                     "pay_qr_e_generico": "No se pudo completar: {e}",
                     "pay_qr_e_sin_mover": "El QR no llegó a enviarse y tus USDC no se movieron (orden #{id}, vence sola).",
                     "pay_qr_e_incierto": "El QR ya había salido: revisá tu saldo y el comercio (orden #{id}).",
+                    "pay_qr_fee_cw": "{usdc} USDC + {fee} de comisión del protocolo + {cw} de ChatWallet (0,5 %, solo si se completa)",
+                    "pay_qr_fee_cw0": "{usdc} USDC + {cw} de ChatWallet (0,5 %, solo si se completa)",
+                    "pay_qr_btn_activar": "Pagar con USDC (experimental)",
+                    "p2p_act_title": "Pagar QR con USDC",
+                    "p2p_act_intro": "Un comerciante de la red P2P.me le paga al comercio en pesos y cobra tus USDC en Base. El comercio recibe pesos como siempre.",
+                    "p2p_act_costos": "Costos y límites",
+                    "p2p_act_cotiz": "Cotización",
+                    "p2p_act_spread": "Spread del protocolo",
+                    "p2p_act_spread_v": "{n} % (ya está en la cotización)",
+                    "p2p_act_fija": "Comisión fija del protocolo",
+                    "p2p_act_fija_v": "{fee} USDC en pagos de hasta {umbral} USDC",
+                    "p2p_act_cw": "ChatWallet",
+                    "p2p_act_cw_v": "0,5 %, solo si el pago se completa",
+                    "p2p_act_gas": "Gas",
+                    "p2p_act_gas_v": "un poco de ETH en Base (centavos por pago)",
+                    "p2p_act_limite": "Límite",
+                    "p2p_act_limite_v": "300 USDC por pago, sin registro",
+                    "p2p_act_tiempo": "Tiempo",
+                    "p2p_act_tiempo_v": "≈ 10 s para que lo tome un comerciante, ≈ 1 min para que cobre el comercio",
+                    "p2p_act_falla": "Si algo falla",
+                    "p2p_act_f1": "Si nadie toma la orden, o la frenás antes de que salga el QR, tu USDC no se mueve.",
+                    "p2p_act_f2": "Si el comerciante cancela o no paga, la orden vence y tu USDC vuelve entero. ChatWallet lo revisa sola, aunque cierres la app.",
+                    "p2p_act_f3": "Una vez enviado el QR no se puede cancelar.",
+                    "p2p_act_f4": "Si la orden figura pagada y al comercio no le llegó, reclamá con el número de orden en t.me/p2pmeargentina.",
+                    "p2p_act_exp": "Es experimental: empezá con montos chicos.",
+                    "p2p_act_mas": "Cómo funciona, en detalle",
+                    "p2p_act_ok": "Entiendo, activar",
+                    "p2p_act_no": "Ahora no",
+                    "p2p_rev_ok_t": "Pago de QR completado",
+                    "p2p_rev_ok_b": "La orden #{id} se completó: el comercio cobró.",
+                    "p2p_rev_vuelta_t": "Tus USDC volvieron",
+                    "p2p_rev_vuelta_b": "La orden #{id} no se completó y el USDC volvió entero a tu billetera.",
                     "chat_greeting_qr": "👋 Contacto iniciado escaneando el QR.",
                     "chat_greeting_link": "👋 Contacto iniciado desde el enlace de invitación.",
                     "pair_line_qr_mine": "Escaneaste su QR",
@@ -26254,6 +26441,38 @@
                     "pay_qr_e_generico": "Could not complete: {e}",
                     "pay_qr_e_sin_mover": "The QR was never sent and your USDC did not move (order #{id}, it expires by itself).",
                     "pay_qr_e_incierto": "The QR had already been sent: check your balance and the shop (order #{id}).",
+                    "pay_qr_fee_cw": "{usdc} USDC + {fee} protocol fee + {cw} ChatWallet (0.5%, only if it completes)",
+                    "pay_qr_fee_cw0": "{usdc} USDC + {cw} ChatWallet (0.5%, only if it completes)",
+                    "pay_qr_btn_activar": "Pay with USDC (experimental)",
+                    "p2p_act_title": "Pay QR codes with USDC",
+                    "p2p_act_intro": "A merchant from the P2P.me network pays the shop in pesos and takes your USDC on Base. The shop gets pesos as usual.",
+                    "p2p_act_costos": "Costs and limits",
+                    "p2p_act_cotiz": "Rate",
+                    "p2p_act_spread": "Protocol spread",
+                    "p2p_act_spread_v": "{n}% (already in the rate)",
+                    "p2p_act_fija": "Fixed protocol fee",
+                    "p2p_act_fija_v": "{fee} USDC on payments up to {umbral} USDC",
+                    "p2p_act_cw": "ChatWallet",
+                    "p2p_act_cw_v": "0.5%, only if the payment completes",
+                    "p2p_act_gas": "Gas",
+                    "p2p_act_gas_v": "a little ETH on Base (cents per payment)",
+                    "p2p_act_limite": "Limit",
+                    "p2p_act_limite_v": "300 USDC per payment, no sign-up",
+                    "p2p_act_tiempo": "Time",
+                    "p2p_act_tiempo_v": "≈ 10 s for a merchant to take it, ≈ 1 min for the shop to get paid",
+                    "p2p_act_falla": "If something goes wrong",
+                    "p2p_act_f1": "If nobody takes the order, or you stop it before the QR is sent, your USDC doesn't move.",
+                    "p2p_act_f2": "If the merchant cancels or doesn't pay, the order expires and your USDC comes back in full. ChatWallet checks on its own, even if you close the app.",
+                    "p2p_act_f3": "Once the QR is sent it can't be cancelled.",
+                    "p2p_act_f4": "If the order shows as paid and the shop didn't get it, claim with the order number at t.me/p2pmeargentina.",
+                    "p2p_act_exp": "It's experimental: start with small amounts.",
+                    "p2p_act_mas": "How it works, in detail",
+                    "p2p_act_ok": "Got it, turn on",
+                    "p2p_act_no": "Not now",
+                    "p2p_rev_ok_t": "QR payment completed",
+                    "p2p_rev_ok_b": "Order #{id} completed: the shop got paid.",
+                    "p2p_rev_vuelta_t": "Your USDC came back",
+                    "p2p_rev_vuelta_b": "Order #{id} didn't complete and the USDC came back to your wallet in full.",
                     "chat_greeting_qr": "👋 Contact started by scanning the QR.",
                     "chat_greeting_link": "👋 Contact started from the invitation link.",
                     "pair_line_qr_mine": "You scanned their QR",
@@ -27048,6 +27267,38 @@
                     "pay_qr_e_generico": "Impossible de terminer : {e}",
                     "pay_qr_e_sin_mover": "Le QR n'a jamais été envoyé et tes USDC n'ont pas bougé (ordre #{id}, il expire tout seul).",
                     "pay_qr_e_incierto": "Le QR était déjà parti : vérifie ton solde et le commerce (ordre #{id}).",
+                    "pay_qr_fee_cw": "{usdc} USDC + {fee} de commission du protocole + {cw} pour ChatWallet (0,5 %, seulement s'il aboutit)",
+                    "pay_qr_fee_cw0": "{usdc} USDC + {cw} pour ChatWallet (0,5 %, seulement s'il aboutit)",
+                    "pay_qr_btn_activar": "Payer en USDC (expérimental)",
+                    "p2p_act_title": "Payer des QR en USDC",
+                    "p2p_act_intro": "Un marchand du réseau P2P.me paie le commerce en pesos et encaisse tes USDC sur Base. Le commerce reçoit des pesos comme d'habitude.",
+                    "p2p_act_costos": "Coûts et limites",
+                    "p2p_act_cotiz": "Cours",
+                    "p2p_act_spread": "Spread du protocole",
+                    "p2p_act_spread_v": "{n} % (déjà dans le cours)",
+                    "p2p_act_fija": "Commission fixe du protocole",
+                    "p2p_act_fija_v": "{fee} USDC pour les paiements jusqu'à {umbral} USDC",
+                    "p2p_act_cw": "ChatWallet",
+                    "p2p_act_cw_v": "0,5 %, seulement si le paiement aboutit",
+                    "p2p_act_gas": "Gas",
+                    "p2p_act_gas_v": "un peu d'ETH sur Base (quelques centimes par paiement)",
+                    "p2p_act_limite": "Limite",
+                    "p2p_act_limite_v": "300 USDC par paiement, sans inscription",
+                    "p2p_act_tiempo": "Durée",
+                    "p2p_act_tiempo_v": "≈ 10 s pour qu'un marchand la prenne, ≈ 1 min pour que le commerce soit payé",
+                    "p2p_act_falla": "Si quelque chose échoue",
+                    "p2p_act_f1": "Si personne ne prend l'ordre, ou si tu l'arrêtes avant l'envoi du QR, tes USDC ne bougent pas.",
+                    "p2p_act_f2": "Si le marchand annule ou ne paie pas, l'ordre expire et tes USDC reviennent en entier. ChatWallet vérifie seule, même si tu fermes l'app.",
+                    "p2p_act_f3": "Une fois le QR envoyé, on ne peut plus annuler.",
+                    "p2p_act_f4": "Si l'ordre apparaît payé et que le commerce n'a rien reçu, réclame avec le numéro d'ordre sur t.me/p2pmeargentina.",
+                    "p2p_act_exp": "C'est expérimental : commence avec de petits montants.",
+                    "p2p_act_mas": "Comment ça marche, en détail",
+                    "p2p_act_ok": "Compris, activer",
+                    "p2p_act_no": "Pas maintenant",
+                    "p2p_rev_ok_t": "Paiement QR terminé",
+                    "p2p_rev_ok_b": "L'ordre #{id} est terminé : le commerce a été payé.",
+                    "p2p_rev_vuelta_t": "Tes USDC sont revenus",
+                    "p2p_rev_vuelta_b": "L'ordre #{id} n'a pas abouti et les USDC sont revenus en entier dans ton portefeuille.",
                     "chat_greeting_qr": "👋 Contact démarré en scannant le QR.",
                     "chat_greeting_link": "👋 Contact démarré depuis le lien d\u2019invitation.",
                     "pair_line_qr_mine": "Vous avez scanné son QR",

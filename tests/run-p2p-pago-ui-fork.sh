@@ -23,7 +23,7 @@ fi
 [ -f "$BUILD/dapp.html" ] || { echo "✗ no hay $BUILD/dapp.html"; exit 1; }
 
 pkill -f "remote-debugging-port=9412" 2>/dev/null
-"$ANVIL" --fork-url "${FORK_URL:-https://mainnet.base.org}" --port "$PUERTO" --silent --retries 12 --fork-retry-backoff 1500 > /tmp/anvil-p2p.log 2>&1 &
+"$ANVIL" --fork-url "${FORK_URL:-https://base-mainnet.public.blastapi.io}" --port "$PUERTO" --silent --retries 12 --fork-retry-backoff 1500 > /tmp/anvil-p2p.log 2>&1 &
 ANVIL_PID=$!
 python3 -m http.server "$WEB_PORT" --bind 127.0.0.1 --directory "$BUILD" > /tmp/web-p2p.log 2>&1 &
 WEB_PID=$!

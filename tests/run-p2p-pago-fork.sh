@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 PUERTO=8548
 NODE_BIN="${NODE_BIN:-$(ls -d "$HOME"/.nvm/versions/node/v22.* | tail -1)/bin/node}"
 ANVIL="${ANVIL:-$HOME/.foundry/bin/anvil}"
-FORK="${FORK_URL:-https://mainnet.base.org}"
+FORK="${FORK_URL:-https://base-mainnet.public.blastapi.io}"
 unset NODE_OPTIONS
 
 cleanup() { [ -n "${ANVIL_PID:-}" ] && kill "$ANVIL_PID" 2>/dev/null; return 0; }

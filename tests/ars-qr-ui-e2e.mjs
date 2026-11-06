@@ -60,6 +60,9 @@ window.fetch = async (url, opts) => {
     if (!texto || texto.indexOf('jsonrpc') < 0) return fetchReal(url, opts);
     const responder = m => {
         if (m.method === 'eth_chainId') return '0x2105';
+        // La comisión fija del protocolo (desde la 3.72 la ficha la lee): umbral 0 = no aplica.
+        const sel = String((m.params && m.params[0] && m.params[0].data) || '').slice(0, 10);
+        if (m.method === 'eth_call' && (sel === '0x6b2d3913' || sel === '0x1e277523')) return '0x' + PAL(0n);
         if (m.method === 'eth_call') return '0x' + PAL(${PRECIO.compra}n) + PAL(${PRECIO.venta}n) +
             PAL(${PRECIO.offset}n) + PAL(${PRECIO.spread}n);
         if (m.method === 'eth_blockNumber') return '0x100';
@@ -141,6 +144,7 @@ const leerFicha = `(() => {
         nota: (document.getElementById('payQrStatus') || {}).textContent,
         notaRoja: ((document.getElementById('payQrStatus') || {}).className || '').includes('cw-aviso-rojo'),
         notaAmbar: ((document.getElementById('payQrStatus') || {}).className || '').includes('cw-aviso-ambar'),
+        notaClase: (document.getElementById('payQrStatus') || {}).className || '',
         conVisible: !!document.getElementById('payQrWithRow') &&
             !document.getElementById('payQrWithRow').classList.contains('hidden'),
         con: (document.getElementById('payQrWithRow') || {}).innerText,
@@ -223,7 +227,8 @@ try {
         await sleep(1200);   // la cotización llega DESPUÉS de la ficha, a propósito
         const f = await dev.eval(leerFicha);
         check('aparece la tarjeta del costo', f.costoVisible, f.costo);
-        check('dice cuántos USDC son', /3,22\s*USDC/.test(f.costo || ''), f.costo);
+        // 3,2165 USDC + el 0,5 % de ChatWallet (desde la 3.103) = 3,23.
+        check('dice cuántos USDC son (con el 0,5 % de ChatWallet)', /3,23\s*USDC/.test(f.costo || ''), f.costo);
         check('muestra la cotización usada', /1\.554,53/.test(f.tasa || ''), f.tasa);
         check('y el spread, sin letra chica', /3\s*%/.test(f.tasa || ''), f.tasa);
         await cerrar();
@@ -236,7 +241,8 @@ try {
         await sleep(1200);
         const f = await dev.eval(leerFicha);
         check('con monto abierto no inventa un costo: dice qué hacer', /Poné el monto/.test(f.costo || ''), f.costo);
-        check('avisa arriba que todavía no se puede pagar', f.notaAmbar && /Todavía no se puede pagar/.test(f.nota || ''), f.nota);
+        // Desde la 3.103 los QR argentinos se pagan (con el aviso de costos la primera vez).
+        check('avisa arriba que se puede pagar, por P2P.me', /cw-aviso-verde/.test(f.notaClase || '') && /Podés pagar este QR/.test(f.nota || ''), f.nota);
         check('dice con qué se pagaría: USDC en Base', f.conVisible && /USDC en la red Base/.test(f.con || ''), f.con);
         // El RPC falso contesta cualquier eth_call con la tupla del precio: balanceOf lee la
         // primera palabra (1.601,87). Alcanza para probar el cableado, no el número.
@@ -252,11 +258,11 @@ try {
         for (const v of ['5.000', '5.000,00', '5000']) {
             await tipear(v);
             const c = (await dev.eval(leerFicha)).costo;
-            check(`"${v}" pesos salen 3,22 USDC`, /3,22\s*USDC/.test(c || ''), c);
+            check(`"${v}" pesos salen 3,23 USDC`, /3,23\s*USDC/.test(c || ''), c);
         }
         await tipear('5.000.000');
         const f2 = await dev.eval(leerFicha);
-        check('si no alcanza, dice cuánto falta y en rojo', f2.saldoRojo && /te faltan 1\.614,54 USDC/.test(f2.saldo || ''), f2.saldo);
+        check('si no alcanza, dice cuánto falta y en rojo', f2.saldoRojo && /te faltan 1\.630,62 USDC/.test(f2.saldo || ''), f2.saldo);
         await tipear('');
         check('borrar el monto vuelve a la indicación', /Poné el monto/.test((await dev.eval(leerFicha)).costo || ''));
         await cerrar();

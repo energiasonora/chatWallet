@@ -114,9 +114,12 @@ async function pagar(w, fiat6, extra = {}) {
     return { res, pasos, visto };
 }
 
+const COBRADOR = '0xA3fDb2AadD797b0e7D6B9C595B79d67A1d23ef21';
+
 // ── 3. Pago normal: $ 25.000 (≈ 15,76 USDC, sin comisión) ──
 {
     const w = await walletNueva(100_000_000n);
+    const cobradorAntes = await usdc.balanceOf(COBRADOR);
     const fiat6 = 25_000_000_000n;
     const cot = await M.cwP2pCotizarPago(p, 'ARS', fiat6, w.address);
     ok(cot.usdc * cot.venta >= fiat6 * 1_000_000n && (cot.usdc - 1n) * cot.venta < fiat6 * 1_000_000n, 'la cotización redondea el USDC para arriba, lo justo',
@@ -129,8 +132,10 @@ async function pagar(w, fiat6, extra = {}) {
     ok(visto?.firmante?.slice(4) === visto?.llaveOrden, 'el QR va firmado por la llave publicada en la orden');
     const o = await d.getOrdersById(res.orderId), x = await d.getAdditionalOrderDetails(res.orderId);
     ok(x.actualFiatAmount === fiat6, 'el comerciante tiene que pagar los pesos EXACTOS del QR', u(x.actualFiatAmount));
-    ok(100_000_000n - await usdc.balanceOf(w.address) === res.usdc && res.usdc === x.actualUsdtAmount && res.usdc <= cot.total,
-        'de la wallet sale lo que dice la orden, y no más que lo cotizado', `${u(res.usdc)} USDC (cotizado ${u(cot.total)})`);
+    ok(100_000_000n - await usdc.balanceOf(w.address) === res.usdc + res.comision && res.usdc === x.actualUsdtAmount && res.usdc + res.comision <= cot.total,
+        'de la wallet sale lo que dice la orden + la comisión de ChatWallet, y no más que lo cotizado', `${u(res.usdc)} + ${u(res.comision)} USDC (cotizado ${u(cot.total)})`);
+    ok(res.comisionTx && res.comision === (res.usdc - res.fee) * 50n / 10000n + ((res.usdc - res.fee) * 50n % 10000n ? 1n : 0n)
+        && await usdc.balanceOf(COBRADOR) - cobradorAntes === res.comision, 'el 0,5 % de ChatWallet llega a su dirección al completarse', `${u(res.comision)} USDC`);
     ok(await usdc.allowance(w.address, DIAMOND) === 0n, 'no queda permiso de gasto colgado');
     ok(o.userPubKey.length === 128 && !o.userPubKey.includes(w.signingKey.publicKey.slice(4, 40)), 'la llave publicada en la orden no es la de la wallet');
 }
@@ -143,8 +148,8 @@ async function pagar(w, fiat6, extra = {}) {
     const { res } = await pagar(w, fiat6);
     const x = await d.getAdditionalOrderDetails(res.orderId);
     ok(res.estado === 'completada' && cot.fee > 0n && x.fixedFeePaid === cot.fee, 'orden chica: se completa y cobra la comisión fija', `${u(cot.fee)} USDC`);
-    ok(10_000_000n - await usdc.balanceOf(w.address) === res.usdc && res.usdc <= cot.total && x.actualFiatAmount === fiat6,
-        'sale USDC + comisión y los pesos son exactos', `${u(res.usdc)} USDC`);
+    ok(10_000_000n - await usdc.balanceOf(w.address) === res.usdc + res.comision && res.usdc + res.comision <= cot.total && x.actualFiatAmount === fiat6,
+        'sale USDC + comisiones y los pesos son exactos', `${u(res.usdc)} + ${u(res.comision)} USDC`);
 }
 
 // ── 5. Frenar a tiempo: nadie acepta y el usuario corta → no se manda el QR, ni un USDC menos ──

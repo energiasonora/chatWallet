@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Pagar el QR de un comercio argentino con USDC, ya para todos (experimental).** Escaneás el QR de un comercio (el de Mercado Pago o cualquiera de Transferencias 3.0) y un comerciante de la red P2P.me le paga en pesos; vos pagás con USDC en Base. La primera vez, un aviso te muestra la cotización, las comisiones, el límite (300 USDC por pago, sin registro) y qué pasa si algo falla.
+- **Si el pago falla, tu USDC vuelve entero.** Si nadie toma la orden o la frenás, no se mueve nada; si el comerciante cancela o no paga, la orden vence y el USDC vuelve. Ahora ChatWallet revisa sola cómo terminó cada pago, aunque hayas cerrado la app, y te avisa.
+- **ChatWallet cobra un 0,5 % por pago de QR, solo cuando el pago se completa.** Está a la vista en la ficha antes de pagar, junto a la comisión del protocolo.
+
 ## 3.102 — 2026-11-05
 
 - **La tarjeta del DID de un contacto ya no muestra tus certificaciones Ğ1.** Si antes habías mirado tu propio DID, en el de otro quedaba tu «1 de 5 certificaciones». Ahora ese paso aparece solo en tu tarjeta.

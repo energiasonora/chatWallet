@@ -92,7 +92,7 @@ const INICIAL = 100_000_000n, FIAT = 25_000_000_000n;   // 100 USDC; $ 25.000 �
     ok(despues?.ok, 'A · el comerciante puede cancelar una orden PAID', despues?.motivo || '');
     ok(res.estado === 'cancelada' && res.motivo === 'DESPUES_DE_ENVIAR', 'A · el motor lo ve como cancelada después de enviar', `orden ${res.orderId}`);
     const fin = await usdc.balanceOf(w.address);
-    ok(fin === INICIAL, 'A · el USDC vuelve ENTERO a la wallet, comisión incluida', `${u(fin)} de ${u(INICIAL)}`);
+    ok(fin === INICIAL, 'A · el USDC vuelve ENTERO a la wallet, comisión incluida (y ChatWallet no cobra nada)', `${u(fin)} de ${u(INICIAL)}`);
 }
 
 // ── B. El comerciante recibe el QR y desaparece: vence y se barre ──
