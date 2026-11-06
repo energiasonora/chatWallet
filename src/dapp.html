@@ -20533,8 +20533,8 @@
             window.cwP2pPagarQr = cwP2pPagarQr;
             // ── fin del motor de pago P2P.me ──
 
-            // Interruptor del pago real. Apagado para todos hasta que haya un pago de verdad
-            // verificado; se prende y apaga con cinco toques sobre la bandera de la ficha.
+            // Interruptor del pago real: se prende cuando el usuario acepta el aviso de una vez
+            // (cwP2pActivar, desde v3.103; antes eran cinco toques en la bandera).
             const CW_P2P_PAGO_KEY = 'cw-p2p-pago';
             const cwP2pPagoActivo = () => { try { return localStorage.getItem(CW_P2P_PAGO_KEY) === '1'; } catch (e) { return false; } };
             // corriendo: hay una orden en curso · enviado: el QR ya salió (no hay vuelta atrás) ·
