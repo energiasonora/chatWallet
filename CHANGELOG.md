@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.104 — 2026-11-06
+
 - **La comisión de ChatWallet ya no se cobra sola.** El botón de confirmar el pago de QR dice el monto exacto («Confirmar $ 20.000: 12,17 USDC + 0,06 de ChatWallet») y el mensaje final muestra lo que se cobró. Si cerraste la app antes de que el pago terminara, al volver la app te pregunta si querés pagar la comisión; si decís «Ahora no», no te lo vuelve a preguntar.
 - **Si un comerciante no paga, la app ya no hace nada por su cuenta.** El protocolo devuelve tu USDC solo; si después de una hora sigue retenido, la app te ofrece un botón para recuperarlo.
 
