@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es" data-tema="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flor de la Vida — modelos</title>
+<link rel="stylesheet" href="../fonts/fuentes-landing.css">
+<link rel="stylesheet" href="flor.css">
+<style>
+    :root { --fondo: #eee8fa; --carta: #fbf9ff; --tinta: #1c1236; --gris: #6d6488; --ac: #7c4dff; }
+    @media (prefers-color-scheme: dark) { :root { --fondo: #140d24; --carta: #1d1434; --tinta: #efe8ff; --gris: #9d92bb; --ac: #a58bff; } }
+    * { box-sizing: border-box; margin: 0; }
+    body { background: var(--fondo); color: var(--tinta); font-family: 'DM Sans', system-ui, sans-serif; padding: 40px 16px; }
+    main { max-width: 880px; margin: 0 auto; }
+    h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(32px, 6vw, 52px); line-height: 1; }
+    .bajo { color: var(--gris); margin: 12px 0 30px; max-width: 36rem; }
+    ul { list-style: none; padding: 0; display: grid; gap: 14px; }
+    a.m { display: grid; grid-template-columns: 64px 1fr; gap: 18px; align-items: center; background: var(--carta); border: 3px solid var(--tinta); border-radius: 18px; padding: 16px 18px; text-decoration: none; color: inherit; box-shadow: 5px 5px 0 var(--ac); transition: transform .15s; }
+    a.m:hover { transform: translate(-2px, -2px); }
+    a.m svg { width: 64px; height: 64px; color: var(--ac); stroke-width: .06; }
+    b { font-family: 'Syne', sans-serif; font-size: 20px; display: block; }
+    p { color: var(--gris); font-size: 15px; margin-top: 4px; }
+    .tema { color: var(--gris); font-size: 14px; margin-top: 26px; }
+</style>
+</head>
+<body>
+<main>
+    <h1>Flor de la Vida</h1>
+    <p class="bajo">Cinco formas de integrarla en la landing. En todas, la cinta usa la Semilla de la Vida en lugar de la estrellita. Cada modelo tiene el sol/luna arriba para ver el tema Lavanda y el Noche.</p>
+    <ul>
+        <li><a class="m" href="../flor-1-halo.html" data-n="2"><span></span><div><b>1 · Halo</b><p>La flor grande detrás del gato ninja, se dibuja círculo por círculo al abrir y después gira muy despacio. El gato queda entero, en el centro.</p></div></a></li>
+        <li><a class="m" href="../flor-2-semilla.html" data-n="1"><span></span><div><b>2 · Semilla que crece</b><p>Cada sección prende un círculo de la Semilla de la Vida (01 → uno … 06 → seis). En el cierre «Tus llaves. Tu plata. Tu voz.» se completa el séptimo y florece en la Flor entera.</p></div></a></li>
+        <li><a class="m" href="../flor-3-meditacion.html" data-n="2"><span></span><div><b>3 · Meditación</b><p>En «Custodiá» la flor reemplaza al enso: el gato medita en el centro y los pétalos lo rodean. El logo lleva la semilla girando detrás.</p></div></a></li>
+        <li><a class="m" href="../flor-4-trama.html" data-n="2"><span></span><div><b>4 · Trama</b><p>El tejido infinito de la flor, suave, como textura detrás del título y del cierre. Es la versión más discreta.</p></div></a></li>
+        <li><a class="m" href="../flor-5-todo.html" data-n="2"><span></span><div><b>5 · Todo junto</b><p>Halo + semilla que crece + meditación + logo. Para ver si junta demasiado o si funciona como hilo conductor.</p></div></a></li>
+    </ul>
+    <p class="tema">Modelos armados sobre la landing nueva, sin publicar.</p>
+</main>
+<script src="flor.js"></script>
+<script>
+    document.querySelectorAll('a.m').forEach(function (a, k) {
+        a.querySelector('span').outerHTML = florSVG({ n: +a.dataset.n });
+        var s = a.querySelector('svg'); setTimeout(function () { s.classList.add('ver'); }, 150 + k * 120);
+    });
+</script>
+</body>
+</html>

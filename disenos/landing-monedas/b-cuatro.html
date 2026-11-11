@@ -1,0 +1,26 @@
+<style>
+.mvb-fila { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 40px; }
+@media (max-width: 860px) { .mvb-fila { grid-template-columns: 1fr 1fr; } }
+.mvb-fila .moneda { padding: 22px 20px; text-align: center; }
+.mvb-fila .mv-logo { width: 84px; height: 84px; margin: 0 auto 14px; font-size: 30px; }
+.mvb-fila h3 { font-size: 24px; }
+.mvb-fila p { font-size: 16px; margin: 0; }
+.mvb-redes { margin-top: 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; justify-content: center; }
+.mvb-redes b { font-family: 'Syne', sans-serif; }
+.mvb-redes .mv-chips { margin: 0; justify-content: center; }
+</style>
+<section class="wrap sec" id="monedas">
+    <div class="rev">
+        <div class="num">04 — Elegí la moneda</div>
+        <h2 class="frase">Cuatro monedas. <span class="a">Infinitos tokens.</span> Tus mismas 12 palabras.</h2>
+    </div>
+    <div class="mvb-fila">
+        <article class="moneda rev"><div class="mv-logo mv-eth">{ETH}</div><h3>ETH</h3><p>y cualquier token</p></article>
+        <article class="moneda rev"><div class="mv-logo mv-usd">$</div><h3>USDC</h3><p>dólares digitales</p></article>
+        <article class="moneda rev"><div class="mv-logo mv-g1">Ğ1</div><h3>Ğ1</h3><p>moneda libre</p></article>
+        <article class="moneda rev"><div class="mv-logo mv-xmr">{XMR}</div><h3>Monero</h3><p>privada por defecto</p></article>
+    </div>
+    <div class="mvb-redes rev"><b>En cualquier red compatible con Ethereum:</b>
+        <ul class="mv-chips"><li>Ethereum</li><li>Base</li><li>Arbitrum</li><li>Optimism</li><li>Polygon</li><li class="mas">+ la que sumes</li></ul>
+    </div>
+</section>

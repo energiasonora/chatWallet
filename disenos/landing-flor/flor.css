@@ -1,0 +1,82 @@
+/* Flor de la Vida — estilos de los modelos. Cada bloque se prende con html[data-flor~="…"]. */
+
+/* Trazo que se dibuja: cada círculo mide 1 (pathLength) y entra en orden (--i). */
+.flor { pointer-events: none; overflow: visible; }
+.flor__c, .flor__m { stroke-dasharray: 1.2 1.2; stroke-dashoffset: 1.2; stroke-linecap: round; transition: stroke-dashoffset 1.3s cubic-bezier(.5, 0, .2, 1) calc(var(--i) * 75ms); }
+.flor.ver .flor__c, .flor.ver .flor__m { stroke-dashoffset: 0; }
+@keyframes flor-gira { to { rotate: 360deg; } }
+@keyframes flor-late { 0%, 100% { opacity: var(--op); } 50% { opacity: calc(var(--op) * .55); } }
+@media (prefers-reduced-motion: reduce) {
+    .flor__c, .flor__m { stroke-dashoffset: 0; transition: none; }
+    .flor { animation: none !important; }
+}
+
+/* ── 1 · Halo detrás del gato ── */
+.flor-halo-col { position: relative; }
+.flor-halo-col .ninja { position: relative; }
+.flor-halo {
+    position: absolute; left: 50%; top: 47%; width: 108%; translate: -50% -50%;
+    color: var(--ac); stroke-width: .028; --op: .6; opacity: var(--op);
+    animation: flor-gira 240s linear infinite;
+}
+.flor-halo--tarjeta { display: none; }
+.flor-halo-col .ninja__vid { position: relative; }
+html[data-tema="dark"] .flor-halo-col > .flor-halo { display: none; }
+html[data-tema="dark"] .flor-halo--tarjeta { display: block; top: 53%; width: 92%; color: #7c4dff; --op: .45; }
+html[data-tema="dark"] .flor-halo-col .ninja__vid video { mix-blend-mode: multiply; }
+
+/* ── 2 · Semilla que crece en los números y florece en el cierre ── */
+.num--flor { display: flex; align-items: center; gap: 12px; }
+.flor-num { width: 44px; height: 44px; flex: none; color: var(--ac); stroke-width: .16; }
+.flor-num .flor__c { stroke-opacity: .3; }
+.flor-num .flor__c.on { stroke-opacity: 1; fill: color-mix(in srgb, var(--ac) 16%, transparent); }
+.cierre--flor { position: relative; overflow: hidden; }
+.cierre--flor > :not(.flor) { position: relative; }
+.flor-cierre {
+    position: absolute; left: 50%; top: 50%; width: min(820px, 135vw); translate: -50% -50%;
+    color: var(--ac); stroke-width: .022; --op: .42; opacity: var(--op);
+}
+.flor-cierre.ver { animation: flor-late 7s 3s ease-in-out infinite; }
+/* las 7 de la semilla entran primero y fuertes; las 12 de afuera, después */
+.flor-cierre .flor__c:nth-child(-n+7) { stroke-width: .04; }
+
+/* ── 3 · Meditación: la flor alrededor del gato que medita + logo ── */
+.enso--flor .flor-enso { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--tinta); stroke-width: .03; }
+.enso--flor .flor-enso .flor__m { stroke-width: .05; }
+.enso--flor .enso__vid { inset: 18.5%; box-shadow: 0 0 0 4px var(--fondo), 0 0 0 7px var(--ac); }
+.enso--flor:not(.ver) .flor-enso .flor__c, .enso--flor:not(.ver) .flor-enso .flor__m { stroke-dashoffset: 1.2; }
+.enso--flor.ver .flor-enso .flor__c, .enso--flor.ver .flor-enso .flor__m { stroke-dashoffset: 0; }
+.enso--flor.ver .flor-enso { animation: flor-gira 300s linear infinite; }
+.marca__logo--flor { position: relative; overflow: visible; }
+.marca__logo--flor img { position: relative; }
+.flor-logo { position: absolute; left: 50%; top: 50%; width: 175%; translate: -50% -50%; color: var(--ac); stroke-width: .09; opacity: .75; animation: flor-gira 60s linear infinite; z-index: -1; }
+.marca__logo--flor { isolation: isolate; }
+
+/* ── 4 · Trama: el tejido de la flor como textura ── */
+html[data-flor~="trama"] .hero { position: relative; }
+html[data-flor~="trama"] .hero::before,
+html[data-flor~="trama"] .cierre::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image: var(--tejido-claro); background-position: center;
+    -webkit-mask-image: radial-gradient(ellipse 60% 60% at 70% 45%, #000 20%, transparent 75%);
+    mask-image: radial-gradient(ellipse 60% 60% at 70% 45%, #000 20%, transparent 75%);
+}
+html[data-flor~="trama"][data-tema="dark"] .hero::before,
+html[data-flor~="trama"][data-tema="dark"] .cierre::before { background-image: var(--tejido-oscuro); }
+html[data-flor~="trama"] .cierre { position: relative; }
+html[data-flor~="trama"] .hero > *, html[data-flor~="trama"] .cierre > * { position: relative; }
+html[data-flor~="trama"] .cierre::before {
+    -webkit-mask-image: radial-gradient(ellipse 50% 55% at 50% 45%, #000 15%, transparent 72%);
+    mask-image: radial-gradient(ellipse 50% 55% at 50% 45%, #000 15%, transparent 72%);
+}
+
+/* ── Cinta: la semilla en lugar de la estrellita ── */
+html[data-flor~="cinta"] .cinta__track > span::before {
+    content: ""; display: inline-block; width: .95em; height: .95em; margin-right: .45em; vertical-align: -.12em; opacity: .8;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-2.2 -2.2 4.4 4.4' fill='none' stroke='%23000' stroke-width='.2'%3E%3Ccircle r='1'/%3E%3Ccircle cx='1' r='1'/%3E%3Ccircle cx='-1' r='1'/%3E%3Ccircle cx='.5' cy='.866' r='1'/%3E%3Ccircle cx='-.5' cy='.866' r='1'/%3E%3Ccircle cx='.5' cy='-.866' r='1'/%3E%3Ccircle cx='-.5' cy='-.866' r='1'/%3E%3Ccircle r='2'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-2.2 -2.2 4.4 4.4' fill='none' stroke='%23000' stroke-width='.2'%3E%3Ccircle r='1'/%3E%3Ccircle cx='1' r='1'/%3E%3Ccircle cx='-1' r='1'/%3E%3Ccircle cx='.5' cy='.866' r='1'/%3E%3Ccircle cx='-.5' cy='.866' r='1'/%3E%3Ccircle cx='.5' cy='-.866' r='1'/%3E%3Ccircle cx='-.5' cy='-.866' r='1'/%3E%3Ccircle r='2'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* etiqueta del modelo (solo en los modelos) */
+.flor-etiqueta { position: fixed; left: 12px; bottom: 12px; z-index: 50; font: 600 13px 'Roboto Mono', monospace; background: var(--tinta); color: var(--fondo); padding: 6px 10px; border-radius: 8px; text-decoration: none; }

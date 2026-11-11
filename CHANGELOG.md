@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.105 — 2026-11-11
+
+- **Nueva portada en chatwallet.org.** Ahora cuenta todo lo que hace la app: chat cifrado, pagos en el mismo chat, **ETH**, dólares digitales, **Ğ1** y **Monero** (cada una con su logo), firma sin internet y tus llaves bajo tu control. La acompaña la **Flor de la Vida**: crece un círculo por sección y florece entera al final. Tiene tema claro y oscuro (sigue al de tu teléfono, o lo cambiás con el sol/luna de arriba, igual que en la app) y está en castellano, inglés y francés.
+- **El lema, más claro:** «Sin KYC. Sin número. Sin registro. Sin intermediario.» Antes decía «sin teléfono» y «sin cuenta», que se podía entender como que no hacía falta un celular o que no tenías cuenta; lo que no hay es número de teléfono ni registro.
+
 ## 3.104 — 2026-11-06
 
 - **La comisión de ChatWallet ya no se cobra sola.** El botón de confirmar el pago de QR dice el monto exacto («Confirmar $ 20.000: 12,17 USDC + 0,06 de ChatWallet») y el mensaje final muestra lo que se cobró. Si cerraste la app antes de que el pago terminara, al volver la app te pregunta si querés pagar la comisión; si decís «Ahora no», no te lo vuelve a preguntar.

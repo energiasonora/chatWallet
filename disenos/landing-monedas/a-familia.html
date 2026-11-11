@@ -1,0 +1,25 @@
+<style>
+.mva-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 40px; }
+.mva-evm { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: start; }
+@media (max-width: 860px) { .mva-grid { grid-template-columns: 1fr; } .mva-evm { grid-template-columns: 1fr; } }
+.mva-evm h3 { font-size: 34px; }
+</style>
+<section class="wrap sec" id="monedas">
+    <div class="rev">
+        <div class="num">04 — Elegí la moneda</div>
+        <h2 class="frase">Cuatro monedas, <span class="a">infinitos tokens.</span></h2>
+        <p class="linea">Con tus mismas 12 palabras. Sin otra app ni otra cuenta.</p>
+    </div>
+    <div class="mva-grid">
+        <article class="moneda mva-evm rev">
+            <div class="mv-pila"><div class="mv-logo mv-eth">{ETH}</div><div class="mv-logo mv-usd">$</div></div>
+            <div>
+                <h3>Ethereum y toda su familia</h3>
+                <p>ETH, dólares digitales (USDC) y cualquier token, en cualquier red compatible con Ethereum.</p>
+                <ul class="mv-chips"><li>Ethereum</li><li>Base</li><li>Arbitrum</li><li>Optimism</li><li>Polygon</li><li class="mas">+ la red que sumes</li></ul>
+            </div>
+        </article>
+        <article class="moneda rev"><div class="mv-logo mv-g1">Ğ1</div><h3 style="margin-top:16px">Ğ1</h3><p>Moneda libre: la co-crean sus miembros, cada día.</p></article>
+        <article class="moneda rev"><div class="mv-logo mv-xmr">{XMR}</div><h3 style="margin-top:16px">Monero</h3><p>Privada por defecto.</p></article>
+    </div>
+</section>

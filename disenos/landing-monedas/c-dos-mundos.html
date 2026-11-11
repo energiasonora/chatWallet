@@ -1,0 +1,41 @@
+<style>
+.mvc { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; margin-top: 40px; }
+@media (max-width: 860px) { .mvc { grid-template-columns: 1fr; } }
+.mvc-evm { background: var(--ac); color: var(--ac-tx); position: relative; overflow: hidden; }
+.mvc-evm p { color: inherit; opacity: .9; }
+.mvc-evm h3 { font-size: clamp(30px, 3.4vw, 42px); }
+.mvc-evm .mv-chips li { background: transparent; border-color: currentColor; color: inherit; }
+.mvc-evm .mv-chips li.mas { border-color: currentColor; color: inherit; }
+.mvc-orbita { position: relative; width: 150px; height: 150px; margin-bottom: 18px; }
+.mvc-orbita .mv-logo { position: absolute; width: 62px; height: 62px; }
+.mvc-orbita .c { left: 44px; top: 44px; animation: mvc-late 3s ease-in-out infinite; }
+.mvc-orbita .gira { position: absolute; inset: 0; animation: mvc-gira 18s linear infinite; }
+.mvc-orbita .gira span { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 2px solid currentColor; display: grid; place-items: center; font: 800 12px 'Syne', sans-serif; background: var(--ac); }
+@keyframes mvc-gira { to { rotate: 360deg; } }
+@keyframes mvc-late { 50% { scale: 1.06; } }
+.mvc-lado { display: grid; gap: 22px; }
+.mvc-lado .moneda { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+.mvc-lado h3 { font-size: 24px; } .mvc-lado p { margin: 0; }
+</style>
+<section class="wrap sec" id="monedas">
+    <div class="rev">
+        <div class="num">04 — Elegí la moneda</div>
+        <h2 class="frase">Todo Ethereum. <span class="a">Más Ğ1 y Monero.</span></h2>
+        <p class="linea">Infinitos tokens, <b>tus mismas 12 palabras.</b></p>
+    </div>
+    <div class="mvc">
+        <article class="moneda mvc-evm rev">
+            <div class="mvc-orbita">
+                <div class="gira"><span style="left:58px;top:0">$</span><span style="left:116px;top:58px">+</span><span style="left:58px;top:116px">T</span><span style="left:0;top:58px">$</span></div>
+                <div class="mv-logo mv-eth c">{ETH}</div>
+            </div>
+            <h3>ETH, USDC y cualquier token</h3>
+            <p>En cualquier red compatible con Ethereum. Si no está en la lista, la sumás vos.</p>
+            <ul class="mv-chips"><li>Ethereum</li><li>Base</li><li>Arbitrum</li><li>Optimism</li><li>Polygon</li><li class="mas">+ la que sumes</li></ul>
+        </article>
+        <div class="mvc-lado">
+            <article class="moneda rev"><div class="mv-logo mv-g1">Ğ1</div><div><h3>Ğ1</h3><p>Moneda libre: la co-crean sus miembros, cada día.</p></div></article>
+            <article class="moneda rev"><div class="mv-logo mv-xmr">{XMR}</div><div><h3>Monero</h3><p>Privada por defecto.</p></div></article>
+        </div>
+    </div>
+</section>
