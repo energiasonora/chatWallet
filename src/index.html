@@ -145,6 +145,8 @@
         .idiomas { display: flex; border: 2px solid var(--tinta); border-radius: 999px; overflow: hidden; }
         .idiomas button { border: 0; background: transparent; padding: 5px 9px; font-size: 13px; font-weight: 700; cursor: pointer; }
         .idiomas button.on { background: var(--tinta); color: var(--fondo); }
+        .top__abrir { background: var(--tinta); color: var(--fondo); font-weight: 700; padding: 8px 16px; border-radius: 999px; text-decoration: none; white-space: nowrap; }
+        .top__abrir:hover { background: var(--ac); color: var(--ac-tx); }
         .tema-btn { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--tinta); background: var(--carta); display: grid; place-items: center; cursor: pointer; }
         .tema-btn svg { width: 18px; height: 18px; }
         html[data-tema="light"] .tema-btn .sol, html[data-tema="dark"] .tema-btn .luna { display: none; }
@@ -153,19 +155,25 @@
         /* ── portada ── */
         /* overflow-x: clip — los sellos arrancan al doble de tamaño; sin recorte, en ese instante
            se salen de la pantalla y el celular achica toda la página para que entren (medido: 469 px en vez de 390). */
-        .hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 30px; align-items: center; padding: 24px 20px 60px; max-width: 1120px; margin: 0 auto; overflow-x: clip; }
+        .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; padding: 24px 20px 60px; max-width: 1120px; margin: 0 auto; overflow-x: clip; }
         @media (max-width: 860px) { .hero { grid-template-columns: 1fr; padding-top: 6px; } }
         .kicker { font-family: 'Roboto Mono', monospace; font-size: 13px; letter-spacing: .18em; text-transform: uppercase; color: var(--gris); }
-        .hero h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(40px, 5.4vw, 76px); line-height: .92; letter-spacing: -.02em; margin: 14px 0 26px; }
-        .hero h1 em { font-style: normal; color: var(--ac); position: relative; white-space: nowrap; }
-        .hero h1 em::after { content: ""; position: absolute; left: 0; right: 0; bottom: .04em; height: .12em; background: var(--tinta); transform-origin: left; transform: scaleX(0); animation: trazo .7s .4s cubic-bezier(.6, 0, .2, 1) forwards; border-radius: 4px; }
+        .hero h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(40px, 8vw, 96px); line-height: .9; letter-spacing: -.02em; margin: 18px 0 24px; }
+        /* en inglés y francés el título es más largo: un poco más chico, para que quede en dos líneas
+           como en castellano y no empuje los botones fuera de la primera pantalla */
+        html[lang="en"] .hero h1 { font-size: clamp(31px, 6.4vw, 78px); }
+        html[lang="fr"] .hero h1 { font-size: clamp(27px, 5.6vw, 68px); }
+        .hero h1 .junto { white-space: nowrap; }
+        .hero h1 em { font-style: normal; color: var(--ac); position: relative; white-space: nowrap; display: inline-block; padding-bottom: .2em; }
+        .hero h1 em::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: .09em; background: var(--tinta); transform-origin: left; transform: scaleX(0); animation: trazo .7s .4s cubic-bezier(.6, 0, .2, 1) forwards; border-radius: 4px; }
         @keyframes trazo { to { transform: scaleX(1); } }
-        .sellos { display: flex; flex-wrap: wrap; gap: 10px 12px; margin-bottom: 28px; list-style: none; }
-        .sello { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(16px, 2.3vw, 22px); color: var(--ac); border: 3px solid var(--ac); padding: 6px 14px; border-radius: 8px;
+        .sellos { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 30px; list-style: none; }
+        .sello { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(14px, 1.5vw, 19px); color: var(--ac); border: 3px solid var(--ac); padding: 5px 14px; border-radius: 8px;
             opacity: 0; transform: scale(2.2) rotate(-8deg); animation: sellar .38s cubic-bezier(.2, 1.4, .4, 1) forwards;
             background: repeating-linear-gradient(115deg, transparent 0 7px, color-mix(in srgb, var(--fondo) 40%, transparent) 7px 9px); }
         .sello:nth-child(1) { animation-delay: .9s; --r: -4deg; } .sello:nth-child(2) { animation-delay: 1.15s; --r: 3deg; }
         .sello:nth-child(3) { animation-delay: 1.4s; --r: -2deg; } .sello:nth-child(4) { animation-delay: 1.65s; --r: 4deg; }
+        @media (max-width: 600px) { .sello { padding: 5px 11px; } }
         @keyframes sellar { to { opacity: 1; transform: scale(1) rotate(var(--r)); } }
         .bajada { font-size: 20px; max-width: 30em; color: var(--texto2); margin-bottom: 28px; }
         .bajada b { color: var(--tinta); }
@@ -179,12 +187,12 @@
         .btn--ac { background: var(--ac); color: var(--ac-tx); }
         .btn:disabled { opacity: .7; cursor: default; }
         @media (max-width: 600px) { .hero .btn { width: 100%; justify-content: center; } }
-        /* En escritorio lidera la app web; en Android lidera el APK (notificaciones con el
-           navegador cerrado, servicio en primer plano, firma propia) y la web queda de alternativa.
-           tests/apk-en-android-cdp.mjs controla estos cuatro estilos. */
-        .hero-btn--pwa { background: var(--ac); color: var(--ac-tx); }
-        body.is-android .hero-btn--apk { order: -1; background: var(--ac); color: var(--ac-tx); }
-        body.is-android .hero-btn--pwa { background: none; box-shadow: none; border-width: 2px; font-weight: 600; color: var(--tinta); }
+        /* Lidera el APK (notificaciones con el navegador cerrado, servicio en primer plano, firma
+           propia); la app web queda de alternativa, blanca y sin ícono.
+           tests/apk-en-android-cdp.mjs controla estos estilos. */
+        .hero .hero-btn { font-size: 19px; padding: 17px 28px; }
+        .hero-btn--apk { background: var(--ac); color: var(--ac-tx); }
+        .hero-btn--pwa { background: var(--carta); color: var(--tinta); }
         .hero__android-hint { display: none; font-size: 15px; color: var(--verde-hint); margin-top: 14px; }
         body.is-android .hero__android-hint { display: block; }
         .hero__apk-note { display: none; font-size: 15px; color: var(--texto2); max-width: 32rem; margin-top: 14px; background: var(--carta); border: 2px solid var(--tinta); border-radius: 12px; padding: 12px 14px; }
@@ -289,6 +297,19 @@
         .enso.ver .flor { animation: flor-gira 300s linear infinite; }
         .enso__vid { position: absolute; inset: 18.5%; border-radius: 50%; overflow: hidden; background: #efe7d3; box-shadow: 0 0 0 4px var(--fondo), 0 0 0 7px var(--ac); }
         .enso__vid video { width: 100%; height: 100%; object-fit: cover; }
+        /* en el hero: el gato que medita en el centro de la flor, se dibuja al abrir */
+        .enso--hero { max-width: 470px; }
+        @media (max-width: 860px) { .enso--hero { max-width: 340px; } }
+        .enso--hero .enso__vid { inset: 7%; box-shadow: none; }
+        .anillo { position: absolute; inset: 0; width: 100%; height: 100%; rotate: -90deg; overflow: visible; }
+        .anillo circle { fill: none; stroke: var(--tinta); stroke-width: 2.3; stroke-linecap: round; stroke-dasharray: 251 400; stroke-dashoffset: 251; animation: anillo 1.4s .3s cubic-bezier(.6, 0, .2, 1) forwards; }
+        @keyframes anillo { to { stroke-dashoffset: 0; } }
+        .enso__sello { position: absolute; top: 3%; right: 3%; width: 23%; aspect-ratio: 1; border-radius: 50%; background: var(--ac); border: 4px solid var(--tinta); display: grid; place-items: center; z-index: 2; box-shadow: 0 0 0 4px var(--fondo); }
+        .enso__sello img { width: 72%; }
+        /* el sello flota, como en el modelo «Tinta» */
+        .enso__sello { animation: flota 5s ease-in-out infinite; }
+        @keyframes flota { 50% { transform: translateY(-10px) rotate(6deg); } }
+        @media (prefers-reduced-motion: reduce) { .anillo circle { animation: none; stroke-dashoffset: 0; } .enso__sello { animation: none; } }
         .lista { list-style: none; margin-top: 18px; }
         .lista li { padding: 12px 0 12px 34px; position: relative; border-top: 2px solid var(--tinta); }
         .lista li::before { content: "✦"; position: absolute; left: 4px; color: var(--ac); }
@@ -317,16 +338,12 @@
         .cierre .frase { font-size: clamp(40px, 7vw, 80px); }
         .cierre .botones { justify-content: center; margin-top: 28px; }
 
-        footer { border-top: var(--borde); padding: 40px 20px 24px; }
-        .pie { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 30px; }
-        @media (max-width: 760px) { .pie { grid-template-columns: 1fr; } }
-        .pie h4 { font-family: 'Syne', sans-serif; font-size: 16px; margin-bottom: 10px; }
-        .pie ul { list-style: none; }
-        .pie li { padding: 3px 0; }
-        .pie a { color: var(--texto2); text-decoration: none; }
-        .pie a:hover { color: var(--ac); }
-        .pie p { color: var(--texto2); font-size: 16px; margin-top: 8px; }
-        .pie__fin { max-width: 1120px; margin: 30px auto 0; display: flex; justify-content: space-between; color: var(--gris); font-size: 14px; }
+        /* pie: una línea de links, como en el modelo «Tinta» */
+        footer { border-top: var(--borde); padding: 28px 20px; text-align: center; font-size: 15px; color: var(--gris); }
+        .pie { max-width: 1120px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 0; }
+        .pie a { color: inherit; margin: 0 8px; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ac) 45%, transparent); text-underline-offset: 3px; }
+        .pie a:hover { color: var(--ac); text-decoration-color: var(--ac); }
+        .pie i { font-style: normal; color: var(--ac); font-weight: 700; }
 
         /* ayuda de instalación de la app web */
         #pwaInstallHelp { position: fixed; inset: 0; background: rgba(10, 6, 20, .7); z-index: 10000; display: none; align-items: center; justify-content: center; padding: 16px; }
@@ -340,23 +357,13 @@
         /* ── Flor de la Vida: lo humano y la ley natural. Cada círculo se dibuja en orden (--i); --l es su perímetro (sin pathLength: el minificador lo borra). ── */
         .flor { pointer-events: none; overflow: visible; }
         .flor__c, .flor__m { --l: 6.4; stroke-dasharray: var(--l) var(--l); stroke-dashoffset: var(--l); stroke-linecap: round; transition: stroke-dashoffset 1.3s cubic-bezier(.5, 0, .2, 1) calc(var(--i) * 75ms); }
-        .flor.ver .flor__c, .flor.ver .flor__m, .ver > .flor .flor__c, .ver > .flor .flor__m, .flor-logo .flor__c, .flor-logo .flor__m { stroke-dashoffset: 0; }
+        .flor.ver .flor__c, .flor.ver .flor__m, .ver > .flor .flor__c, .ver > .flor .flor__m { stroke-dashoffset: 0; }
         @keyframes flor-gira { to { rotate: 360deg; } }
-        @keyframes flor-late { 0%, 100% { opacity: .42; } 50% { opacity: .24; } }
-        /* Semilla de la Vida en los números: la sección 01 prende un círculo, la 06 seis; el cierre la completa */
+        /* Semilla de la Vida en los números: la sección 01 prende un círculo, la 06 seis */
         .num--flor { display: flex; align-items: center; gap: 12px; }
         .flor-num { width: 44px; height: 44px; flex: none; color: var(--ac); stroke-width: .16; }
         .flor-num .flor__c { stroke-opacity: .3; }
         .flor-num .flor__c.on { stroke-opacity: 1; fill: color-mix(in srgb, var(--ac) 16%, transparent); }
-        .cierre { position: relative; overflow: hidden; }
-        .cierre > :not(.flor) { position: relative; }
-        .flor-cierre { position: absolute; left: 50%; top: 50%; width: min(820px, 135vw); translate: -50% -50%; color: var(--ac); stroke-width: .022; opacity: .42; }
-        .flor-cierre.ver { animation: flor-late 7s 3s ease-in-out infinite; }
-        .flor-cierre .flor__c:nth-child(-n+7) { stroke-width: .04; }
-        /* el logo con la semilla girando detrás */
-        .marca__logo { position: relative; isolation: isolate; }
-        .marca__logo img { position: relative; }
-        .flor-logo { position: absolute; left: 50%; top: 50%; width: 175%; translate: -50% -50%; color: var(--ac); stroke-width: .09; opacity: .75; animation: flor-gira 60s linear infinite; z-index: -1; }
 
         .rev { opacity: 0; transform: translateY(30px); transition: opacity .7s, transform .7s; }
         .rev.ver { opacity: 1; transform: none; }
@@ -378,6 +385,7 @@
             <a href="#offline"><span lang="es">Sin internet</span><span lang="en">Offline</span><span lang="fr">Hors ligne</span></a>
             <a href="#libro"><span lang="es">Libro</span><span lang="en">Book</span><span lang="fr">Livre</span></a>
         </nav>
+        <a class="top__abrir" href="/dapp"><span lang="es">Abrir</span><span lang="en">Open</span><span lang="fr">Ouvrir</span></a>
         <div class="idiomas" role="group" aria-label="Idioma / Language">
             <button type="button" data-lang="es">ES</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="fr">FR</button>
         </div>
@@ -392,7 +400,7 @@
 <div class="hero">
     <div>
         <div class="kicker"><span lang="es">Billetera + chat cifrado · código abierto</span><span lang="en">Wallet + encrypted chat · open source</span><span lang="fr">Portefeuille + chat chiffré · open source</span></div>
-        <h1><span lang="es">La wallet <em>soberana.</em></span><span lang="en">The <em>sovereign</em> wallet.</span><span lang="fr">Le portefeuille <em>souverain.</em></span></h1>
+        <h1><span lang="es">La wallet <em>soberana.</em></span><span lang="en"><span class="junto">The <em>sovereign</em></span> wallet.</span><span lang="fr"><span class="junto">Le portefeuille</span> <em>souverain.</em></span></h1>
         <ul class="sellos">
             <li class="sello"><span lang="es">Sin KYC.</span><span lang="en">No KYC.</span><span lang="fr">Sans KYC.</span></li>
             <li class="sello"><span lang="es">Sin número.</span><span lang="en">No phone number.</span><span lang="fr">Sans numéro.</span></li>
@@ -405,17 +413,16 @@
             <span lang="fr">Personne ne te demande ton numéro ni tes données : tu crées ton compte toi-même, sur ton téléphone. <b>Tu discutes et tu paies au même endroit.</b></span>
         </p>
         <div class="botones">
-            <!-- App web instalable: dispara el prompt nativo si el navegador lo ofrece;
-                 si no (ya instalada, iOS, prompt agotado) abre la ayuda. -->
-            <button id="heroInstallBtn" type="button" class="btn hero-btn hero-btn--pwa">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                <span lang="es">Instalar la app web</span><span lang="en">Install the web app</span><span lang="fr">Installer l'app web</span>
-            </button>
             <!-- APK Android: URL estable del último release (la firmada, en XMTP producción). -->
             <a href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk" class="btn hero-btn hero-btn--apk" rel="noopener">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.23A11.46 11.46 0 0 0 12 7.99c-1.74 0-3.38.41-4.83 1.15L5.31 5.9a.4.4 0 1 0-.69.4l1.84 3.18A11.37 11.37 0 0 0 .5 18.5h23a11.37 11.37 0 0 0-5.9-9.02zM7 15.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
                 <span lang="es">Descargar para Android</span><span lang="en">Download for Android</span><span lang="fr">Télécharger pour Android</span>
             </a>
+            <!-- App web instalable: dispara el prompt nativo si el navegador lo ofrece;
+                 si no (ya instalada, iOS, prompt agotado) abre la ayuda. -->
+            <button id="heroInstallBtn" type="button" class="btn hero-btn hero-btn--pwa">
+                <span lang="es">Instalar app web</span><span lang="en">Install the web app</span><span lang="fr">Installer l'app web</span>
+            </button>
         </div>
         <!-- Solo en Android (body.is-android): por qué el APK va primero. -->
         <p class="hero__android-hint">
@@ -431,18 +438,17 @@
         <a href="/dapp" class="hero__try"><span lang="es">o probala en el navegador →</span><span lang="en">or try it in your browser →</span><span lang="fr">ou essaie-la dans le navigateur →</span></a>
     </div>
     <div>
-        <div class="ninja">
-            <span class="ninja__globo"><span lang="es">sin pedir permiso</span><span lang="en">no permission needed</span><span lang="fr">sans demander la permission</span></span>
-            <div class="ninja__vid">
-                <video autoplay loop muted playsinline aria-label="Gato ninja animado">
-                    <!-- Desde el nodo soberano por CID: Cloudflare no sirve bien los rangos de video
-                         (ver memoria cloudflare-breaks-video-range). El local queda de respaldo. -->
-                    <source src="https://gateway.chatwallet.org/ipfs/QmeRfqLcjPWPDc4ZTzsekuwNtBi9xtWYmRxrUzXNWfg56U" type="video/mp4">
-                    <source src="./vid/animatedChatWallet.mp4" type="video/mp4">
-                </video>
+        <div class="enso enso--hero">
+            <svg class="anillo" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48"/></svg>
+            <span class="enso__sello"><img src="img/ninjaCatLogoV4White.png" alt=""></span>
+            <div class="enso__vid">
+                <!-- Versión «calma» (ida y vuelta, más lenta): abre los ojos, pausa y los cierra; el último
+                     cuadro es el primero, así el loop no salta. Sale de meditandoChatWallet.mp4 con ffmpeg
+                     (setpts=1.4, reverse). Todavía no está en el nodo IPFS: cuando se pinee, sumar su
+                     <source> de gateway.chatwallet.org primero, como los otros. -->
+                <video autoplay loop muted playsinline aria-label="Gato ninja meditando"><source src="./vid/meditandoChatWallet-calmo.mp4" type="video/mp4"></video>
             </div>
         </div>
-        <div class="piso"></div>
     </div>
 </div>
 
@@ -563,12 +569,14 @@
                 <li><span lang="es">Avisos en Android sin pasar por Google</span><span lang="en">Android notifications without going through Google</span><span lang="fr">Notifications Android sans passer par Google</span></li>
             </ul>
         </div>
-        <div class="enso claro__media">
-            <svg class="flor flor-enso" viewBox="-3.22 -3.22 6.44 6.44" aria-hidden="true" fill="none" stroke="currentColor"><circle class="flor__c" style="--i:0" cx="0.000" cy="0.000" r="1"/><circle class="flor__c" style="--i:1" cx="-0.500" cy="-0.866" r="1"/><circle class="flor__c" style="--i:2" cx="0.500" cy="-0.866" r="1"/><circle class="flor__c" style="--i:3" cx="1.000" cy="0.000" r="1"/><circle class="flor__c" style="--i:4" cx="0.500" cy="0.866" r="1"/><circle class="flor__c" style="--i:5" cx="-0.500" cy="0.866" r="1"/><circle class="flor__c" style="--i:6" cx="-1.000" cy="0.000" r="1"/><circle class="flor__c" style="--i:7" cx="-1.500" cy="-0.866" r="1"/><circle class="flor__c" style="--i:8" cx="-1.000" cy="-1.732" r="1"/><circle class="flor__c" style="--i:9" cx="0.000" cy="-1.732" r="1"/><circle class="flor__c" style="--i:10" cx="1.000" cy="-1.732" r="1"/><circle class="flor__c" style="--i:11" cx="1.500" cy="-0.866" r="1"/><circle class="flor__c" style="--i:12" cx="2.000" cy="0.000" r="1"/><circle class="flor__c" style="--i:13" cx="1.500" cy="0.866" r="1"/><circle class="flor__c" style="--i:14" cx="1.000" cy="1.732" r="1"/><circle class="flor__c" style="--i:15" cx="0.000" cy="1.732" r="1"/><circle class="flor__c" style="--i:16" cx="-1.000" cy="1.732" r="1"/><circle class="flor__c" style="--i:17" cx="-1.500" cy="0.866" r="1"/><circle class="flor__c" style="--i:18" cx="-2.000" cy="0.000" r="1"/><circle class="flor__m" style="--i:19;--l:18.95" r="3"/><circle class="flor__m" style="--i:20;--l:19.70" r="3.12"/></svg>
-            <div class="enso__vid">
-                <!-- Todavía no está en el nodo IPFS (CID QmcNn55G9PcJk3WqDjLEtdrS8B9PZhGacq1VqyEtQEXvY2):
-                     cuando se pinee, sumar su <source> de gateway.chatwallet.org primero, como los otros. -->
-                <video autoplay loop muted playsinline><source src="./vid/meditandoChatWallet.mp4" type="video/mp4"></video>
+        <div class="ninja claro__media">
+            <div class="ninja__vid">
+                <video autoplay loop muted playsinline aria-label="Gato ninja animado">
+                    <!-- Desde el nodo soberano por CID: Cloudflare no sirve bien los rangos de video
+                         (ver memoria cloudflare-breaks-video-range). El local queda de respaldo. -->
+                    <source src="https://gateway.chatwallet.org/ipfs/QmeRfqLcjPWPDc4ZTzsekuwNtBi9xtWYmRxrUzXNWfg56U" type="video/mp4">
+                    <source src="./vid/animatedChatWallet.mp4" type="video/mp4">
+                </video>
             </div>
         </div>
     </div>
@@ -605,41 +613,16 @@
 </section>
 
 <section class="cierre">
-    <svg class="flor flor-cierre" viewBox="-3.22 -3.22 6.44 6.44" aria-hidden="true" fill="none" stroke="currentColor"><circle class="flor__c" style="--i:0" cx="0.000" cy="0.000" r="1"/><circle class="flor__c" style="--i:1" cx="-0.500" cy="-0.866" r="1"/><circle class="flor__c" style="--i:2" cx="0.500" cy="-0.866" r="1"/><circle class="flor__c" style="--i:3" cx="1.000" cy="0.000" r="1"/><circle class="flor__c" style="--i:4" cx="0.500" cy="0.866" r="1"/><circle class="flor__c" style="--i:5" cx="-0.500" cy="0.866" r="1"/><circle class="flor__c" style="--i:6" cx="-1.000" cy="0.000" r="1"/><circle class="flor__c" style="--i:7" cx="-1.500" cy="-0.866" r="1"/><circle class="flor__c" style="--i:8" cx="-1.000" cy="-1.732" r="1"/><circle class="flor__c" style="--i:9" cx="0.000" cy="-1.732" r="1"/><circle class="flor__c" style="--i:10" cx="1.000" cy="-1.732" r="1"/><circle class="flor__c" style="--i:11" cx="1.500" cy="-0.866" r="1"/><circle class="flor__c" style="--i:12" cx="2.000" cy="0.000" r="1"/><circle class="flor__c" style="--i:13" cx="1.500" cy="0.866" r="1"/><circle class="flor__c" style="--i:14" cx="1.000" cy="1.732" r="1"/><circle class="flor__c" style="--i:15" cx="0.000" cy="1.732" r="1"/><circle class="flor__c" style="--i:16" cx="-1.000" cy="1.732" r="1"/><circle class="flor__c" style="--i:17" cx="-1.500" cy="0.866" r="1"/><circle class="flor__c" style="--i:18" cx="-2.000" cy="0.000" r="1"/><circle class="flor__m" style="--i:19;--l:18.95" r="3"/><circle class="flor__m" style="--i:20;--l:19.70" r="3.12"/></svg>
     <h2 class="frase rev"><span lang="es">Tus llaves.<br><span class="a">Tu plata. Tu voz.</span></span><span lang="en">Your keys.<br><span class="a">Your money. Your voice.</span></span><span lang="fr">Tes clés.<br><span class="a">Ton argent. Ta voix.</span></span></h2>
     <div class="botones rev">
-        <a class="btn btn--ac" href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk" rel="noopener"><span lang="es">⬇ Descargar para Android</span><span lang="en">⬇ Download for Android</span><span lang="fr">⬇ Télécharger pour Android</span></a>
+        <a class="btn btn--ac" href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.23A11.46 11.46 0 0 0 12 7.99c-1.74 0-3.38.41-4.83 1.15L5.31 5.9a.4.4 0 1 0-.69.4l1.84 3.18A11.37 11.37 0 0 0 .5 18.5h23a11.37 11.37 0 0 0-5.9-9.02zM7 15.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg><span lang="es">Descargar para Android</span><span lang="en">Download for Android</span><span lang="fr">Télécharger pour Android</span></a>
         <a class="btn" href="/dapp"><span lang="es">Usar en el navegador</span><span lang="en">Use it in the browser</span><span lang="fr">L'utiliser dans le navigateur</span></a>
     </div>
 </section>
 </main>
 
 <footer id="footer">
-    <div class="pie">
-        <div>
-            <a class="marca" href="#arriba"><span class="marca__logo"><svg class="flor flor-logo" viewBox="-2.22 -2.22 4.44 4.44" aria-hidden="true" fill="none" stroke="currentColor"><circle class="flor__c" style="--i:0" cx="0.000" cy="0.000" r="1"/><circle class="flor__c" style="--i:1" cx="-0.500" cy="-0.866" r="1"/><circle class="flor__c" style="--i:2" cx="0.500" cy="-0.866" r="1"/><circle class="flor__c" style="--i:3" cx="1.000" cy="0.000" r="1"/><circle class="flor__c" style="--i:4" cx="0.500" cy="0.866" r="1"/><circle class="flor__c" style="--i:5" cx="-0.500" cy="0.866" r="1"/><circle class="flor__c" style="--i:6" cx="-1.000" cy="0.000" r="1"/><circle class="flor__m" style="--i:7;--l:12.67" r="2"/><circle class="flor__m" style="--i:8;--l:13.42" r="2.12"/></svg><img src="img/ninjaCatLogoV4White.png" alt=""></span>CHATWALLET</a>
-            <p><span lang="es">La wallet soberana. Sin KYC, sin número, sin registro, sin intermediario.</span><span lang="en">The sovereign wallet. No KYC, no phone number, no sign-up, no middleman.</span><span lang="fr">Le portefeuille souverain. Sans KYC, sans numéro, sans inscription, sans intermédiaire.</span></p>
-        </div>
-        <div>
-            <h4><span lang="es">Proyecto</span><span lang="en">Project</span><span lang="fr">Projet</span></h4>
-            <ul>
-                <li><a href="/dapp"><span lang="es">Probar en el navegador</span><span lang="en">Try it in your browser</span><span lang="fr">Essayer dans le navigateur</span></a></li>
-                <li><a href="/manifiesto"><span lang="es">Manifiesto</span><span lang="en">Manifest</span><span lang="fr">Manifeste</span></a></li>
-                <li><span lang="es"><a href="https://chatwallet.org/whitepaper_es.pdf" target="_blank" rel="noopener">Whitepaper</a></span><span lang="en"><a href="https://chatwallet.org/whitepaper_en.pdf" target="_blank" rel="noopener">Whitepaper</a></span><span lang="fr"><a href="https://chatwallet.org/whitepaper_fr.pdf" target="_blank" rel="noopener">Livre blanc</a></span></li>
-                <li><span lang="es"><a href="https://chatwallet.org/chatWallet_Angel-Investors_ES.pdf" target="_blank" rel="noopener">Angel Investors</a></span><span lang="en"><a href="https://chatwallet.org/chatWallet_Angel-Investors_EN.pdf" target="_blank" rel="noopener">Angel Investors</a></span><span lang="fr"><a href="https://chatwallet.org/chatWallet_Angel-Investors_FR.pdf" target="_blank" rel="noopener">Investisseurs Angel</a></span></li>
-                <li><a href="book.html"><span lang="es">Comprar el libro</span><span lang="en">Get the book</span><span lang="fr">Acheter le livre</span></a></li>
-            </ul>
-        </div>
-        <div>
-            <h4><span lang="es">Nosotros</span><span lang="en">About us</span><span lang="fr">À propos</span></h4>
-            <ul>
-                <li><a href="https://energiasonora.xyz" target="_blank" rel="noopener noreferrer">Energía Sonora</a></li>
-                <li><a href="https://github.com/energiasonora/chatWallet">GitHub</a></li>
-                <li><a href="https://ethglobal.com/showcase/chatwallet-5rp2j" target="_blank" rel="noopener"><span lang="es">Nació en ETHGlobal LFGHO (2024)</span><span lang="en">Born at ETHGlobal LFGHO (2024)</span><span lang="fr">Né à ETHGlobal LFGHO (2024)</span></a></li>
-            </ul>
-        </div>
-    </div>
-    <div class="pie__fin"><span>© 2026 ChatWallet</span><a href="#arriba"><span lang="es">Arriba ↑</span><span lang="en">Top ↑</span><span lang="fr">Haut ↑</span></a></div>
+    <nav class="pie"><a href="/manifiesto"><span lang="es">Manifiesto</span><span lang="en">Manifest</span><span lang="fr">Manifeste</span></a><i aria-hidden="true">·</i><span lang="es"><a href="https://chatwallet.org/whitepaper_es.pdf" target="_blank" rel="noopener">Whitepaper</a></span><span lang="en"><a href="https://chatwallet.org/whitepaper_en.pdf" target="_blank" rel="noopener">Whitepaper</a></span><span lang="fr"><a href="https://chatwallet.org/whitepaper_fr.pdf" target="_blank" rel="noopener">Livre blanc</a></span><i aria-hidden="true">·</i><a href="https://github.com/energiasonora/chatWallet">GitHub</a><i aria-hidden="true">·</i><a href="https://ethglobal.com/showcase/chatwallet-5rp2j" target="_blank" rel="noopener"><span lang="es">Nació en ETHGlobal LFGHO (2024)</span><span lang="en">Born at ETHGlobal LFGHO (2024)</span><span lang="fr">Né à ETHGlobal LFGHO (2024)</span></a><i aria-hidden="true">·</i><a href="https://energiasonora.xyz" target="_blank" rel="noopener noreferrer">Energía Sonora</a></nav>
 </footer>
 
 <!-- Ayuda de instalación de la app web: cuando el navegador no ofrece el prompt nativo
@@ -681,7 +664,7 @@
 
     // ── Aparecer al bajar ──
     (function () {
-        const els = document.querySelectorAll('.rev, .storyboard, .enso, .flor-num, .flor-cierre');
+        const els = document.querySelectorAll('.rev, .storyboard, .enso, .flor-num');
         if (!('IntersectionObserver' in window)) { els.forEach(e => e.classList.add('ver')); return; }
         const io = new IntersectionObserver(es => es.forEach(e => {
             if (e.isIntersecting) { e.target.classList.add('ver'); io.unobserve(e.target); }

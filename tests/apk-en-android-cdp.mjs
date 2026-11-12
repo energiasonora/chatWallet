@@ -46,8 +46,12 @@ ok(!(await ev(`document.body.classList.contains('is-android')`)),
     'en escritorio NO se marca is-android');
 ok(await ev(`getComputedStyle(document.querySelector('.hero__android-hint')).display === 'none'`),
     'en escritorio el cartel "recomendado en Android" no se ve');
-ok(await ev(`getComputedStyle(document.querySelector('.hero-btn--pwa')).boxShadow !== 'none'`),
-    'en escritorio la PWA conserva el estilo principal');
+ok(await ev(`(() => { const b = [...document.querySelectorAll('.hero .botones > .btn')]; return b[0].classList.contains('hero-btn--apk') && b[1].id === 'heroInstallBtn'; })()`),
+    'el APK va primero y la app web segunda, como en el diseño');
+ok(await ev(`getComputedStyle(document.querySelector('.hero-btn--apk')).backgroundColor !== getComputedStyle(document.querySelector('.hero-btn--pwa')).backgroundColor`),
+    'el APK es el principal (color) y la app web la alternativa');
+ok(await ev(`!!document.querySelector('.hero-btn--apk svg') && !document.querySelector('.hero-btn--pwa svg')`),
+    'el APK conserva el ícono de Android; la app web va sin ícono');
 
 await comoAndroid();
 await ir(BASE + '/index.html');
@@ -56,10 +60,8 @@ ok(await ev(`document.body.classList.contains('is-android')`),
     'en Android se marca is-android');
 ok(await ev(`getComputedStyle(document.querySelector('.hero__android-hint')).display !== 'none'`),
     'en Android aparece el porqué (notificaciones con el navegador cerrado)');
-ok(await ev(`getComputedStyle(document.querySelector('.hero-btn--apk')).order === '-1'`),
-    'el botón del APK pasa a ir primero');
-ok(await ev(`getComputedStyle(document.querySelector('.hero-btn--pwa')).boxShadow === 'none'`),
-    'y el de la PWA queda degradado a secundario');
+ok(await ev(`document.querySelector('.hero .botones > .btn').classList.contains('hero-btn--apk')`),
+    'el botón del APK va primero');
 
 // El botón sigue existiendo: se recomienda el APK, no se esconde la PWA.
 ok(await ev(`getComputedStyle(document.getElementById('heroInstallBtn')).display !== 'none'`),

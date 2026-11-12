@@ -17,6 +17,16 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.106 — 2026-11-12
+
+- La primera pantalla de chatwallet.org se rediseñó: el título más grande, los sellos «Sin…»
+  más marcados y el gato que medita dentro de un anillo de pincel con el logo. El gato ninja
+  bajó a «Custodiá».
+- El gato que medita ahora respira más lento: abre los ojos, hace una pausa y los vuelve a
+  cerrar, sin el salto que tenía al empezar de nuevo.
+- El pie de chatwallet.org quedó en una sola línea: Manifiesto, Whitepaper, GitHub, ETHGlobal y
+  Energía Sonora.
+
 ## 3.105 — 2026-11-11
 
 - **Nueva portada en chatwallet.org.** Ahora cuenta todo lo que hace la app: chat cifrado, pagos en el mismo chat, **ETH**, dólares digitales, **Ğ1** y **Monero** (cada una con su logo), firma sin internet y tus llaves bajo tu control. La acompaña la **Flor de la Vida**: crece un círculo por sección y florece entera al final. Tiene tema claro y oscuro (sigue al de tu teléfono, o lo cambiás con el sol/luna de arriba, igual que en la app) y está en castellano, inglés y francés.
