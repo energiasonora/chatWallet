@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- En chatwallet.org, junto al libro, ahora se puede **donar en Monero**: la dirección con su QR,
+  un botón para copiarla y otro que abre tu billetera.
 ## 3.106 — 2026-11-12
 
 - La primera pantalla de chatwallet.org se rediseñó: el título más grande, los sellos «Sin…»
