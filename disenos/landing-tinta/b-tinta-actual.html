@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChatWallet — Modelo A2 · Tinta, contenido actual</title>
+
+<link rel="stylesheet" href="../../src/fonts/fuentes.css">
+<style>
+:root{
+  --papel:#f3ede0; --papel2:#e9e1cf; --tinta:#16130f; --gris:#5b544a;
+  --rojo:#cf2a1f; --rojo2:#a81d14; --oro:#c99a2e;
+  --borde:3px solid var(--tinta);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;overflow-x:clip}
+.hero{overflow-x:clip}
+.cinta-caja{overflow:hidden;padding:10px 0}
+body{background:var(--papel);color:var(--tinta);font-family:'DM Sans',system-ui,sans-serif;font-size:18px;line-height:1.5;overflow-x:clip;
+  background-image:radial-gradient(rgba(22,19,15,.07) 1px,transparent 1px);background-size:6px 6px}
+a{color:inherit}
+img,video{display:block;max-width:100%}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+
+/* ── barra ── */
+.top{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;max-width:1120px;margin:0 auto}
+.marca{display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-weight:800;letter-spacing:.04em;text-decoration:none}
+.marca span{width:38px;height:38px;border-radius:50%;background:var(--rojo);display:grid;place-items:center;border:var(--borde)}
+.marca img{width:26px}
+.top nav a{font-weight:600;margin-left:18px;text-decoration:none;border-bottom:2px solid transparent}
+.top nav a:hover{border-color:var(--rojo)}
+@media(max-width:640px){.top nav a:not(.cta-mini){display:none}}
+.cta-mini{background:var(--tinta);color:var(--papel)!important;padding:8px 14px;border-radius:999px}
+
+/* ── hero ── */
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding:40px 20px 70px;max-width:1120px;margin:0 auto}
+@media(max-width:860px){.hero{grid-template-columns:1fr;padding-top:10px}}
+.kicker{font-family:'Roboto Mono',monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--gris)}
+.hero h1{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(46px,8vw,96px);line-height:.92;letter-spacing:-.02em;margin:14px 0 26px}
+.hero h1 em{font-style:normal;color:var(--rojo);position:relative;white-space:nowrap}
+.hero h1 em::after{content:"";position:absolute;left:0;right:0;bottom:.04em;height:.12em;background:var(--tinta);transform-origin:left;transform:scaleX(0);animation:trazo .7s .4s cubic-bezier(.6,0,.2,1) forwards;border-radius:4px}
+@keyframes trazo{to{transform:scaleX(1)}}
+.sellos{display:flex;flex-wrap:wrap;gap:10px 12px;margin-bottom:30px}
+.sello{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(17px,2.3vw,22px);color:var(--rojo);border:3px solid var(--rojo);padding:6px 14px;border-radius:8px;
+  opacity:0;transform:scale(2.2) rotate(-8deg);animation:sellar .38s cubic-bezier(.2,1.4,.4,1) forwards;mix-blend-mode:multiply;
+  background:repeating-linear-gradient(115deg,transparent 0 7px,rgba(243,237,224,.35) 7px 9px)}
+.sello:nth-child(1){animation-delay:.9s;--r:-4deg}.sello:nth-child(2){animation-delay:1.15s;--r:3deg}.sello:nth-child(3){animation-delay:1.4s;--r:-2deg}
+.sello:nth-child(4){animation-delay:1.65s;--r:5deg}.sello:nth-child(5){animation-delay:1.9s;--r:-3deg}
+@keyframes sellar{to{opacity:1;transform:scale(1) rotate(var(--r))}}
+.bajada{font-size:20px;max-width:30em;color:#2c2721;margin-bottom:28px}
+.botones{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn{font-weight:700;text-decoration:none;padding:15px 22px;border:var(--borde);border-radius:12px;box-shadow:5px 5px 0 var(--tinta);transition:transform .12s,box-shadow .12s;display:inline-flex;gap:10px;align-items:center}
+.btn:hover{transform:translate(-2px,-2px);box-shadow:7px 7px 0 var(--tinta)}
+.btn:active{transform:translate(3px,3px);box-shadow:2px 2px 0 var(--tinta)}
+.btn--rojo{background:var(--rojo);color:#fff}
+.btn--papel{background:#fffaf0}
+.link-sutil{font-weight:600;color:var(--gris);margin-left:6px}
+.enso{position:relative;aspect-ratio:1;max-width:470px;width:100%;justify-self:center}
+.enso__ring{position:absolute;inset:-4%;}
+.enso__ring path{fill:none;stroke:var(--tinta);stroke-width:15;stroke-linecap:round;stroke-dasharray:1400;stroke-dashoffset:1400;animation:pincel 1.6s .2s cubic-bezier(.5,0,.2,1) forwards}
+@keyframes pincel{to{stroke-dashoffset:120}}
+.enso__vid{position:absolute;inset:7%;border-radius:50%;overflow:hidden;background:#efe7d3}
+.enso__vid video{width:100%;height:100%;object-fit:cover;transform:scale(1.16)}
+.enso__sol{position:absolute;right:2%;top:4%;width:22%;aspect-ratio:1;border-radius:50%;background:var(--rojo);border:var(--borde);display:grid;place-items:center;animation:flota 5s ease-in-out infinite}
+.enso__sol img{width:66%}
+@keyframes flota{50%{transform:translateY(-10px) rotate(6deg)}}
+
+/* ── cinta ── */
+.cinta{background:var(--tinta);color:var(--papel);overflow:hidden;border-top:var(--borde);border-bottom:var(--borde);transform:rotate(-1.2deg);margin:10px -20px 60px}
+.cinta__track{display:flex;gap:40px;white-space:nowrap;padding:14px 0;font-family:'Syne',sans-serif;font-weight:800;font-size:22px;animation:corre 26s linear infinite;width:max-content}
+.cinta__track span::before{content:"✦ ";color:var(--rojo)}
+@keyframes corre{to{transform:translateX(-50%)}}
+
+/* ── secciones ── */
+section,section.wrap{padding-top:70px;padding-bottom:70px}
+.titulo{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(34px,5.5vw,62px);line-height:1;letter-spacing:-.02em;margin-bottom:14px}
+.titulo .r{color:var(--rojo)}
+.sub{font-size:20px;color:#3a342c;max-width:36em;margin-bottom:36px}
+
+/* viñetas */
+.tira{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+@media(max-width:860px){.tira{grid-template-columns:1fr}}
+.vin{background:#fffaf0;border:var(--borde);border-radius:6px;box-shadow:6px 6px 0 var(--tinta);overflow:hidden;position:relative}
+.vin:nth-child(1){transform:rotate(-1deg)}.vin:nth-child(2){transform:rotate(.6deg)}.vin:nth-child(3){transform:rotate(-.4deg)}
+.vin__img{aspect-ratio:1;overflow:hidden;border-bottom:var(--borde);background:#fff}
+.vin__img img,.vin__img video{width:100%;height:100%;object-fit:cover}
+.vin__img video{transform:scale(1.08)}
+.vin__num{position:absolute;top:12px;left:12px;width:40px;height:40px;border-radius:50%;background:var(--rojo);color:#fff;font-family:'Syne';font-weight:800;display:grid;place-items:center;border:var(--borde);z-index:2}
+.vin__txt{padding:16px 18px 20px}
+.vin__txt b{font-family:'Syne';font-size:22px;display:block;margin-bottom:4px}
+.globo{position:absolute;right:12px;top:14px;background:#fff;border:var(--borde);border-radius:18px;padding:6px 12px;font-weight:700;font-size:15px;z-index:2;animation:globo 3.2s ease-in-out infinite}
+.globo::after{content:"";position:absolute;bottom:-12px;left:20px;border:7px solid transparent;border-top-color:var(--tinta)}
+@keyframes globo{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* monedas */
+.monedas{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+@media(max-width:860px){.monedas{grid-template-columns:1fr}}
+.moneda{border:var(--borde);border-radius:18px;padding:26px 24px 24px;background:#fffaf0;position:relative;box-shadow:6px 6px 0 var(--tinta);transition:transform .25s}
+.moneda:hover{transform:translateY(-6px) rotate(-.6deg)}
+.moneda__sim{width:74px;height:74px;border-radius:50%;border:var(--borde);display:grid;place-items:center;font-family:'Syne';font-weight:800;font-size:28px;margin-bottom:16px;animation:gira 9s linear infinite;animation-play-state:paused}
+.moneda:hover .moneda__sim{animation-play-state:running}
+@keyframes gira{to{transform:rotateY(360deg)}}
+.moneda h3{font-family:'Syne';font-size:28px;line-height:1.05;margin-bottom:4px}
+.moneda .lema{font-family:'Roboto Mono',monospace;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--rojo);margin-bottom:12px}
+.moneda ul{list-style:none}
+.moneda li{padding:6px 0 6px 22px;position:relative;border-top:1px dashed rgba(22,19,15,.25)}
+.moneda li::before{content:"—";position:absolute;left:0;color:var(--rojo);font-weight:800}
+.m-evm .moneda__sim{background:#2775ca;color:#fff}
+.m-g1 .moneda__sim{background:var(--oro);color:var(--tinta)}
+.m-xmr .moneda__sim{background:#f26822;color:#fff}
+
+/* sin internet */
+.offline{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+@media(max-width:860px){.offline{grid-template-columns:1fr}}
+.storyboard{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.storyboard figure{border:var(--borde);background:#fff;border-radius:6px;overflow:hidden;aspect-ratio:1;opacity:0;transform:translateY(24px) rotate(var(--r,0));transition:opacity .6s,transform .6s}
+.storyboard figure img{width:100%;height:100%;object-fit:cover}
+.storyboard.ver figure{opacity:1;transform:translateY(0) rotate(var(--r,0))}
+.storyboard figure:nth-child(1){--r:-2deg}.storyboard figure:nth-child(2){--r:1.5deg;transition-delay:.15s}
+.storyboard figure:nth-child(3){--r:1deg;transition-delay:.3s}.storyboard figure:nth-child(4){--r:-1.5deg;transition-delay:.45s}
+.pasos{counter-reset:p;list-style:none}
+.pasos li{counter-increment:p;padding:14px 0 14px 58px;position:relative;border-bottom:2px solid var(--tinta)}
+.pasos li::before{content:counter(p);position:absolute;left:0;top:12px;width:40px;height:40px;border-radius:50%;border:var(--borde);display:grid;place-items:center;font-family:'Syne';font-weight:800}
+.pasos b{font-family:'Syne';font-size:20px}
+
+/* chat y llaves */
+.grilla{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:860px){.grilla{grid-template-columns:1fr 1fr}}
+.ficha{border:2px solid var(--tinta);border-radius:12px;padding:18px;background:rgba(255,250,240,.7)}
+.ficha i{font-style:normal;font-size:28px;display:block;margin-bottom:8px}
+.ficha b{display:block;font-family:'Syne';font-size:18px;margin-bottom:4px}
+.ficha p{font-size:15px;color:#3a342c}
+.ficha--exp{border-style:dashed}
+.etq{display:inline-block;font-family:'Roboto Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;background:var(--tinta);color:var(--papel);padding:2px 7px;border-radius:4px;margin-left:4px;vertical-align:2px}
+
+/* libro + cierre */
+.libro{display:grid;grid-template-columns:auto 1fr;gap:40px;align-items:center;background:var(--tinta);color:var(--papel);border-radius:22px;padding:40px;position:relative;overflow:hidden}
+@media(max-width:760px){.libro{grid-template-columns:1fr;padding:28px}}
+.libro img{width:220px;border-radius:6px;box-shadow:10px 10px 0 var(--rojo);transform:rotate(-3deg)}
+.libro .titulo{color:var(--papel)}
+.libro p{color:#d8d0bf;margin-bottom:22px}
+.cierre{text-align:center;padding:90px 0 60px}
+.cierre .titulo{font-size:clamp(40px,7vw,80px)}
+footer{border-top:var(--borde);padding:28px 20px;text-align:center;font-size:15px;color:var(--gris)}
+footer a{margin:0 8px}
+
+
+/* ── variación: contenido actualizado ── */
+.btn svg{width:20px;height:20px;flex:none}
+.hero__try{display:inline-block;margin-top:16px;font-weight:600;color:var(--gris)}
+.cinta__track span::before{content:"";display:inline-block;width:.95em;height:.95em;margin-right:.45em;vertical-align:-.12em;background:var(--rojo);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-2.2 -2.2 4.4 4.4' fill='none' stroke='%23000' stroke-width='.2'%3E%3Ccircle r='1'/%3E%3Ccircle cx='1' r='1'/%3E%3Ccircle cx='-1' r='1'/%3E%3Ccircle cx='.5' cy='.866' r='1'/%3E%3Ccircle cx='-.5' cy='.866' r='1'/%3E%3Ccircle cx='.5' cy='-.866' r='1'/%3E%3Ccircle cx='-.5' cy='-.866' r='1'/%3E%3Ccircle r='2'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-2.2 -2.2 4.4 4.4' fill='none' stroke='%23000' stroke-width='.2'%3E%3Ccircle r='1'/%3E%3Ccircle cx='1' r='1'/%3E%3Ccircle cx='-1' r='1'/%3E%3Ccircle cx='.5' cy='.866' r='1'/%3E%3Ccircle cx='-.5' cy='.866' r='1'/%3E%3Ccircle cx='.5' cy='-.866' r='1'/%3E%3Ccircle cx='-.5' cy='-.866' r='1'/%3E%3Ccircle r='2'/%3E%3C/svg%3E") center/contain no-repeat}
+.vin__txt i{font-style:normal;display:block;font-family:'Syne';font-weight:800;font-size:19px;line-height:1.15;margin-bottom:6px;color:var(--rojo)}
+/* monedas: Ethereum grande + Ğ1 y Monero al costado */
+.mvc{display:grid;grid-template-columns:1.4fr 1fr;gap:22px}
+@media(max-width:860px){.mvc{grid-template-columns:1fr}}
+.mvc-lado{display:grid;gap:22px}
+.mvc-lado .moneda{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.mvc-lado .moneda h3{font-size:26px}
+.mvc-lado .moneda p{color:#3a342c}
+.mv-logo{width:70px;height:70px;border-radius:50%;border:var(--borde);display:grid;place-items:center;overflow:hidden;flex:none;font-family:'Syne';font-weight:800;font-size:26px}
+.mv-logo svg{width:100%;height:100%}
+.mv-eth{background:#627eea}.mv-eth svg{height:62%;width:auto}
+.mv-g1{background:var(--oro);color:var(--tinta)}
+.mv-xmr{background:#fff}
+.m-eth{background:var(--tinta);color:var(--papel);box-shadow:6px 6px 0 var(--rojo)}
+.m-eth h3{font-size:clamp(30px,3.4vw,42px);margin:16px 0 8px}
+.m-eth p{color:#d8d0bf}
+.m-eth .mv-logo{width:96px;height:96px;border-color:var(--papel)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin-top:18px}
+.chips li{font:600 14px 'Roboto Mono',monospace;padding:6px 12px;border-radius:999px;border:2px solid var(--papel);border-top:2px solid var(--papel)}
+.chips li::before{content:none}
+.chips li.mas{border-style:dashed;color:#ff8a7f;border-color:#ff8a7f}
+/* custodiá */
+.claro{display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center}
+@media(max-width:860px){.claro{grid-template-columns:1fr}}
+.lista{list-style:none;margin-top:8px}
+.lista li{padding:12px 0 12px 30px;position:relative;border-bottom:2px solid var(--tinta)}
+.lista li::before{content:"✦";position:absolute;left:0;color:var(--rojo)}
+.ninja{max-width:440px;justify-self:center;width:100%}
+.ninja video{width:100%;aspect-ratio:1;object-fit:cover;mix-blend-mode:multiply;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 7%,#000 93%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 7%,#000 93%,transparent 100%)}
+.grilla{grid-template-columns:repeat(3,1fr)}
+@media(max-width:860px){.grilla{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.grilla{grid-template-columns:1fr}}
+.libro__fund{font-size:15px}
+.libro ul{list-style:none;margin:-6px 0 22px}
+.libro li{padding:4px 0 4px 22px;position:relative;color:#d8d0bf}
+.libro li::before{content:"—";position:absolute;left:0;color:var(--rojo)}
+/* cierre con la Flor de la Vida detrás */
+.cierre{position:relative;overflow:hidden}
+.cierre>:not(.flor){position:relative}
+section.cierre{padding:150px 0 140px}
+.cierre .flor{position:absolute;left:50%;top:50%;width:min(600px,115vw);translate:-50% -50%;color:var(--rojo);stroke-width:.022;opacity:.28}
+
+/* aparecer al bajar */
+.rev{opacity:0;transform:translateY(30px);transition:opacity .7s,transform .7s}
+.rev.ver{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.sello,.rev,.storyboard figure{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a class="marca" href="#"><span><img src="../../src/img/ninjaCatLogoV4White.png" alt=""></span>CHATWALLET</a>
+  <nav><a href="#monedas">Monedas</a><a href="#offline">Sin internet</a><a href="#libro">Libro</a><a class="cta-mini" href="/dapp">Abrir</a></nav>
+</header>
+
+<div class="hero">
+  <div>
+    <div class="kicker">Billetera + chat cifrado · código abierto</div>
+    <h1>La wallet <em>soberana.</em></h1>
+    <div class="sellos">
+      <span class="sello">Sin KYC.</span><span class="sello">Sin número.</span><span class="sello">Sin registro.</span><span class="sello">Sin intermediario.</span>
+    </div>
+    <p class="bajada">Nadie te pide un número ni datos: tu cuenta la generás vos, en tu teléfono. <b>Chateás y pagás desde el mismo lugar.</b></p>
+    <div class="botones">
+      <a class="btn btn--rojo" href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.23A11.46 11.46 0 0 0 12 7.99c-1.74 0-3.38.41-4.83 1.15L5.31 5.9a.4.4 0 1 0-.69.4l1.84 3.18A11.37 11.37 0 0 0 .5 18.5h23a11.37 11.37 0 0 0-5.9-9.02zM7 15.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg> Descargar para Android</a>
+      <a class="btn btn--papel" href="/dapp">Instalar app web</a>
+    </div>
+    <a class="hero__try" href="/dapp">o probala en el navegador →</a>
+  </div>
+  <div class="enso">
+    <svg class="enso__ring" viewBox="0 0 500 500" aria-hidden="true"><path d="M250 22 C 390 20, 482 120, 478 255 C 474 390, 370 480, 245 478 C 115 476, 22 380, 24 250 C 26 140, 95 55, 190 30"/></svg>
+    <div class="enso__vid"><video autoplay loop muted playsinline><source src="../../src/vid/meditandoChatWallet.mp4" type="video/mp4"></video></div>
+    <div class="enso__sol"><img src="../../src/img/ninjaCatLogoV4White.png" alt=""></div>
+  </div>
+</div>
+
+<div class="cinta-caja"><div class="cinta" aria-hidden="true"><div class="cinta__track">
+  <span>Chat cifrado</span><span>Ethereum</span><span>Dólares digitales</span><span>Ğ1, la moneda libre</span><span>Monero privado</span><span>Firma sin internet</span><span>Mensajes de voz</span><span>Avisos sin Google</span><span>Código abierto</span>
+  <span>Chat cifrado</span><span>Ethereum</span><span>Dólares digitales</span><span>Ğ1, la moneda libre</span><span>Monero privado</span><span>Firma sin internet</span><span>Mensajes de voz</span><span>Avisos sin Google</span><span>Código abierto</span>
+</div></div></div>
+
+<section class="wrap" id="empezar">
+  <h2 class="titulo rev">Un QR y <span class="r">ya están hablando.</span></h2>
+  <p class="sub rev">Sin agendar un número ni crear una cuenta. <b>Tu dirección es tu usuario.</b></p>
+  <div class="tira">
+    <article class="vin rev"><span class="vin__num">1</span><span class="globo">¡te agregué!</span><div class="vin__img"><img src="../../src/img/gatos-qr.jpg" alt="Dos gatos ninja se pasan el contacto escaneando un QR"></div><div class="vin__txt"><b>Escaneá</b>el QR de la otra persona y ya está en tus contactos.</div></article>
+    <article class="vin rev"><span class="vin__num">2</span><span class="globo">🔒 solo vos y Ana</span><div class="vin__img"><video autoplay loop muted playsinline><source src="../../src/vid/animacionchatcifrado.mp4" type="video/mp4"></video></div><div class="vin__txt"><b>Chateá</b><i>Lo que se dice queda entre ustedes.</i>Cifrado de punta a punta, de wallet a wallet. Texto, voz y grupos.</div></article>
+    <article class="vin rev"><span class="vin__num">3</span><span class="globo">¡Listo! 🙌</span><div class="vin__img"><video autoplay loop muted playsinline><source src="../../src/vid/animatedChatWalletv2.mp4" type="video/mp4"></video></div><div class="vin__txt"><b>Pagá</b><i>La plata va en el mismo chat.</i>Pedís o pagás con un toque. Del otro lado llega una tarjeta que se paga con otro.</div></article>
+  </div>
+</section>
+
+<section class="wrap" id="monedas">
+  <h2 class="titulo rev">Todo Ethereum. <span class="r">Más Ğ1 y Monero.</span></h2>
+  <p class="sub rev">Infinitos tokens, <b>tus mismas 12 palabras.</b></p>
+  <div class="mvc">
+    <article class="moneda m-eth rev">
+      <div class="mv-logo mv-eth"><svg viewBox="0 0 784.37 1277.39" aria-hidden="true"><g fill="#fff"><polygon fill-opacity=".6" points="392.07,0 383.5,29.11 383.5,873.74 392.07,882.29 784.13,650.54"/><polygon points="392.07,0 0,650.54 392.07,882.29 392.07,472.33"/><polygon fill-opacity=".6" points="392.07,956.52 387.24,962.41 387.24,1263.28 392.07,1277.38 784.37,724.89"/><polygon points="392.07,1277.38 392.07,956.52 0,724.89"/><polygon fill-opacity=".2" points="392.07,882.29 784.13,650.54 392.07,472.33"/><polygon fill-opacity=".6" points="0,650.54 392.07,882.29 392.07,472.33"/></g></svg></div>
+      <h3>ETH, USDC y cualquier token</h3>
+      <p>En cualquier red compatible con Ethereum. Si no está en la lista, la sumás vos.</p>
+      <ul class="chips"><li>Ethereum</li><li>Base</li><li>Arbitrum</li><li>Optimism</li><li>Polygon</li><li class="mas">+ la que sumes</li></ul>
+    </article>
+    <div class="mvc-lado">
+      <article class="moneda rev"><div class="mv-logo mv-g1">Ğ1</div><div><div class="lema">Libre</div><h3>Ğ1</h3><p>Moneda libre: la co-crean sus miembros, cada día.</p></div></article>
+      <article class="moneda rev"><div class="mv-logo mv-xmr"><svg viewBox="0 0 3756.09 3756.49" aria-hidden="true"><g transform="translate(-371.96 -371.75)"><path d="M4128,2249.81C4128,3287,3287.26,4127.86,2250,4127.86S372,3287,372,2249.81,1212.76,371.75,2250,371.75,4128,1212.54,4128,2249.81Z" fill="#fff"/><path d="M2250,371.75c-1036.89,0-1879.12,842.06-1877.8,1878,0.26,207.26,33.31,406.63,95.34,593.12h561.88V1263L2250,2483.57,3470.52,1263v1579.9h562c62.12-186.48,95-385.85,95.37-593.12C4129.66,1212.76,3287,372,2250,372Z" fill="#f26822"/><path d="M1969.3,2764.17l-532.67-532.7v994.14H1029.38l-384.29.07c329.63,540.8,925.35,902.56,1604.91,902.56S3525.31,3766.4,3855,3225.6H3063.25V2231.47l-532.7,532.7-280.61,280.61-280.62-280.61h0Z" fill="#4c4c4c"/></g></svg></div><div><div class="lema">Privada</div><h3>Monero</h3><p>Privada por defecto.</p></div></article>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" id="offline">
+  <div class="offline">
+    <div class="storyboard">
+      <figure><img src="../../src/img/landing/nointernet1.jpg" alt=""></figure><figure><img src="../../src/img/landing/nointernet2.jpg" alt=""></figure>
+      <figure><img src="../../src/img/landing/nointernet3.jpg" alt=""></figure><figure><img src="../../src/img/landing/trok1.jpg" alt=""></figure>
+    </div>
+    <div>
+      <h2 class="titulo rev">¿Sin señal? <span class="r">Igual firmás.</span></h2>
+      <p class="sub rev">Para llaves que nunca tocan internet.</p>
+      <ol class="pasos rev">
+        <li><b>Prepará</b><br>el pago en un teléfono con conexión.</li>
+        <li><b>Firmá</b><br>en otro aparato, desconectado, escaneando un QR.</li>
+        <li><b>Transmití</b><br>escaneando la firma de vuelta.</li>
+      </ol>
+      <p style="margin-top:18px;color:#3a342c">Los mensajes también viajan cifrados de QR a QR, sin red.</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="claro">
+    <div>
+      <h2 class="titulo rev">Tus llaves. <span class="r">Nadie más.</span></h2>
+      <p class="sub rev">12 palabras que generás vos. <b>Ni nosotros podemos verlas.</b></p>
+      <ul class="lista rev">
+        <li>En el teléfono, tu clave queda bajo llave en el chip de seguridad</li>
+        <li>Tus chats, respaldados y cifrados en un nodo propio</li>
+        <li>Avisos en Android sin pasar por Google</li>
+      </ul>
+    </div>
+    <div class="ninja rev"><video autoplay loop muted playsinline><source src="../../src/vid/animatedChatWallet.mp4" type="video/mp4"></video></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2 class="titulo rev">Y <span class="r">además.</span></h2>
+  <p class="sub rev">Todo lo que hace, sin pedirte nada.</p>
+  <div class="grilla">
+    <div class="ficha rev"><i>🎙️</i><b>Mensajes de voz</b><p>Cifrados, como todo lo demás.</p></div>
+    <div class="ficha rev"><i>👥</i><b>Grupos</b><p>Con pagos adentro: la feria, la cooperativa, el club.</p></div>
+    <div class="ficha rev"><i>@</i><b>Nombres</b><p>Pagale a un @nombre o a un .eth en vez de a una dirección.</p></div>
+    <div class="ficha rev"><i>📇</i><b>Contactos por QR</b><p>Pasá tu agenda de un aparato a otro.</p></div>
+    <div class="ficha rev"><i>⇄</i><b>Un solo total</b><p>Tus saldos de todas las redes en dólares, euros, pesos o BTC.</p></div>
+    <div class="ficha ficha--exp rev"><i>👻</i><b>Direcciones stealth <span class="etq">pronto</span></b><p>Pagos sin rastro público entre quien paga y quien cobra.</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="libro">
+  <div class="libro rev">
+    <img src="../../src/img/tapa-v34-frente-es.jpg" alt="Cripto para Soberanos — xunorus">
+    <div><div class="kicker" style="color:#b9af9b">El libro · financiado por la comunidad</div><h2 class="titulo">Cripto para <span class="r">Soberanos.</span></h2>
+      <p>Una guía práctica para entender las criptomonedas desde cero, desde la perspectiva filosófica de la soberanía individual. Escrito por el desarrollador de ChatWallet. Comprándolo mantenés vivo el proyecto.</p>
+      <ul><li>En papel o PDF — español, inglés y francés</li><li>Pagá con cripto, tarjeta o Mercado Pago</li></ul>
+      <a class="btn btn--rojo" style="border-color:var(--papel);box-shadow:5px 5px 0 var(--papel)" href="book.html">Comprar el libro →</a></div>
+  </div>
+</section>
+
+<section class="cierre wrap">
+  <svg class="flor" viewBox="-3.25 -3.25 6.5 6.5" aria-hidden="true" fill="none" stroke="currentColor"><circle cx="-2.000" cy="0.000" r="1"/><circle cx="-1.500" cy="0.866" r="1"/><circle cx="-1.000" cy="1.732" r="1"/><circle cx="-1.500" cy="-0.866" r="1"/><circle cx="-1.000" cy="0.000" r="1"/><circle cx="-0.500" cy="0.866" r="1"/><circle cx="0.000" cy="1.732" r="1"/><circle cx="-1.000" cy="-1.732" r="1"/><circle cx="-0.500" cy="-0.866" r="1"/><circle cx="0.000" cy="0.000" r="1"/><circle cx="0.500" cy="0.866" r="1"/><circle cx="1.000" cy="1.732" r="1"/><circle cx="0.000" cy="-1.732" r="1"/><circle cx="0.500" cy="-0.866" r="1"/><circle cx="1.000" cy="0.000" r="1"/><circle cx="1.500" cy="0.866" r="1"/><circle cx="1.000" cy="-1.732" r="1"/><circle cx="1.500" cy="-0.866" r="1"/><circle cx="2.000" cy="0.000" r="1"/><circle r="3"/><circle r="3.12"/></svg>
+  <h2 class="titulo rev">Tus llaves.<br><span class="r">Tu plata. Tu voz.</span></h2>
+  <div class="botones rev" style="justify-content:center;margin-top:28px">
+    <a class="btn btn--rojo" href="https://github.com/energiasonora/chatWallet/releases/latest/download/chatwallet-energiasonora.apk"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.23A11.46 11.46 0 0 0 12 7.99c-1.74 0-3.38.41-4.83 1.15L5.31 5.9a.4.4 0 1 0-.69.4l1.84 3.18A11.37 11.37 0 0 0 .5 18.5h23a11.37 11.37 0 0 0-5.9-9.02zM7 15.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg> Descargar para Android</a>
+    <a class="btn btn--papel" href="/dapp">Usar en el navegador</a>
+  </div>
+</section>
+
+<footer><a href="/manifiesto">Manifiesto</a>·<a href="https://chatwallet.org/whitepaper_es.pdf">Whitepaper</a>·<a href="https://github.com/energiasonora/chatWallet">GitHub</a>·<a href="https://ethglobal.com/showcase/chatwallet-5rp2j">Nació en ETHGlobal LFGHO (2024)</a>·<a href="https://energiasonora.xyz">Energía Sonora</a></footer>
+<script>
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('ver');io.unobserve(e.target)}}),{threshold:.15});
+document.querySelectorAll('.rev,.storyboard').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
