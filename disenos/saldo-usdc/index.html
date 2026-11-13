@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saldo USDC — modelos</title>
+<style>
+    :root { --bg: #0b0f19; --card: #111827; --tx: #f9fafb; --gris: #9ca3af; --gris2: #6b7280; --linea: #1f2937; --ac: #8b5cf6; --verde: #4ade80; }
+    * { box-sizing: border-box; margin: 0; }
+    body { background: var(--bg); color: var(--tx); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 32px 16px 60px; }
+    main { max-width: 1180px; margin: 0 auto; }
+    h1 { font-size: 26px; margin-bottom: 6px; }
+    .bajo { color: var(--gris); max-width: 46rem; line-height: 1.5; font-size: 15px; }
+    .bajo b { color: var(--tx); }
+    .grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 22px; margin-top: 26px; }
+    .modelo { background: #0f1422; border: 1px solid var(--linea); border-radius: 18px; padding: 16px; }
+    .modelo h2 { font-size: 16px; margin-bottom: 4px; }
+    .modelo > p { color: var(--gris); font-size: 13.5px; line-height: 1.45; margin-bottom: 14px; min-height: 3.9em; }
+
+    /* el "teléfono": la cabecera de la billetera como en dapp.html */
+    .tel { background: var(--card); border-radius: 14px; padding: 22px 12px 18px; text-align: center; }
+    .tel + .tel { margin-top: 10px; }
+    .tel__tag { display: block; text-align: left; font: 600 10.5px ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--gris2); margin: -10px 0 8px 2px; }
+    .fila { display: flex; align-items: center; justify-content: center; gap: 4px; }
+    .sel { padding: 6px 8px; border-radius: 10px; }
+    .red { color: var(--gris); font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .monto { font-size: 36px; font-weight: 700; display: flex; align-items: center; gap: 8px; justify-content: center; line-height: 1.15; }
+    .monto small { font-size: .55em; font-weight: 600; color: #d1d5db; }
+    .monto .chev { width: 16px; height: 16px; color: var(--gris2); }
+    .ico { width: 18px; height: 18px; color: var(--gris); padding: 1px; }
+    .fiat { color: var(--gris); font-size: 14px; min-height: 1.25rem; margin-top: -2px; }
+    .gas { color: var(--gris2); font-size: 12px; margin-top: 6px; }
+    .vacio { color: var(--gris2); font-style: italic; font-size: 13px; }
+
+    /* B: insignia en la línea de la red */
+    .p2p { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #c4b5fd; background: color-mix(in srgb, var(--ac) 16%, transparent); border: 1px solid color-mix(in srgb, var(--ac) 35%, transparent); padding: 1px 8px 1px 6px; border-radius: 999px; }
+    /* C: píldora del valor en pesos */
+    .pildora { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: #e5e7eb; background: #1f2937; border: 1px solid #374151; padding: 3px 11px 3px 8px; border-radius: 999px; margin-top: 4px; cursor: pointer; }
+    .pildora .pto { width: 6px; height: 6px; border-radius: 50%; background: var(--verde); box-shadow: 0 0 0 3px color-mix(in srgb, var(--verde) 20%, transparent); }
+    .globo { display: inline-block; margin-top: 8px; font-size: 12px; color: #d1d5db; background: #0b0f19; border: 1px solid #374151; border-radius: 10px; padding: 7px 10px; line-height: 1.45; text-align: left; }
+    .globo b { color: var(--tx); }
+    /* D: banderita como insignia sobre el símbolo */
+    .sim { position: relative; display: inline-block; }
+    .sim .band { position: absolute; right: -14px; top: -8px; font-size: 15px; line-height: 1; filter: drop-shadow(0 0 2px #000); }
+    /* E: dos columnas */
+    .doble { display: flex; justify-content: center; align-items: baseline; gap: 14px; margin-top: 2px; }
+    .doble .sep { width: 1px; align-self: stretch; background: #374151; }
+    .doble .ars { font-size: 22px; font-weight: 700; color: #e5e7eb; }
+    .doble .ars span { font-size: 13px; color: var(--gris); font-weight: 500; margin-left: 4px; }
+
+    .reglas { margin-top: 34px; background: #0f1422; border: 1px solid var(--linea); border-radius: 18px; padding: 18px 20px; }
+    .reglas h2 { font-size: 17px; margin-bottom: 10px; }
+    .reglas li { color: var(--gris); font-size: 14.5px; line-height: 1.55; margin: 6px 0 6px 18px; }
+    .reglas li b { color: var(--tx); }
+    code { font: 13px ui-monospace, monospace; color: #c4b5fd; }
+</style>
+</head>
+<body>
+<main>
+    <h1>Saldo de USDC — modelos</h1>
+    <p class="bajo">Con los números de hoy: <b>5,981234 USDC</b> en Base y la cotización de P2P.me (venta) <b>1 USDC = $ 1.664,20</b> → <b>$ 9.952</b>. Arriba de cada modelo, cómo se ve hoy para comparar. En todos el monto va con <b>2 decimales, cortado hacia abajo</b> (5,98 y no 5,99: nunca mostrar más de lo que tenés).</p>
+
+    <div class="grilla">
+        <!-- HOY -->
+        <section class="modelo">
+            <h2>Hoy</h2>
+            <p>Seis decimales en crudo, con punto, y abajo el mismo número en dólares: redundante con una stablecoin.</p>
+            <div class="tel">
+                <div class="fila"><div class="sel"><div class="red">USDC on Base</div><div class="monto">5.981234 USDC<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div></div></div>
+                <p class="fiat">≈ US$ 5,98</p>
+                <p class="gas">⛽ 0,0012 ETH</p>
+            </div>
+        </section>
+
+        <!-- A -->
+        <section class="modelo">
+            <h2>A · Mínimo</h2>
+            <p>El monto limpio y, abajo, los pesos con la banderita en vez de los dólares. Es el cambio más chico: la misma línea de hoy, con otro contenido.</p>
+            <div class="tel">
+                <div class="fila"><div class="sel"><div class="red">USDC on Base</div><div class="monto">5,98 <small>USDC</small><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div></div></div>
+                <p class="fiat">🇦🇷 ≈ $ 9.952</p>
+                <p class="gas">⛽ 0,0012 ETH</p>
+            </div>
+            <div class="tel"><span class="tel__tag">sin P2P.me</span>
+                <div class="fila"><div class="sel"><div class="red">USDC on Base</div><div class="monto">5,98 <small>USDC</small><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div></div></div>
+                <p class="fiat"></p>
+                <p class="gas">⛽ 0,0012 ETH</p>
+            </div>
+        </section>
+
+        <!-- B -->
+        <section class="modelo">
+            <h2>B · Insignia en la red</h2>
+            <p>Arriba, junto a la red, una insignia violeta «🇦🇷 P2P» que dice que este USDC se puede gastar en pesos. Abajo, los pesos.</p>
+            <div class="tel">
+                <div class="fila"><div class="sel"><div class="red">USDC on Base <span class="p2p">🇦🇷 P2P</span></div><div class="monto">5,98 <small>USDC</small><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div></div></div>
+                <p class="fiat">≈ $ 9.952</p>
+                <p class="gas">⛽ 0,0012 ETH</p>
+            </div>
+        </section>
+
+        <!-- C -->
+        <section class="modelo">
+            <h2>C · Píldora de pesos</h2>
+            <p>Los pesos en una píldora con bandera y un puntito verde (cotización viva). Al tocarla se abre de dónde sale el número y de cuándo es.</p>
+            <div class="tel">
+                <div class="fila"><div class="sel"><div class="red">USDC on Base</div><div class="monto">5,98 <small>USDC</small><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div></div></div>
+                <span class="pildora"><span class="pto"></span>🇦🇷 $ 9.952</span>
+                <p class="gas">⛽ 0,0012 ETH</p>
+            </div>
+            <div class="tel"><span class="tel__tag">al tocar la píldora</span>
+                <div class="fila"><div class="sel"><div class="red">USDC on Base</div><div class="monto">5,98 <small>USDC</small><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div></div></div>
+                <span class="pildora"><span class="pto"></span>🇦🇷 $ 9.952</span><br>
+                <span class="globo"><b>1 USDC = $ 1.664</b> · P2P.me, hace 2 min<br>Podés pagar QR de comercios argentinos.</span>
+            </div>
+        </section>
+
+        <!-- D -->
+        <section class="modelo">
+            <h2>D · Banderita en el símbolo</h2>
+            <p>La bandera chiquita colgada del «USDC», como insignia de app. Abajo los pesos sin bandera, porque ya se ve arriba. Es el más sutil.</p>
+            <div class="tel">
+                <div class="fila"><div class="sel"><div class="red">USDC on Base</div><div class="monto">5,98 <small class="sim">USDC<span class="band">🇦🇷</span></small><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:10px"><polyline points="6 9 12 15 18 9"/></svg></div></div></div>
+                <p class="fiat">≈ $ 9.952</p>
+                <p class="gas">⛽ 0,0012 ETH</p>
+            </div>
+        </section>
+
+        <!-- E -->
+        <section class="modelo">
+            <h2>E · Dos monedas a la par</h2>
+            <p>Los pesos dejan de ser una nota al pie: van grandes al lado, con la bandera. Pensado para quien piensa en pesos y usa el USDC para gastar.</p>
+            <div class="tel">
+                <div class="fila"><div class="sel"><div class="red">USDC on Base</div><div class="monto">5,98 <small>USDC</small><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div></div></div>
+                <div class="doble"><span class="ars">🇦🇷 $ 9.952<span>pesos</span></span></div>
+                <p class="gas">⛽ 0,0012 ETH</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="reglas">
+        <h2>Lo que valdría para todos los modelos</h2>
+        <ul>
+            <li><b>Stablecoins (USDC, USDT, DAI) con 2 decimales, cortados hacia abajo</b> y con la coma del idioma: <code>5,98</code>. Si tenés menos de un centavo pero no cero: <code>&lt; 0,01</code>. ETH, BTC y el resto siguen con más decimales.</li>
+            <li><b>La línea de abajo deja de repetir dólares</b> en una stablecoin cuando tu moneda es USD. Si elegiste EUR o ARS en Configuración, ahí sí muestra esa moneda.</li>
+            <li><b>Bandera y pesos sólo cuando aplica:</b> P2P.me activado, el token elegido es USDC en Base (el único que el protocolo acepta) y el país está habilitado (hoy Argentina). Con Bolivia, Perú o Filipinas habilitados, saldría su bandera y su moneda.</li>
+            <li><b>Los pesos usan el precio de venta de P2P.me</b> (lo que de verdad te dan al pagar un QR), el mismo que ya usa la app para la moneda ARS. Si la cotización tiene más de 10 minutos y no hay red, se muestra igual pero marcada como vieja.</li>
+            <li>El ojito sigue tapando todo: <code>•••• USDC</code> y <code>🇦🇷 ••••</code>.</li>
+        </ul>
+    </div>
+</main>
+</body>
+</html>
