@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.107 — 2026-11-13
+
 - **El saldo de USDC, más claro.** Los dólares digitales (USDC, USDT, DAI) se muestran con dos
   decimales y la coma de siempre: «5,98 USDC» en vez de «5.981234 USDC». Se corta hacia abajo, así
   nunca ves más de lo que tenés. Y debajo ya no se repite «≈ US$ 5,98».
