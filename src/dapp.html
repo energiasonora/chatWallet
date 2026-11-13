@@ -306,6 +306,16 @@
         }
 
         body.theme-light .msg-sender { color: #4f46e5; }
+        /* Insignia «🇦🇷 P2P» junto a la red (USDC en Base con P2P.me activado) y su globo. */
+        .p2p-insignia { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; line-height: 1.5; color: #c4b5fd; background: rgba(139, 92, 246, .16); border: 1px solid rgba(139, 92, 246, .38); padding: 0 8px 0 6px; border-radius: 999px; cursor: pointer; }
+        .p2p-insignia.hidden { display: none; }
+        .p2p-insignia:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+        .p2p-globo { display: inline-block; margin-top: 6px; font-size: 12px; line-height: 1.45; color: #d1d5db; background: #0b0f19; border: 1px solid #374151; border-radius: 10px; padding: 7px 10px; text-align: left; max-width: 18rem; }
+        .p2p-globo.hidden { display: none; }
+        .p2p-globo b { color: #f9fafb; }
+        body.theme-light .p2p-insignia { color: #6d28d9; background: rgba(124, 58, 237, .1); border-color: rgba(124, 58, 237, .35); }
+        body.theme-light .p2p-globo { color: #374151; background: #fff; border-color: #d1d5db; }
+        body.theme-light .p2p-globo b { color: #111827; }
 
         /* Nombres dentro de una línea de sistema del grupo ("X agregó a Y") */
         .sys-name { font-weight: 600; }
@@ -2637,7 +2647,12 @@
                             <div class="flex items-center justify-center space-x-1">
                                 <button id="tokenSelectorToggle"
                                     class="text-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors">
-                                    <p id="chainNameDisplay" class="text-gray-400 text-sm"></p>
+                                    <!-- La insignia va al lado y no adentro: el nombre de la red se
+                                         pisa con textContent. Tocarla abre #p2pGlobo, no el selector. -->
+                                    <div class="flex items-center justify-center gap-1.5">
+                                        <p id="chainNameDisplay" class="text-gray-400 text-sm"></p>
+                                        <span id="p2pInsignia" role="button" tabindex="0" class="hidden p2p-insignia"></span>
+                                    </div>
                                     <div class="flex items-center justify-center space-x-2">
                                         <p id="balanceDisplay" class="text-4xl font-bold">0.00 ETH</p>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -2675,6 +2690,7 @@
                             <!-- Lo mismo en la moneda que eligió el usuario (USD, EUR, ARS, ETH, BTC).
                                  Lo pinta cwPintarValorPrincipal(); vacío si el activo no tiene cotización. -->
                             <p id="balanceFiat" class="text-sm text-gray-400 -mt-1 min-h-[1.25rem]"></p>
+                            <div id="p2pGlobo" class="hidden p2p-globo" role="status"></div>
                             <div id="gasBalanceDisplay"
                                 class="hidden flex items-center justify-center space-x-1 mt-1 text-xs text-gray-400">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
@@ -6965,6 +6981,9 @@
             // renderBalances(). Si el ojito enmascarara el DOM directo, el próximo updateBalance()
             // (refresh, cambio de red, pago entrante) lo des-enmascararía solo.
             let lastBalances = { main: null, gas: null, smart: null };
+            // El número del saldo principal, aparte del texto: el texto de una stablecoin va con
+            // la coma del idioma ("5,98") o como "< 0,01", y un parseFloat del texto daría mal.
+            let lastBalanceNum = null;
             const balanceSlots = () => ({ main: balanceDisplay, gas: gasBalanceValue, smart: smartWalletBalanceValue });
 
             function isBalanceHidden() {
@@ -6980,7 +6999,7 @@
                     if (!el || val === null || val === undefined) continue;
                     // Solo se enmascara lo que es un monto: '---', 'N/A' o 'Error CWLT' se muestran
                     // tal cual (esconder un error no protege nada y confunde).
-                    el.textContent = (hide && /^[\d.,]/.test(val)) ? '••••' : val;
+                    el.textContent = (hide && /^[<\d.,]/.test(val)) ? '••••' : val;
                 }
                 renderInfoG1();
                 cwPintarValorPrincipal();
@@ -7002,8 +7021,8 @@
                 b.parentElement.classList.toggle('hidden', !ver);
             }
 
-            function setBalanceText(slot, text) {
-                if (slot === 'main') cwCctpVisibilidad();
+            function setBalanceText(slot, text, num) {
+                if (slot === 'main') { cwCctpVisibilidad(); lastBalanceNum = Number.isFinite(num) ? num : null; }
                 lastBalances[slot] = text;
                 renderBalances();
             }
@@ -7125,7 +7144,10 @@
                         console.log("erc20 balance:", formattedBalance);
 
                         if (formattedBalance > 0) marcarWalletConFondos();
-                        setBalanceText('main', `${formattedBalance} ${tokenLabel}`);
+                        // Una stablecoin con 2 decimales y la coma del idioma: "5,98 USDC" y no
+                        // "5.981234 USDC". Los demás tokens, como siempre.
+                        const montoTxt = cwClavePrecio(selectedNetwork) === 'USDC' ? cwFormatoEstable(formattedBalance) : formattedBalance;
+                        setBalanceText('main', `${montoTxt} ${tokenLabel}`, formattedBalance);
                         // El modal de envío muestra el saldo del TOKEN que se va a enviar (no el gas nativo)
                         setModalBalance(formattedBalance, tokenLabel, false);
 
@@ -19359,30 +19381,119 @@
                 }).format(v);
             }
 
+            // Saldo de una stablecoin: 2 decimales cortados hacia ABAJO (5,989 → 5,98: nunca mostrar
+            // más de lo que hay) y "< 0,01" para polvo, que redondeado diría un cero falso.
+            function cwFormatoEstable(v) {
+                const f = new Intl.NumberFormat(cwLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                if (!(v > 0)) return f.format(0);
+                if (v < 0.01) return '< ' + f.format(0.01);
+                return f.format(Math.floor(v * 100 + 1e-7) / 100);   // el 1e-7 salva 0,29*100 = 28,999…
+            }
+
             function cwFormatoCantidad(v) {
                 return new Intl.NumberFormat(cwLocale(), { maximumFractionDigits: v !== 0 && Math.abs(v) < 1 ? 6 : 4 }).format(v);
             }
 
             // ── Valor del saldo principal ("≈ US$ 12,34" debajo del monto) ──
             let cwValorGen = 0;
+
+            // ¿El activo elegido se puede gastar por P2P.me? Hace falta el pago de QR activado y
+            // USDC nativo en Base (el único que acepta el Diamond). Devuelve el país habilitado
+            // (hoy Argentina; si se suman Bolivia o Perú, sale el primero listo) o null.
+            function cwP2pDelSaldo(net) {
+                try {
+                    if (!net || redG1Activa() || redXmrActiva() || !cwP2pPagoActivo()) return null;
+                    if (String(net.TOKEN_CHAINID) !== '8453' || !cwEsToken(net)) return null;
+                    if (net.TOKEN_ADDRESS.toLowerCase() !== CW_P2P_USDC.toLowerCase()) return null;
+                    return Object.values(CW_PAYMENT_QR).find(p => p.listo) || null;
+                } catch (e) { return null; }
+            }
+
+            function cwFormatoFiatLocal(v, info) {
+                try {
+                    return new Intl.NumberFormat(info.locale, {
+                        style: 'currency', currency: info.iso, currencyDisplay: 'narrowSymbol',
+                        maximumFractionDigits: v >= 1000 ? 0 : 2,
+                    }).format(v);
+                } catch (e) { return info.iso + ' ' + Math.round(v); }
+            }
+
+            function cwP2pEdadTxt(precio) {
+                const min = cwPrecioEdadMin(precio);
+                if (min === null) return '';
+                if (min < 1) return t('p2p_globo_recien');
+                if (min < 60) return t('p2p_globo_min', { n: min });
+                return t('p2p_globo_h', { n: Math.floor(min / 60) });
+            }
+
+            function cwPintarInsigniaP2p(info, precio) {
+                const ins = document.getElementById('p2pInsignia');
+                const globo = document.getElementById('p2pGlobo');
+                if (!ins || !globo) return;
+                if (!info) {
+                    ins.classList.add('hidden'); globo.classList.add('hidden');
+                    return;
+                }
+                ins.textContent = info.bandera + ' P2P';
+                ins.title = t('p2p_insignia_titulo', { pais: info.pais });
+                ins.setAttribute('aria-label', ins.title);
+                ins.classList.remove('hidden');
+                const tasa = precio && precio.venta > 0 ? cwFormatoFiatLocal(precio.venta, info) : '…';
+                globo.innerHTML = '<b>1 USDC = ' + escHtml(tasa) + '</b> · P2P.me'
+                    + (precio ? ', ' + escHtml(cwP2pEdadTxt(precio)) : '')
+                    + '<br>' + escHtml(t('p2p_globo_pagar', { pais: info.pais }));
+            }
+
+            // ── Valor del saldo principal (la línea de abajo del monto) ──
+            // · USDC en Base con P2P.me activado: los pesos al precio de venta del protocolo, que
+            //   es lo que de verdad te dan al pagar un QR, y la insignia «🇦🇷 P2P» junto a la red.
+            // · Una stablecoin en dólares, sin P2P: nada ("≈ US$ 5,98" debajo de 5,98 USDC repite).
+            // · Lo demás: "≈ US$ 12,34" en la moneda que eligió el usuario.
             async function cwPintarValorPrincipal() {
                 const el = document.getElementById('balanceFiat');
                 if (!el) return;
                 const gen = ++cwValorGen;
                 const net = optionsList[currentTokenIndex];
                 const txt = lastBalances.main;
-                const cantidad = parseFloat(txt);
+                const cantidad = lastBalanceNum !== null ? lastBalanceNum : parseFloat(txt);
                 const clave = cwClavePrecio(net);
                 const moneda = cwMoneda();
-                // Ğ1, "Cargando...", errores, testnets, tokens sin precio, o ETH mostrado en ETH: nada.
-                if (!net || redG1Activa() || redXmrActiva() || !/^[\d.]/.test(txt || '') || !isFinite(cantidad)
-                    || !clave || clave === 'TESTNET' || clave === moneda) { el.textContent = ''; return; }
+                const p2p = cwP2pDelSaldo(net);
+                const montoOk = isFinite(cantidad) && (lastBalanceNum !== null || /^[\d.]/.test(txt || ''));
+                if (p2p) {
+                    cwPintarInsigniaP2p(p2p, cwPrecioGuardado(p2p.iso));
+                    if (!montoOk) { el.textContent = ''; return; }
+                    const precio = await cwPrecioP2P(p2p.iso);
+                    if (gen !== cwValorGen) return;
+                    cwPintarInsigniaP2p(p2p, precio);
+                    el.textContent = precio && precio.venta > 0
+                        ? '≈ ' + (isBalanceHidden() ? '••••' : cwFormatoFiatLocal(cantidad * precio.venta, p2p)) : '';
+                    return;
+                }
+                cwPintarInsigniaP2p(null);
+                // Ğ1, "Cargando...", errores, testnets, tokens sin precio, ETH mostrado en ETH o
+                // un dólar digital mostrado en dólares: nada.
+                if (!net || redG1Activa() || redXmrActiva() || !montoOk
+                    || !clave || clave === 'TESTNET' || clave === moneda
+                    || (clave === 'USDC' && moneda === 'USD')) { el.textContent = ''; return; }
                 const precios = await cwPreciosUsd();
                 const tasa = await cwTasa(moneda, precios);
                 if (gen !== cwValorGen) return;   // llegó tarde: otra red u otra moneda ya pintó
                 if (!precios || !(precios[clave] > 0) || !tasa) { el.textContent = ''; return; }
                 el.textContent = '≈ ' + (isBalanceHidden() ? '••••' : cwFormatoMoneda(cantidad * precios[clave] * tasa, moneda));
             }
+
+            // La insignia vive dentro del botón del selector de red: el toque se queda acá.
+            (function () {
+                const ins = document.getElementById('p2pInsignia');
+                if (!ins) return;
+                const alternar = e => {
+                    e.preventDefault(); e.stopPropagation();
+                    document.getElementById('p2pGlobo')?.classList.toggle('hidden');
+                };
+                ins.addEventListener('click', alternar);
+                ins.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') alternar(e); });
+            })();
 
             const cwProvs = new Map();
             function cwProveedor(url, chainId) {
@@ -25639,6 +25750,11 @@
                     "pay_qr_status_exp": "Podés pagar este QR (experimental, por P2P.me): un comerciante del protocolo le paga al comercio en pesos y cobra tus USDC. Hace falta un poquito de ETH en Base para el gas.",
                     "pay_qr_exp_on": "Pago de QR por P2P.me: activado (experimental)",
                     "pay_qr_exp_off": "Pago de QR por P2P.me: desactivado",
+                    "p2p_insignia_titulo": "Pagás QR de comercios de {pais} con este USDC (P2P.me)",
+                    "p2p_globo_pagar": "Podés pagar QR de comercios de {pais}.",
+                    "p2p_globo_recien": "recién",
+                    "p2p_globo_min": "hace {n} min",
+                    "p2p_globo_h": "hace {n} h",
                     "pay_qr_busy": "Hay un pago en curso. Esperá a que termine.",
                     "pay_qr_pay_btn_0": "Poné el monto para pagar",
                     "pay_qr_pay_btn": "Pagar con {n} USDC",
@@ -26477,6 +26593,11 @@
                     "pay_qr_status_exp": "You can pay this QR (experimental, via P2P.me): a protocol merchant pays the shop in pesos and takes your USDC. You need a little ETH on Base for gas.",
                     "pay_qr_exp_on": "QR payment via P2P.me: on (experimental)",
                     "pay_qr_exp_off": "QR payment via P2P.me: off",
+                    "p2p_insignia_titulo": "You can pay shop QRs in {pais} with this USDC (P2P.me)",
+                    "p2p_globo_pagar": "You can pay shop QR codes in {pais}.",
+                    "p2p_globo_recien": "just now",
+                    "p2p_globo_min": "{n} min ago",
+                    "p2p_globo_h": "{n} h ago",
                     "pay_qr_busy": "A payment is in progress. Wait for it to finish.",
                     "pay_qr_pay_btn_0": "Enter the amount to pay",
                     "pay_qr_pay_btn": "Pay with {n} USDC",
@@ -27315,6 +27436,11 @@
                     "pay_qr_status_exp": "Tu peux payer ce QR (expérimental, via P2P.me) : un marchand du protocole paie le commerce en pesos et encaisse tes USDC. Il faut un peu d'ETH sur Base pour le gas.",
                     "pay_qr_exp_on": "Paiement de QR via P2P.me : activé (expérimental)",
                     "pay_qr_exp_off": "Paiement de QR via P2P.me : désactivé",
+                    "p2p_insignia_titulo": "Tu peux payer les QR des commerces en {pais} avec cet USDC (P2P.me)",
+                    "p2p_globo_pagar": "Tu peux payer les QR des commerces en {pais}.",
+                    "p2p_globo_recien": "à l’instant",
+                    "p2p_globo_min": "il y a {n} min",
+                    "p2p_globo_h": "il y a {n} h",
                     "pay_qr_busy": "Un paiement est en cours. Attends qu'il se termine.",
                     "pay_qr_pay_btn_0": "Saisis le montant à payer",
                     "pay_qr_pay_btn": "Payer avec {n} USDC",

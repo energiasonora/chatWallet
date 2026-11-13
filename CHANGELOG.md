@@ -17,6 +17,12 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **El saldo de USDC, más claro.** Los dólares digitales (USDC, USDT, DAI) se muestran con dos
+  decimales y la coma de siempre: «5,98 USDC» en vez de «5.981234 USDC». Se corta hacia abajo, así
+  nunca ves más de lo que tenés. Y debajo ya no se repite «≈ US$ 5,98».
+- **Si tenés activado el pago de QR por P2P.me**, con USDC en Base elegido aparece **🇦🇷 P2P** junto
+  a la red y, debajo del saldo, cuántos pesos te da P2P.me por ese USDC. Al tocar la insignia ves la
+  cotización, de cuándo es y que podés pagar QR de comercios de Argentina.
 - En chatwallet.org, junto al libro, ahora se puede **donar en Monero**: la dirección con su QR,
   un botón para copiarla y otro que abre tu billetera.
 
