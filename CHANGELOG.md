@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.108 — 2026-11-15
+
+- La página de inicio ahora dice con todas las letras que en ChatWallet se paga en **junas (Ğ1)**, por QR o desde el chat, con la frase de Ğecko o Cesium².
+
 ## 3.107 — 2026-11-13
 
 - **El saldo de USDC, más claro.** Los dólares digitales (USDC, USDT, DAI) se muestran con dos
