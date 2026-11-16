@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.109 — 2026-11-16
+
+- **Ver tus 12 palabras ya funciona con letra grande.** Si en tu teléfono tenés la letra o la
+  pantalla agrandadas, la ventana de las palabras se pasaba del alto de la pantalla: no se podía
+  bajar y los botones de abajo («Ya las anoté», «Comprobar») quedaban fuera de alcance. Ahora la
+  ventana se desliza. Además, si dos columnas no entran, las palabras se muestran en una sola, y
+  ninguna queda cortada a la mitad.
+
 ## 3.108 — 2026-11-15
 
 - La página de inicio ahora dice con todas las letras que en ChatWallet se paga en **junas (Ğ1)**, por QR o desde el chat, con la frase de Ğecko o Cesium².
