@@ -8848,7 +8848,7 @@
                 for (const item of list) {
                     const address = String(item.address || '').trim();
                     if (!isAddress(address) && !isStealthAddress(address)) continue;
-                    const pubKey = /^[0-9a-fA-F]{66}$/.test(item.pubKey || '') ? item.pubKey : null;
+                    const pubKey = cwPkDeAddress(address, item.pubKey);
                     const name = String(item.name || '').trim().slice(0, 60);
                     const idx = contacts.findIndex(c => c.address.toLowerCase() === address.toLowerCase());
                     if (idx === -1) {
@@ -9133,7 +9133,7 @@
             async function handleIncomingLinkRequest(data) {
                 const [addr, pub] = data.slice(LINK_REQ_PREFIX.length).trim().split('|');
                 if (!isAddress(addr)) { showToast('El pedido de acceso no trae una dirección válida.', 'error'); return; }
-                if (!/^[0-9a-fA-F]{66}$/.test(pub || '')) {
+                if (!cwPkDeAddress(addr, pub)) {
                     showToast('El pedido no trae la clave pública de la otra wallet; sin eso no se le puede pasar la clave del respaldo.', 'error', 6000);
                     return;
                 }
@@ -9583,13 +9583,40 @@
                 return { from, fromPk: validPk, text, verified };
             }
 
-            // Extrae la clave pública comprimida de un QR de identidad (?address=…&pk=…).
+            // La 0x sale de la clave pública: se descomprime el punto (secp256k1), keccak256 de los
+            // 64 bytes y quedan los últimos 20. Null si no es una clave comprimida válida.
+            function cwAddressDePk(pk) {
+                if (!/^0[23][0-9a-fA-F]{64}$/.test(pk || '')) return null;
+                try { return ethers.computeAddress('0x' + pk); } catch (e) { return null; }
+            }
+            window.cwAddressDePk = cwAddressDePk;
+
+            // La pk sólo vale si es de ESA dirección. Hasta la 3.109 no se comprobaba: un link con
+            // tu 0x y la clave de otro dejaba un contacto con tu cara cuyos mensajes offline
+            // (cifrados a esa pk) leía quien armó el link. A una dirección stealth no se le puede
+            // derivar nada de una pk: ahí queda como antes.
+            function cwPkDeAddress(address, pk) {
+                if (!/^[0-9a-fA-F]{66}$/.test(pk || '')) return null;
+                if (!ethers.isAddress(address)) return pk;
+                const d = cwAddressDePk(pk);
+                if (d && d.toLowerCase() === String(address).toLowerCase()) return pk;
+                console.warn('[invitación] la clave pública no es de', address, '— se descarta');
+                return null;
+            }
+            window.cwPkDeAddress = cwPkDeAddress;
+
+            // Extrae la clave pública comprimida de un QR de identidad (?pk=…, con o sin ?address=).
+            // Si el link trae las dos, tienen que coincidir.
             function extractPubKeyFromData(data) {
                 try {
                     const q = data.split('?')[1];
                     if (!q) return null;
-                    const pk = new URLSearchParams(q).get('pk');
-                    if (pk && /^[0-9a-fA-F]{66}$/.test(pk)) return pk;
+                    const params = new URLSearchParams(q);
+                    const pk = params.get('pk');
+                    if (!pk || !/^[0-9a-fA-F]{66}$/.test(pk)) return null;
+                    const addr = params.get('address');
+                    if (!addr) return cwAddressDePk(pk) ? pk : null;
+                    return cwPkDeAddress(addr, pk);
                 } catch (e) { }
                 return null;
             }
@@ -19080,6 +19107,11 @@
                     if (addressFromUrl && (ethers.isAddress(addressFromUrl) || isStealthAddress(addressFromUrl))) {
                         return addressFromUrl;
                     }
+                    // Invitación que trae sólo la clave pública: la dirección se deriva de ella.
+                    if (!addressFromUrl) {
+                        const deLaPk = cwAddressDePk(urlParams.get('pk'));
+                        if (deLaPk) return deLaPk;
+                    }
                 } catch (e) {
                     // It might not be a URL, so we continue to other checks.
                 }
@@ -21233,6 +21265,9 @@
             };
 
             async function handleScannedAddress(address, pubKey, opts = {}) {
+                // Acá llegan también los @nombre.eth: la 0x se resolvió DESPUÉS de leer la pk del
+                // link, así que la comprobación de extractPubKeyFromData no alcanza.
+                pubKey = cwPkDeAddress(address, pubKey);
                 if (!currentWallet) {
                     statusEl.textContent = "Creando billetera para chatear...";
                     const randomWallet = window.Wallet.createRandom();
@@ -21515,9 +21550,11 @@
                 }
                 const urlParams = new URLSearchParams(window.location.search);
                 const addressFromUrl = urlParams.get('address');
-                if (addressFromUrl && ethers.isAddress(addressFromUrl)) {
+                const pkDeUrl = urlParams.get('pk');
+                const addrLink = addressFromUrl || cwAddressDePk(pkDeUrl);
+                if (addrLink && ethers.isAddress(addrLink)) {
                     window.history.replaceState({}, document.title, window.location.pathname);
-                    await handleScannedAddress(addressFromUrl, null, { greet: 'link' });
+                    await handleScannedAddress(addrLink, cwPkDeAddress(addrLink, pkDeUrl), { greet: 'link' });
                     return;
                 }
                 // chatwallet.org/@nombre llega acá como /dapp.html?to=nombre (ver _redirects).
