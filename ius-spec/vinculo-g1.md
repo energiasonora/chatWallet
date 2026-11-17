@@ -170,7 +170,7 @@ Arriba va el primero que exista; abajo, en chico, el siguiente, para que un alia
 
 ### 11.7 Pendiente
 
-- [ ] Comprobar que el indexador registra un `remark_with_event` **suelto** (sin transferencia) igual que uno en lote. Todos los vistos el 27/10/2026 venían de transferencias.
+- [x] ~~Comprobar que el indexador registra un `remark_with_event` **suelto**~~ — **sí** (17/11/2026, leído en `duniter-squid` `src/data_handler.ts`): crea un `TxComment` por cada evento `System.Remarked`, con o sin transferencia; sólo exige que la cuenta autora exista. ChatWallet lo publica desde el botón de compartir (3.111).
 - [ ] Probar la envoltura `<Bytes>` contra la verificación de Ğecko/Cesium² (que una firma de ChatWallet la acepten otras herramientas).
 - [ ] Texto del aviso del vínculo público, en es/en/fr.
 - [ ] Prueba con dos identidades: A se vincula en privado, B ve el seudónimo y le paga Ğ1 desde el chat; A publica, un tercero sin contacto la encuentra desde el historial.

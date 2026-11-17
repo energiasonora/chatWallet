@@ -173,6 +173,29 @@ export async function confirmarIdentidad(cuenta, nombre, alEstado = () => { }) {
     return mandar(tx, alEstado);
 }
 
+// Un comentario suelto en la cadena (System.remark_with_event), sin transferencia: así se
+// publica el vínculo ius1 (ius-spec/vinculo-g1.md §11.5). El indexador crea un txComment por
+// CADA evento System.Remarked, venga o no con transferencia (duniter-squid,
+// src/data_handler.ts, leído el 17/11/2026); sólo exige que la cuenta ya exista en la cadena.
+// Si hay dividendos por reclamar, van en el mismo lote, como hacen Ğecko y Cesium².
+export async function publicarComentario(cuenta, comentario, alEstado = () => { }) {
+    if (!comentario) throw new Error('comentario vacío');
+    const api = await conectar();
+    const { pendiente } = await saldo(cuenta.direccion);
+    const remark = api.tx.system.remarkWithEvent(comentario);
+    const tx = pendiente > 0 ? api.tx.utility.batchAll([api.tx.universalDividend.claimUds(), remark]) : remark;
+    await firmar(api, tx, cuenta);
+    return mandar(tx, alEstado);
+}
+
+// ¿La cuenta existe en la cadena? (recibió Ğ1 alguna vez y no se vació). Sin eso el
+// indexador no registra sus comentarios.
+export async function cuentaExiste(g1) {
+    const api = await conectar();
+    const c = await api.query.system.account(g1);
+    return c.providers.toNumber() > 0 || c.sufficients.toNumber() > 0 || c.data.free.toBigInt() > 0n;
+}
+
 export async function pedirMembresia(cuenta, alEstado = () => { }) {
     const api = await conectar();
     const tx = api.tx.distance.requestDistanceEvaluation();

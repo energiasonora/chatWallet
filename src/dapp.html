@@ -13055,7 +13055,7 @@
                         class="mt-2 px-4 py-1.5 rounded-lg text-gray-400 hover:text-white text-xs">Ya actualizó, reintentar</button>
                 </div>`;
                 const b = document.getElementById('invitarAMudarseBtn');
-                if (b) b.onclick = () => shareInviteLink();
+                if (b) b.onclick = () => compartirUrlInvitacion(buildInviteUrl()); // el link común: es para que actualice
             }
 
             function showChatLoadError(title, error) {
@@ -16913,10 +16913,132 @@
                 }).catch(err => console.error('Error al copiar el link de invitación:', err));
             }
 
-            // Compartir el link de invitación: hoja nativa si el entorno la expone
-            // (el WebView del APK normalmente NO trae navigator.share), y si no, copiar.
+            // ── Invitar con tu cuenta Ğ1 (vínculo público, ius-spec/vinculo-g1.md §11.5) ─────────
+            // Con Ğ1 activada, el mismo botón de compartir manda chatwallet.org/@g1…: quien lo abre
+            // ve tu identidad Ğ1 y llega a tu chat por el vínculo ius1 que está en la cadena. Ese
+            // vínculo es PÚBLICO (dice para siempre que tu 0x y tu g1 son la misma persona), así
+            // que la primera vez se pregunta; «Ahora no» queda anotado y se usa el link común.
+            function claveVinculoPublicoG1(a) { return `cw-g1-vinculo-publico-${String(a).toLowerCase()}`; }
+            function claveVinculoPublicoNo(a) { return `cw-g1-vinculo-publico-no-${String(a).toLowerCase()}`; }
+            function urlInvitacionG1(g1) { return `${new URL(PUBLIC_INVITE_BASE).origin}/@${g1}`; }
+
+            // Tu vínculo público vigente para la cuenta Ğ1 elegida, o null si no hay. Tira si el
+            // indexador no contesta: en ese caso no se pregunta nada y va el link común.
+            async function vinculoPublicoPropio(c) {
+                const dir = currentWallet.address;
+                const guardado = leerJSONLocal(claveVinculoPublicoG1(dir));
+                if (guardado && guardado.g1 === c.g1) return guardado;
+                const B = await window.cwCargarBilleteraG1();
+                // Corto a propósito: la hoja de compartir necesita el toque reciente del usuario.
+                const v = await Promise.race([
+                    B.G1.vinculoDeEvm(dir, window.ethers),
+                    new Promise((_, no) => setTimeout(() => no(new Error('el indexador Ğ1 tardó')), 4000)),
+                ]);
+                if (!v || v.g1 !== c.g1) return null;
+                const r = { g1: v.g1, bloque: v.bloque };
+                localStorage.setItem(claveVinculoPublicoG1(dir), JSON.stringify(r));
+                return r;
+            }
+
+            function ofrecerVinculoPublicoG1(c, evmUrl) {
+                document.getElementById('g1VinculoPublicoModal')?.remove();
+                const modal = document.createElement('div');
+                modal.id = 'g1VinculoPublicoModal';
+                modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50';
+                modal.innerHTML = `
+                    <div class="bg-gray-800 rounded-xl p-5 w-full max-w-sm space-y-3 max-h-[90dvh] overflow-y-auto">
+                        <h3 class="text-lg font-bold" data-g1="titulo"></h3>
+                        <p class="text-sm text-gray-300" data-g1="texto"></p>
+                        <p class="text-xs font-mono text-gray-400 break-all notranslate" translate="no" data-g1="cuenta"></p>
+                        <p class="cw-aviso-ambar text-xs rounded-lg p-3 leading-relaxed" data-g1="aviso"></p>
+                        <p class="text-sm min-h-[1.25rem]" data-g1="estado"></p>
+                        <button type="button" data-g1="publicar" class="w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"></button>
+                        <button type="button" data-g1="compartir" class="hidden w-full px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"></button>
+                        <button type="button" data-g1="comun" class="w-full px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-500"></button>
+                        <p class="text-xs text-gray-500 text-center" data-g1="unaVez"></p>
+                    </div>`;
+                const q = (k) => modal.querySelector(`[data-g1="${k}"]`);
+                const estado = (txt, cls = 'text-gray-300') => { q('estado').textContent = txt; q('estado').className = 'text-sm min-h-[1.25rem] ' + cls; };
+                q('titulo').textContent = t('g1_pub_title');
+                q('texto').textContent = t('g1_pub_text');
+                q('cuenta').textContent = c.g1;
+                q('aviso').textContent = t('g1_pub_warn');
+                q('publicar').textContent = t('g1_pub_btn');
+                q('compartir').textContent = t('g1_pub_share');
+                q('comun').textContent = t('g1_pub_no');
+                q('unaVez').textContent = t('g1_pub_once');
+                const dir = currentWallet.address;
+                q('comun').onclick = () => {
+                    localStorage.setItem(claveVinculoPublicoNo(dir), c.g1);
+                    modal.remove();
+                    compartirUrlInvitacion(evmUrl);
+                };
+                // Compartir después de publicar es otro toque: la hoja nativa no se abre sin uno
+                // reciente, y la transacción tarda más que eso.
+                q('compartir').onclick = () => { modal.remove(); compartirUrlInvitacion(urlInvitacionG1(c.g1)); };
+                q('publicar').onclick = async () => {
+                    q('publicar').disabled = true; q('comun').disabled = true;
+                    try {
+                        estado(t('g1_connecting'));
+                        const C = await window.cwCargarCadenaG1();
+                        if (!(await C.cuentaExiste(c.g1))) {
+                            estado(t('g1_pub_no_account'), 'text-yellow-400');
+                            q('publicar').classList.add('hidden');
+                            q('comun').textContent = t('g1_pub_common');
+                            q('comun').onclick = () => { modal.remove(); compartirUrlInvitacion(evmUrl); };
+                            q('unaVez').classList.add('hidden');
+                            return;
+                        }
+                        const cuenta = await cuentaFirmanteG1();
+                        if (!cuenta) { estado(''); return; }
+                        const B = await window.cwCargarBilleteraG1();
+                        const firma = await currentWallet.signMessage(B.G1.mensajeVinculo(dir, c.g1));
+                        const comentario = B.G1.comentarioVinculo(dir, firma);
+                        // Antes de mandar: que el comentario se lea igual que lo va a leer el otro.
+                        if ((B.G1.verificarComentario(comentario, c.g1, window.ethers) || '').toLowerCase() !== dir.toLowerCase())
+                            throw new Error('el vínculo no se pudo verificar antes de publicarlo');
+                        estado(t('g1_send_sending'));
+                        const res = await C.publicarComentario(cuenta, comentario);
+                        localStorage.setItem(claveVinculoPublicoG1(dir), JSON.stringify({ g1: c.g1, bloque: res.bloque }));
+                        localStorage.removeItem(claveVinculoPublicoNo(dir));
+                        estado(t('g1_pub_done', { b: res.bloque ?? '?' }), 'text-green-400');
+                        q('publicar').classList.add('hidden');
+                        q('compartir').classList.remove('hidden');
+                        q('comun').classList.add('hidden');
+                        q('unaVez').classList.add('hidden');
+                    } catch (e) {
+                        console.warn('[g1] vínculo público:', e);
+                        estado(motivoIdentidadG1(e), 'text-red-400');
+                    } finally {
+                        q('publicar').disabled = false; q('comun').disabled = false;
+                    }
+                };
+                modal.addEventListener('click', (e) => { if (e.target === modal && !q('publicar').disabled) modal.remove(); });
+                document.body.appendChild(modal);
+            }
+
+            // El botón de compartir de al lado de tu nombre. Con Ğ1 activada y el vínculo público
+            // hecho, va el link Ğ1; sin vínculo, se ofrece hacerlo (una vez); si no, el de siempre.
             async function shareInviteLink() {
-                const inviteUrl = buildInviteUrl();
+                const evmUrl = buildInviteUrl();
+                if (!evmUrl) return;
+                const c = redG1Activa() ? cuentaG1Guardada() : null;
+                if (c && c.g1) {
+                    let v;
+                    try { v = await vinculoPublicoPropio(c); } catch (e) { v = undefined; console.warn('[g1] vínculo público:', e?.message || e); }
+                    if (v) return compartirUrlInvitacion(urlInvitacionG1(c.g1));
+                    if (v === null && localStorage.getItem(claveVinculoPublicoNo(currentWallet.address)) !== c.g1) {
+                        ofrecerVinculoPublicoG1(c, evmUrl);
+                        return;
+                    }
+                }
+                return compartirUrlInvitacion(evmUrl);
+            }
+            window.shareInviteLink = shareInviteLink;
+
+            // Compartir un link de invitación: hoja nativa si el entorno la expone
+            // (el WebView del APK normalmente NO trae navigator.share), y si no, copiar.
+            async function compartirUrlInvitacion(inviteUrl) {
                 if (!inviteUrl) return;
                 if (navigator.share) {
                     try {
@@ -19096,6 +19218,13 @@
 
             // Abre (o crea) el chat con lo que diga un link o un QR con nombre.
             async function abrirChatConDestino(destino, pubKey, opts = {}) {
+                // chatwallet.org/@g1…: una cuenta Ğ1. Se muestra su identidad y, si tiene vínculo
+                // ius1 con una 0x, «Agregar y chatear» (lo mismo que al escanear su QR).
+                const sinArroba = String(destino || '').replace(/^@/, '');
+                if (/^g1[1-9A-HJ-NP-Za-km-z]{40,60}$/.test(sinArroba)) {
+                    const g1 = await leerQrG1Seguro(sinArroba);
+                    if (g1) { mostrarCuentaG1Escaneada(g1); return true; }
+                }
                 let r = null;
                 try { r = await cwDireccionDeDestino(destino); }
                 catch (e) { showToast(t('ens_no_red'), 'error', 6000); return false; }
@@ -25528,6 +25657,16 @@
                     "g1_scan_linked": "Chat vinculado: {dir}",
                     "g1_scan_unlinked": "Todavía no vinculó un chat, así que no se le puede escribir desde su cuenta Ğ1. Mandale tu invitación: con ese link te escribe directo.",
                     "g1_scan_invite": "Invitar a ChatWallet",
+                    "g1_pub_title": "Invitar con tu cuenta Ğ1",
+                    "g1_pub_text": "Tu Ğ1 está activada, así que tu link de invitación puede ser tu cuenta Ğ1: quien lo abra ve tu identidad Ğ1 y llega a tu chat. Para eso hay que dejar escrito en la cadena Ğ1 que esta cuenta y tu dirección de ChatWallet son de la misma persona:",
+                    "g1_pub_warn": "Es público y queda para siempre: cualquiera va a poder ver que las dos son tuyas. Se puede revocar, pero lo ya escrito no se borra. No tiene costo.",
+                    "g1_pub_btn": "Publicar e invitar con Ğ1",
+                    "g1_pub_no": "Ahora no: compartir el link común",
+                    "g1_pub_once": "Si elegís «Ahora no», no te lo volvemos a preguntar.",
+                    "g1_pub_share": "Compartir mi link Ğ1",
+                    "g1_pub_common": "Compartir el link común",
+                    "g1_pub_done": "Listo: quedó en el bloque {b}. Ya podés compartir tu link Ğ1.",
+                    "g1_pub_no_account": "Tu cuenta Ğ1 todavía no existe en la cadena: tiene que haber recibido Ğ1 alguna vez. Por ahora va el link común.",
                     "g1_scan_certs_needed": "{n} certificaciones vigentes (hacen falta 5 para ser miembro)",
                     "g1_st_unconfirmed": "identidad sin confirmar",
                     "g1_st_unvalidated": "identidad esperando certificaciones",
@@ -26375,6 +26514,16 @@
                     "g1_scan_linked": "Linked chat: {dir}",
                     "g1_scan_unlinked": "No chat linked yet, so you can't message them from their Ğ1 account. Send them your invite: with that link they can message you directly.",
                     "g1_scan_invite": "Invite to ChatWallet",
+                    "g1_pub_title": "Invite with your Ğ1 account",
+                    "g1_pub_text": "Your Ğ1 is on, so your invite link can be your Ğ1 account: whoever opens it sees your Ğ1 identity and reaches your chat. For that, the Ğ1 chain has to record that this account and your ChatWallet address belong to the same person:",
+                    "g1_pub_warn": "It's public and permanent: anyone will be able to see both are yours. It can be revoked, but what's written isn't erased. It's free.",
+                    "g1_pub_btn": "Publish and invite with Ğ1",
+                    "g1_pub_no": "Not now: share the regular link",
+                    "g1_pub_once": "If you choose «Not now», we won't ask again.",
+                    "g1_pub_share": "Share my Ğ1 link",
+                    "g1_pub_common": "Share the regular link",
+                    "g1_pub_done": "Done: it's in block {b}. You can now share your Ğ1 link.",
+                    "g1_pub_no_account": "Your Ğ1 account doesn't exist on the chain yet: it has to have received Ğ1 at least once. For now, the regular link is used.",
                     "g1_scan_certs_needed": "{n} active certifications (5 needed to become a member)",
                     "g1_st_unconfirmed": "unconfirmed identity",
                     "g1_st_unvalidated": "identity awaiting certifications",
@@ -27222,6 +27371,16 @@
                     "g1_scan_linked": "Chat lié : {dir}",
                     "g1_scan_unlinked": "Pas encore de chat lié : impossible de lui écrire depuis son compte Ğ1. Envoie-lui ton invitation : avec ce lien, il peut t'écrire directement.",
                     "g1_scan_invite": "Inviter sur ChatWallet",
+                    "g1_pub_title": "Inviter avec ton compte Ğ1",
+                    "g1_pub_text": "Ta Ğ1 est activée, donc ton lien d'invitation peut être ton compte Ğ1 : qui l'ouvre voit ton identité Ğ1 et arrive à ton chat. Pour cela, la chaîne Ğ1 doit enregistrer que ce compte et ton adresse ChatWallet appartiennent à la même personne :",
+                    "g1_pub_warn": "C'est public et définitif : tout le monde pourra voir que les deux sont à toi. On peut le révoquer, mais ce qui est écrit ne s'efface pas. C'est gratuit.",
+                    "g1_pub_btn": "Publier et inviter avec Ğ1",
+                    "g1_pub_no": "Pas maintenant : partager le lien habituel",
+                    "g1_pub_once": "Si tu choisis « Pas maintenant », on ne te le redemandera pas.",
+                    "g1_pub_share": "Partager mon lien Ğ1",
+                    "g1_pub_common": "Partager le lien habituel",
+                    "g1_pub_done": "C'est fait : c'est dans le bloc {b}. Tu peux maintenant partager ton lien Ğ1.",
+                    "g1_pub_no_account": "Ton compte Ğ1 n'existe pas encore sur la chaîne : il doit avoir reçu des Ğ1 au moins une fois. Pour l'instant, c'est le lien habituel.",
                     "g1_scan_certs_needed": "{n} certifications actives (il en faut 5 pour être membre)",
                     "g1_st_unconfirmed": "identité non confirmée",
                     "g1_st_unvalidated": "identité en attente de certifications",
