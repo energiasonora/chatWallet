@@ -17,6 +17,15 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.110 — 2026-11-17
+
+- **ChatWallet dice con claridad que se entrega sin garantías.** Al crear o restaurar la
+  billetera aparece un aviso corto: es software libre y experimental, y tus 12 palabras son tu
+  cuenta, que nadie puede recuperar por vos. En Configuración, «Licencia MIT · sin garantías»
+  muestra el aviso completo, con el texto legal original.
+- Las invitaciones por QR o por link ahora toman la dirección de la clave pública que traen, y
+  descartan la clave si no coincide con la dirección.
+
 ## 3.109 — 2026-11-16
 
 - **Ver tus 12 palabras ya funciona con letra grande.** Si en tu teléfono tenés la letra o la
