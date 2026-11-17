@@ -154,6 +154,171 @@ Ius usa el mismo `ius/js/g1.js`. Muestra «Ser vivo · Ğ1» y «Consultar un se
 anclaje de documentos pasa a ser un remark en Ğ1 (reemplaza a Crust, que está muerto). El
 vínculo público todavía está oculto tras `?vincular` hasta probarlo con una cuenta Ğ1 real.
 
+## El código en la práctica
+
+Las llamadas principales, copiadas del código (recortadas). Sirven como mapa para leerlo.
+
+### Derivar la cuenta (`src/js/g1-llave.js`)
+
+```js
+import { ed25519 } from '@noble/curves/ed25519';
+import { blake2b } from '@noble/hashes/blake2b';
+import { pbkdf2 } from '@noble/hashes/pbkdf2';
+import { sha512 } from '@noble/hashes/sha512';
+
+// 1. Mini-secreto Substrate: PBKDF2 sobre la ENTROPÍA de la frase, no sobre el texto.
+const raiz = pbkdf2(sha512, entropia, utf8('mnemonic'), { c: 2048, dkLen: 64 }).slice(0, 32);
+
+// 2. Derivación dura //n, igual que DeriveJunction de polkadot:
+//    semilla = blake2b-256( SCALE("Ed25519HDKD") ‖ semilla ‖ n como u256 little-endian )
+semilla = blake2b(concatenar(HDKD, semilla, codigoDeJuntura('0')), { dkLen: 32 });
+
+// 3. Llave pública y dirección SS58 con prefijo 4450:
+//    base58( prefijo(2 bytes) ‖ pública ‖ blake2b-512("SS58PRE" ‖ prefijo ‖ pública)[0..2] )
+const publica = ed25519.getPublicKey(semilla);
+const direccion = direccionG1(publica);            // → "g1…"
+
+// Uso desde afuera:
+cuentaG1(frase)               // → { ruta: '', semilla, publica, direccion }
+candidatasG1(frase)           // raíz + //0 … //29, lo mismo que escanean Ğecko y Cesium²
+```
+
+### Conectar y leer la cadena (`src/js/g1-cadena.js`)
+
+```js
+import { ApiPromise, WsProvider } from '@polkadot/api';
+
+// Varios nodos: WsProvider pasa al siguiente si uno no contesta en 2,5 s.
+const api = await ApiPromise.create({ provider: new WsProvider(NODOS, 2500), noInitWarn: true });
+if (api.genesisHash.toHex() !== GENESIS) throw new Error('el nodo no es de la red Ğ1');
+
+// Saldo (céntimos) e identidad
+const cuenta = await api.query.system.account(g1);          // cuenta.data.free
+const idx = await api.query.identity.identityIndexOf(g1);   // Option<índice>
+const idty = await api.query.identity.identities(idx.unwrap());
+
+// Dividendo universal por cobrar (mismo cálculo que Cesium²)
+await api.query.universalDividend.currentUdIndex();
+await api.query.universalDividend.pastReevals();
+```
+
+### Firmar sin el Keyring de polkadot
+
+`@polkadot/api` acepta cualquier objeto con `sign()`. Le damos uno que firma con @noble:
+
+```js
+const par = {
+  address: cuenta.direccion, addressRaw: cuenta.publica, publicKey: cuenta.publica, type: 'ed25519',
+  sign(datos, opciones) {
+    const firma = ed25519.sign(datos, cuenta.semilla);
+    if (!opciones?.withType) return firma;
+    const out = new Uint8Array(65); out.set(firma, 1);   // byte 0x00 = MultiSignature ed25519
+    return out;
+  },
+};
+const nonce = await api.rpc.system.accountNextIndex(cuenta.direccion);
+await tx.signAsync(par, { era: 64, nonce });
+```
+
+### Mandar junas
+
+```js
+const llamadas = [];
+if (pendiente > 0) llamadas.push(api.tx.universalDividend.claimUds());
+llamadas.push(api.tx.balances.transferKeepAlive(destino, centimos));
+if (comentario) llamadas.push(api.tx.system.remarkWithEvent(comentario));
+const tx = llamadas.length > 1 ? api.tx.utility.batchAll(llamadas) : llamadas[0];
+
+await tx.signAsync(par, { era: 64, nonce });
+tx.send((r) => {
+  if (r.status.isInBlock || r.status.isFinalized) { /* listo: r.status.asInBlock */ }
+  // si la cadena la rechaza, el motivo llega como "pallet.Error" (p. ej. balances.FundsUnavailable)
+});
+```
+
+Identidad y membresía usan el mismo patrón de firma con otras llamadas:
+`api.tx.identity.confirmIdentity(nombre)` y `api.tx.distance.requestDistanceEvaluation()`.
+
+### Consultar el indexador (GraphQL, PostGraphile)
+
+```graphql
+# Elegir, entre las 31 candidatas, la que ya se usa (g1-billetera.js → elegirCuenta)
+query($ids:[String!]!){
+  accounts(filter:{ id:{ in:$ids } }){ nodes{ id balance identity{ isMember name } } } }
+
+# Dividendos desde el primero cobrable (g1-billetera.js → leerCuenta)
+query($desde:Int!){
+  universalDividends(first:1000, orderBy:INDEX_ASC,
+    filter:{ index:{ greaterThanOrEqualTo:$desde } }){ nodes{ amount } } }
+```
+
+Desde la terminal, para explorar el esquema:
+
+```sh
+curl -s https://squid.g1.brussels.ovh/v1/graphql -H 'content-type: application/json' \
+  -d '{"query":"{ blocks(first:1, orderBy:HEIGHT_DESC){ nodes{ height timestamp } } }"}'
+```
+
+### El vínculo público `ius1:` (`ius/js/g1.js`)
+
+```js
+// Texto fijo, sin traducir: la firma tiene que poder reconstruirse igual en cualquier lado.
+const msg = 'Ius Naturalis · vinculo Ğ1 · v1\nEVM: ' + evm.toLowerCase() + '\nG1: ' + g1.trim();
+const firma = await wallet.signMessage(msg);                  // firma EVM (v = 27 o 28)
+const comentario = 'ius1:' + b64url(addr20 ‖ firma65);        // 119 caracteres → remark Ğ1
+
+// Verificar: la cuenta que MANDÓ el comentario es la g1; la firma tiene que dar la 0x.
+ethers.verifyMessage(mensajeVinculo(evm, autorG1), firma) === evm
+```
+
+El vínculo privado (`g1-billetera.js`) firma el mismo mensaje dos veces: con la 0x y con
+`ed25519.sign(utf8('<Bytes>' + msg + '</Bytes>'), cuenta.semilla)`.
+
+## Cómo lo abordamos
+
+El método fue el mismo en cada paso: **leer el código de los clientes de referencia, verificar
+contra la cadena viva y fijarlo en una prueba** antes de tocar la interfaz.
+
+1. **Copiar a Ğecko y Cesium², no inventar.** La derivación de la llave, el `batchAll` del envío,
+   el cálculo del DU pendiente y los formatos de QR salen de su código:
+   - Ğecko: librería `durt2`, `duniter_service.dart` (envío y cuenta raíz).
+   - Cesium²: `src/app/scan/payment-request.ts` (QR) y `calculateUnclaimedUds` (DU).
+   - Parámetros de la cadena: `git.duniter.org/nodes/rust/duniter-v2s`,
+     `runtime/g1/src/parameters.rs`.
+2. **Vectores de la librería oficial.** Los resultados esperados de `tests/g1-llave.mjs` se
+   sacaron con `@polkadot/keyring`. Nuestra versión con @noble tiene que dar lo mismo, byte a
+   byte, sin cargar polkadot en la app.
+3. **Preguntarle a la cadena viva.** Llamadas permitidas, constantes y estados se leyeron del
+   runtime en producción, no de la documentación: por ejemplo, que `remark_with_event` está
+   permitido o que la evaluación de distancia reserva 10 Ğ1. Así apareció que el indexador
+   daba mal el saldo, y por eso la cadena manda.
+4. **Probar los nodos uno por uno.** Varios no aceptaban WebSocket o respondían vacío. De ahí
+   la lista con respaldo, en vez de un endpoint único.
+5. **Pruebas sin gastar junas.** `state_call` está cerrado en los nodos públicos, así que no se
+   puede simular un envío. Por eso la firma se compara contra Keyring, y la interfaz se prueba
+   con una cadena simulada (`cwCargarCadenaG1` reemplazado con `defineProperty`). El primer envío
+   real lo hizo el usuario.
+6. **Peso a demanda.** Todo lo de Ğ1 va en pedazos aparte, para que quien no usa Ğ1 no baje
+   1 MB de polkadot.
+
+### Correr las pruebas
+
+```sh
+# Node 22 (el del sistema es v12 y no sirve)
+export PATH="$HOME/.nvm/versions/node/v22.23.4/bin:$PATH"
+
+node tests/g1-llave.mjs              # derivación contra vectores de Keyring
+node tests/g1-cadena.mjs             # firma @noble == Keyring
+node tests/g1-qr.mjs                 # formatos de QR
+node tests/g1-vinculo-privado.mjs    # vínculo privado
+node ius-spec/g1.test.cjs --vivo     # vínculo ius1: contra el indexador real
+
+# Interfaz con Chrome por CDP. Los scripts traen una ruta de node fija que puede no existir:
+NODE_BIN=$(which node) ./tests/run-g1-red.sh
+NODE_BIN=$(which node) ./tests/run-g1-tarjeta.sh
+NODE_BIN=$(which node) ./tests/run-g1-chat.sh
+```
+
 ## Datos guardados en el dispositivo
 
 Solo direcciones y un secreto mínimo. La frase nunca se guarda para Ğ1.
