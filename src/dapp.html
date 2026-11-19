@@ -661,7 +661,7 @@
             z-index: 30;
             opacity: 0;
             visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+            transition: opacity .28s ease, visibility .28s ease;
         }
 
         .sidebar-overlay.active {
@@ -679,10 +679,11 @@
             border-left: 1px solid #374151;
             z-index: 40;
             transform: translateX(100%);
-            transition: transform 0.3s ease;
+            transition: transform .28s cubic-bezier(.22, .61, .36, 1);
             will-change: transform;
             display: flex;
             flex-direction: column;
+            box-shadow: -18px 0 44px rgba(0, 0, 0, .45);
         }
 
         .contacts-sidebar.active {
@@ -751,9 +752,11 @@
             color: white;
         }
 
+        /* Como en Off Player: en el teléfono la barra deja ver un borde de la pantalla de atrás,
+           que sirve de pista de dónde tocar o arrastrar para cerrarla. */
         @media (max-width: 640px) {
             .contacts-sidebar {
-                width: 100%;
+                width: min(88vw, 380px);
             }
         }
 
@@ -5397,9 +5400,6 @@
 
 
             let isFullscreen = false;
-            let touchStartX = 0;
-            let touchCurrentX = 0;
-            let isDragging = false;
 
             // ── Centro de notificaciones unificado ────────────────────────────
             // Todo lo que avisa algo entra por acá: los toasts (`showToast`), los
@@ -14258,6 +14258,7 @@
             // Long-press (450ms, mouse o touch) y doble tap/click → picker de reacciones.
             // Swipe horizontal dominante (>55px) sobre la fila → modo respuesta.
             function attachMessageGestures(row, bubble, msgId) {
+                row.dataset.gestoPropio = 'responder';   // la barra de chats no le roba este deslizamiento
                 let lpTimer = null, pStartX = 0, pStartY = 0, pMoved = false;
                 const clearLp = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
                 bubble.addEventListener('pointerdown', (e) => {
@@ -24317,87 +24318,80 @@
                 }, true);
             }
 
-            // --- Interactive Sidebar Drag (Optimized) ---
-            document.addEventListener('touchstart', e => {
-                const touch = e.touches[0];
-                touchStartX = touch.clientX;
-                touchStartY = touch.clientY;
-                isDragging = false;
-            }, { passive: true });
+            // --- Barra de chats con el dedo (como Off Player) ---
+            // La barra sigue al dedo para abrir y para cerrar, el fondo se oscurece a la par, y al
+            // soltar decide la velocidad (un gesto rápido manda la dirección) o, si fue lento, dónde
+            // quedó. Antes sólo cerraba arrastrando; para abrir había que hacer un "flick" que la
+            // tiraba entera de golpe al levantar el dedo.
+            // El gesto agarra en cualquier parte de la pantalla y no sólo en el borde: los paneles
+            // Edge de Samsung se quedan con la franja del borde derecho y ahí el toque no llega.
+            (function gestoBarraChats() {
+                const MIN = 8;        // px para decidir si es horizontal o es scroll
+                let x0 = 0, y0 = 0, dx = 0, w = 300, t0 = 0, siguiendo = false, eje = '';
+                const abierta = () => contactsSidebar.classList.contains('active');
+                // No robarle el dedo a lo que ya tiene su propio gesto horizontal: deslizar para
+                // responder un mensaje, descartar una notificación, los sliders y los campos de texto.
+                const saltear = (el) => !!(el && el.closest && el.closest(
+                    'input, textarea, select, [contenteditable="true"], dialog, [data-gesto-propio], .cw-notif'));
+                const pos = () => Math.max(0, Math.min(w, (abierta() ? 0 : w) + dx));
 
-            document.addEventListener('touchmove', e => {
-                const touch = e.touches[0];
-                const deltaX = touch.clientX - touchStartX;
-                const deltaYAbs = Math.abs(touch.clientY - touchStartY);
+                document.addEventListener('touchstart', (e) => {
+                    siguiendo = false;
+                    if (e.touches.length !== 1 || saltear(e.target)) return;
+                    if (!abierta()) {
+                        // Sin wallet no hay chats, y con un modal encima la barra quedaría detrás.
+                        if (typeof currentWallet === 'undefined' || !currentWallet) return;
+                        if (modalesALaVista().length) return;
+                        const scanner = document.getElementById('scannerView');
+                        if (scanner && !scanner.classList.contains('hidden') && scanner.offsetWidth) return;
+                    }
+                    const t = e.touches[0];
+                    x0 = t.clientX; y0 = t.clientY; dx = 0; eje = ''; t0 = performance.now(); siguiendo = true;
+                    w = contactsSidebar.getBoundingClientRect().width || 300;
+                }, { passive: true });
 
-                // Solo actuamos si el sidebar está abierto
-                if (!contactsSidebar.classList.contains('active')) return;
+                document.addEventListener('touchmove', (e) => {
+                    if (!siguiendo) return;
+                    const t = e.touches[0];
+                    dx = t.clientX - x0;
+                    const dy = t.clientY - y0;
+                    if (!eje) {
+                        if (Math.abs(dx) < MIN && Math.abs(dy) < MIN) return;
+                        eje = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y';
+                        // Vertical (scroll), o empujar hacia donde la barra ya está: soltar.
+                        if (eje === 'y' || (abierta() ? dx < 0 : dx > 0)) { siguiendo = false; return; }
+                        contactsSidebar.style.transition = 'none';
+                        sidebarOverlay.style.transition = 'none';
+                        sidebarOverlay.style.visibility = 'visible';
+                        document.body.style.overflow = 'hidden';
+                    }
+                    if (e.cancelable) e.preventDefault();   // el dedo maneja la barra, no el scroll
+                    const x = pos();
+                    contactsSidebar.style.transform = `translateX(${x}px)`;
+                    sidebarOverlay.style.opacity = String(1 - x / w);
+                }, { passive: false });
 
-                // Discriminación horizontal/vertical: solo activa si movemos a la derecha y no hay mucho scroll vertical
-                if (!isDragging && deltaX > 8 && deltaX > deltaYAbs) {
-                    isDragging = true;
-                    stackAnimationFrame = true; // Use a flag or just rAF
-                    contactsSidebar.style.transition = 'none';
-                    sidebarOverlay.style.transition = 'none';
-                }
-
-                if (isDragging) {
-                    if (e.cancelable) e.preventDefault();
-
-                    const sidebarWidth = contactsSidebar.offsetWidth;
-                    // Solo permitimos movimiento hacia fuera (derecha)
-                    const translateVal = Math.max(0, deltaX);
-                    // Proporción para el overlay
-                    const opacity = Math.max(0, 1 - (translateVal / sidebarWidth));
-
-                    requestAnimationFrame(() => {
-                        if (isDragging) {
-                            contactsSidebar.style.transform = `translateX(${translateVal}px)`;
-                            sidebarOverlay.style.opacity = opacity;
-                        }
-                    });
-                }
-            }, { passive: false });
-
-            document.addEventListener('touchend', e => {
-                const touchEndX = e.changedTouches[0].clientX;
-                const deltaX = touchEndX - touchStartX;
-
-                // --- Gesto rápido para ABRIR (Flick left desde el borde) ---
-                if (!isDragging && !contactsSidebar.classList.contains('active') && touchStartX - touchEndX > 70) {
-                    openSidebar();
-                    return;
-                }
-
-                // --- Finalizar el arrastre de CIERRE ---
-                if (!isDragging) return;
-                isDragging = false;
-
-                const sidebarWidth = contactsSidebar.offsetWidth;
-
-                // Restaurar transiciones suaves para el snap final
-                contactsSidebar.style.transition = 'transform 0.25s cubic-bezier(0.1, 0.7, 0.1, 1)';
-                sidebarOverlay.style.transition = 'opacity 0.25s ease';
-
-                // Si se arrastró más de un cuarto del ancho, cerramos
-                if (deltaX > sidebarWidth / 4) {
-                    closeSidebar();
-                } else {
-                    // Si no, lo devolvemos a su sitio (abierto)
-                    contactsSidebar.style.transform = 'translateX(0px)';
-                    sidebarOverlay.style.opacity = '1';
-
-                    // Cleanup inline styles después de la animación de vuelta
-                    setTimeout(() => {
-                        if (!isDragging) {
-                            contactsSidebar.style.transition = '';
-                            contactsSidebar.style.transform = '';
-                            sidebarOverlay.style.transition = '';
-                            sidebarOverlay.style.opacity = '';
-                        }
-                    }, 250);
-                }
-            });
+                const soltar = (cancelado) => {
+                    if (!siguiendo) return;
+                    siguiendo = false;
+                    if (eje !== 'x') return;
+                    const vel = dx / Math.max(1, performance.now() - t0);   // px/ms
+                    let abrir;
+                    if (cancelado) abrir = abierta();
+                    // Igual que Off Player: pasados 60 px manda la dirección; un toque corto pero
+                    // rápido (flick) también; si no, dónde quedó la barra.
+                    else if (Math.abs(dx) > 60 || Math.abs(vel) > 0.4) abrir = dx < 0;
+                    else abrir = pos() < w / 2;
+                    // La transición la vuelve a poner la clase: se limpian los estilos del dedo.
+                    contactsSidebar.style.transition = '';
+                    sidebarOverlay.style.transition = '';
+                    sidebarOverlay.style.visibility = '';
+                    sidebarOverlay.style.opacity = '';
+                    if (abrir) openSidebar(); else closeSidebar();
+                };
+                document.addEventListener('touchend', () => soltar(false));
+                document.addEventListener('touchcancel', () => soltar(true));
+            })();
 
             document.getElementById('scanCaptureBtn')?.addEventListener('click', async (e) => {
                 e.stopPropagation();

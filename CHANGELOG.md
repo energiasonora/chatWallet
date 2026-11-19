@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **La lista de chats se abre con el dedo.** Deslizá hacia la izquierda desde cualquier parte
+  y la barra te sigue mientras movés el dedo; hacia la derecha se cierra igual. En el teléfono
+  ya no tapa toda la pantalla: queda a la vista un borde de lo que estabas mirando. Deslizar
+  un mensaje para responderlo ya no abre la barra por error.
+
 ## 3.110 — 2026-11-17
 
 - **ChatWallet dice con claridad que se entrega sin garantías.** Al crear o restaurar la
