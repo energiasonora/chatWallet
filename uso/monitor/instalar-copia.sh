@@ -12,7 +12,7 @@
 #    hasta las 05:30). El crontab anterior queda en ~/crontab.antes-copia.bak.
 # 5. Primera corrida forzada y verificación de lo que llegó.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."   # raíz del repo
 CAJA="${CAJA_HOST:-caja}"
 SAMSUNG="${SAMSUNG_HOST:-rhm@192.168.1.45}"
 SAMSUNG_LLAVE="${SAMSUNG_LLAVE:-$HOME/.ssh/caja_ed25519}"
