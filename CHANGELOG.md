@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.111 — 2026-11-19
+
 - **La lista de chats se abre con el dedo.** Deslizá hacia la izquierda desde cualquier parte
   y la barra te sigue mientras movés el dedo; hacia la derecha se cierra igual. En el teléfono
   ya no tapa toda la pantalla: queda a la vista un borde de lo que estabas mirando. Deslizar
