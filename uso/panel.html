@@ -222,6 +222,8 @@ function detalleServicio(s) {
     if (s.id === 'corriente') return s.status === 'ok' ? 'enchufada' + (i.bateria_pct != null ? ` · batería ${i.bateria_pct}% (${i.bateria_estado || ''})` : '') : `a batería (${i.bateria_pct}%)`;
     if (s.id === 'capacity') return `disco ${i.disco_pct}% · ${i.disco_libre_gb} GB libres` + (i.repo ? ` · IPFS ${i.repo}` : '');
     if (s.id === 'relayer_gas') return i.resumen || '';
+    if (s.id === 'copia') return i.ultimo_ok ? `última copia hace ${duracion(Date.now() / 1000 - i.ultimo_ok)} · ${num(i.cids)} respaldos · ${num(i.mb)} MB`
+        + (i.resultado === 'error' ? ` · último intento falló: ${i.detalle}` : '') : (i.note || i.detalle || '');
     if (i.note) return i.note;
     if (i.url) return i.url.replace(/^https:\/\//, '');
     return i.pid ? 'PID ' + i.pid : '';

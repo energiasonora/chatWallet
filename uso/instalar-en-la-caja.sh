@@ -18,14 +18,14 @@ fi
 # Monitor de la caja: el viejo queda como respaldo con fecha.
 ssh -o ConnectTimeout=8 "$CAJA" 'cd ~/chatwallet-node/monitor && [ -f monitor.py.antes-panel ] || cp monitor.py monitor.py.antes-panel'
 ssh -o ConnectTimeout=8 "$CAJA" 'cd ~/chatwallet-node/monitor && [ -f xmtp-alert.js.antes-perfil ] || cp xmtp-alert.js xmtp-alert.js.antes-perfil'
-rsync -az -e "ssh -o ConnectTimeout=8" monitor/monitor.py monitor/xmtp-alert.js monitor/alerta-avatar.webp "$CAJA:~/chatwallet-node/monitor/"
+rsync -az -e "ssh -o ConnectTimeout=8" monitor/monitor.py monitor/xmtp-alert.js monitor/alerta-avatar.webp monitor/copia-respaldos.sh "$CAJA:~/chatwallet-node/monitor/"
 # Entrar con ChatWallet por QR: el módulo propio (js/cw-firma.js, de cw-firma.mjs) y el bundle XMTP
 # para el navegador que ya construye Soberano Mail (npm run build:xmtp allá), con su wasm.
 XMTP_JS="${XMTP_JS:-$HOME/xunserver/soberano-mail/public/js}"
 [ -f "$XMTP_JS/xmtp-bundle.js" ] || { echo "Falta el bundle XMTP en $XMTP_JS (npm run build:xmtp en soberano-mail)"; exit 1; }
 rsync -az -e "ssh -o ConnectTimeout=8" js/cw-firma.js "$XMTP_JS/xmtp-bundle.js" "$XMTP_JS/assets" "$CAJA:~/chatwallet-node/uso/js/"
 
-ssh "$CAJA" 'bash -s' <<'REMOTO'
+ssh "$CAJA" "AVISO_PRUEBA=${AVISO_PRUEBA:-0} bash -s" <<'REMOTO'
 set -e
 cat > ~/start-uso.sh <<'ARRANQUE'
 #!/bin/bash
@@ -44,9 +44,11 @@ if [ ! -f .env ]; then
   DESTINO=$(sed -n 's/^NOTIFY_TO=//p' ~/chatwallet-node/sales-notifier/.env | head -1)
   umask 077; printf 'NOTIFY_TO=%s\nXMTP_ENV=production\n' "$DESTINO" > .env
 fi
-echo "── aviso de prueba por ChatWallet ──"
-( set -a; . ./.env; set +a; export PATH="$HOME/bin:$PATH"
-  node xmtp-alert.js "🧪 Prueba del monitor de la caja: si ves esto, los avisos llegan." ) 2>&1 | tail -2 || true
+if [ "${AVISO_PRUEBA:-0}" = 1 ]; then
+  echo "── aviso de prueba por ChatWallet ──"
+  ( set -a; . ./.env; set +a; export PATH="$HOME/bin:$PATH"
+    node xmtp-alert.js "🧪 Prueba del monitor de la caja: si ves esto, los avisos llegan." ) 2>&1 | tail -2 || true
+fi
 # Reemplazar el monitor por su PID exacto (nunca por patrón).
 VIEJO=$(pgrep -f 'python3 +monito[r]\.py' | head -1)
 [ -n "$VIEJO" ] && kill "$VIEJO" && sleep 2

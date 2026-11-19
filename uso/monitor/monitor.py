@@ -563,8 +563,29 @@ def check_almacenamiento():
     rst, rinfo = check_relayer_gas()
     evaluar("relayer_gas", "El gas del relayer", rst, rinfo.get("resumen", ""), umbral=1,
             mensaje=f"⛽ Al relayer le queda poco gas: {rinfo.get('resumen', '')}. Fondear {rinfo.get('direccion', '')} con ETH en Base.")
+    cst, cinfo = check_copia()
+    evaluar("copia", "La copia de respaldos en la Samsung", cst, cinfo.get("error", ""), umbral=1,
+            mensaje=f"🗄️ La copia de los respaldos de chat a la Samsung no se hace desde {cinfo.get('desde', '?')}: "
+                    f"{cinfo.get('error', '')}. Hoy los respaldos tienen una sola copia (la de la caja).")
     return [{"id": "pin_probe", "name": "Persistencia de pins", "status": st, "info": info, "grupo": "almacenamiento"},
-            {"id": "relayer_gas", "name": "Gas del relayer", "status": rst, "info": rinfo, "grupo": "almacenamiento"}]
+            {"id": "relayer_gas", "name": "Gas del relayer", "status": rst, "info": rinfo, "grupo": "almacenamiento"},
+            {"id": "copia", "name": "Copia de respaldos (Samsung)", "status": cst, "info": cinfo, "grupo": "almacenamiento"}]
+
+COPIA_FILE = os.path.join(MONITOR_DIR, "copia.json")
+COPIA_MAX_SEG = 36 * 3600   # corre de madrugada y reintenta hasta las 5:30: 36 h sin copia = algo anda mal
+
+def check_copia():
+    """La segunda copia la hace copia-respaldos.sh por cron. Acá sólo se mira cuándo salió bien."""
+    e = leer_json(COPIA_FILE, None)
+    if not e:
+        return "unknown", {"note": "todavía no corrió"}
+    info = {k: e.get(k) for k in ("ultimo_ok", "ultimo_intento", "resultado", "detalle", "cids", "mb", "fallas_seguidas")}
+    ok_at = e.get("ultimo_ok") or 0
+    if time.time() - ok_at <= COPIA_MAX_SEG:
+        return "ok", info
+    info["desde"] = fecha_hora(ok_at) if ok_at else "nunca"
+    info["error"] = e.get("detalle") or "sin copia reciente"
+    return "down", info
 
 # ── Bucle ───────────────────────────────────────────────────────────────────
 _muestra_at = 0
