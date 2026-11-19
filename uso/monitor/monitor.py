@@ -83,7 +83,7 @@ SERVICES = [
     # Los túneles tienen su propio bucle que los relanza: acá sólo se mira.
     {"id": "cloudflare", "name": "Túnel principal", "pgrep": r"^cloudflared .*tunnel run stealthpa[y]", "no_restart": True},
     {"id": "tunel_gateway", "name": "Túnel del gateway", "pgrep": r"^cloudflared .*cloudflared-gatewa[y]/config", "no_restart": True},
-    {"id": "openclaw", "name": "OpenClaw", "pgrep": r"openclaw.*gatewa[y]", "check_port": 18789, "no_restart": True},
+    # OpenClaw: apagado a propósito el 16/11/2026 (liberar RAM para el robot). No se vigila.
 ]
 
 # ── Desde afuera: lo que ve un usuario, pasando por Cloudflare y el túnel ──
@@ -692,8 +692,18 @@ def start_http_server():
             logline(f"🔥 tablero HTTP: {e}")
             time.sleep(30)
 
+def limpiar_alertas_huerfanas():
+    """Una alerta abierta de algo que ya no se vigila no se cerraría nunca: se descarta."""
+    vigentes = {s["id"] for s in SERVICES} | {e["id"] for e in EXTERNOS} | {
+        "internet", "temp", "ram", "carga", "corriente", "capacity", "pin_probe", "relayer_gas", "copia"}
+    for cid in [k for k in estado["alertas"] if k not in vigentes]:
+        logline(f"🧹 alerta descartada: {cid} (ya no se vigila)")
+        del estado["alertas"][cid]
+    guardar_estado()
+
 def main():
     logline("🟢 monitor iniciado")
+    limpiar_alertas_huerfanas()
     threading.Thread(target=hilo_avisos, daemon=True).start()
     threading.Thread(target=start_http_server, daemon=True).start()
     al_arrancar()
