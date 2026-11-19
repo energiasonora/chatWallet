@@ -21,6 +21,9 @@ Las versiones anteriores a la 3.00 están en los
   y la barra te sigue mientras movés el dedo; hacia la derecha se cierra igual. En el teléfono
   ya no tapa toda la pantalla: queda a la vista un borde de lo que estabas mirando. Deslizar
   un mensaje para responderlo ya no abre la barra por error.
+- **Invitar con tu cuenta Ğ1.** Si tenés Ğ1 activa, el botón de compartir manda un enlace
+  `chatwallet.org/@g1…` que abre tu tarjeta Ğ1. La primera vez te ofrece publicar el vínculo
+  entre tu cuenta Ğ1 y tu ChatWallet; si elegís «Ahora no», no te lo vuelve a preguntar.
 
 ## 3.110 — 2026-11-17
 
