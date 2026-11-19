@@ -7,6 +7,8 @@
 //   · relayer (libro.jsonl)
 //   · descargas del APK (releases de GitHub)
 //   · visitas a chatwallet.org (Cloudflare, sólo si hay token con permiso de analítica)
+//   · la caja: lo que escribe el monitor (servicios, máquina, caídas)
+//   · el roadmap («en el tintero»), que se edita desde el panel
 //
 // Entra sólo quien firma con una wallet de la lista USO_ADMINS. Hacia afuera salen cuentas,
 // nunca direcciones.
@@ -17,6 +19,7 @@ import express from 'express';
 import { ethers } from 'ethers';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const aqui = (p) => fileURLToPath(new URL(p, import.meta.url));
@@ -32,7 +35,13 @@ const UPLOAD_METRICS = process.env.USO_UPLOAD_METRICS || 'http://127.0.0.1:3100/
 const NTFY_STATS = process.env.USO_NTFY_STATS || 'https://ntfy.chatwallet.org/v1/stats';
 const GITHUB_REPO = process.env.USO_GITHUB_REPO || 'energiasonora/chatWallet';
 const CF_TOKEN = process.env.CF_API_TOKEN || '';
+// Avisos del blog de energiasonora.org: la lista la tiene el worker; lo mandado, el notificador.
+const NOTIFICADOR = process.env.USO_NOTIFIER_DIR || aqui('../sales-notifier');
+const AVISOS_API = process.env.USO_AVISOS_API || 'https://energiasonora.org/api/avisos';
 const CF_ZONA = process.env.CF_ZONE_NAME || 'chatwallet.org';
+// Lo que escribe el monitor de la caja (uso/monitor/monitor.py) y el roadmap, que se edita desde acá.
+const MONITOR = process.env.USO_MONITOR_DIR || (os.homedir() + '/www/monitor');
+const ROADMAP = process.env.USO_ROADMAP || aqui('./roadmap.json');
 
 const DIA = 86400000;
 const VENTANA_FIRMA = 5 * 60000;
@@ -126,6 +135,32 @@ function relayer(ahora) {
     };
 }
 
+// Suscriptores del blog por ChatWallet. Sólo cuentas: las direcciones no salen del worker.
+export async function blog(ahora) {
+    let token = '';
+    try { token = fs.readFileSync(NOTIFICADOR + '/.env', 'utf8').match(/^AGENDA_TOKEN=(.*)$/m)?.[1].trim() || ''; } catch {}
+    if (!token) return { sinToken: true };
+    const leer = async (ruta) => {
+        const r = await pedir(AVISOS_API + ruta, { headers: { authorization: 'Bearer ' + token } });
+        if (!r.ok) throw new Error('avisos ' + r.status);
+        return r.json();
+    };
+    const [{ subs }, { posts }] = await Promise.all([leer('/subs'), leer('/posts?since=0')]);
+    let estado = {};
+    try { estado = JSON.parse(fs.readFileSync(NOTIFICADOR + '/state.json', 'utf8')); } catch {}
+    const porIdioma = { es: 0, en: 0, fr: 0 };
+    for (const x of subs) porIdioma[x.lang] = (porIdioma[x.lang] || 0) + 1;
+    return {
+        suscriptores: subs.length,
+        nuevos7d: subs.filter(x => ahora - x.at < 7 * DIA).length,
+        porIdioma,
+        bajas: estado.bajasTotal || 0,
+        avisos: posts.slice().reverse().slice(0, 10).map(p => ({
+            id: p.id, titulo: p.title?.es || p.id, fecha: diaDe(p.at), enviados: (estado.avisosSent?.[p.id] || []).length,
+        })),
+    };
+}
+
 async function descargas() {
     const r = await pedir(`https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=100`,
         { headers: { 'user-agent': 'chatwallet-uso', accept: 'application/vnd.github+json' } });
@@ -163,6 +198,84 @@ async function visitas(ahora) {
     return { dias, nota: 'todo chatwallet.org (landing, libro y dapp juntos); únicos por IP y por día' };
 }
 
+// La caja: estado de ahora, muestras de la máquina y caídas. Lo escribe el monitor cada 30 s.
+const leerJsonl = (ruta) => {
+    try {
+        return fs.readFileSync(ruta, 'utf8').split('\n').filter(Boolean)
+            .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+    } catch { return []; }
+};
+export function caja(ahora) {
+    const estado = JSON.parse(fs.readFileSync(MONITOR + '/status.json', 'utf8'));
+    const edadSeg = Math.round((ahora - Date.parse(estado.timestamp)) / 1000);
+    const muestras = leerJsonl(MONITOR + '/muestras.jsonl');
+    const ultimas24 = muestras.filter(m => ahora - m.t * 1000 < DIA);
+    // 7 días: promedio por hora, para que el gráfico no cargue 2.000 puntos.
+    const porHora = new Map();
+    for (const m of muestras.filter(m => ahora - m.t * 1000 < 7 * DIA)) {
+        const h = Math.floor(m.t / 3600) * 3600;
+        const a = porHora.get(h) || { t: h, n: 0, temp: 0, carga: 0, ram: 0, peor: m.ok, total: m.total, sinCorriente: false };
+        a.n++; a.temp += m.temp || 0; a.carga += m.carga || 0; a.ram += m.ram || 0;
+        a.peor = Math.min(a.peor, m.ok); a.sinCorriente ||= m.corriente === false;
+        porHora.set(h, a);
+    }
+    const semana = [...porHora.values()].map(a => ({ t: a.t, temp: +(a.temp / a.n).toFixed(1), carga: +(a.carga / a.n).toFixed(2),
+        ram: Math.round(a.ram / a.n), ok: a.peor, total: a.total, sinCorriente: a.sinCorriente }));
+    const incidentes = leerJsonl(MONITOR + '/incidentes.jsonl').slice(-40).reverse();
+    return { ...estado, edadSeg, muestras24h: ultimas24, semana, incidentes };
+}
+
+// ── Roadmap ────────────────────────────────────────────────────────────────
+// Vive en la caja (roadmap.json junto al panel) y se edita desde el panel. El repo es público:
+// la copia de arranque está en uso/privado/, fuera de git, y el instalador no pisa la de la caja.
+const COLUMNAS = ['ahora', 'anunciar', 'pendiente', 'aparcada', 'otros', 'hecho'];
+const TIPOS = ['construir', 'anunciar', 'honestidad', 'publicar', 'terminar', 'probar', 'decidir', 'idea'];
+function leerRoadmap() {
+    try { return JSON.parse(fs.readFileSync(ROADMAP, 'utf8')); }
+    catch { return { version: 1, actualizado: 0, items: [] }; }
+}
+function guardarRoadmap(r) {
+    r.actualizado = Date.now();
+    // Una copia por día antes del primer cambio: un toque equivocado no se lleva nada.
+    const copia = ROADMAP.replace(/\.json$/, '') + '.' + diaDe(Date.now()) + '.bak.json';
+    if (fs.existsSync(ROADMAP) && !fs.existsSync(copia)) fs.copyFileSync(ROADMAP, copia);
+    fs.writeFileSync(ROADMAP + '.tmp', JSON.stringify(r, null, 1));
+    fs.renameSync(ROADMAP + '.tmp', ROADMAP);
+    return r;
+}
+const texto = (v, max) => String(v ?? '').trim().slice(0, max);
+export function cambiarRoadmap(cambio) {
+    const r = leerRoadmap();
+    const item = r.items.find(i => i.id === cambio.id);
+    switch (cambio.accion) {
+        case 'crear': {
+            const nuevo = { id: 'r' + Date.now().toString(36), seccion: COLUMNAS.includes(cambio.seccion) ? cambio.seccion : 'pendiente',
+                proyecto: texto(cambio.proyecto, 40) || 'General', item: texto(cambio.item, 200), detalle: texto(cambio.detalle, 600),
+                tipo: TIPOS.includes(cambio.tipo) ? cambio.tipo : 'idea', anotada: diaDe(Date.now()), creado: Date.now() };
+            if (!nuevo.item) throw new Error('falta el texto');
+            r.items.push(nuevo);
+            break;
+        }
+        case 'editar':
+            if (!item) throw new Error('no existe');
+            if ('item' in cambio) item.item = texto(cambio.item, 200) || item.item;
+            if ('detalle' in cambio) item.detalle = texto(cambio.detalle, 600);
+            if ('proyecto' in cambio) item.proyecto = texto(cambio.proyecto, 40) || item.proyecto;
+            if (TIPOS.includes(cambio.tipo)) item.tipo = cambio.tipo;
+            if (COLUMNAS.includes(cambio.seccion) && cambio.seccion !== item.seccion) {
+                item.seccion = cambio.seccion;
+                item.hecho = cambio.seccion === 'hecho' ? diaDe(Date.now()) : undefined;
+            }
+            break;
+        case 'borrar':
+            if (!item) throw new Error('no existe');
+            r.items = r.items.filter(i => i !== item);
+            break;
+        default: throw new Error('acción desconocida');
+    }
+    return guardarRoadmap(r);
+}
+
 // ── Historial ───────────────────────────────────────────────────────────────
 // El padrón de respaldos sólo guarda el último respaldo de cada wallet: sin una foto diaria no
 // hay forma de saber cómo venía la curva. Se guarda una línea por día, la última gana.
@@ -190,12 +303,13 @@ async function juntar() {
     const ahora = Date.now();
     // Cada fuente falla por separado: que GitHub no conteste no puede dejar el panel en blanco.
     const probar = async (fn) => { try { return await fn(); } catch (e) { return { error: String(e.message).slice(0, 120) }; } };
-    const [r, s, a, rl, d, v] = await Promise.all([
+    const [r, s, a, rl, d, v, b, c] = await Promise.all([
         probar(() => respaldos(ahora)), probar(subidas), probar(avisos),
-        probar(() => relayer(ahora)), probar(descargas), probar(() => visitas(ahora)),
+        probar(() => relayer(ahora)), probar(descargas), probar(() => visitas(ahora)), probar(() => blog(ahora)),
+        probar(() => caja(ahora)),
     ]);
     const datos = { generado: new Date(ahora).toISOString(), respaldos: r, subidas: s, avisos: a,
-                    relayer: rl, descargas: d, visitas: v };
+                    relayer: rl, descargas: d, visitas: v, blog: b, caja: c, roadmap: leerRoadmap() };
     anotarFoto(datos);
     datos.historial = leerHistorial().slice(-90);
     return datos;
@@ -231,6 +345,17 @@ app.post('/api/uso/entrar', (req, res) => {
 app.get('/api/uso/datos', soloAdmin, async (req, res) => {
     try { res.json(await juntar()); }
     catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// La caja sola, sin las fuentes lentas (GitHub, Cloudflare): el panel la refresca cada 30 s.
+app.get('/api/uso/caja', soloAdmin, (req, res) => {
+    try { res.json(caja(Date.now())); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/uso/roadmap', soloAdmin, (req, res) => {
+    try { res.json(cambiarRoadmap(req.body || {})); }
+    catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 // realpath: si la carpeta es un enlace, argv[1] y la URL del módulo no coinciden letra por letra.

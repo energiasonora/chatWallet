@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Copia el panel de uso a la caja y lo arranca en 127.0.0.1:3300. No toca ningún otro servicio.
+# Copia el panel de uso a la caja y lo arranca en 127.0.0.1:3300, y actualiza el monitor de la caja
+# (uso/monitor/monitor.py), que manda los avisos a ChatWallet. No toca ningún otro servicio.
 # Después muestra cómo están armados el túnel y el arranque, que es lo que falta para publicarlo
 # en uso.chatwallet.org.
 #
@@ -10,6 +11,13 @@ CAJA="${CAJA_HOST:-caja}"
 
 ssh -o ConnectTimeout=8 "$CAJA" 'mkdir -p ~/chatwallet-node/uso/js'
 rsync -az -e "ssh -o ConnectTimeout=8" uso-server.mjs panel.html "$CAJA:~/chatwallet-node/uso/"
+# El roadmap se edita desde el panel: la copia local (uso/privado, fuera de git) sólo siembra la primera vez.
+if [ -f privado/roadmap.json ]; then
+  rsync -az --ignore-existing -e "ssh -o ConnectTimeout=8" privado/roadmap.json "$CAJA:~/chatwallet-node/uso/roadmap.json"
+fi
+# Monitor de la caja: el viejo queda como respaldo con fecha.
+ssh -o ConnectTimeout=8 "$CAJA" 'cd ~/chatwallet-node/monitor && [ -f monitor.py.antes-panel ] || cp monitor.py monitor.py.antes-panel'
+rsync -az -e "ssh -o ConnectTimeout=8" monitor/monitor.py "$CAJA:~/chatwallet-node/monitor/monitor.py"
 # Entrar con ChatWallet por QR: el módulo propio (js/cw-firma.js, de cw-firma.mjs) y el bundle XMTP
 # para el navegador que ya construye Soberano Mail (npm run build:xmtp allá), con su wasm.
 XMTP_JS="${XMTP_JS:-$HOME/xunserver/soberano-mail/public/js}"
@@ -28,6 +36,25 @@ if (exec 3<>/dev/tcp/127.0.0.1/3300) 2>/dev/null; then exec 3<&-; exit 0; fi
 nohup node uso-server.mjs >> "$HOME/chatwallet-node/uso/uso.log" 2>&1 &
 ARRANQUE
 chmod +x ~/start-uso.sh
+
+# ── Monitor: los avisos van a la ChatWallet de producción (la misma que recibe las ventas) ──
+cd ~/chatwallet-node/monitor
+if [ ! -f .env ]; then
+  DESTINO=$(sed -n 's/^NOTIFY_TO=//p' ~/chatwallet-node/sales-notifier/.env | head -1)
+  umask 077; printf 'NOTIFY_TO=%s\nXMTP_ENV=production\n' "$DESTINO" > .env
+fi
+echo "── aviso de prueba por ChatWallet ──"
+( set -a; . ./.env; set +a; export PATH="$HOME/bin:$PATH"
+  node xmtp-alert.js "🧪 Prueba del monitor de la caja: si ves esto, los avisos llegan." ) 2>&1 | tail -2 || true
+# Reemplazar el monitor por su PID exacto (nunca por patrón).
+VIEJO=$(pgrep -f 'python3 +monito[r]\.py' | head -1)
+[ -n "$VIEJO" ] && kill "$VIEJO" && sleep 2
+~/start-monitor.sh
+sleep 40
+echo "── monitor ──"
+tail -n 8 ~/chatwallet-node/monitor/monitor.log
+python3 -c "import json;d=json.load(open('$HOME/www/monitor/status.json'));print('sistema:',d.get('sistema'));print([(s['id'],s['status']) for s in d['services'] if s['status']!='ok'] or 'todo ok')"
+cd ~/chatwallet-node/uso
 
 # Secreto de sesión fijo: sin él, cada reinicio te saca del panel.
 cd ~/chatwallet-node/uso

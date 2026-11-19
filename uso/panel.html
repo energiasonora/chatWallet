@@ -4,24 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
-<title>ChatWallet · uso</title>
+<title>ChatWallet · panel</title>
 <style>
-    :root { --fondo:#0f1218; --tarjeta:#181c25; --borde:#262c39; --texto:#e6e9ef; --tenue:#8b93a5; --acento:#818cf8; --ok:#34d399; --mal:#f87171; }
+    :root { --fondo:#0e1116; --tarjeta:#161a22; --tarjeta2:#1c2130; --borde:#262c39; --texto:#e6e9ef; --tenue:#8b93a5;
+            --acento:#818cf8; --ok:#34d399; --mal:#f87171; --aviso:#fbbf24; --linea2:#38bdf8; color-scheme: dark; }
     @media (prefers-color-scheme: light) {
-        :root { --fondo:#f4f5f8; --tarjeta:#fff; --borde:#dfe3ea; --texto:#171a21; --tenue:#667085; --acento:#4f46e5; --ok:#059669; --mal:#dc2626; }
+        :root { --fondo:#f4f5f8; --tarjeta:#fff; --tarjeta2:#f7f8fb; --borde:#dfe3ea; --texto:#171a21; --tenue:#667085;
+                --acento:#4f46e5; --ok:#059669; --mal:#dc2626; --aviso:#b45309; --linea2:#0284c7; color-scheme: light; }
     }
     * { box-sizing: border-box; }
     body { margin:0; background:var(--fondo); color:var(--texto); font:15px/1.45 system-ui,-apple-system,sans-serif; }
-    main { max-width:980px; margin:0 auto; padding:20px 16px 48px; }
-    header { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
-    h1 { font-size:20px; margin:0; }
-    h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--tenue); margin:26px 0 10px; font-weight:600; }
+    main { max-width:1080px; margin:0 auto; padding:16px 16px 56px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+    h1 { font-size:19px; margin:0; display:flex; align-items:center; gap:10px; }
+    h2 { font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--tenue); margin:26px 0 10px; font-weight:600; }
     .tenue { color:var(--tenue); font-size:13px; }
     .rejilla { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
-    .dato { background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:12px 14px; }
-    .dato b { display:block; font-size:26px; font-weight:650; font-variant-numeric:tabular-nums; }
+    .dato { background:var(--tarjeta); border:1px solid var(--borde); border-radius:14px; padding:12px 14px; }
+    .dato b { display:block; font-size:26px; font-weight:650; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
     .dato span { color:var(--tenue); font-size:13px; }
-    .caja { background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:14px; }
+    .dato.mal b { color:var(--mal); } .dato.aviso b { color:var(--aviso); }
+    .caja { background:var(--tarjeta); border:1px solid var(--borde); border-radius:14px; padding:14px; }
     .barras { display:flex; align-items:flex-end; gap:3px; height:110px; }
     .barras i { flex:1; background:var(--acento); border-radius:3px 3px 0 0; min-height:2px; opacity:.85; }
     .barras i.cero { background:var(--borde); }
@@ -31,19 +34,86 @@
     th { color:var(--tenue); font-weight:500; font-size:12px; }
     th:first-child, td:first-child { text-align:left; }
     .falla { color:var(--mal); font-size:13px; }
-    button { font:inherit; padding:10px 16px; border-radius:10px; border:0; background:var(--acento); color:#fff; font-weight:600; cursor:pointer; }
+    button, select, input, textarea { font:inherit; color:inherit; }
+    button { padding:10px 16px; border-radius:10px; border:0; background:var(--acento); color:#fff; font-weight:600; cursor:pointer; }
     button.suave { background:transparent; color:var(--tenue); border:1px solid var(--borde); padding:6px 12px; font-weight:500; }
+    button.peligro { background:transparent; color:var(--mal); border:1px solid var(--borde); }
     #puerta { max-width:420px; margin:14vh auto 0; text-align:center; }
     #puerta p { color:var(--tenue); }
     #cwQr svg { width:240px; height:240px; background:#fff; border-radius:12px; }
     a.suave { display:inline-block; padding:8px 14px; border-radius:10px; border:1px solid var(--borde); color:var(--texto); text-decoration:none; }
     [hidden] { display:none !important; }
+
+    /* pestañas */
+    nav.pestanas { display:flex; gap:4px; background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:4px; margin-bottom:6px; }
+    nav.pestanas button { flex:1; background:transparent; color:var(--tenue); padding:9px 10px; font-weight:600; border-radius:9px; }
+    nav.pestanas button[aria-selected="true"] { background:var(--tarjeta2); color:var(--texto); box-shadow:0 1px 0 var(--borde) inset, 0 0 0 1px var(--borde); }
+    .pildora { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:4px 10px; border-radius:99px;
+               background:var(--tarjeta); border:1px solid var(--borde); color:var(--tenue); }
+    .punto { width:8px; height:8px; border-radius:50%; background:var(--tenue); flex:none; }
+    .ok .punto, .punto.ok { background:var(--ok); } .mal .punto, .punto.mal { background:var(--mal); } .aviso .punto, .punto.aviso { background:var(--aviso); }
+    .pildora.ok { color:var(--ok); } .pildora.mal { color:var(--mal); } .pildora.aviso { color:var(--aviso); }
+
+    /* caja */
+    .estado-grande { display:flex; gap:14px; align-items:center; padding:16px; border-radius:16px; border:1px solid var(--borde); background:var(--tarjeta); }
+    .estado-grande .anillo { width:46px; height:46px; border-radius:50%; flex:none; display:grid; place-items:center; font-size:22px;
+                              background:color-mix(in srgb, var(--ok) 16%, transparent); color:var(--ok); }
+    .estado-grande.mal .anillo { background:color-mix(in srgb, var(--mal) 16%, transparent); color:var(--mal); }
+    .estado-grande.aviso .anillo { background:color-mix(in srgb, var(--aviso) 16%, transparent); color:var(--aviso); }
+    .estado-grande b { font-size:18px; display:block; }
+    .graficos { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:10px; }
+    .grafico { background:var(--tarjeta); border:1px solid var(--borde); border-radius:14px; padding:12px 14px 8px; position:relative; }
+    .grafico .cab { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+    .grafico .cab b { font-size:20px; font-variant-numeric:tabular-nums; }
+    .grafico svg { width:100%; height:90px; display:block; margin-top:6px; overflow:visible; touch-action:pan-y; }
+    .grafico .eje { font-size:11px; }
+    .servicios { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:8px; }
+    .servicio { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border-radius:12px; background:var(--tarjeta); border:1px solid var(--borde); }
+    .servicio .punto { margin-top:6px; }
+    .servicio b { font-weight:600; font-size:14px; display:block; }
+    .servicio small { color:var(--tenue); font-size:12px; overflow-wrap:anywhere; }
+    .segmentos { display:inline-flex; border:1px solid var(--borde); border-radius:9px; overflow:hidden; }
+    .segmentos button { background:transparent; color:var(--tenue); border-radius:0; padding:5px 12px; font-weight:500; }
+    .segmentos button[aria-pressed="true"] { background:var(--tarjeta2); color:var(--texto); }
+
+    /* tintero */
+    .barra-tintero { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:14px 0 12px; }
+    .barra-tintero select { background:var(--tarjeta); border:1px solid var(--borde); border-radius:10px; padding:8px 10px; }
+    .tablero { display:grid; grid-template-columns:repeat(6, minmax(230px, 1fr)); gap:10px; overflow-x:auto; padding-bottom:8px;
+               scroll-snap-type:x mandatory; align-items:start; }
+    .columna { background:var(--tarjeta2); border:1px solid var(--borde); border-radius:14px; padding:10px; min-height:120px; scroll-snap-align:start; }
+    .columna h3 { margin:2px 4px 10px; font-size:13px; display:flex; justify-content:space-between; }
+    .columna h3 span { color:var(--tenue); font-weight:500; }
+    .tarjeta { background:var(--tarjeta); border:1px solid var(--borde); border-radius:11px; padding:10px 11px; margin-bottom:8px; cursor:pointer;
+               transition:border-color .15s, transform .15s; }
+    .tarjeta:hover { border-color:var(--acento); }
+    .tarjeta:active { transform:scale(.99); }
+    .tarjeta .item { font-size:14px; font-weight:550; }
+    .tarjeta .det { font-size:12.5px; color:var(--tenue); margin-top:4px; }
+    .etiquetas { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+    .etq { font-size:10.5px; font-weight:600; letter-spacing:.03em; padding:2px 7px; border-radius:99px; border:1px solid var(--borde); color:var(--tenue); }
+    .etq.tipo { color:var(--acento); border-color:color-mix(in srgb, var(--acento) 40%, var(--borde)); }
+    .columna.hecho .tarjeta { opacity:.7; }
+    .columna.hecho .tarjeta .item { text-decoration:line-through; text-decoration-color:var(--tenue); }
+    dialog { border:1px solid var(--borde); border-radius:16px; background:var(--tarjeta); color:var(--texto); padding:18px; width:min(520px, calc(100vw - 32px)); }
+    dialog::backdrop { background:rgba(0,0,0,.5); }
+    dialog label { display:block; font-size:12px; color:var(--tenue); margin:10px 0 4px; }
+    dialog input, dialog textarea, dialog select { width:100%; background:var(--fondo); border:1px solid var(--borde); border-radius:10px; padding:9px 10px; }
+    dialog textarea { min-height:80px; resize:vertical; }
+    .fila { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .acciones { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; flex-wrap:wrap; }
+    .acciones .izq { margin-right:auto; }
+    @media (max-width: 640px) {
+        .tablero { grid-template-columns:repeat(6, 82vw); }
+        .dato b { font-size:22px; }
+        header .acc-txt { display:none; }
+    }
 </style>
 </head>
 <body>
 <main>
     <section id="puerta" hidden>
-        <h1>ChatWallet · uso</h1>
+        <h1 style="justify-content:center">ChatWallet · panel</h1>
         <p id="puertaTexto">Panel privado. Se entra firmando con la wallet autorizada.</p>
         <p><button id="cwBtn">Entrar con ChatWallet</button></p>
         <div id="cwPaso" hidden>
@@ -58,19 +128,65 @@
 
     <section id="panel" hidden>
         <header>
-            <h1>ChatWallet · uso</h1>
+            <h1>ChatWallet · panel <span id="pilCaja" class="pildora"><i class="punto"></i><span>…</span></span></h1>
             <div><span id="generado" class="tenue"></span> <button id="recargar" class="suave">Actualizar</button> <button id="salir" class="suave">Salir</button></div>
         </header>
-        <div id="cuerpo"></div>
+        <nav class="pestanas" role="tablist">
+            <button role="tab" data-v="caja" aria-selected="true">Caja</button>
+            <button role="tab" data-v="uso" aria-selected="false">Uso</button>
+            <button role="tab" data-v="tintero" aria-selected="false">En el tintero</button>
+        </nav>
+        <div id="vCaja"></div>
+        <div id="vUso" hidden></div>
+        <div id="vTintero" hidden></div>
     </section>
 </main>
+
+<dialog id="dlg">
+    <form id="dlgForm" method="dialog">
+        <h3 id="dlgTitulo" style="margin:0 0 4px">Editar</h3>
+        <label for="fItem">Qué</label><input id="fItem" maxlength="200" required>
+        <label for="fDetalle">Detalle</label><textarea id="fDetalle" maxlength="600"></textarea>
+        <div class="fila">
+            <div><label for="fProyecto">Proyecto</label><input id="fProyecto" maxlength="40" list="proyectos"></div>
+            <div><label for="fTipo">Tipo</label><select id="fTipo"></select></div>
+        </div>
+        <label for="fSeccion">Columna</label><select id="fSeccion"></select>
+        <datalist id="proyectos"></datalist>
+        <p id="dlgError" class="falla"></p>
+        <div class="acciones">
+            <button type="button" id="fBorrar" class="peligro izq">Borrar</button>
+            <button type="button" id="fHecho" class="suave">Marcar hecho</button>
+            <button type="button" id="fCancelar" class="suave">Cancelar</button>
+            <button type="submit" id="fGuardar">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
 <script type="module">
 const LLAVE = 'cw-uso-sesion';
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const num = (v) => v == null ? '—' : Number(v).toLocaleString('es-AR');
-const dato = (valor, etiqueta) => `<div class="dato"><b>${esc(typeof valor === 'number' ? num(valor) : valor)}</b><span>${esc(etiqueta)}</span></div>`;
+const dato = (valor, etiqueta, clase = '') => `<div class="dato ${clase}"><b>${esc(typeof valor === 'number' ? num(valor) : valor)}</b><span>${esc(etiqueta)}</span></div>`;
 const falla = (f) => `<p class="falla">No disponible: ${esc(f.error)}</p>`;
+const token = () => sessionStorage.getItem(LLAVE);
+const pedir = (ruta, opciones = {}) => fetch(ruta, { ...opciones, headers: { ...(opciones.headers || {}), authorization: 'Bearer ' + token() } });
+
+function duracion(seg) {
+    seg = Math.max(0, Math.round(seg));
+    if (seg < 90) return seg + ' s';
+    const m = Math.round(seg / 60);
+    if (m < 60) return m + ' min';
+    const h = Math.floor(m / 60);
+    if (h < 48) return h + ' h' + (m % 60 ? ' ' + String(m % 60).padStart(2, '0') + ' min' : '');
+    return Math.floor(h / 24) + ' días ' + (h % 24) + ' h';
+}
+const cuando = (s) => {
+    const d = new Date(s * 1000), hoy = new Date();
+    const hm = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    return d.toDateString() === hoy.toDateString() ? hm : d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + hm;
+};
 
 function barras(pares, pie) {
     const max = Math.max(1, ...pares.map(p => p[1]));
@@ -79,10 +195,153 @@ function barras(pares, pie) {
         <div class="eje tenue"><span>${esc(pares[0]?.[0] || '')}</span><span>${esc(pie)}</span><span>${esc(pares.at(-1)?.[0] || '')}</span></div></div>`;
 }
 
-function pintar(d) {
-    $('generado').textContent = 'al ' + new Date(d.generado).toLocaleString('es-AR');
-    let h = '';
+// ── Pestañas ────────────────────────────────────────────────────────────────
+let vista = 'caja';
+try { vista = localStorage.getItem('cw-panel-vista') || 'caja'; } catch {}
+function mostrar(v) {
+    vista = v;
+    try { localStorage.setItem('cw-panel-vista', v); } catch {}
+    document.querySelectorAll('nav.pestanas button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.v === v)));
+    $('vCaja').hidden = v !== 'caja'; $('vUso').hidden = v !== 'uso'; $('vTintero').hidden = v !== 'tintero';
+}
+document.querySelectorAll('nav.pestanas button').forEach(b => b.onclick = () => mostrar(b.dataset.v));
 
+// ── Caja ────────────────────────────────────────────────────────────────────
+const GRUPOS = { servicios: 'Servicios (se reinician solos)', afuera: 'Desde afuera (lo que ve un usuario)',
+                 maquina: 'La máquina', almacenamiento: 'Almacenamiento y relayer' };
+const claseDe = (st) => st === 'ok' || st === 'restarted' ? 'ok' : st === 'unknown' ? '' : st === 'degraded' ? 'aviso' : 'mal';
+let rangoCaja = '24h';
+let ultimaCaja = null;
+
+function detalleServicio(s) {
+    const i = s.info || {};
+    if (i.error) return i.error;
+    if (s.id === 'temp') return i.valor != null ? i.valor + ' °C' : 'sin sensor';
+    if (s.id === 'ram') return i.libre_mb != null ? num(i.libre_mb) + ' MB libres' : '';
+    if (s.id === 'carga') return i.carga ? 'carga ' + i.carga.join(' · ') : '';
+    if (s.id === 'corriente') return s.status === 'ok' ? 'enchufada' + (i.bateria_pct != null ? ` · batería ${i.bateria_pct}% (${i.bateria_estado || ''})` : '') : `a batería (${i.bateria_pct}%)`;
+    if (s.id === 'capacity') return `disco ${i.disco_pct}% · ${i.disco_libre_gb} GB libres` + (i.repo ? ` · IPFS ${i.repo}` : '');
+    if (s.id === 'relayer_gas') return i.resumen || '';
+    if (i.note) return i.note;
+    if (i.url) return i.url.replace(/^https:\/\//, '');
+    return i.pid ? 'PID ' + i.pid : '';
+}
+
+// Línea con área y lectura al pasar el dedo. puntos: [[segundos, valor], …]
+function linea(puntos, { color = 'var(--acento)', umbral, sufijo = '' } = {}) {
+    const vals = puntos.map(p => p[1]).filter(v => v != null);
+    if (vals.length < 2) return '<p class="tenue" style="margin:24px 0">Todavía no hay suficientes muestras.</p>';
+    // El umbral no estira la escala: si queda fuera de lo medido, no se dibuja (estaba lejos, que es la buena noticia).
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (hi - lo < 1e-9) { hi += 1; lo -= 1; }
+    const pad = (hi - lo) * .12; lo -= pad; hi += pad;
+    const t0 = puntos[0][0], t1 = puntos.at(-1)[0], W = 600, H = 90;
+    const x = (t) => ((t - t0) / Math.max(1, t1 - t0)) * W, y = (v) => H - ((v - lo) / (hi - lo)) * H;
+    let d = '', abierto = false;
+    for (const [t, v] of puntos) {
+        if (v == null) { abierto = false; continue; }
+        d += (abierto ? 'L' : 'M') + x(t).toFixed(1) + ' ' + y(v).toFixed(1);
+        abierto = true;
+    }
+    const id = 'g' + Math.random().toString(36).slice(2, 8);
+    const area = d.replace(/M([\d.]+) ([\d.]+)/, `M$1 ${H}L$1 $2`) + `L${W} ${H}Z`;
+    const um = umbral != null && umbral >= lo && umbral <= hi ? `<line x1="0" x2="${W}" y1="${y(umbral)}" y2="${y(umbral)}" stroke="var(--mal)" stroke-dasharray="4 4" stroke-width="1" opacity=".6" vector-effect="non-scaling-stroke"/>` : '';
+    queueMicrotask(() => {
+        const svg = document.getElementById(id);
+        if (!svg) return;
+        const marca = svg.querySelector('.marca'), txt = svg.parentElement.querySelector('.lectura');
+        const mover = (ev) => {
+            const r = svg.getBoundingClientRect(), fx = (ev.clientX - r.left) / r.width;
+            const t = t0 + fx * (t1 - t0);
+            let mejor = puntos[0];
+            for (const p of puntos) if (Math.abs(p[0] - t) < Math.abs(mejor[0] - t)) mejor = p;
+            if (mejor[1] == null) return;
+            marca.setAttribute('cx', x(mejor[0])); marca.setAttribute('cy', y(mejor[1])); marca.style.display = '';
+            txt.textContent = cuando(mejor[0]) + ' · ' + mejor[1] + sufijo;
+        };
+        svg.addEventListener('pointermove', mover);
+        svg.addEventListener('pointerleave', () => { marca.style.display = 'none'; txt.textContent = ''; });
+    });
+    return `<svg id="${id}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">
+        <path d="${area}" fill="${color}" opacity=".12"/>${um}
+        <path d="${d}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+        <circle class="marca" r="4" fill="${color}" style="display:none" vector-effect="non-scaling-stroke"/></svg>
+        <div class="eje tenue"><span>${esc(cuando(t0))}</span><span class="lectura"></span><span>${esc(cuando(t1))}</span></div>`;
+}
+
+function pintarCaja(c) {
+    ultimaCaja = c;
+    const el = $('vCaja');
+    const pil = $('pilCaja');
+    if (!c || c.error) {
+        pil.className = 'pildora mal'; pil.lastElementChild.textContent = 'sin datos';
+        el.innerHTML = `<h2>Caja</h2>${falla(c || { error: 'sin datos' })}<p class="tenue">El panel lee lo que escribe el monitor (monitor.py). Si falta, el monitor no está corriendo.</p>`;
+        return;
+    }
+    const s = c.sistema || {};
+    const svcs = c.services || [];
+    const malos = svcs.filter(x => claseDe(x.status) === 'mal' || claseDe(x.status) === 'aviso');
+    const viejo = c.edadSeg > 150;
+    const clase = viejo || malos.some(x => claseDe(x.status) === 'mal') ? 'mal' : malos.length ? 'aviso' : 'ok';
+    pil.className = 'pildora ' + clase;
+    pil.lastElementChild.textContent = viejo ? 'monitor sin señales' : malos.length ? `${malos.length} con problemas` : 'caja OK';
+
+    let h = `<h2>Ahora</h2><div class="estado-grande ${clase}"><div class="anillo">${clase === 'ok' ? '✓' : '!'}</div><div>`;
+    if (viejo) h += `<b>El monitor no escribe desde hace ${esc(duracion(c.edadSeg))}</b><span class="tenue">Puede estar parado el monitor o la caja entera. Lo de abajo es la última foto.</span>`;
+    else if (!malos.length) h += `<b>Todo bien · ${svcs.filter(x => x.status !== 'unknown').length} chequeos en verde</b>`;
+    else h += `<b>${malos.map(m => esc(m.name)).join(' · ')}</b>`;
+    h += `<span class="tenue" style="display:block">Prendida hace ${esc(duracion(s.arriba_seg || 0))} · última foto hace ${esc(duracion(c.edadSeg))} · los avisos llegan a tu ChatWallet</span></div></div>`;
+
+    const ram = s.ram_libre_mb, ramT = s.ram_total_mb;
+    h += '<div class="rejilla" style="margin-top:10px">';
+    h += dato(s.temp_c != null ? s.temp_c + ' °C' : '—', 'temperatura (la más alta)', s.temp_c >= 85 ? 'mal' : s.temp_c >= 70 ? 'aviso' : '');
+    h += dato(s.carga ? s.carga[0] : '—', `carga (1 min, ${s.nucleos || '?'} núcleos)`, s.carga && s.carga[0] > (s.nucleos || 1) * 2 ? 'aviso' : '');
+    h += dato(ram != null ? num(ram) + ' MB' : '—', `memoria libre de ${num(ramT)} MB`, ram < 300 ? 'aviso' : '');
+    h += dato(s.disco_pct != null ? s.disco_pct + ' %' : '—', `disco usado · ${s.disco_libre_gb ?? '?'} GB libres`, s.disco_pct >= 90 ? 'mal' : s.disco_pct >= 80 ? 'aviso' : '');
+    if ('corriente' in s) h += dato(s.corriente ? 'enchufada' : 'a batería', `batería ${s.bateria_pct ?? '?'}% · ${s.bateria_estado || ''}`,
+        !s.corriente ? 'mal' : s.bateria_pct === 0 ? 'aviso' : '');
+    h += '</div>';
+    if (s.corriente && s.bateria_pct === 0) h += '<p class="tenue">Con la batería en 0 %, un corte de luz la apaga en el acto.</p>';
+
+    // gráficos
+    const serie = rangoCaja === '24h' ? (c.muestras24h || []) : (c.semana || []);
+    h += `<h2 style="display:flex;justify-content:space-between;align-items:center">La máquina en el tiempo
+        <span class="segmentos"><button data-r="24h" aria-pressed="${rangoCaja === '24h'}">24 h</button><button data-r="7d" aria-pressed="${rangoCaja === '7d'}">7 días</button></span></h2>`;
+    const graf = (titulo, campo, opciones, actual) => `<div class="grafico"><div class="cab"><span class="tenue">${esc(titulo)}</span><b>${esc(actual)}</b></div>
+        ${linea(serie.map(m => [m.t, m[campo]]), opciones)}</div>`;
+    h += '<div class="graficos">';
+    h += graf('Temperatura', 'temp', { color: 'var(--aviso)', umbral: 85, sufijo: ' °C' }, s.temp_c != null ? s.temp_c + ' °C' : '—');
+    h += graf('Carga', 'carga', { color: 'var(--acento)', sufijo: '' }, s.carga ? String(s.carga[0]) : '—');
+    h += graf('Memoria libre', 'ram', { color: 'var(--linea2)', umbral: 150, sufijo: ' MB' }, ram != null ? num(ram) + ' MB' : '—');
+    h += graf('Chequeos en verde', 'ok', { color: 'var(--ok)', sufijo: '' }, `${svcs.filter(x => claseDe(x.status) === 'ok').length}/${svcs.length}`);
+    h += '</div>';
+    if (rangoCaja === '7d') h += '<p class="tenue">7 días: promedio por hora; «chequeos en verde» es el peor momento de cada hora.</p>';
+
+    for (const [g, titulo] of Object.entries(GRUPOS)) {
+        const lista = svcs.filter(x => (x.grupo || 'servicios') === g);
+        if (!lista.length) continue;
+        h += `<h2>${esc(titulo)}</h2><div class="servicios">` + lista.map(x =>
+            `<div class="servicio"><i class="punto ${claseDe(x.status)}"></i><div><b>${esc(x.name)}${x.status === 'restarted' ? ' · reiniciado' : ''}</b><small>${esc(detalleServicio(x))}</small></div></div>`).join('') + '</div>';
+    }
+
+    h += '<h2>Caídas y reinicios</h2>';
+    const abiertos = c.abiertos || [];
+    const inc = c.incidentes || [];
+    if (!abiertos.length && !inc.length) h += '<p class="tenue">Sin incidentes registrados desde que corre el monitor nuevo.</p>';
+    else {
+        h += '<div class="caja"><table><tr><th>Qué</th><th>Desde</th><th>Hasta</th><th>Duró</th></tr>';
+        for (const a of abiertos) h += `<tr><td><span class="pildora mal"><i class="punto"></i>sigue</span> ${esc(a.nombre || a.id)}<br><small class="tenue">${esc(a.detalle || '')}</small></td><td>${esc(cuando(a.desde))}</td><td>—</td><td>${esc(duracion(Date.now() / 1000 - a.desde))}</td></tr>`;
+        for (const i of inc) h += `<tr><td>${esc(i.nombre)}<br><small class="tenue">${esc(i.detalle || '')}</small></td><td>${esc(cuando(i.desde))}</td><td>${esc(cuando(i.hasta))}</td><td>${esc(i.hasta - i.desde < 5 ? '—' : duracion(i.hasta - i.desde))}</td></tr>`;
+        h += '</table></div>';
+    }
+    h += `<p class="tenue">El monitor mira cada 30 s (las páginas públicas cada 2 min), reinicia lo que se cae y te escribe una vez por caída y otra cuando vuelve. A las 9 manda un resumen: si un día no llega, la caja no está.</p>`;
+    el.innerHTML = h;
+    el.querySelectorAll('.segmentos button').forEach(b => b.onclick = () => { rangoCaja = b.dataset.r; pintarCaja(ultimaCaja); });
+}
+
+// ── Uso ─────────────────────────────────────────────────────────────────────
+function pintarUso(d) {
+    let h = '';
     h += '<h2>Wallets con chat (respaldos en el nodo propio)</h2>';
     const r = d.respaldos;
     if (r.error) h += falla(r);
@@ -96,9 +355,14 @@ function pintar(d) {
     }
 
     if (d.historial?.length > 1) {
-        h += '<h2>Evolución (una foto por día desde que existe el panel)</h2>';
-        h += barras(d.historial.map(f => [f.dia, f.activas7d]), 'wallets activas en 7 días');
-        h += '<div style="height:10px"></div>' + barras(d.historial.map(f => [f.dia, f.wallets]), 'wallets con respaldo, acumulado');
+        h += '<h2>Evolución (una foto por día desde que existe el panel)</h2><div class="graficos">';
+        const t = (f) => Date.parse(f.dia + 'T12:00:00') / 1000;
+        const ult = d.historial.at(-1);
+        h += `<div class="grafico"><div class="cab"><span class="tenue">Wallets con respaldo</span><b>${num(ult.wallets)}</b></div>${linea(d.historial.map(f => [t(f), f.wallets]), {})}</div>`;
+        h += `<div class="grafico"><div class="cab"><span class="tenue">Activas en 30 días</span><b>${num(ult.activas30d)}</b></div>${linea(d.historial.map(f => [t(f), f.activas30d]), { color: 'var(--linea2)' })}</div>`;
+        h += `<div class="grafico"><div class="cab"><span class="tenue">Activas en 7 días</span><b>${num(ult.activas7d)}</b></div>${linea(d.historial.map(f => [t(f), f.activas7d]), { color: 'var(--ok)' })}</div>`;
+        if (ult.descargas != null) h += `<div class="grafico"><div class="cab"><span class="tenue">Descargas APK firmada</span><b>${num(ult.descargas)}</b></div>${linea(d.historial.map(f => [t(f), f.descargas]), { color: 'var(--aviso)' })}</div>`;
+        h += '</div>';
     }
 
     h += '<h2>Descargas del APK (GitHub)</h2>';
@@ -122,6 +386,20 @@ function pintar(d) {
         h += `<p class="tenue">${esc(v.nota)}</p>`;
     }
 
+    h += '<h2>Blog de energiasonora.org (avisos por ChatWallet)</h2>';
+    const b = d.blog;
+    if (!b) h += '<p class="tenue">Sin datos.</p>';
+    else if (b.error) h += falla(b);
+    else if (b.sinToken) h += '<p class="tenue">Sin conectar: falta AGENDA_TOKEN en el .env del notificador.</p>';
+    else {
+        h += `<div class="rejilla">${dato(b.suscriptores, 'suscriptores')}${dato(b.nuevos7d, 'nuevos en 7 días')}
+            ${dato(b.porIdioma.es, 'en español')}${dato(b.porIdioma.en, 'en inglés')}${dato(b.porIdioma.fr, 'en francés')}${dato(b.bajas, 'bajas (respondieron BAJA)')}</div>`;
+        if (b.avisos.length) h += `<div class="caja" style="margin-top:10px"><table><tr><th>Post anunciado</th><th>Fecha</th><th>Enviado a</th></tr>
+            ${b.avisos.map(p => `<tr><td>${esc(p.titulo)}</td><td>${esc(p.fecha)}</td><td>${num(p.enviados)}</td></tr>`).join('')}</table></div>`;
+        else h += '<p class="tenue">Todavía no se anunció ningún post.</p>';
+        h += '<p class="tenue">Las direcciones no se muestran: el panel sólo cuenta. «Enviado a» incluye los intentos a direcciones sin XMTP.</p>';
+    }
+
     h += '<h2>Relayer (pagos sin gas)</h2>';
     const l = d.relayer;
     if (l.error) h += falla(l);
@@ -138,18 +416,110 @@ function pintar(d) {
     h += '</div>';
 
     h += '<h2>Lo que este panel no puede ver</h2><p class="tenue">Wallets que no usan el chat, pagos de QR por P2P.me (en cadena no se distinguen de los de la app oficial) y cuántos teléfonos tienen la app instalada.</p>';
-    $('cuerpo').innerHTML = h;
+    $('vUso').innerHTML = h;
 }
 
+// ── En el tintero (roadmap) ─────────────────────────────────────────────────
+const COLUMNAS = [['ahora', 'Ahora'], ['anunciar', 'Falta anunciar'], ['pendiente', 'A medias'], ['aparcada', 'Ideas aparcadas'], ['otros', 'Otros proyectos'], ['hecho', 'Hecho']];
+const TIPOS = ['construir', 'anunciar', 'honestidad', 'publicar', 'terminar', 'probar', 'decidir', 'idea'];
+let roadmap = { items: [] };
+let filtro = '';
+try { filtro = localStorage.getItem('cw-panel-filtro') || ''; } catch {}
+let editando = null;
+
+function pintarTintero() {
+    const items = roadmap.items || [];
+    const proyectos = [...new Set(items.map(i => i.proyecto))].sort((a, b) => a.localeCompare(b, 'es'));
+    if (filtro && !proyectos.includes(filtro)) filtro = '';
+    const vis = items.filter(i => !filtro || i.proyecto === filtro);
+    let h = `<div class="barra-tintero">
+        <select id="tFiltro" aria-label="Proyecto"><option value="">Todos los proyectos (${items.filter(i => i.seccion !== 'hecho').length} abiertos)</option>
+            ${proyectos.map(p => `<option ${p === filtro ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>
+        <button id="tNuevo">+ Agregar</button>
+        <span class="tenue">Tocá una tarjeta para editarla o moverla. Se guarda en la caja; queda una copia por día.</span></div>`;
+    h += '<div class="tablero">';
+    for (const [col, titulo] of COLUMNAS) {
+        let lista = vis.filter(i => i.seccion === col);
+        if (col === 'hecho') lista = lista.sort((a, b) => String(b.hecho || '').localeCompare(String(a.hecho || '')));
+        h += `<div class="columna ${col}"><h3>${esc(titulo)} <span>${lista.length}</span></h3>`;
+        h += lista.map(i => `<div class="tarjeta" data-id="${esc(i.id)}" tabindex="0">
+            <div class="etiquetas"><span class="etq tipo">${esc(i.tipo)}</span><span class="etq">${esc(i.proyecto)}</span>${i.hecho ? `<span class="etq">${esc(i.hecho)}</span>` : ''}</div>
+            <div class="item">${esc(i.item)}</div>${i.detalle ? `<div class="det">${esc(i.detalle)}</div>` : ''}</div>`).join('');
+        if (!lista.length) h += '<p class="tenue" style="margin:4px">—</p>';
+        h += '</div>';
+    }
+    h += '</div>';
+    $('vTintero').innerHTML = h;
+    $('tFiltro').onchange = (e) => { filtro = e.target.value; try { localStorage.setItem('cw-panel-filtro', filtro); } catch {} pintarTintero(); };
+    $('tNuevo').onclick = () => abrirDialogo(null);
+    $('vTintero').querySelectorAll('.tarjeta').forEach(t => {
+        const abrir = () => abrirDialogo(items.find(i => i.id === t.dataset.id));
+        t.onclick = abrir;
+        t.onkeydown = (e) => { if (e.key === 'Enter') abrir(); };
+    });
+    $('proyectos').innerHTML = proyectos.map(p => `<option value="${esc(p)}">`).join('');
+}
+
+$('fTipo').innerHTML = TIPOS.map(t => `<option>${t}</option>`).join('');
+$('fSeccion').innerHTML = COLUMNAS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+function abrirDialogo(item) {
+    editando = item;
+    $('dlgTitulo').textContent = item ? 'Editar' : 'Agregar al tintero';
+    $('fItem').value = item?.item || '';
+    $('fDetalle').value = item?.detalle || '';
+    $('fProyecto').value = item?.proyecto || filtro || '';
+    $('fTipo').value = item?.tipo || 'idea';
+    $('fSeccion').value = item?.seccion || 'pendiente';
+    $('fBorrar').hidden = !item; $('fHecho').hidden = !item || item.seccion === 'hecho';
+    $('dlgError').textContent = '';
+    $('dlg').showModal();
+}
+async function cambiar(cambio) {
+    $('dlgError').textContent = '';
+    const r = await pedir('/api/uso/roadmap', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cambio) });
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 401) { sessionStorage.removeItem(LLAVE); $('dlg').close(); return puerta('La sesión venció.'); }
+    if (!r.ok) { $('dlgError').textContent = d.error || 'No se pudo guardar.'; return; }
+    roadmap = d;
+    $('dlg').close();
+    pintarTintero();
+}
+const campos = () => ({ item: $('fItem').value, detalle: $('fDetalle').value, proyecto: $('fProyecto').value, tipo: $('fTipo').value, seccion: $('fSeccion').value });
+$('dlgForm').onsubmit = (e) => { e.preventDefault(); cambiar(editando ? { accion: 'editar', id: editando.id, ...campos() } : { accion: 'crear', ...campos() }); };
+$('fCancelar').onclick = () => $('dlg').close();
+$('fHecho').onclick = () => editando && cambiar({ accion: 'editar', id: editando.id, ...campos(), seccion: 'hecho' });
+$('fBorrar').onclick = () => {
+    if (!editando) return;
+    // Sin confirm(): un segundo toque dentro de 3 s confirma.
+    const b = $('fBorrar');
+    if (b.dataset.armado) return cambiar({ accion: 'borrar', id: editando.id });
+    b.dataset.armado = '1'; b.textContent = '¿Seguro? Tocá otra vez';
+    setTimeout(() => { delete b.dataset.armado; b.textContent = 'Borrar'; }, 3000);
+};
+
+// ── Carga ───────────────────────────────────────────────────────────────────
 async function cargar() {
-    const token = sessionStorage.getItem(LLAVE);
-    if (!token) return puerta();
-    const r = await fetch('/api/uso/datos', { headers: { authorization: 'Bearer ' + token } });
+    if (!token()) return puerta();
+    const r = await pedir('/api/uso/datos');
     if (r.status === 401) { sessionStorage.removeItem(LLAVE); return puerta('La sesión venció.'); }
     if (!r.ok) return puerta('El servidor respondió ' + r.status + '.');
     $('puerta').hidden = true; $('panel').hidden = false;
-    pintar(await r.json());
+    const d = await r.json();
+    $('generado').textContent = 'al ' + new Date(d.generado).toLocaleString('es-AR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+    pintarCaja(d.caja);
+    pintarUso(d);
+    roadmap = d.roadmap || { items: [] };
+    pintarTintero();
+    mostrar(vista);
 }
+// La caja cambia en segundos; el resto (GitHub, Cloudflare) no hace falta pedirlo tan seguido.
+setInterval(async () => {
+    if (!token() || $('panel').hidden || document.hidden) return;
+    try {
+        const r = await pedir('/api/uso/caja');
+        if (r.ok) pintarCaja(await r.json());
+    } catch {}
+}, 30000);
 
 function puerta(error) {
     $('panel').hidden = true; $('puerta').hidden = false;
