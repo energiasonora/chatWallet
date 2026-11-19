@@ -28,6 +28,16 @@ import { createHash } from "node:crypto";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const STATE_FILE = join(HERE, "alert-state.json");
 const AVATAR_FILE = join(HERE, "alerta-avatar.webp");
+// El destino vive en el .env de esta carpeta. Lo lee el propio script, no sólo monitor.py: así
+// cualquier otro que lo llame (el vigía de backups de RHM, cron de las 07:30) manda al mismo
+// lugar. Antes esos llamados caían en el default viejo (red dev), donde no lee nadie.
+// Una variable de entorno explícita sigue ganando.
+try {
+  for (const linea of readFileSync(join(HERE, ".env"), "utf8").split("\n")) {
+    const m = linea.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/);
+    if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2];
+  }
+} catch { /* sin .env: defaults de abajo */ }
 const XMTP_ENV = process.env.XMTP_ENV || "dev";
 const NOTIFY_TO = (process.env.NOTIFY_TO || "0x7a38722ff7d1139dca52dbbc368378a178e6d572").toLowerCase();
 const ALIAS = process.env.ALERT_ALIAS || "Monitor de la caja";
