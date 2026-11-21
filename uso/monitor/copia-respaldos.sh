@@ -22,6 +22,12 @@ set -uo pipefail
 export PATH="$HOME/bin:$PATH"
 
 DESTINO="${COPIA_DESTINO:-rhm@samsung.local}"
+# El nombre .local (mDNS) a veces no resuelve desde la caja (pasó el 21/11/2026: 6 intentos
+# fallidos con la Samsung prendida). Si no resuelve, se usa la IP fija de la LAN.
+SAMSUNG_IP="${COPIA_SAMSUNG_IP:-192.168.1.45}"
+if [ -z "${COPIA_DESTINO:-}" ] && ! getent hosts samsung.local >/dev/null 2>&1; then
+  DESTINO="rhm@$SAMSUNG_IP"
+fi
 LLAVE="${COPIA_LLAVE:-$HOME/.ssh/id_respaldos_samsung}"
 CARS="$HOME/respaldos-car"
 ESTADO="$HOME/www/monitor/copia.json"
