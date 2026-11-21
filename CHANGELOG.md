@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.112 — 2026-11-21
+
 - **«Publicar e invitar con Ğ1» ya funciona.** En la 3.111 fallaba con «cuentaExiste is not
   a function»: la app había salido con una versión vieja de la parte que habla con la cadena Ğ1.
 
