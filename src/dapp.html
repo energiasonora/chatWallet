@@ -16921,7 +16921,33 @@
             // que la primera vez se pregunta; «Ahora no» queda anotado y se usa el link común.
             function claveVinculoPublicoG1(a) { return `cw-g1-vinculo-publico-${String(a).toLowerCase()}`; }
             function claveVinculoPublicoNo(a) { return `cw-g1-vinculo-publico-no-${String(a).toLowerCase()}`; }
-            function urlInvitacionG1(g1) { return `${new URL(PUBLIC_INVITE_BASE).origin}/@${g1}`; }
+            // Con seudónimo Ğ1 el link es chatwallet.org/@Xunorus; si no, chatwallet.org/@g1….
+            function urlInvitacionG1(g1, nombre) {
+                return `${new URL(PUBLIC_INVITE_BASE).origin}/@${nombre ? encodeURIComponent(nombre) : g1}`;
+            }
+
+            // Tu seudónimo Ğ1, para el link. Se guarda un día (el nombre no cambia, pero la
+            // identidad puede revocarse o cambiar de llave). Una identidad revocada no presta su
+            // nombre: el link va con la g1. Si el indexador no contesta, lo guardado o null.
+            const ESTADOS_G1_CON_NOMBRE = ['Member', 'Unvalidated', 'NotMember'];
+            async function nombreG1Propio(c) {
+                const clave = `cw-g1-nombre-${c.g1}`;
+                const guardado = leerJSONLocal(clave);
+                if (guardado && Date.now() - guardado.t < 86400000) return guardado.nombre || null;
+                try {
+                    const B = await window.cwCargarBilleteraG1();
+                    const id = await Promise.race([
+                        B.G1.identidad(c.g1),
+                        new Promise((_, no) => setTimeout(() => no(new Error('el indexador Ğ1 tardó')), 3000)),
+                    ]);
+                    const nombre = id && id.nombre && ESTADOS_G1_CON_NOMBRE.includes(id.estado) ? id.nombre : null;
+                    localStorage.setItem(clave, JSON.stringify({ nombre, t: Date.now() }));
+                    return nombre;
+                } catch (e) {
+                    console.warn('[g1] seudónimo propio:', e?.message || e);
+                    return guardado ? guardado.nombre || null : null;
+                }
+            }
 
             // Tu vínculo público vigente para la cuenta Ğ1 elegida, o null si no hay. Tira si el
             // indexador no contesta: en ese caso no se pregunta nada y va el link común.
@@ -16976,7 +17002,8 @@
                 };
                 // Compartir después de publicar es otro toque: la hoja nativa no se abre sin uno
                 // reciente, y la transacción tarda más que eso.
-                q('compartir').onclick = () => { modal.remove(); compartirUrlInvitacion(urlInvitacionG1(c.g1)); };
+                const nombreG1 = nombreG1Propio(c);   // ya, para tenerlo cuando toque «Compartir»
+                q('compartir').onclick = async () => { modal.remove(); compartirUrlInvitacion(urlInvitacionG1(c.g1, await nombreG1)); };
                 q('publicar').onclick = async () => {
                     q('publicar').disabled = true; q('comun').disabled = true;
                     try {
@@ -17026,8 +17053,9 @@
                 const c = redG1Activa() ? cuentaG1Guardada() : null;
                 if (c && c.g1) {
                     let v;
+                    const nombre = nombreG1Propio(c);   // en paralelo: la hoja de compartir no espera
                     try { v = await vinculoPublicoPropio(c); } catch (e) { v = undefined; console.warn('[g1] vínculo público:', e?.message || e); }
-                    if (v) return compartirUrlInvitacion(urlInvitacionG1(c.g1));
+                    if (v) return compartirUrlInvitacion(urlInvitacionG1(c.g1, await nombre));
                     if (v === null && localStorage.getItem(claveVinculoPublicoNo(currentWallet.address)) !== c.g1) {
                         ofrecerVinculoPublicoG1(c, evmUrl);
                         return;
@@ -19225,6 +19253,19 @@
                 if (/^g1[1-9A-HJ-NP-Za-km-z]{40,60}$/.test(sinArroba)) {
                     const g1 = await leerQrG1Seguro(sinArroba);
                     if (g1) { mostrarCuentaG1Escaneada(g1); return true; }
+                }
+                // chatwallet.org/@Xunorus: un nombre pelado es primero un seudónimo Ğ1 (.eth hay que
+                // escribirlo). Si no hay identidad Ğ1 con ese nombre —o el indexador no contesta—
+                // se prueba como .eth, que es lo que significaban estos links hasta la 3.112.
+                if (/^[A-Za-z0-9_-]{3,42}$/.test(sinArroba)) {
+                    let n = null;
+                    try { n = await (await window.cwCargarBilleteraG1()).G1.cuentaDeNombre(sinArroba); }
+                    catch (e) { console.warn('[g1] seudónimo:', e?.message || e); }
+                    if (n && n.ambiguo) {
+                        showToast(escHtml(t('g1_name_ambiguous', { names: n.ambiguo.join(', ') })), 'error', 10000);
+                        return false;
+                    }
+                    if (n && n.g1) { mostrarCuentaG1Escaneada({ g1: n.g1 }); return true; }
                 }
                 let r = null;
                 try { r = await cwDireccionDeDestino(destino); }
@@ -25661,6 +25702,7 @@
                     "g1_pub_common": "Compartir el link común",
                     "g1_pub_done": "Listo: quedó en el bloque {b}. Ya podés compartir tu link Ğ1.",
                     "g1_pub_no_account": "Tu cuenta Ğ1 todavía no existe en la cadena: tiene que haber recibido Ğ1 alguna vez. Por ahora va el link común.",
+                    "g1_name_ambiguous": "Hay varias identidades Ğ1 con ese nombre en distintas mayúsculas: {names}. Abrí el link con el nombre exacto.",
                     "g1_scan_certs_needed": "{n} certificaciones vigentes (hacen falta 5 para ser miembro)",
                     "g1_st_unconfirmed": "identidad sin confirmar",
                     "g1_st_unvalidated": "identidad esperando certificaciones",
@@ -26518,6 +26560,7 @@
                     "g1_pub_common": "Share the regular link",
                     "g1_pub_done": "Done: it's in block {b}. You can now share your Ğ1 link.",
                     "g1_pub_no_account": "Your Ğ1 account doesn't exist on the chain yet: it has to have received Ğ1 at least once. For now, the regular link is used.",
+                    "g1_name_ambiguous": "Several Ğ1 identities share that name with different capitalization: {names}. Open the link with the exact name.",
                     "g1_scan_certs_needed": "{n} active certifications (5 needed to become a member)",
                     "g1_st_unconfirmed": "unconfirmed identity",
                     "g1_st_unvalidated": "identity awaiting certifications",
@@ -27375,6 +27418,7 @@
                     "g1_pub_common": "Partager le lien habituel",
                     "g1_pub_done": "C'est fait : c'est dans le bloc {b}. Tu peux maintenant partager ton lien Ğ1.",
                     "g1_pub_no_account": "Ton compte Ğ1 n'existe pas encore sur la chaîne : il doit avoir reçu des Ğ1 au moins une fois. Pour l'instant, c'est le lien habituel.",
+                    "g1_name_ambiguous": "Plusieurs identités Ğ1 portent ce nom avec des majuscules différentes : {names}. Ouvre le lien avec le nom exact.",
                     "g1_scan_certs_needed": "{n} certifications actives (il en faut 5 pour être membre)",
                     "g1_st_unconfirmed": "identité non confirmée",
                     "g1_st_unvalidated": "identité en attente de certifications",

@@ -295,6 +295,28 @@
     };
   }
 
+  // Seudónimo Ğ1 → cuenta (la llave dueña ACTUAL de la identidad). Los nombres distinguen
+  // mayúsculas en la cadena: si el nombre exacto existe, vale ése (y si su identidad ya fue
+  // borrada, null: el nombre queda reservado pero no lleva a nadie). Si no, uno que sólo
+  // difiera en mayúsculas, siempre que sea uno solo; con varios → { ambiguo: [nombres] }.
+  // → { nombre, g1, estado } | { ambiguo } | null
+  const Q_NOMBRE = `query($n:String!){
+    identities(first:10, filter:{ name:{ equalToInsensitive:$n } }){ nodes{ name status accountId } } }`;
+  async function cuentaDeNombre(nombre, fetchFn){
+    nombre = String(nombre || '');
+    if(!/^[A-Za-z0-9_-]{3,42}$/.test(nombre)) return null;
+    const d = await consultar(Q_NOMBRE, { n: nombre }, fetchFn);
+    const nodos = (d.identities && d.identities.nodes) || [];
+    const viva = n => !!n.accountId && n.status !== 'Removed';
+    const r = n => ({ nombre: n.name, g1: n.accountId, estado: n.status });
+    const exacta = nodos.find(n => n.name === nombre);
+    if(exacta) return viva(exacta) ? r(exacta) : null;
+    const vivas = nodos.filter(viva);
+    if(vivas.length === 1) return r(vivas[0]);
+    if(vivas.length > 1) return { ambiguo: vivas.map(n => n.name) };
+    return null;
+  }
+
   // Entrada libre (0x… o g1…) → { vinculo, identidad } para pintar el badge.
   async function consultarSerVivo(entrada, ethers, fetchFn){
     const s = String(entrada || '').trim();
@@ -316,7 +338,7 @@
     blake2b512, base58Decodificar, base58Codificar, ss58Decodificar, ss58Codificar, esDireccionG1,
     b64urlCodificar, b64urlDecodificar,
     mensajeVinculo, comentarioVinculo, prefijoComentarioDe, leerComentario, verificarComentario,
-    consultar, vinculoDeG1, vinculoDeEvm, identidad, consultarSerVivo,
+    consultar, vinculoDeG1, vinculoDeEvm, identidad, cuentaDeNombre, consultarSerVivo,
   };
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.IusG1 = api;

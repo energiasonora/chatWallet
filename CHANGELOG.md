@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Tu seudónimo Ğ1 es tu link.** Si tenés identidad Ğ1, el botón de compartir manda
+  `chatwallet.org/@TuNombre` en vez de la dirección g1 larga. Al abrir `chatwallet.org/@nombre`
+  se busca primero ese seudónimo Ğ1 (sin importar mayúsculas) y se ve su tarjeta; los nombres
+  `.eth` siguen andando escritos completos, y un nombre sin identidad Ğ1 se sigue probando como `.eth`.
+
 ## 3.112 — 2026-11-21
 
 - **«Publicar e invitar con Ğ1» ya funciona.** En la 3.111 fallaba con «cuentaExiste is not

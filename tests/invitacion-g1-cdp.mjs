@@ -1,6 +1,7 @@
 // Invitar con la cuenta Ğ1: el botón de compartir de al lado del nombre manda
 // chatwallet.org/@g1… si hay vínculo público ius1; si no, ofrece publicarlo UNA vez
 // («Ahora no» queda anotado); y /@g1… del otro lado abre la tarjeta Ğ1 del escáner.
+// Con seudónimo Ğ1, el link es /@Nombre (se resuelve contra el indexador real).
 // La cadena va simulada (no se manda nada); el comentario que se "publicaría" se verifica
 // con el mismo código que usa quien lo lee.
 //
@@ -136,6 +137,33 @@ try {
     await ev(`document.getElementById('g1EscaneoModal')?.remove()`);
     await ev(`void abrirChatConDestino('g1NoEsUnaCuentaValidaPeroTieneElLargoDeUna1234567', null, {greet:'link'})`); await sleep(1000);
     ok(!(await hayModal('g1EscaneoModal')), 'una g1 con la suma de control mal no abre la tarjeta');
+
+    // ── 7. Seudónimo Ğ1: chatwallet.org/@Xunorus ──
+    // Compartir: con nombre (identidad viva) el link lleva el nombre; revocada, la g1.
+    await ev(`localStorage.setItem('cw-g1-vinculo-publico-${dir.toLowerCase()}', JSON.stringify({g1:'${miG1}', bloque:1}));
+        localStorage.removeItem('cw-g1-nombre-${miG1}');
+        (async()=>{ const G=${B}.G1; window.__idty={nombre:'Mi_Nombre', estado:'Unvalidated'}; G.identidad = async()=>window.__idty; })()`);
+    await tocarCompartir();
+    ok(await copiado() === 'https://chatwallet.org/@Mi_Nombre', 'con seudónimo Ğ1 → comparte chatwallet.org/@Mi_Nombre');
+    await ev(`localStorage.removeItem('cw-g1-nombre-${miG1}'); window.__idty={nombre:'Mi_Nombre', estado:'Revoked'};`);
+    await tocarCompartir();
+    ok(await copiado() === `https://chatwallet.org/@${miG1}`, 'identidad revocada → no presta el nombre, va la g1');
+    // Del otro lado, contra el indexador real: «Xunorus» existe (con X mayúscula).
+    const XUN = 'g1Pb8LtH4vn5XMHAYQVaBGVmLXU3UQxw6zdhf6C4NE1HcDyWW';
+    const deNombre = (n) => ev(`(async()=>${B}.G1.cuentaDeNombre(${JSON.stringify(n)}))()`);
+    ok((await deNombre('Xunorus'))?.g1 === XUN, 'cuentaDeNombre: nombre exacto → su cuenta');
+    const min = await deNombre('xunorus');
+    ok(min?.g1 === XUN && min?.nombre === 'Xunorus', 'en minúsculas también, y devuelve el nombre real');
+    ok(await deNombre('zz-nadie-tiene-esto-7') === null, 'nombre que no existe → null');
+    ok(await deNombre('no.vale') === null && await deNombre('ab') === null, 'nombre con caracteres o largo inválidos → null sin preguntar');
+    ok(await ev(`cwDestinoDeLink('https://chatwallet.org/@Xunorus')`) === 'Xunorus', 'cwDestinoDeLink lee /@Xunorus');
+    await ev(`void abrirChatConDestino('@xunorus', null, {greet:'link'})`); await sleep(4000);
+    ok(await hayModal('g1EscaneoModal'), '/@xunorus abre la tarjeta Ğ1');
+    ok(await ev(`document.querySelector('#g1EscaneoModal [data-g1="cuenta"]')?.textContent`) === XUN, '…de la cuenta de Xunorus');
+    ok(await ev(`!document.querySelector('#g1EscaneoModal [data-g1="chat"]')?.classList.contains('hidden')`), '…con «Agregar y chatear» (su vínculo ius1 real)');
+    await ev(`document.getElementById('g1EscaneoModal')?.remove()`);
+    await ev(`void abrirChatConDestino('@zz-nadie-tiene-esto-7', null, {greet:'link'})`); await sleep(4000);
+    ok(!(await hayModal('g1EscaneoModal')), 'nombre sin identidad Ğ1 → no abre tarjeta (sigue como .eth)');
 } catch (e) {
     console.error('💥', e); fails++;
 } finally {
