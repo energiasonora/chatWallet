@@ -18,7 +18,7 @@ fi
 # Monitor de la caja: el viejo queda como respaldo con fecha.
 ssh -o ConnectTimeout=8 "$CAJA" 'cd ~/chatwallet-node/monitor && [ -f monitor.py.antes-panel ] || cp monitor.py monitor.py.antes-panel'
 ssh -o ConnectTimeout=8 "$CAJA" 'cd ~/chatwallet-node/monitor && [ -f xmtp-alert.js.antes-perfil ] || cp xmtp-alert.js xmtp-alert.js.antes-perfil'
-rsync -az -e "ssh -o ConnectTimeout=8" monitor/monitor.py monitor/xmtp-alert.js monitor/alerta-avatar.webp monitor/copia-respaldos.sh "$CAJA:~/chatwallet-node/monitor/"
+rsync -az -e "ssh -o ConnectTimeout=8" monitor/monitor.py monitor/xmtp-alert.js monitor/alerta-avatar.webp monitor/copia-respaldos.sh monitor/limpieza-semanal.sh "$CAJA:~/chatwallet-node/monitor/"
 # Entrar con ChatWallet por QR: el módulo propio (js/cw-firma.js, de cw-firma.mjs) y el bundle XMTP
 # para el navegador que ya construye Soberano Mail (npm run build:xmtp allá), con su wasm.
 XMTP_JS="${XMTP_JS:-$HOME/xunserver/soberano-mail/public/js}"

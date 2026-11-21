@@ -220,7 +220,11 @@ function detalleServicio(s) {
     if (s.id === 'ram') return i.libre_mb != null ? num(i.libre_mb) + ' MB libres' : '';
     if (s.id === 'carga') return i.carga ? 'carga ' + i.carga.join(' · ') : '';
     if (s.id === 'corriente') return s.status === 'ok' ? 'enchufada' + (i.bateria_pct != null ? ` · batería ${i.bateria_pct}% (${i.bateria_estado || ''})` : '') : `a batería (${i.bateria_pct}%)`;
-    if (s.id === 'capacity') return `disco ${i.disco_pct}% · ${i.disco_libre_gb} GB libres` + (i.repo ? ` · IPFS ${i.repo}` : '');
+    if (s.id.startsWith('disco:')) return i.error || (`${i.pct}% · ${i.libre_gb} GB libres de ${i.total_gb}` +
+        (i.ritmo_mb_dia == null ? ' · ritmo: hacen falta 3 días de datos' : i.ritmo_mb_dia > 0
+            ? ` · crece ${num(i.ritmo_mb_dia)} MB/día` + (i.dias_para_llenarse != null ? ` (se llena en ~${num(Math.round(i.dias_para_llenarse))} días)` : '')
+            : ' · no crece'));
+    if (s.id === 'ipfs_repo') return i.repo ? `${i.repo} (${i.repo_pct}%)` : '';
     if (s.id === 'relayer_gas') return i.resumen || '';
     if (s.id === 'copia') return i.ultimo_ok ? `última copia hace ${duracion(Date.now() / 1000 - i.ultimo_ok)} · ${num(i.cids)} respaldos · ${num(i.mb)} MB`
         + (i.resultado === 'error' ? ` · último intento falló: ${i.detalle}` : '') : (i.note || i.detalle || '');
@@ -299,7 +303,9 @@ function pintarCaja(c) {
     h += dato(s.temp_c != null ? s.temp_c + ' °C' : '—', 'temperatura (la más alta)', s.temp_c >= 85 ? 'mal' : s.temp_c >= 70 ? 'aviso' : '');
     h += dato(s.carga ? s.carga[0] : '—', `carga (1 min, ${s.nucleos || '?'} núcleos)`, s.carga && s.carga[0] > (s.nucleos || 1) * 2 ? 'aviso' : '');
     h += dato(ram != null ? num(ram) + ' MB' : '—', `memoria libre de ${num(ramT)} MB`, ram < 300 ? 'aviso' : '');
-    h += dato(s.disco_pct != null ? s.disco_pct + ' %' : '—', `disco usado · ${s.disco_libre_gb ?? '?'} GB libres`, s.disco_pct >= 90 ? 'mal' : s.disco_pct >= 80 ? 'aviso' : '');
+    const discos = s.discos?.length ? s.discos : [{ mount: '/', nombre: 'disco', pct: s.disco_pct, libre_gb: s.disco_libre_gb }];
+    for (const d of discos) h += dato(d.pct != null ? d.pct + ' %' : '—', `${d.mount === '/' ? 'disco del sistema' : d.mount} · ${d.libre_gb ?? '?'} GB libres`,
+        d.pct >= 95 ? 'mal' : d.pct >= 85 ? 'aviso' : '');
     if ('corriente' in s) h += dato(s.corriente ? 'enchufada' : 'a batería', `batería ${s.bateria_pct ?? '?'}% · ${s.bateria_estado || ''}`,
         !s.corriente ? 'mal' : s.bateria_pct === 0 ? 'aviso' : '');
     h += '</div>';

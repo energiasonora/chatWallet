@@ -496,12 +496,77 @@ def leer_sistema():
         s["disco_libre_gb"] = round(du.free / 1e9, 1)
     except OSError:
         pass
+    s["discos"] = []
+    for mount, nombre in DISCOS:
+        if mount != "/" and not os.path.ismount(mount):
+            continue
+        try:
+            du = shutil.disk_usage(mount)
+            s["discos"].append({"mount": mount, "nombre": nombre, "pct": round(du.used * 100 / du.total, 1),
+                                "libre_gb": round(du.free / 1e9, 1)})
+        except OSError:
+            pass
     s["temp_c"] = leer_temp()
     s.update(leer_energia())
     return s
 
 _repo_at = 0
 _repo = {}
+
+# Particiones a vigilar: "punto de montaje:nombre". En la caja, el sistema y /mnt/backups (los backups
+# de RHM, que llegó al 90 % el 21/11/2026 sin que nadie lo viera: el monitor sólo miraba /).
+DISCOS = [tuple(x.split(":", 1)) for x in os.environ.get(
+    "MONITOR_DISCOS", "/:Disco del sistema,/mnt/backups:Disco de backups").split(",") if ":" in x]
+DISCO_AVISO_PCT = 85
+DISCO_ALARMA_PCT = 95
+DISCO_DIAS_AVISO = 14        # avisar si a este ritmo se llena en menos de 2 semanas
+DISCO_HIST_CADA = 6 * 3600   # una foto del uso cada 6 h para calcular el ritmo
+
+def _ritmo_disco(mount, usado, ahora):
+    """Bytes por día que viene creciendo, sobre lo que se vio en las últimas 2 semanas (None si no hay datos)."""
+    hist = estado.setdefault("discos_hist", {}).setdefault(mount, [])
+    if not hist or ahora - hist[-1][0] >= DISCO_HIST_CADA:
+        hist.append([int(ahora), int(usado)])
+        del hist[:-120]                         # 30 días
+        guardar_estado()
+    ventana = [h for h in hist if ahora - h[0] <= 14 * 86400]
+    if not ventana or ahora - ventana[0][0] < 3 * 86400:
+        return None                             # menos de 3 días de historia: no se predice
+    return (usado - ventana[0][1]) / ((ahora - ventana[0][0]) / 86400)
+
+def check_discos():
+    res, ahora = [], time.time()
+    for mount, nombre in DISCOS:
+        if mount != "/" and not os.path.ismount(mount):
+            continue                            # en otra máquina, o la partición no está montada
+        cid = "disco:" + mount
+        try:
+            du = shutil.disk_usage(mount)
+        except OSError as e:
+            res.append({"id": cid, "name": nombre, "status": "unknown", "info": {"error": str(e)}, "grupo": "maquina"})
+            continue
+        pct = round(du.used * 100 / du.total, 1)
+        libre_gb = round(du.free / 1e9, 1)
+        ritmo = _ritmo_disco(mount, du.used, ahora)
+        dias = round(du.free / ritmo, 1) if ritmo and ritmo > 0 else None
+        info = {"mount": mount, "pct": pct, "libre_gb": libre_gb, "total_gb": round(du.total / 1e9),
+                "ritmo_mb_dia": round(ritmo / 1e6) if ritmo is not None else None, "dias_para_llenarse": dias}
+        if pct >= DISCO_ALARMA_PCT:
+            st, motivo = "down", f"al {pct}%, quedan {libre_gb} GB"
+        elif pct >= DISCO_AVISO_PCT:
+            st, motivo = "degraded", f"al {pct}%, quedan {libre_gb} GB"
+        elif dias is not None and dias < DISCO_DIAS_AVISO:
+            st, motivo = "degraded", f"al ritmo de {info['ritmo_mb_dia']} MB por día se llena en {dias:.0f} días"
+        else:
+            st, motivo = "ok", ""
+        if motivo:
+            info["error"] = motivo
+        res.append({"id": cid, "name": nombre, "status": st, "info": info, "grupo": "maquina"})
+        evaluar(cid, f"El {nombre[0].lower() + nombre[1:]} ({mount})", st, motivo, umbral=1,
+                mensaje=f"💾 {nombre} ({mount}): {motivo}." +
+                        (f" Viene creciendo {info['ritmo_mb_dia']} MB por día." if info["ritmo_mb_dia"] and "ritmo" not in motivo else "") +
+                        " Se puede liberar con la limpieza semanal o revisando qué crece.")
+    return res
 
 def check_sistema(s):
     """Chequeos de la máquina. Ninguno se reinicia: se avisa."""
@@ -532,7 +597,8 @@ def check_sistema(s):
                 mensaje=f"⚡ La caja se quedó sin corriente y anda a batería ({bat}%)." +
                         (" Con la batería en 0 se va a apagar enseguida." if bat == 0 else ""))
 
-    disco = s.get("disco_pct")
+    res += check_discos()
+
     if time.time() - _repo_at > 600:
         _repo_at = time.time()
         try:
@@ -542,13 +608,10 @@ def check_sistema(s):
             _repo = {"repo_pct": round(size * 100 / cap, 1), "repo": f"{round(size / 1e6)} MB de {round(cap / 1e9, 1)} GB"} if cap else {}
         except Exception:
             _repo = {}
-    info = {"disco_pct": disco, "disco_libre_gb": s.get("disco_libre_gb"), **_repo}
-    malo = (disco or 0) >= DISK_WARN_PCT or _repo.get("repo_pct", 0) >= REPO_WARN_PCT
-    st = "degraded" if malo else "ok"
-    res.append({"id": "capacity", "name": "Espacio (disco y repo IPFS)", "status": st, "info": info, "grupo": "maquina"})
-    evaluar("capacity", "El espacio en disco", st,
-            f"disco al {disco}% ({s.get('disco_libre_gb')} GB libres), repo IPFS {_repo.get('repo', '?')}", umbral=1,
-            mensaje=f"💾 Poco espacio: disco al {disco}% ({s.get('disco_libre_gb')} GB libres), repo IPFS {_repo.get('repo', '?')}. "
+    st = "unknown" if not _repo else ("degraded" if _repo.get("repo_pct", 0) >= REPO_WARN_PCT else "ok")
+    res.append({"id": "ipfs_repo", "name": "Repo IPFS", "status": st, "info": dict(_repo), "grupo": "maquina"})
+    evaluar("ipfs_repo", "El repo de IPFS", st, f"{_repo.get('repo', '?')} ({_repo.get('repo_pct', '?')}%)", umbral=1,
+            mensaje=f"💾 El repo de IPFS está al {_repo.get('repo_pct')}% de su tope ({_repo.get('repo')}). "
                     "El ENOSPC de agosto rompió los pins.")
     return res
 
@@ -610,8 +673,8 @@ def resumen_diario(report, s):
     linea = f"☀️ Caja: {'todo bien' if not malos else str(len(malos)) + ' con problemas'}"
     if s.get("temp_c") is not None:
         linea += f" · {s['temp_c']} °C"
-    if s.get("disco_pct") is not None:
-        linea += f" · disco {s['disco_pct']}%"
+    for d in s.get("discos") or []:
+        linea += f" · {d['mount']} {d['pct']}%"
     if s.get("arriba_seg"):
         linea += f" · prendida hace {duracion(s['arriba_seg'])}"
     if s.get("corriente") is False:
@@ -695,7 +758,8 @@ def start_http_server():
 def limpiar_alertas_huerfanas():
     """Una alerta abierta de algo que ya no se vigila no se cerraría nunca: se descarta."""
     vigentes = {s["id"] for s in SERVICES} | {e["id"] for e in EXTERNOS} | {
-        "internet", "temp", "ram", "carga", "corriente", "capacity", "pin_probe", "relayer_gas", "copia"}
+        "internet", "temp", "ram", "carga", "corriente", "ipfs_repo", "pin_probe", "relayer_gas", "copia"} | {
+        "disco:" + m for m, _ in DISCOS}
     for cid in [k for k in estado["alertas"] if k not in vigentes]:
         logline(f"🧹 alerta descartada: {cid} (ya no se vigila)")
         del estado["alertas"][cid]
