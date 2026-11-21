@@ -85,6 +85,9 @@ echo "✦ Build con Node $(node -v)…"
 # Tailwind de dapp.html compilado acá (ya no se baja de la CDN en cada carga): si alguien
 # usó una clase nueva, entra en este build.
 ./scripts/tailwind.sh
+# Caché vacía siempre: en la 3.111 la caché sirvió un g1-cadena.js viejo (sin cuentaExiste ni
+# publicarComentario) y «Publicar e invitar con Ğ1» falló en producción. Tarda más; vale la pena.
+rm -rf .parcel-cache-build
 yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html src/book-admin.html \
   --dist-dir public --public-url ./ --cache-dir .parcel-cache-build
 

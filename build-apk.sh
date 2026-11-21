@@ -55,6 +55,8 @@ rm -rf dist-apk
 # term-size mira primero estas variables y ya no llega al binario. (30/9/2026)
 # Tailwind compilado (antes lo bajaba la CDN en el teléfono, en cada arranque).
 ./scripts/tailwind.sh >/dev/null
+# Caché vacía siempre (ver deploy.sh: la 3.111 salió con un g1-cadena.js viejo).
+rm -rf .parcel-cache-apk
 COLUMNS=120 LINES=40 PARCEL_WORKERS=0 yarn parcel build src/index.html src/book.html src/dapp.html src/manifiesto.html src/book-admin.html \
   --dist-dir dist-apk --public-url ./ --cache-dir .parcel-cache-apk >/dev/null
 
