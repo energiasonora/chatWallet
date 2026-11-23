@@ -452,6 +452,7 @@
         body.theme-light #vozReloj { color: #111827; }
         .adjunto-otro { display: inline-flex; align-items: center; gap: .4rem; font-size: .9rem; }
         .adjunto-img { max-width: 100%; max-height: 18rem; border-radius: .75rem; display: block; }
+        .adjunto-guardable { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
         /* Barra de grabación: reemplaza al campo de texto mientras se graba. */
         #vozBarra { display: none; }
@@ -2941,7 +2942,7 @@
                                     <span class="font-semibold">Enviar Crypto</span>
                                 </button>
                                 <button id="chatRequestCryptoBtn"
-                                    class="w-full text-left p-3 hover:bg-gray-600/50 flex items-center space-x-3 rounded-b-xl transition-colors">
+                                    class="w-full text-left p-3 hover:bg-gray-600/50 flex items-center space-x-3 transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                         stroke-linejoin="round" class="text-green-400">
@@ -2950,6 +2951,16 @@
                                     </svg>
                                     <span class="font-semibold">Solicitar Pago</span>
                                 </button>
+                                <button id="chatAttachBtn" type="button"
+                                    class="w-full text-left p-3 hover:bg-gray-600/50 flex items-center space-x-3 rounded-b-xl transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round" class="text-yellow-400">
+                                        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                                    </svg>
+                                    <span class="font-semibold" data-i18n-key="chat_attach">Adjuntar</span>
+                                </button>
+                                <input type="file" id="chatAttachInput" class="hidden">
                             </div>
                         </div>
                         <button id="offlineScanReplyBtn" type="button" title="Escanear respuesta (QR)"
@@ -13803,6 +13814,17 @@
                 const s = document.createElement('span');
                 s.className = 'adjunto-otro';
                 s.textContent = cwAdjuntoEtiqueta(a);   // textContent: el nombre lo eligió la otra punta
+                if (a && !a.remoto && a.bytes && a.bytes.length && window.cwGuardarBytes) {
+                    s.classList.add('adjunto-guardable');
+                    s.title = t('adj_guardar');
+                    s.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        try {
+                            const donde = await window.cwGuardarBytes(a.filename || t('adj_archivo'), a.bytes, a.mimeType || 'application/octet-stream');
+                            showToast(t('adj_guardado') + (typeof donde === 'string' && donde ? ` (${donde})` : ''), 'success');
+                        } catch (err) { console.warn('[adjunto] guardar', err); showToast(t('adj_error_guardar'), 'error'); }
+                    });
+                }
                 return s;
             }
 
@@ -24232,6 +24254,72 @@
                 }
             });
 
+            // ── Adjuntar un archivo al chat ──
+            // Mismo camino que el mensaje de voz: el archivo va ENTERO dentro del mensaje de
+            // XMTP, cifrado de punta a punta (MLS) entre los dispositivos del chat. No pasa por
+            // ningún servidor ni por IPFS, y por eso tiene el mismo tope de ~900 KB.
+            const ADJ_MAX_BYTES = VOZ_MAX_BYTES;
+            // Una foto grande se achica (JPEG, lado mayor 1600 px y menos si hace falta) para que entre.
+            async function cwAchicarFoto(file) {
+                const bmp = await createImageBitmap(file);
+                for (const [lado, q] of [[1600, .82], [1280, .75], [1024, .7], [800, .65]]) {
+                    const k = Math.min(1, lado / Math.max(bmp.width, bmp.height));
+                    const c = document.createElement('canvas');
+                    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+                    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+                    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', q));
+                    if (blob && blob.size <= ADJ_MAX_BYTES) return new Uint8Array(await blob.arrayBuffer());
+                }
+                return null;
+            }
+            const chatAttachBtn = document.getElementById('chatAttachBtn');
+            const chatAttachInput = document.getElementById('chatAttachInput');
+            chatAttachBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                chatActionsContainer.classList.add('hidden');
+                chatActionsToggle.querySelector('svg').style.transform = 'rotate(0deg)';
+                if (!currentConversation) { showToast(t('voz_chat_no_listo'), 'info'); return; }
+                chatAttachInput.value = '';
+                chatAttachInput.click();
+            });
+            chatAttachInput?.addEventListener('change', async () => {
+                const file = chatAttachInput.files && chatAttachInput.files[0];
+                const conv = currentConversation;
+                if (!file) return;
+                if (!conv) { showToast(t('voz_chat_no_listo'), 'info'); return; }
+                let mimeType = (file.type || 'application/octet-stream').toLowerCase();
+                let filename = file.name || 'archivo';
+                let bytes = null;
+                try {
+                    if (file.size > ADJ_MAX_BYTES && /^image\/(png|jpe?g|webp)$/.test(mimeType)) {
+                        bytes = await cwAchicarFoto(file);
+                        if (bytes) { mimeType = 'image/jpeg'; filename = filename.replace(/\.[a-z0-9]+$/i, '') + '.jpg'; }
+                    } else if (file.size <= ADJ_MAX_BYTES) {
+                        bytes = new Uint8Array(await file.arrayBuffer());
+                    }
+                } catch (e) { console.warn('[adjunto]', e); }
+                if (!bytes) { showToast(t('adj_grande'), 'error'); return; }
+                showToast(t('adj_enviando'), 'info');
+                try {
+                    await conv.sendAttachment({ filename, mimeType, content: bytes });
+                    if (convIsGroup(conv)) pingWakeGroup(conv);
+                    else { pingWake(conv); maybeSendProfile(conv, conv.peerAddress); }
+                    const chatKey = convIsGroup(conv) ? groupKeyOf(conv.id) : conv.peerAddress;
+                    const i = chatKey ? contacts.findIndex(c => c.address.toLowerCase() === chatKey.toLowerCase()) : -1;
+                    if (i > -1) {
+                        contacts[i].lastMessage = cwAdjuntoEtiqueta({ mimeType, filename });
+                        contacts[i].lastMessageTimestamp = Date.now();
+                        saveContacts();
+                    }
+                } catch (error) {
+                    console.error('[adjunto] no se pudo enviar:', error);
+                    showToast(t('adj_error'), 'error');
+                    if (/inactive/i.test(String(error && error.message || '')) && currentConversation) {
+                        cwAvisarChatSinSync(currentConversation, error, chatOpenToken).catch(() => { });
+                    }
+                }
+            });
+
             // (el cierre por tocar afuera lo maneja el propio overlay, arriba)
 
             chatActionsToggle.addEventListener('click', (e) => {
@@ -25608,6 +25696,13 @@
                     "voz_play": "Reproducir",
                     "adj_foto": "📷 Foto",
                     "adj_archivo": "Archivo",
+                    "chat_attach": "Adjuntar",
+                    "adj_grande": "El archivo pasa de 900 KB: en el chat sólo entran archivos chicos.",
+                    "adj_enviando": "Enviando archivo…",
+                    "adj_error": "No se pudo enviar el archivo.",
+                    "adj_guardar": "Tocá para guardar",
+                    "adj_guardado": "Archivo guardado",
+                    "adj_error_guardar": "No se pudo guardar el archivo.",
                     "adj_remoto": "📎 Adjunto (ChatWallet todavía no lo puede abrir)",
                     "voz_sin_permiso": "ChatWallet no tiene permiso para usar el micrófono. Habilitalo en los ajustes del teléfono o del navegador.",
                     "voz_sin_mic": "No se pudo usar el micrófono.",
@@ -26472,6 +26567,13 @@
                     "voz_play": "Play",
                     "adj_foto": "📷 Photo",
                     "adj_archivo": "File",
+                    "chat_attach": "Attach",
+                    "adj_grande": "The file is over 900 KB: only small files fit in the chat.",
+                    "adj_enviando": "Sending file…",
+                    "adj_error": "Couldn't send the file.",
+                    "adj_guardar": "Tap to save",
+                    "adj_guardado": "File saved",
+                    "adj_error_guardar": "Couldn't save the file.",
                     "adj_remoto": "📎 Attachment (ChatWallet can't open it yet)",
                     "voz_sin_permiso": "ChatWallet isn't allowed to use the microphone. Enable it in your phone or browser settings.",
                     "voz_sin_mic": "Couldn't use the microphone.",
@@ -27336,6 +27438,13 @@
                     "voz_play": "Lire",
                     "adj_foto": "📷 Photo",
                     "adj_archivo": "Fichier",
+                    "chat_attach": "Joindre",
+                    "adj_grande": "Le fichier dépasse 900 Ko : seuls les petits fichiers passent dans le chat.",
+                    "adj_enviando": "Envoi du fichier…",
+                    "adj_error": "Impossible d'envoyer le fichier.",
+                    "adj_guardar": "Touchez pour enregistrer",
+                    "adj_guardado": "Fichier enregistré",
+                    "adj_error_guardar": "Impossible d'enregistrer le fichier.",
                     "adj_remoto": "📎 Pièce jointe (ChatWallet ne peut pas encore l'ouvrir)",
                     "voz_sin_permiso": "ChatWallet n'a pas accès au micro. Autorisez-le dans les réglages du téléphone ou du navigateur.",
                     "voz_sin_mic": "Impossible d'utiliser le micro.",
