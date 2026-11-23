@@ -10,17 +10,98 @@ import express from 'express';
 import cors from 'cors';
 import { ethers } from 'ethers';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const KUBO_API = process.env.KUBO_API || 'http://127.0.0.1:5001';
 const GATEWAY = process.env.KUBO_GATEWAY || 'http://127.0.0.1:8080';
 const PORT = process.env.UPLOAD_PORT || 3100;
 
-// Cuota en memoria para el POC (en prod = quotas.json, como ya hace server.js).
-const quotas = {}; // addr(lower) -> bytes disponibles
-function seedQuota(addr, mb) { quotas[addr.toLowerCase()] = mb * 1024 * 1024; }
-export { seedQuota };
+// ── Límites de subida ───────────────────────────────────────────────────────
+// Hasta la v del 23/11/2026 cualquier wallet (una inventada en el momento sirve) podía subir
+// 100 MB por vez, sin tope: alcanzaba para llenar los 15 GB del repo, y un disco lleno es lo que
+// rompió los pins en agosto. Crear wallets es gratis, así que el tope por wallet solo no frena a
+// nadie: hay tres capas para el uso gratis (wallet, IP, total del día) y un freno por el repo.
+//
+// Uso legítimo medido (nov 2026): respaldos de chat y avatares, ~35 KB de promedio por subida,
+// 2 MB en 4 días entre todas las wallets. Los topes gratis dejan un margen de cientos de veces.
+//
+// Las wallets con plan (espacio-planes.json, se edita con espacio.mjs) se saltean los topes
+// diarios y tienen su propio espacio total y vencimiento.
+const MB = 1024 * 1024;
+const envMB = (k, def) => Number(process.env[k] || def) * MB;
+const LIM = {
+  freeFile: envMB('FREE_MAX_FILE_MB', 5),          // un archivo, sin plan
+  freeWalletDay: envMB('FREE_WALLET_DAY_MB', 20),  // por wallet y por día, sin plan
+  freeIpDay: envMB('FREE_IP_DAY_MB', 50),          // por IP y por día, sin plan
+  freeGlobalDay: envMB('FREE_GLOBAL_DAY_MB', 300), // todas las subidas sin plan del día
+  planFile: envMB('PLAN_MAX_FILE_MB', 100),        // un archivo, con plan
+  freeRepoPct: Number(process.env.FREE_REPO_PCT || 80), // repo por encima de esto: sin plan no sube
+  planRepoPct: Number(process.env.PLAN_REPO_PCT || 92), // por encima de esto no sube nadie
+};
+
+// Planes: { "0xabc…": { "bytes": 10737418240, "used": 0, "until": "2026-12-23", "nota": "…" } }
+// Se relee cuando cambia el archivo, así espacio.mjs lo edita sin reiniciar el server.
+const PLANES_FILE = process.env.ESPACIO_PLANES || fileURLToPath(new URL('./espacio-planes.json', import.meta.url));
+let planes = {};
+let planesMtime = 0;
+function cargarPlanes() {
+  try {
+    if (!existsSync(PLANES_FILE)) { planes = {}; planesMtime = 0; return; }
+    const m = statSync(PLANES_FILE).mtimeMs;
+    if (m === planesMtime) return;
+    planes = JSON.parse(readFileSync(PLANES_FILE, 'utf8'));
+    planesMtime = m;
+  } catch (e) { console.error('espacio-planes.json ilegible, sigo con lo anterior:', e.message); }
+}
+function guardarPlanes() {
+  const tmp = PLANES_FILE + '.tmp';
+  writeFileSync(tmp, JSON.stringify(planes, null, 2));
+  renameSync(tmp, PLANES_FILE);
+  planesMtime = statSync(PLANES_FILE).mtimeMs;
+}
+// Un plan vale hasta el final del día de "until" (hora de Argentina).
+function planVigente(addr) {
+  cargarPlanes();
+  const p = planes[addr];
+  if (!p) return null;
+  if (p.until && Date.now() > Date.parse(`${p.until}T23:59:59-03:00`)) return null;
+  return p;
+}
+
+// Contadores del día en memoria. Se vacían a medianoche UTC. Un reinicio también los vacía; no
+// es un hueco útil para nadie de afuera, que no puede reiniciar el server.
+let dia = new Date().toISOString().slice(0, 10);
+let usoWallet = new Map(), usoIp = new Map(), usoGlobal = 0;
+function rotarDia() {
+  const hoy = new Date().toISOString().slice(0, 10);
+  if (hoy !== dia) { dia = hoy; usoWallet = new Map(); usoIp = new Map(); usoGlobal = 0; }
+}
+
+// La IP real llega en CF-Connecting-IP, pero sólo se le cree si la conexión viene del túnel
+// (cloudflared en la misma máquina). Desde la red de casa, la IP es la del socket.
+function ipDe(req) {
+  const sock = req.socket.remoteAddress || '';
+  const local = sock === '127.0.0.1' || sock === '::1' || sock === '::ffff:127.0.0.1';
+  return (local && req.header('cf-connecting-ip')) || sock;
+}
+
+// Uso del repo de Kubo, con caché de 60 s para no preguntar en cada subida.
+let repo = { pct: 0, at: 0 };
+async function repoPct() {
+  if (Date.now() - repo.at < 60_000) return repo.pct;
+  try {
+    const r = await fetch(`${KUBO_API}/api/v0/repo/stat?size-only=true`, { method: 'POST', signal: AbortSignal.timeout(10_000) });
+    const j = await r.json();
+    repo = { pct: j.StorageMax ? (100 * j.RepoSize) / j.StorageMax : 0, at: Date.now() };
+  } catch (e) {
+    // Si Kubo no contesta, la subida igual va a fallar en el add; no se inventa un número.
+    console.warn('repo/stat falló:', e.message);
+  }
+  return repo.pct;
+}
+
+const fmtMB = (b) => `${(b / MB).toFixed(b < 10 * MB ? 1 : 0)} MB`;
 
 // ── Métricas ────────────────────────────────────────────────────────────────
 // Sin dependencias ni base de datos: contadores en memoria que se leen por /metrics.
@@ -54,53 +135,105 @@ app.get('/metrics', (req, res) => {
     `chatwallet_upload_duration_ms_avg ${avgMs}`,
     `chatwallet_pointer_publishes_total ${metrics.pointerPublishes}`,
     `chatwallet_pointers_current ${Object.keys(backupPointers).length}`,
+    `chatwallet_free_upload_bytes_today ${dia === new Date().toISOString().slice(0, 10) ? usoGlobal : 0}`,
+    `chatwallet_free_wallets_today ${usoWallet.size}`,
+    `chatwallet_repo_pct ${repo.pct.toFixed(1)}`,
   ];
   for (const [code, n] of Object.entries(metrics.errors)) {
     lines.push(`chatwallet_errors_total{code="${code}"} ${n}`);
   }
   res.type('text/plain').send(lines.join('\n') + '\n');
 });
-// Bytes crudos del archivo (hasta 100MB, igual que IPFS_MAX_MB del uploader actual).
-app.use('/api/ipfs/upload', express.raw({ type: '*/*', limit: '100mb' }));
+// Un solo lugar donde se contabiliza el resultado: así ninguna rama de error se
+// escapa de las métricas (que es como no enterarse de que algo falla sistemáticamente).
+const failer = (res) => (code, error) => { countError(code); return res.status(code).json({ error }); };
 
-app.post('/api/ipfs/upload', async (req, res) => {
-  const t0 = Date.now();
-  // Un solo lugar donde se contabiliza el resultado: así ninguna rama de error se
-  // escapa de las métricas (que es como no enterarse de que algo falla sistemáticamente).
-  const fail = (code, error) => { countError(code); return res.status(code).json({ error }); };
+// Paso 1, ANTES de leer el cuerpo: firma, tamaño y topes salen de los headers. Así un archivo
+// que no corresponde se rechaza sin cargar 100 MB en memoria. El tamaño declarado está firmado,
+// y en el paso 2 se exige que el cuerpo mida exactamente eso.
+async function precheck(req, res, next) {
+  const fail = failer(res);
   try {
     const address = req.header('x-address');
     const signature = req.header('x-signature');
     const claimedSha = req.header('x-sha256'); // hex del sha256 de los bytes (plaintext o ciphertext)
     const size = Number(req.header('x-size'));
-    const bytes = req.body; // Buffer
+    if (!address || !signature || !claimedSha) return fail(400, 'Faltan address/signature/sha256');
+    if (!Number.isSafeInteger(size) || size <= 0) return fail(400, 'x-size inválido');
+    const cl = req.header('content-length');
+    if (cl !== undefined && Number(cl) !== size) return fail(400, 'content-length no coincide con x-size');
 
-    if (!address || !signature || !claimedSha || !bytes?.length) {
-      return fail(400, 'Faltan address/signature/sha256 o body vacío');
-    }
-
-    // 1. Verificar firma: el usuario firma "ipfs-upload:<sha256>:<size>" con su wallet (DID).
-    //    sha256 sobre los bytes crudos → size-agnóstico (no depende del chunking de IPFS).
-    const message = `ipfs-upload:${claimedSha}:${size}`;
+    // El usuario firma "ipfs-upload:<sha256>:<size>" con su wallet (DID).
+    // sha256 sobre los bytes crudos → size-agnóstico (no depende del chunking de IPFS).
     let recovered;
-    try { recovered = ethers.verifyMessage(message, signature); }
+    try { recovered = ethers.verifyMessage(`ipfs-upload:${claimedSha}:${size}`, signature); }
     catch (e) { return fail(401, 'Firma ilegible'); }
-    if (recovered.toLowerCase() !== address.toLowerCase()) {
-      return fail(401, 'Firma no corresponde a la address');
+    if (recovered.toLowerCase() !== address.toLowerCase()) return fail(401, 'Firma no corresponde a la address');
+
+    const addr = address.toLowerCase();
+    const ip = ipDe(req);
+    const plan = planVigente(addr);
+    const pct = await repoPct();
+
+    if (plan) {
+      if (size > LIM.planFile) return fail(413, `El archivo supera ${fmtMB(LIM.planFile)}`);
+      if (pct >= LIM.planRepoPct) return fail(507, 'El nodo está casi lleno. Probá más tarde.');
+      if ((plan.used || 0) + size > plan.bytes) {
+        return fail(403, `Tu plan no tiene lugar: usaste ${fmtMB(plan.used || 0)} de ${fmtMB(plan.bytes)}`);
+      }
+    } else {
+      if (size > LIM.freeFile) return fail(413, `Sin plan, cada archivo puede pesar hasta ${fmtMB(LIM.freeFile)}`);
+      if (pct >= LIM.freeRepoPct) return fail(507, 'El nodo está casi lleno: por ahora sólo suben las wallets con plan.');
+      rotarDia();
+      if ((usoWallet.get(addr) || 0) + size > LIM.freeWalletDay) {
+        return fail(429, `Esta wallet ya subió ${fmtMB(usoWallet.get(addr) || 0)} hoy; el tope sin plan es ${fmtMB(LIM.freeWalletDay)} por día`);
+      }
+      if ((usoIp.get(ip) || 0) + size > LIM.freeIpDay) return fail(429, 'Demasiadas subidas desde esta conexión hoy. Probá mañana.');
+      if (usoGlobal + size > LIM.freeGlobalDay) return fail(429, 'El nodo llegó a su tope de subidas gratis de hoy. Probá mañana.');
+      // Se reserva ya, para que varias subidas en paralelo no pasen todas el mismo control.
+      usoWallet.set(addr, (usoWallet.get(addr) || 0) + size);
+      usoIp.set(ip, (usoIp.get(ip) || 0) + size);
+      usoGlobal += size;
+      // Si después algo falla, se devuelve la reserva (una sola vez).
+      let devuelto = false;
+      req.cwDevolver = () => {
+        if (devuelto) return; devuelto = true;
+        if (dia !== req.cwDia) return; // ya cambió el día: los contadores son otros
+        usoWallet.set(addr, Math.max(0, (usoWallet.get(addr) || 0) - size));
+        usoIp.set(ip, Math.max(0, (usoIp.get(ip) || 0) - size));
+        usoGlobal = Math.max(0, usoGlobal - size);
+      };
+      req.cwDia = dia;
+      res.on('finish', () => { if (res.statusCode >= 400) req.cwDevolver(); });
+      res.on('close', () => { if (!res.writableFinished) req.cwDevolver(); });
+    }
+    req.cw = { addr, claimedSha, size, plan: !!plan };
+    next();
+  } catch (e) {
+    console.error('precheck error', e);
+    return fail(500, e.message);
+  }
+}
+
+// Paso 1b: leer el cuerpo con el tope que corresponde a quien sube.
+const rawFree = express.raw({ type: '*/*', limit: LIM.freeFile });
+const rawPlan = express.raw({ type: '*/*', limit: LIM.planFile });
+const leerCuerpo = (req, res, next) => (req.cw.plan ? rawPlan : rawFree)(req, res, next);
+
+app.post('/api/ipfs/upload', precheck, leerCuerpo, async (req, res) => {
+  const t0 = Date.now();
+  const fail = failer(res);
+  try {
+    const { addr, claimedSha, size } = req.cw;
+    const bytes = req.body; // Buffer
+    if (!Buffer.isBuffer(bytes) || bytes.length !== size) {
+      return fail(400, `El cuerpo mide ${bytes?.length ?? 0} bytes y la firma dice ${size}`);
     }
 
-    // 1b. Integridad: los bytes recibidos deben hashear al sha256 firmado (cualquier tamaño).
+    // 2. Integridad: los bytes recibidos deben hashear al sha256 firmado (cualquier tamaño).
     const actualSha = createHash('sha256').update(bytes).digest('hex');
     if (actualSha !== claimedSha) {
       return fail(409, `sha256 no coincide: firmado ${claimedSha} vs recibido ${actualSha}`);
-    }
-
-    // 2. Cuota (hook — en el POC se puede saltar si no hay cuota seteada).
-    const addr = address.toLowerCase();
-    if (addr in quotas) {
-      if (bytes.length > quotas[addr]) {
-        return fail(403, `Cuota insuficiente (${quotas[addr]} bytes)`);
-      }
     }
 
     // 3. Meter en Kubo local y pinear. Kubo calcula el CID (dag-pb para >256KB, raw para chico).
@@ -117,8 +250,14 @@ app.post('/api/ipfs/upload', async (req, res) => {
     const last = text.trim().split('\n').pop();
     const kuboCid = JSON.parse(last).Hash;
 
-    // 4. Descontar cuota y responder.
-    if (addr in quotas) quotas[addr] -= bytes.length;
+    // 4. Descontar del plan (las subidas gratis ya quedaron reservadas en el precheck) y responder.
+    if (req.cw.plan) {
+      cargarPlanes();
+      if (planes[addr]) {
+        planes[addr].used = (planes[addr].used || 0) + bytes.length;
+        try { guardarPlanes(); } catch (e) { console.error('No se pudo guardar espacio-planes.json:', e.message); }
+      }
+    }
     metrics.uploads++;
     metrics.uploadBytes += bytes.length;
     metrics.uploadMsTotal += Date.now() - t0;
