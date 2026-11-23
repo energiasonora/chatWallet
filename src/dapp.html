@@ -2362,6 +2362,36 @@
     </div>
 
     <!-- Modal Confirmar Olvidar Billetera -->
+    <!-- Adjuntar: vista previa antes de mandar (como Telegram: foto comprimida o el original). -->
+    <div id="adjPreviaModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 rounded-xl p-5 w-full max-w-sm space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold" data-i18n-key="adj_previa_titulo">Enviar archivo</h3>
+                <button id="adjPreviaCerrar" type="button"
+                    class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <img id="adjPreviaImg" alt="" class="hidden w-full max-h-64 object-contain rounded-lg bg-gray-900">
+            <div class="min-w-0">
+                <p id="adjPreviaNombre" class="font-semibold truncate"></p>
+                <p id="adjPreviaTam" class="text-sm text-gray-400"></p>
+            </div>
+            <label id="adjPreviaComprimirFila" class="hidden flex items-center gap-3 cursor-pointer select-none">
+                <input type="checkbox" id="adjPreviaComprimir" checked
+                    class="w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 bg-gray-700">
+                <span class="text-sm" data-i18n-key="adj_comprimir">Comprimir imagen</span>
+            </label>
+            <p id="adjPreviaAviso" class="hidden text-sm text-yellow-300"></p>
+            <div class="flex space-x-4 pt-1">
+                <button id="adjPreviaCancelar" type="button"
+                    class="w-full p-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg transition-all text-white font-semibold"
+                    data-i18n-key="adj_cancelar">Cancelar</button>
+                <button id="adjPreviaEnviar" type="button"
+                    class="w-full p-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-all text-white font-semibold disabled:opacity-50"
+                    data-i18n-key="adj_enviar">Enviar</button>
+            </div>
+        </div>
+    </div>
+
     <div id="forgetWalletModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
         <div class="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
             <div class="flex justify-between items-center">
@@ -24259,21 +24289,71 @@
             // XMTP, cifrado de punta a punta (MLS) entre los dispositivos del chat. No pasa por
             // ningún servidor ni por IPFS, y por eso tiene el mismo tope de ~900 KB.
             const ADJ_MAX_BYTES = VOZ_MAX_BYTES;
-            // Una foto grande se achica (JPEG, lado mayor 1600 px y menos si hace falta) para que entre.
-            async function cwAchicarFoto(file) {
+            // Comprimir una foto: JPEG de lado mayor 1600 px (como hace Telegram con «foto»). Si aun
+            // así no entra en un mensaje, prueba más chico. El fondo va blanco: un PNG transparente
+            // pasado a JPEG quedaría negro.
+            async function cwComprimirFoto(file) {
                 const bmp = await createImageBitmap(file);
                 for (const [lado, q] of [[1600, .82], [1280, .75], [1024, .7], [800, .65]]) {
                     const k = Math.min(1, lado / Math.max(bmp.width, bmp.height));
                     const c = document.createElement('canvas');
                     c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
-                    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+                    const x = c.getContext('2d');
+                    x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+                    x.drawImage(bmp, 0, 0, c.width, c.height);
                     const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', q));
                     if (blob && blob.size <= ADJ_MAX_BYTES) return new Uint8Array(await blob.arrayBuffer());
                 }
                 return null;
             }
+            const cwFmtTam = (n) => n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
             const chatAttachBtn = document.getElementById('chatAttachBtn');
             const chatAttachInput = document.getElementById('chatAttachInput');
+            const adjPrevia = {
+                modal: document.getElementById('adjPreviaModal'),
+                img: document.getElementById('adjPreviaImg'),
+                nombre: document.getElementById('adjPreviaNombre'),
+                tam: document.getElementById('adjPreviaTam'),
+                fila: document.getElementById('adjPreviaComprimirFila'),
+                comprimir: document.getElementById('adjPreviaComprimir'),
+                aviso: document.getElementById('adjPreviaAviso'),
+                enviar: document.getElementById('adjPreviaEnviar'),
+            };
+            let adjActual = null;   // { file, conv, esFoto, comprimida (bytes|null|undefined), url }
+
+            function adjPreviaCerrar() {
+                if (adjActual?.url) URL.revokeObjectURL(adjActual.url);
+                adjActual = null;
+                adjPrevia.modal.classList.add('hidden'); adjPrevia.modal.classList.remove('flex');
+                adjPrevia.img.removeAttribute('src');
+            }
+            // Lo que se mandaría con la opción elegida: { bytes, mimeType, filename } o null si no entra.
+            async function adjPreparar() {
+                const a = adjActual; if (!a) return null;
+                if (a.esFoto && adjPrevia.comprimir.checked) {
+                    if (a.comprimida === undefined) { try { a.comprimida = await cwComprimirFoto(a.file); } catch (e) { console.warn('[adjunto]', e); a.comprimida = null; } }
+                    if (!a.comprimida) return null;
+                    // Una foto que ya es chica puede salir más pesada en JPEG: entonces va la original.
+                    if (a.comprimida.length >= a.file.size && a.file.size <= ADJ_MAX_BYTES)
+                        return { bytes: new Uint8Array(await a.file.arrayBuffer()), mimeType: a.file.type.toLowerCase(), filename: a.file.name || 'foto' };
+                    return { bytes: a.comprimida, mimeType: 'image/jpeg', filename: (a.file.name || 'foto').replace(/\.[a-z0-9]+$/i, '') + '.jpg' };
+                }
+                if (a.file.size > ADJ_MAX_BYTES) return null;
+                return { bytes: new Uint8Array(await a.file.arrayBuffer()), mimeType: (a.file.type || 'application/octet-stream').toLowerCase(), filename: a.file.name || 'archivo' };
+            }
+            async function adjPreviaPintar() {
+                const a = adjActual; if (!a) return;
+                adjPrevia.enviar.disabled = true;
+                const listo = await adjPreparar();
+                if (adjActual !== a) return;
+                const original = cwFmtTam(a.file.size);
+                adjPrevia.tam.textContent = (a.esFoto && adjPrevia.comprimir.checked && listo)
+                    ? `${original} → ${cwFmtTam(listo.bytes.length)}` : original;
+                adjPrevia.aviso.textContent = listo ? '' : (a.esFoto ? t('adj_grande_sin_comprimir') : t('adj_grande'));
+                adjPrevia.aviso.classList.toggle('hidden', !!listo);
+                adjPrevia.enviar.disabled = !listo;
+            }
+
             chatAttachBtn?.addEventListener('click', (e) => {
                 e.stopPropagation();
                 chatActionsContainer.classList.add('hidden');
@@ -24282,23 +24362,31 @@
                 chatAttachInput.value = '';
                 chatAttachInput.click();
             });
-            chatAttachInput?.addEventListener('change', async () => {
+            chatAttachInput?.addEventListener('change', () => {
                 const file = chatAttachInput.files && chatAttachInput.files[0];
-                const conv = currentConversation;
                 if (!file) return;
-                if (!conv) { showToast(t('voz_chat_no_listo'), 'info'); return; }
-                let mimeType = (file.type || 'application/octet-stream').toLowerCase();
-                let filename = file.name || 'archivo';
-                let bytes = null;
-                try {
-                    if (file.size > ADJ_MAX_BYTES && /^image\/(png|jpe?g|webp)$/.test(mimeType)) {
-                        bytes = await cwAchicarFoto(file);
-                        if (bytes) { mimeType = 'image/jpeg'; filename = filename.replace(/\.[a-z0-9]+$/i, '') + '.jpg'; }
-                    } else if (file.size <= ADJ_MAX_BYTES) {
-                        bytes = new Uint8Array(await file.arrayBuffer());
-                    }
-                } catch (e) { console.warn('[adjunto]', e); }
-                if (!bytes) { showToast(t('adj_grande'), 'error'); return; }
+                if (!currentConversation) { showToast(t('voz_chat_no_listo'), 'info'); return; }
+                const esFoto = /^image\/(png|jpe?g|webp)$/i.test(file.type || '');
+                adjActual = { file, conv: currentConversation, esFoto, comprimida: undefined, url: esFoto ? URL.createObjectURL(file) : null };
+                adjPrevia.nombre.textContent = file.name || t('adj_archivo');   // textContent: nombre del sistema de archivos
+                adjPrevia.img.classList.toggle('hidden', !esFoto);
+                if (esFoto) adjPrevia.img.src = adjActual.url;
+                adjPrevia.fila.classList.toggle('hidden', !esFoto);
+                adjPrevia.comprimir.checked = true;
+                adjPrevia.modal.classList.remove('hidden'); adjPrevia.modal.classList.add('flex');
+                adjPreviaPintar();
+            });
+            adjPrevia.comprimir?.addEventListener('change', adjPreviaPintar);
+            document.getElementById('adjPreviaCancelar')?.addEventListener('click', adjPreviaCerrar);
+            document.getElementById('adjPreviaCerrar')?.addEventListener('click', adjPreviaCerrar);
+            adjPrevia.modal?.addEventListener('click', (e) => { if (e.target === adjPrevia.modal) adjPreviaCerrar(); });
+            adjPrevia.enviar?.addEventListener('click', async () => {
+                const conv = adjActual?.conv;
+                const listo = await adjPreparar();
+                adjPreviaCerrar();
+                if (!conv) return;
+                if (!listo) { showToast(t('adj_grande'), 'error'); return; }
+                const { bytes, mimeType, filename } = listo;
                 showToast(t('adj_enviando'), 'info');
                 try {
                     await conv.sendAttachment({ filename, mimeType, content: bytes });
@@ -25697,6 +25785,11 @@
                     "adj_foto": "📷 Foto",
                     "adj_archivo": "Archivo",
                     "chat_attach": "Adjuntar",
+                    "adj_previa_titulo": "Enviar archivo",
+                    "adj_comprimir": "Comprimir imagen",
+                    "adj_cancelar": "Cancelar",
+                    "adj_enviar": "Enviar",
+                    "adj_grande_sin_comprimir": "Sin comprimir pasa de 900 KB: en el chat sólo entran archivos chicos.",
                     "adj_grande": "El archivo pasa de 900 KB: en el chat sólo entran archivos chicos.",
                     "adj_enviando": "Enviando archivo…",
                     "adj_error": "No se pudo enviar el archivo.",
@@ -26568,6 +26661,11 @@
                     "adj_foto": "📷 Photo",
                     "adj_archivo": "File",
                     "chat_attach": "Attach",
+                    "adj_previa_titulo": "Send file",
+                    "adj_comprimir": "Compress image",
+                    "adj_cancelar": "Cancel",
+                    "adj_enviar": "Send",
+                    "adj_grande_sin_comprimir": "Uncompressed it's over 900 KB: only small files fit in the chat.",
                     "adj_grande": "The file is over 900 KB: only small files fit in the chat.",
                     "adj_enviando": "Sending file…",
                     "adj_error": "Couldn't send the file.",
@@ -27439,6 +27537,11 @@
                     "adj_foto": "📷 Photo",
                     "adj_archivo": "Fichier",
                     "chat_attach": "Joindre",
+                    "adj_previa_titulo": "Envoyer un fichier",
+                    "adj_comprimir": "Compresser l'image",
+                    "adj_cancelar": "Annuler",
+                    "adj_enviar": "Envoyer",
+                    "adj_grande_sin_comprimir": "Sans compression il dépasse 900 Ko : seuls les petits fichiers passent dans le chat.",
                     "adj_grande": "Le fichier dépasse 900 Ko : seuls les petits fichiers passent dans le chat.",
                     "adj_enviando": "Envoi du fichier…",
                     "adj_error": "Impossible d'envoyer le fichier.",

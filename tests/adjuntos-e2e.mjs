@@ -97,6 +97,11 @@ const elegir = (C, armar) => C.ev(`(async () => {
     inp.dispatchEvent(new Event('change')); return true; })()`);
 const espiarToasts = (C) => C.ev(`(() => { if (window.__toasts) { window.__toasts.length = 0; return true; } const o = window.showToast; window.__toasts = [];
     window.showToast = (m, t) => { window.__toasts.push(String(m)); return o?.(m, t); }; return true; })()`);
+const previa = (C) => C.ev(`(() => { const m = document.getElementById('adjPreviaModal'); return { abierta: !m.classList.contains('hidden'),
+    comprimirVisible: !document.getElementById('adjPreviaComprimirFila').classList.contains('hidden'),
+    tam: document.getElementById('adjPreviaTam').textContent, aviso: document.getElementById('adjPreviaAviso').textContent,
+    enviarOk: !document.getElementById('adjPreviaEnviar').disabled }; })()`);
+async function previaLista(C) { for (let i = 0; i < 40; i++) { const p = await previa(C); if (p.abierta && (p.enviarOk || p.aviso)) return p; await sleep(250); } return previa(C); }
 async function esperarEn(C, expr, seg = 40) {
     for (let i = 0; i < seg / 2.5; i++) {
         if (await C.ev(expr)) return true;
@@ -131,6 +136,9 @@ try {
 
     console.log('\n── un PDF chico ──');
     await elegir(B, `async () => new File([new TextEncoder().encode('%PDF-1.4 prueba ' + 'x'.repeat(50000))], "it's informe.pdf", { type: 'application/pdf' })`);
+    const pPdf = await previaLista(B);
+    ok(pPdf.abierta && !pPdf.comprimirVisible && pPdf.enviarOk, 'aparece la vista previa (sin «Comprimir» para un PDF)', JSON.stringify(pPdf));
+    await B.ev(`document.getElementById('adjPreviaEnviar').click(); true`);
     ok(await esperarEn(A, `[...document.querySelectorAll('#messagesContainer .adjunto-guardable')].some(e => e.textContent.includes("it's informe.pdf"))`),
         'A recibe el PDF con su nombre, tocable');
     await A.ev(`window.__guardado = null; window.cwGuardarBytes = async (n, b, m) => { window.__guardado = { n, len: b.length, m }; return n; }; true`);
@@ -146,6 +154,15 @@ try {
         const d = x.createImageData(2000, 2000); for (let i = 0; i < d.data.length; i++) d.data[i] = (Math.random() * 256) | 0; x.putImageData(d, 0, 0);
         const b = await new Promise(r => c.toBlob(r, 'image/png')); window.__pngSize = b.size; return new File([b], 'foto.png', { type: 'image/png' }); }`);
     const pngSize = await B.ev(`window.__pngSize`);
+    const pFoto = await previaLista(B);
+    ok(pFoto.abierta && pFoto.comprimirVisible && /MB → \d+ KB/.test(pFoto.tam) && pFoto.enviarOk, '«Comprimir imagen» activado muestra cuánto queda', pFoto.tam);
+    await captura(B, '1b-previa');
+    await B.ev(`(() => { const c = document.getElementById('adjPreviaComprimir'); c.checked = false; c.dispatchEvent(new Event('change')); return true; })()`);
+    const pSin = await previaLista(B);
+    ok(!pSin.enviarOk && /Sin comprimir/.test(pSin.aviso), 'sin comprimir no entra: avisa y no deja enviar', pSin.aviso);
+    await B.ev(`(() => { const c = document.getElementById('adjPreviaComprimir'); c.checked = true; c.dispatchEvent(new Event('change')); return true; })()`);
+    ok((await previaLista(B)).enviarOk, 'volver a comprimir habilita Enviar');
+    await B.ev(`document.getElementById('adjPreviaEnviar').click(); true`);
     ok(await esperarEn(A, `[...document.querySelectorAll('#messagesContainer img.adjunto-img')].some(i => i.naturalWidth > 0)`, 60),
         'A ve la foto', `PNG original ${(pngSize / 1e6).toFixed(1)} MB`);
     const img = await A.ev(`(() => { const i = [...document.querySelectorAll('#messagesContainer img.adjunto-img')].pop(); return { w: i.naturalWidth, alt: i.alt }; })()`);
@@ -156,8 +173,10 @@ try {
     console.log('\n── un archivo grande que no se puede achicar ──');
     await B.ev(`window.__toasts.length = 0; true`);
     await elegir(B, `async () => new File([crypto.getRandomValues(new Uint8Array(60000))].concat(Array(30).fill(new Uint8Array(60000))), 'video.mp4', { type: 'video/mp4' })`);
-    await sleep(800);
-    ok(await B.ev(`window.__toasts.some(t => /900 KB/.test(t))`), 'avisa que pasa de 900 KB', await B.ev(`window.__toasts.join(' | ')`));
+    const pBig = await previaLista(B);
+    ok(!pBig.enviarOk && /900 KB/.test(pBig.aviso), 'avisa que pasa de 900 KB y no deja enviar', pBig.aviso);
+    await B.ev(`document.getElementById('adjPreviaCancelar').click(); true`);
+    ok(await B.ev(`document.getElementById('adjPreviaModal').classList.contains('hidden')`), 'Cancelar cierra la vista previa');
 
     console.log('\n── sin errores de página ──');
     const errs = [...A.errores, ...B.errores].filter(e => !/favicon|ERR_|Failed to fetch|NetworkError/i.test(e));
