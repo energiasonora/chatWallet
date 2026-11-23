@@ -3106,27 +3106,32 @@
                 <div id="documentView" class="view flex-col h-full overflow-y-auto">
                     <div class="p-4 space-y-4">
 
-                        <!-- CWLT Quota Banner -->
-                        <div
-                            class="flex items-center justify-between bg-indigo-900/40 border border-indigo-600/40 rounded-xl px-4 py-3">
-                            <div>
-                                <p class="text-xs font-bold text-indigo-300 uppercase tracking-widest">☁ IPFS Storage
-                                </p>
-                                <p id="ipfsQuotaValue" class="text-xs text-indigo-200 mt-0.5 font-mono italic">
-                                    Verificando nodo...</p>
-
+                        <!-- Plan de espacio (lo llena cwEspacioRevisar con /api/espacio) -->
+                        <div id="espacioCard"
+                            class="bg-indigo-900/40 border border-indigo-600/40 rounded-xl px-4 py-3 space-y-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-xs font-bold text-indigo-300 uppercase tracking-widest" data-i18n-key="files_my_space">Tu espacio</p>
+                                <span id="espacioVence" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">…</span>
                             </div>
+                            <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div id="espacioBar" class="h-full rounded-full bg-emerald-400 transition-all" style="width:0%"></div>
+                            </div>
+                            <div class="flex items-center justify-between text-xs text-indigo-200">
+                                <span id="espacioUsado" class="font-mono">…</span>
+                                <span id="ipfsQuotaValue" class="italic">Verificando nodo...</span>
+                            </div>
+                            <p id="espacioAviso" class="hidden text-xs text-amber-200 bg-amber-900/30 rounded-lg px-3 py-2"></p>
                         </div>
 
                         <!-- Dropzone -->
                         <div id="ipfsDrop"
                             class="border-2 border-dashed border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-950/20 transition-all relative overflow-hidden">
                             <input type="file" id="ipfsFileInput" class="absolute inset-0 opacity-0 cursor-pointer"
-                                multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.md,.json,.csv,.zip,.doc,.docx">
+                                multiple>
                             <div class="flex flex-col items-center pointer-events-none">
                                 <span class="text-4xl mb-3">☁️</span>
-                                <p class="text-sm font-semibold text-gray-300">Arrastrá archivos o hacé clic</p>
-                                <p class="text-xs text-gray-500 mt-1">Máx 100 MB · PDF, IMG, TXT, JSON, ZIP, DOC</p>
+                                <p class="text-sm font-semibold text-gray-300" data-i18n-key="files_drop">Arrastrá archivos o hacé clic</p>
+                                <p id="ipfsDropHint" class="text-xs text-gray-500 mt-1">Hasta 100 MB por archivo · documentos, fotos, audio y video</p>
                             </div>
                         </div>
 
@@ -3135,10 +3140,10 @@
                             <div class="flex items-center gap-2">
                                 <input type="checkbox" id="ipfsPrivateToggle" class="w-4 h-4 rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 bg-gray-700">
                                 <label for="ipfsPrivateToggle" class="text-xs font-semibold text-indigo-300 cursor-pointer select-none">
-                                    🔒 Encriptar Archivos (Privado)
+                                    🔒 <span data-i18n-key="files_private">Cifrar (privado)</span>
                                 </label>
                             </div>
-                            <span class="text-[10px] text-gray-500 italic">Sólo tú podrás verlos</span>
+                            <span class="text-[10px] text-gray-500 italic" data-i18n-key="files_private_hint">Sólo vos los vas a poder abrir</span>
                         </div>
 
                         <!-- Progress bar (shown during upload) -->
@@ -3173,8 +3178,7 @@
 
                         <!-- Upload history -->
                         <div>
-                            <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Archivos Subidos
-                            </p>
+                            <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2" data-i18n-key="files_uploaded">Archivos subidos</p>
                             <div id="ipfsHistory"></div>
                         </div>
 
@@ -3215,14 +3219,14 @@
                     </svg>
                     <span class="text-xs" data-i18n-key="nav_balances">Balances</span>
                 </button>
-                <button data-view="documentView"
-                    class="nav-btn transition-colors duration-200 hover:bg-gray-700/50 text-gray-400">
+                <button data-view="documentView" id="filesNavBtn"
+                    class="hidden nav-btn transition-colors duration-200 hover:bg-gray-700/50 text-gray-400">
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24"
                         stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round"
                             d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625a1.875 1.875 0 00-1.875 1.875v17.25a1.875 1.875 0 001.875 1.875h12.75a1.875 1.875 0 001.875-1.875V11.25a3.375 3.375 0 00-3.375-3.375h-1.5" />
                     </svg>
-                    <span class="text-xs">Docs</span>
+                    <span class="text-xs" data-i18n-key="nav_files">Archivos</span>
                 </button>
             </nav>
         </div>
@@ -6506,6 +6510,8 @@
                 appHeader.classList.add('flex');
                 appNav.classList.remove('hidden');
                 showView('walletView');
+                // Pestaña Archivos: aparece sólo si esta wallet tiene plan de espacio (módulo de Archivos).
+                window.cwEspacioRevisar?.();
 
                 if (isNewWallet) {
                     // showBackupNotification(); // Removed redundant yellow banner
@@ -10792,6 +10798,21 @@
                 URL.revokeObjectURL(url);
                 return name;
             }
+
+            // Lo mismo para cualquier archivo, expuesto para el módulo de Archivos (otro scope).
+            // Devuelve dónde quedó, para decírselo al usuario.
+            window.cwGuardarBytes = async (name, bytes, mime = 'application/octet-stream') => {
+                if (NativeFiles) {
+                    const res = await NativeFiles.saveToDownloads({ name, base64: bytesToBase64(bytes), mime });
+                    return res?.uri ? `Descargas/${name}` : name;
+                }
+                const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+                const a = document.createElement('a');
+                a.href = url; a.download = name;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 10_000);
+                return name;
+            };
 
             // ── Historial archivado en Configuración ────────────────────────
             function renderHistoryArchive() {
@@ -26293,6 +26314,12 @@
                     "tilde_enviado": "Enviado",
                     "tilde_visto": "Visto",
                     "nav_balances": "Balances",
+                    "nav_files": "Archivos",
+                    "files_my_space": "Tu espacio",
+                    "files_drop": "Arrastrá archivos o hacé clic",
+                    "files_private": "Cifrar (privado)",
+                    "files_private_hint": "Sólo vos los vas a poder abrir",
+                    "files_uploaded": "Archivos subidos",
                     "bal_title": "Tus balances",
                     "xmtp_colgado_titulo": "El chat no responde",
                     "xmtp_colgado_cuerpo": "Tocá acá para recargar la app. Tu wallet no se pierde.",
@@ -27151,6 +27178,12 @@
                     "tilde_enviado": "Sent",
                     "tilde_visto": "Seen",
                     "nav_balances": "Balances",
+                    "nav_files": "Files",
+                    "files_my_space": "Your space",
+                    "files_drop": "Drag files here or tap",
+                    "files_private": "Encrypt (private)",
+                    "files_private_hint": "Only you will be able to open them",
+                    "files_uploaded": "Uploaded files",
                     "bal_title": "Your balances",
                     "xmtp_colgado_titulo": "Chat isn't responding",
                     "xmtp_colgado_cuerpo": "Tap here to reload the app. Your wallet stays safe.",
@@ -28009,6 +28042,12 @@
                     "tilde_enviado": "Envoyé",
                     "tilde_visto": "Vu",
                     "nav_balances": "Soldes",
+                    "nav_files": "Fichiers",
+                    "files_my_space": "Ton espace",
+                    "files_drop": "Glisse des fichiers ou touche ici",
+                    "files_private": "Chiffrer (privé)",
+                    "files_private_hint": "Toi seul pourras les ouvrir",
+                    "files_uploaded": "Fichiers envoyés",
                     "bal_title": "Vos soldes",
                     "xmtp_colgado_titulo": "Le chat ne répond pas",
                     "xmtp_colgado_cuerpo": "Touchez ici pour recharger l'app. Votre wallet reste en sécurité.",
@@ -29084,9 +29123,11 @@
 
             function ipfsAddFiles(files) {
                 const isPrivate = document.getElementById('ipfsPrivateToggle').checked;
+                // Con plan vigente, el tope del plan; si no, el gratis (5 MB). Los dice el nodo.
+                const maxBytes = espacioMaxArchivo();
                 files.forEach(f => {
-                    if (f.size > IPFS_MAX_MB * 1024 * 1024) {
-                        showIpfsToast(`${f.name} supera ${IPFS_MAX_MB}MB`, 'error');
+                    if (f.size > maxBytes) {
+                        showIpfsToast(`${f.name} supera ${ipfsFormatSize(maxBytes)}`, 'error');
                         return;
                     }
                     ipfsQueue.push({ id: crypto.randomUUID(), file: f, status: 'queued', cid: null, isPrivate });
@@ -29160,6 +29201,7 @@
                     setTimeout(() => { ipfsProgress.classList.add('hidden'); ipfsProgressBar.style.width = '0%'; }, 1500);
 
                     const doneCount = ipfsQueue.filter(f => f.status === 'done').length;
+                    window.cwEspacioRevisar?.();   // el espacio usado cambió
                     if (doneCount) {
                         showIpfsToast(`${doneCount} archivo${doneCount > 1 ? 's' : ''} subido${doneCount > 1 ? 's' : ''} a IPFS ✓`, 'success');
                         setTimeout(() => {
@@ -29264,36 +29306,56 @@
                     ipfsHistory.innerHTML = '<div class="text-center text-gray-600 py-6 text-xs">📂 No hay archivos subidos aún</div>';
                     return;
                 }
+                // Sin onclick con el nombre adentro: un nombre con comilla rompía el botón. El CID se
+                // valida (sólo base32) y el resto va por data-* y un único listener.
                 ipfsHistory.innerHTML = '';
                 h.forEach((entry, i) => {
+                    if (!/^[a-z0-9]+$/i.test(entry.cid || '')) return;
+                    const link = entry.isPrivate ? '' : `${GATEWAY_BASE}${entry.cid}?filename=${encodeURIComponent(entry.name || 'archivo')}`;
                     const el = document.createElement('div');
                     el.className = 'flex items-start gap-3 bg-gray-800/60 border border-gray-700 rounded-xl px-3 py-2.5 mb-2';
                     el.innerHTML = `
-                    <span class="text-lg flex-shrink-0 mt-0.5">${ipfsFileIcon(entry.name)}</span>
+                    <span class="text-lg flex-shrink-0 mt-0.5">${ipfsFileIcon(entry.name || '')}</span>
                     <div class="flex-1 min-w-0">
                         <div class="text-gray-200 text-xs font-mono truncate">${escHtml(entry.name)} ${entry.isPrivate ? '🔒' : ''}</div>
-                        <div class="text-green-400 text-xs font-mono mt-0.5 truncate">
-                            <a href="${GATEWAY_BASE}${entry.cid}" target="_blank" class="hover:underline">📎 ${entry.cid}</a>
+                        <div class="text-xs font-mono mt-0.5 truncate ${entry.isPrivate ? 'text-indigo-300' : 'text-green-400'}">
+                            ${entry.isPrivate ? `🔒 ${entry.cid}` : `<a href="${escHtml(link)}" target="_blank" rel="noopener" class="hover:underline">📎 ${entry.cid}</a>`}
                         </div>
-                        <div class="text-gray-600 text-xs mt-0.5">${ipfsFormatDate(entry.date)} · ${ipfsFormatSize(entry.size)}</div>
+                        <div class="text-gray-600 text-xs mt-0.5">${ipfsFormatDate(entry.date)} · ${ipfsFormatSize(entry.size)} · ${entry.isPrivate ? 'privado' : 'público'}</div>
                     </div>
                     <div class="flex gap-1 flex-shrink-0">
-                        <button onclick="ipfsCopyCid('${entry.cid}')" class="p-1.5 rounded-lg hover:bg-gray-700 text-gray-500 hover:text-white transition text-xs" title="Copiar CID">📋</button>
-                        ${entry.isPrivate ? 
-                            `<button onclick="ipfsDecryptAndOpen('${entry.cid}', '${entry.name}')" class="p-1.5 rounded-lg hover:bg-indigo-900/40 text-indigo-400 hover:text-indigo-200 transition text-xs" title="Descifrar y Abrir">🔓</button>` : 
-                            `<button onclick="ipfsOpenGateway('${entry.cid}')" class="p-1.5 rounded-lg hover:bg-gray-700 text-gray-500 hover:text-white transition text-xs" title="Abrir">🔗</button>`
-                        }
-                        <button onclick="ipfsDeleteHistory(${i})" class="p-1.5 rounded-lg hover:bg-red-900/30 text-gray-500 hover:text-red-400 transition text-xs" title="Eliminar">✕</button>
+                        ${entry.isPrivate
+                            ? `<button data-acc="descifrar" data-i="${i}" class="p-1.5 rounded-lg hover:bg-indigo-900/40 text-indigo-400 hover:text-indigo-200 transition text-xs" title="Descifrar y guardar">🔓</button>`
+                            : `<button data-acc="link" data-i="${i}" class="p-1.5 rounded-lg hover:bg-gray-700 text-gray-500 hover:text-white transition text-xs" title="Copiar link para compartir">🔗</button>`}
+                        <button data-acc="cid" data-i="${i}" class="p-1.5 rounded-lg hover:bg-gray-700 text-gray-500 hover:text-white transition text-xs" title="Copiar CID">📋</button>
+                        <button data-acc="quitar" data-i="${i}" class="p-1.5 rounded-lg hover:bg-red-900/30 text-gray-500 hover:text-red-400 transition text-xs" title="Quitar de la lista (el archivo sigue en el nodo)">✕</button>
                     </div>`;
                     ipfsHistory.appendChild(el);
                 });
             }
+
+            ipfsHistory?.addEventListener('click', (ev) => {
+                const btn = ev.target.closest('button[data-acc]');
+                if (!btn) return;
+                const entry = ipfsGetHistory()[Number(btn.dataset.i)];
+                if (!entry) return;
+                const acc = btn.dataset.acc;
+                if (acc === 'cid') return window.ipfsCopyCid(entry.cid);
+                if (acc === 'link') {
+                    const link = `${GATEWAY_BASE}${entry.cid}?filename=${encodeURIComponent(entry.name || 'archivo')}`;
+                    return navigator.clipboard.writeText(link).then(() => showIpfsToast('Link copiado: cualquiera que lo tenga lo abre', 'success'))
+                        .catch(() => showIpfsToast(link, 'info'));
+                }
+                if (acc === 'descifrar') return window.ipfsDecryptAndOpen(entry.cid, entry.name);
+                if (acc === 'quitar') return window.ipfsDeleteHistory(Number(btn.dataset.i));
+            });
 
             window.ipfsDecryptAndOpen = async (cid, originalName) => {
                 if (!window.currentWallet) { showIpfsToast('Conectá tu wallet primero', 'error'); return; }
                 showIpfsToast('Descargando y descifrando...', 'info');
                 try {
                     const response = await fetch(GATEWAY_BASE + cid);
+                    if (!response.ok) throw new Error(`el gateway respondió ${response.status}`);
                     const buffer = await response.arrayBuffer();
                     const iv = new Uint8Array(buffer.slice(0, 12));
                     const ciphertext = buffer.slice(12);
@@ -29309,14 +29371,9 @@
                         { name: 'AES-GCM', iv }, cryptoKey, ciphertext
                     );
 
-                    const blob = new Blob([decrypted]);
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = originalName;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    showIpfsToast('Archivo descifrado con éxito ✓', 'success');
+                    // En el APK <a download> no hace nada: cwGuardarBytes usa el plugin nativo (Descargas).
+                    const donde = await window.cwGuardarBytes(originalName || `archivo-${cid.slice(-8)}`, new Uint8Array(decrypted));
+                    showIpfsToast(`Descifrado y guardado: ${donde}`, 'success');
                 } catch (e) {
                     console.error('Error al descifrar:', e);
                     showIpfsToast('Error al descifrar el archivo', 'error');
@@ -29473,7 +29530,8 @@
             function ipfsFormatSize(b) {
                 if (b < 1024) return b + ' B';
                 if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
-                return (b / 1024 / 1024).toFixed(2) + ' MB';
+                if (b < 1024 ** 3) return (b / 1024 / 1024).toFixed(b < 10 * 1024 * 1024 ? 2 : 0) + ' MB';
+                return (b / 1024 ** 3).toFixed(2).replace(/\.?0+$/, '') + ' GB';
             }
             function ipfsFormatDate(iso) {
                 return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -29497,18 +29555,100 @@
                 document.getElementById('receiveStandardContent')?.classList.remove('hidden');
             }
 
-            if (!DOCS_ENABLED) {
-                if (docsNavBtn) docsNavBtn.classList.add('hidden');
-                if (didDocsSection) didDocsSection.classList.add('hidden');
+            // La sección de documentos del perfil DID sigue oculta (es otra cosa: atestaciones).
+            if (didDocsSection) didDocsSection.classList.add('hidden');
+
+            // ── Espacio (planes pagos) ────────────────────────────────────────────
+            // La pestaña Archivos aparece sólo para las wallets con plan en el nodo (espacio.mjs
+            // en la caja). El nodo lo dice por /api/espacio/<address>, firmado por la wallet para
+            // que nadie de afuera pueda averiguar quién pagó. DOCS_ENABLED = true la muestra a todos.
+            const ESPACIO_URL = IPFS_UPLOAD_URL.replace('/api/ipfs/upload', '/api/espacio/');
+            const espacioCacheKey = (a) => `cw-espacio-${a}`;
+            let espacio = null;   // { plan, gratis } de la última respuesta
+
+            function espacioMaxArchivo() {
+                if (espacio?.plan?.vigente) return espacio.plan.maxFile;
+                return espacio?.gratis?.maxFile ?? IPFS_MAX_MB * 1024 * 1024;
             }
-            // Render history whenever Docs tab becomes active
-            if (DOCS_ENABLED && docsNavBtn) {
+
+            function espacioPintar() {
+                const p = espacio?.plan;
+                const mostrar = DOCS_ENABLED || !!p;
+                docsNavBtn?.classList.toggle('hidden', !mostrar);
+                // Si la pestaña desaparece estando abierta (plan quitado), volver a la wallet.
+                if (!mostrar && document.getElementById('documentView')?.classList.contains('active')) {
+                    document.querySelector('[data-view="walletView"]')?.click();
+                }
+                const bar = document.getElementById('espacioBar');
+                const usado = document.getElementById('espacioUsado');
+                const vence = document.getElementById('espacioVence');
+                const aviso = document.getElementById('espacioAviso');
+                const hint = document.getElementById('ipfsDropHint');
+                if (!bar || !usado || !vence || !aviso) return;
+                aviso.classList.add('hidden');
+                if (hint) hint.textContent = `Hasta ${ipfsFormatSize(espacioMaxArchivo())} por archivo · documentos, fotos, audio y video`;
+                if (!p) {
+                    bar.style.width = '0%';
+                    usado.textContent = `Sin plan · ${ipfsFormatSize(espacio?.gratis?.porDia ?? 0)} por día`;
+                    vence.textContent = 'gratis';
+                    vence.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-700 text-gray-300';
+                    return;
+                }
+                const pct = p.bytes ? Math.min(100, (100 * p.used) / p.bytes) : 0;
+                bar.style.width = `${pct.toFixed(1)}%`;
+                bar.className = `h-full rounded-full transition-all ${pct >= 90 ? 'bg-amber-400' : 'bg-emerald-400'}`;
+                usado.textContent = `${ipfsFormatSize(p.used)} de ${ipfsFormatSize(p.bytes)}`;
+                const hasta = p.until ? new Date(`${p.until}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+                if (p.vigente) {
+                    vence.textContent = hasta ? `hasta el ${hasta}` : 'activo';
+                    vence.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300';
+                    const dias = p.until ? Math.ceil((Date.parse(`${p.until}T23:59:59-03:00`) - Date.now()) / 86400e3) : 99;
+                    if (dias <= 7) {
+                        aviso.textContent = `Tu plan vence en ${dias} día${dias === 1 ? '' : 's'}. Escribile a ChatWallet para renovarlo.`;
+                        aviso.classList.remove('hidden');
+                    } else if (pct >= 90) {
+                        aviso.textContent = 'Te queda poco espacio. Escribile a ChatWallet si necesitás más.';
+                        aviso.classList.remove('hidden');
+                    }
+                } else {
+                    vence.textContent = hasta ? `venció el ${hasta}` : 'vencido';
+                    vence.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-900/60 text-red-300';
+                    aviso.textContent = 'Tu plan venció. Tus archivos siguen guardados y los links andan; para subir más, escribile a ChatWallet y lo renovamos.';
+                    aviso.classList.remove('hidden');
+                }
+            }
+
+            window.cwEspacioRevisar = async () => {
+                const w = window.currentWallet;
+                if (!w?.address || !w.privateKey || !window.ethers) return;
+                const addr = w.address.toLowerCase();
+                // Primero lo último que se supo (arranque sin red, APK en frío), después el nodo.
+                try { const c = JSON.parse(localStorage.getItem(espacioCacheKey(addr)) || 'null'); if (c) { espacio = c; espacioPintar(); } } catch { }
+                try {
+                    const ts = Date.now();
+                    const signature = await new window.ethers.Wallet(w.privateKey).signMessage(`cw-espacio:${addr}:${ts}`);
+                    const r = await fetch(ESPACIO_URL + addr, { headers: { 'x-ts': String(ts), 'x-signature': signature }, signal: AbortSignal.timeout(10_000) });
+                    if (!r.ok) throw new Error(`espacio ${r.status}`);
+                    const j = await r.json();
+                    if (window.currentWallet?.address?.toLowerCase() !== addr) return;   // cambió de wallet mientras tanto
+                    espacio = j;
+                    try { localStorage.setItem(espacioCacheKey(addr), JSON.stringify(j)); } catch { }
+                    espacioPintar();
+                } catch (e) {
+                    console.warn('[espacio] no se pudo consultar el plan:', e.message);
+                }
+            };
+
+            if (docsNavBtn) {
                 docsNavBtn.addEventListener('click', () => {
                     ipfsRenderHistory();
                     ipfsRenderQueue();
                     ipfsRefreshQuota();
+                    window.cwEspacioRevisar();
                 });
             }
+            // El módulo puede cargar después de que la wallet arrancó: revisar acá también.
+            if (window.currentWallet) window.cwEspacioRevisar();
             // También refrescar al iniciar si estamos en la vista de docs
             setTimeout(() => ipfsRefreshQuota(), 2000);
             // Also render on load in case Docs is default active

@@ -269,6 +269,37 @@ app.post('/api/ipfs/upload', precheck, leerCuerpo, async (req, res) => {
   }
 });
 
+// ── Plan de una wallet ──────────────────────────────────────────────────────
+// La app pregunta para saber si mostrar la pestaña Archivos. Firmado para que nadie de afuera
+// pueda averiguar qué wallets pagaron: la wallet firma "cw-espacio:<address>:<ts>" (ts en ms,
+// vale 5 minutos). Responde el plan o plan:null, y los topes gratis para mostrarlos.
+app.get('/api/espacio/:address', (req, res) => {
+  const fail = failer(res);
+  try {
+    const addr = (req.params.address || '').toLowerCase();
+    const ts = Number(req.header('x-ts'));
+    const signature = req.header('x-signature');
+    if (!/^0x[0-9a-f]{40}$/.test(addr) || !ts || !signature) return fail(400, 'Faltan address/ts/firma');
+    if (Math.abs(Date.now() - ts) > 5 * 60_000) return fail(401, 'La firma venció: revisá la hora del teléfono');
+    let recovered;
+    try { recovered = ethers.verifyMessage(`cw-espacio:${addr}:${ts}`, signature); }
+    catch (e) { return fail(401, 'Firma ilegible'); }
+    if (recovered.toLowerCase() !== addr) return fail(401, 'Firma no corresponde a la address');
+
+    cargarPlanes();
+    const p = planes[addr];
+    const gratis = { maxFile: LIM.freeFile, porDia: LIM.freeWalletDay };
+    if (!p) return res.json({ plan: null, gratis });
+    res.json({
+      plan: { bytes: p.bytes, used: p.used || 0, until: p.until || null, vigente: !!planVigente(addr), maxFile: LIM.planFile },
+      gratis,
+    });
+  } catch (e) {
+    console.error('espacio error', e);
+    return fail(500, e.message);
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  POINTER DE RESPALDO DE CHATS (address → último CID)
 //  El dapp sube el respaldo cifrado por /api/ipfs/upload (blob opaco: el server

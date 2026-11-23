@@ -654,6 +654,33 @@ def check_copia():
 _muestra_at = 0
 _latido_log = 0
 
+PLANES_FILE = os.path.join(HOME, "chatwallet-node/espacio-planes.json")
+GRACIA_PLAN_DIAS = 30   # después de vencer, los archivos esperan esto antes de que convenga liberarlos
+
+def lineas_espacio():
+    """Planes de espacio (espacio.mjs) que piden atención: vencen en ≤ 7 días, vencieron, o casi llenos.
+    Va en el resumen de las 9, una vez por día: no es una urgencia, es para acordarse de cobrar."""
+    planes = leer_json(PLANES_FILE, {}) or {}
+    hoy = ahora_local().date()
+    out = []
+    for addr, p in planes.items():
+        corta = f"{addr[:6]}…{addr[-4:]}"
+        nota = f" ({p['nota']})" if p.get("nota") else ""
+        try:
+            dias = (datetime.strptime(p.get("until", ""), "%Y-%m-%d").date() - hoy).days
+        except ValueError:
+            dias = None
+        uso = (100 * p.get("used", 0) / p["bytes"]) if p.get("bytes") else 0
+        if dias is not None and 0 <= dias <= 7:
+            out.append(f"• {corta}{nota} vence {'hoy' if dias == 0 else f'en {dias} día' + ('s' if dias > 1 else '')}")
+        elif dias is not None and -GRACIA_PLAN_DIAS <= dias < 0:
+            out.append(f"• {corta}{nota} venció hace {-dias} día{'s' if dias < -1 else ''}")
+        elif dias is not None and dias < -GRACIA_PLAN_DIAS:
+            out.append(f"• {corta}{nota} venció hace {-dias} días: ya pasó la gracia, se pueden liberar sus archivos")
+        if uso >= 90 and (dias is None or dias >= 0):
+            out.append(f"• {corta}{nota} usó el {uso:.0f} % de su espacio")
+    return out
+
 def resumen_diario(report, s):
     hoy = ahora_local().strftime("%Y-%m-%d")
     if ahora_local().hour < HORA_RESUMEN or estado.get("resumen_dia") == hoy:
@@ -684,6 +711,12 @@ def resumen_diario(report, s):
     if inc:
         linea += f"\nÚltimas 24 h: {len(inc)} incidente{'s' if len(inc) > 1 else ''} (" + \
                  ", ".join(f"{i['nombre']} {duracion(i['hasta'] - i['desde'])}" for i in inc[-4:]) + ")"
+    try:
+        esp = lineas_espacio()
+    except Exception as e:   # un padrón roto no puede tumbar el resumen
+        esp = [f"• no pude leer espacio-planes.json: {e}"]
+    if esp:
+        linea += "\n💾 Planes de espacio:\n" + "\n".join(esp)
     avisar(linea)
 
 def check_all():

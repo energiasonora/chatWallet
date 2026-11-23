@@ -98,6 +98,26 @@ const v = W();
 espacio('dar', v.address, '1', '2020-01-01');
 esperar('plan vencido usa el tope gratis (6 MB → 413)', await subir(v, 6 * MB, { ip: '10.200.0.1' }), 413);
 
+// ── Consulta del plan (firmada) ──
+async function consultar(wallet, { firmante = wallet, ts = Date.now() } = {}) {
+  const addr = wallet.address.toLowerCase();
+  const signature = await firmante.signMessage(`cw-espacio:${addr}:${ts}`);
+  const r = await fetch(`http://127.0.0.1:${UPORT}/api/espacio/${addr}`, { headers: { 'x-ts': String(ts), 'x-signature': signature } });
+  return { status: r.status, ...(await r.json().catch(() => ({}))) };
+}
+{
+  const c1 = await consultar(p);
+  esperar('consulta: wallet con plan', c1, 200);
+  if (!(c1.plan?.vigente && c1.plan.used >= 30 * MB)) { fallas++; console.log('✗ el plan no vino bien:', c1.plan); }
+  const c2 = await consultar(W());
+  esperar('consulta: wallet sin plan', c2, 200);
+  if (c2.plan !== null) { fallas++; console.log('✗ esperaba plan:null'); }
+  const c3 = await consultar(v);
+  if (c3.plan?.vigente !== false) { fallas++; console.log('✗ el plan vencido figura vigente'); } else console.log('✓ consulta: plan vencido figura como no vigente');
+  esperar('consulta: firmada por otra wallet', await consultar(p, { firmante: W() }), 401);
+  esperar('consulta: firma de hace 10 minutos', await consultar(p, { ts: Date.now() - 10 * 60_000 }), 401);
+}
+
 // ── Repo lleno ── (la caché del server es de 60 s: se espera a que venza en un server nuevo, no hace falta;
 // se prueba con otro proceso que arranca con el repo ya lleno)
 srv.kill();
