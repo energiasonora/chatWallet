@@ -55,6 +55,14 @@ Después:
    (la billetera), y publicar.
 3. Sumarlo al monitor de la caja (que avise si se atrasa).
 
+## Sincronización: warp, no completa
+
+Medido el 24/11/2026: la sincronización completa (re-ejecutar cada bloque desde 2023) iba a
+**2,6 bloques/s** (~2 semanas para 3,75 millones) y subía la carga de la caja a 4,8 con 2 núcleos,
+con 700 MB de swap. Por eso el nodo arranca con `DUNITER_SYNC=warp` (baja el estado finalizado
+con su prueba de GRANDPA y completa la historia después, sin ejecutarla) y `--cpus=1.5`.
+Pasar de completa a warp exige base vacía: `./poc/g1-nodo/instalar-en-la-caja.sh --de-cero`.
+
 ## El monitor lo vigila
 
 `uso/monitor/monitor.py` (chequeo `g1_nodo`, cada 10 min): avisa a los **7 GB**, y a los **10 GB**
