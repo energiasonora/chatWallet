@@ -214,13 +214,16 @@ export function caja(ahora) {
     const porHora = new Map();
     for (const m of muestras.filter(m => ahora - m.t * 1000 < 7 * DIA)) {
         const h = Math.floor(m.t / 3600) * 3600;
-        const a = porHora.get(h) || { t: h, n: 0, temp: 0, carga: 0, ram: 0, peor: m.ok, total: m.total, sinCorriente: false };
+        const a = porHora.get(h) || { t: h, n: 0, temp: 0, carga: 0, ram: 0, peor: m.ok, total: m.total, sinCorriente: false, g1_mb: null, g1_bloque: null };
         a.n++; a.temp += m.temp || 0; a.carga += m.carga || 0; a.ram += m.ram || 0;
+        // Nodo Ğ1: el último valor de la hora (crece; un promedio no dice nada).
+        if (m.g1_mb != null) a.g1_mb = m.g1_mb;
+        if (m.g1_bloque != null) a.g1_bloque = m.g1_bloque;
         a.peor = Math.min(a.peor, m.ok); a.sinCorriente ||= m.corriente === false;
         porHora.set(h, a);
     }
     const semana = [...porHora.values()].map(a => ({ t: a.t, temp: +(a.temp / a.n).toFixed(1), carga: +(a.carga / a.n).toFixed(2),
-        ram: Math.round(a.ram / a.n), ok: a.peor, total: a.total, sinCorriente: a.sinCorriente }));
+        ram: Math.round(a.ram / a.n), ok: a.peor, total: a.total, sinCorriente: a.sinCorriente, g1_mb: a.g1_mb, g1_bloque: a.g1_bloque }));
     const incidentes = leerJsonl(MONITOR + '/incidentes.jsonl').slice(-40).reverse();
     return { ...estado, edadSeg, muestras24h: ultimas24, semana, incidentes };
 }

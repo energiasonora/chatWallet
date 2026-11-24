@@ -676,6 +676,11 @@ def check_g1_nodo():
     except Exception as e:
         info["error"] = f"no pude medir el disco: {e}"[:80]
     try:
+        mem = _podman("stats", "--no-stream", "--format", "{{.MemUsage}}", G1_CONTENEDOR, timeout=30).stdout.strip()
+        info["ram"] = mem.split("/")[0].strip()   # "1.036GB / 1.573GB" → "1.036GB"
+    except Exception:
+        pass
+    try:
         st = g1_sync()
         info["bloque"], info["meta"] = st.get("currentBlock"), st.get("highestBlock")
         if info["bloque"] and info["meta"]:
@@ -831,6 +836,8 @@ def check_all():
             "t": int(time.time()), "temp": s.get("temp_c"), "carga": (s.get("carga") or [None])[0],
             "ram": s.get("ram_libre_mb"), "disco": s.get("disco_pct"), "corriente": s.get("corriente"),
             "ok": len(results) - len(malos), "total": len(results),
+            # Nodo Ğ1 (se mide cada 10 min; entre medición y medición se repite el último valor)
+            "g1_mb": _g1[1].get("mb"), "g1_bloque": _g1[1].get("bloque"), "g1_meta": _g1[1].get("meta"),
         }, MUESTRAS_MAX)
 
     resumen_diario(report, s)

@@ -72,6 +72,14 @@
     .servicio .punto { margin-top:6px; }
     .servicio b { font-weight:600; font-size:14px; display:block; }
     .servicio small { color:var(--tenue); font-size:12px; overflow-wrap:anywhere; }
+    .progreso { height:10px; border-radius:99px; background:var(--borde); overflow:hidden; position:relative; margin:8px 0 4px; }
+    .progreso i { display:block; height:100%; background:var(--acento); border-radius:99px; }
+    .progreso.aviso i { background:var(--aviso); } .progreso.mal i { background:var(--mal); } .progreso.ok i { background:var(--ok); }
+    .progreso .tope { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--mal); opacity:.7; }
+    .progreso .tope.aviso { background:var(--aviso); }
+    .nodo-g1 { display:grid; gap:12px; }
+    .nodo-g1 .fila { display:flex; justify-content:space-between; gap:8px; align-items:baseline; flex-wrap:wrap; }
+    .nodo-g1 .fila b { font-size:18px; font-variant-numeric:tabular-nums; }
     .segmentos { display:inline-flex; border:1px solid var(--borde); border-radius:9px; overflow:hidden; }
     .segmentos button { background:transparent; color:var(--tenue); border-radius:0; padding:5px 12px; font-weight:500; }
     .segmentos button[aria-pressed="true"] { background:var(--tarjeta2); color:var(--texto); }
@@ -224,6 +232,7 @@ function detalleServicio(s) {
         (i.ritmo_mb_dia == null ? ' · ritmo: hacen falta 3 días de datos' : i.ritmo_mb_dia > 0
             ? ` · crece ${num(i.ritmo_mb_dia)} MB/día` + (i.dias_para_llenarse != null ? ` (se llena en ~${num(Math.round(i.dias_para_llenarse))} días)` : '')
             : ' · no crece'));
+    if (s.id === 'g1_nodo') return i.resumen || i.note || '';
     if (s.id === 'ipfs_repo') return i.repo ? `${i.repo} (${i.repo_pct}%)` : '';
     if (s.id === 'relayer_gas') return i.resumen || '';
     if (s.id === 'copia') return i.ultimo_ok ? `última copia hace ${duracion(Date.now() / 1000 - i.ultimo_ok)} · ${num(i.cids)} respaldos · ${num(i.mb)} MB`
@@ -275,6 +284,61 @@ function linea(puntos, { color = 'var(--acento)', umbral, sufijo = '' } = {}) {
         <div class="eje tenue"><span>${esc(cuando(t0))}</span><span class="lectura"></span><span>${esc(cuando(t1))}</span></div>`;
 }
 
+// ── Nodo Ğ1 (poc/g1-nodo): avance de la sincronización y disco contra el tope del monitor ──
+const G1_AVISO_MB = 7 * 1024, G1_FRENO_MB = 10 * 1024;
+function ritmoG1(muestras, campo, ventanaSeg) {
+    // Cuánto cambió `campo` por segundo en la última ventana (con las muestras de 24 h).
+    const con = muestras.filter(m => m[campo] != null);
+    if (con.length < 2) return null;
+    const fin = con.at(-1), ini = con.find(m => fin.t - m.t <= ventanaSeg) || con[0];
+    if (fin.t - ini.t < 600) return null;
+    return (fin[campo] - ini[campo]) / (fin.t - ini.t);
+}
+function seccionNodoG1(c, serie) {
+    const svc = (c.services || []).find(x => x.id === 'g1_nodo');
+    if (!svc || (svc.status === 'unknown' && !svc.info?.resumen)) return '';
+    const i = svc.info || {};
+    const cls = claseDe(svc.status);
+    let h = '<h2>Nodo Ğ1</h2><div class="caja nodo-g1">';
+    // Estado en una frase.
+    const al_dia = i.pct != null && i.pct >= 99.9;
+    const frase = i.frenado ? 'Frenado por tamaño: no vuelve a arrancar solo'
+        : i.error ? i.error
+        : al_dia ? 'Al día con la red' : 'Sincronizando con la red Ğ1';
+    h += `<div class="fila"><span class="pildora ${cls}"><i class="punto"></i>${esc(frase)}</span>
+        <span class="tenue">${i.ram ? 'RAM ' + esc(i.ram) + ' · ' : ''}medido cada 10 min</span></div>`;
+    // Sincronización.
+    const pct = i.pct ?? 0;
+    const m24 = c.muestras24h || [];
+    const bps = ritmoG1(m24, 'g1_bloque', 3600);
+    const faltan = i.meta && i.bloque ? i.meta - i.bloque : null;
+    const eta = bps > 0 && faltan > 0 ? duracion(faltan / bps) : null;
+    h += `<div><div class="fila"><span class="tenue">Sincronización</span><b>${esc(String(pct).replace('.', ','))} %</b></div>
+        <div class="progreso ${al_dia ? 'ok' : ''}"><i style="width:${Math.min(100, pct)}%"></i></div>
+        <div class="fila tenue"><span>bloque ${esc(num(i.bloque))} de ${esc(num(i.meta))}</span>
+        <span>${bps != null ? esc(num(Math.round(bps * 10) / 10)) + ' bloques/s' : 'ritmo: hace falta 1 h de muestras'}${eta && !al_dia ? ' · faltan ~' + esc(eta) : ''}</span></div></div>`;
+    // Disco contra los topes.
+    const mb = i.mb ?? 0;
+    const dcls = mb >= G1_FRENO_MB ? 'mal' : mb >= G1_AVISO_MB ? 'aviso' : '';
+    const crece = ritmoG1(m24, 'g1_mb', 6 * 3600);
+    const mbDia = crece != null ? Math.round(crece * 86400) : null;
+    h += `<div><div class="fila"><span class="tenue">Disco del nodo</span><b>${esc((mb / 1024).toFixed(2).replace('.', ','))} GB</b></div>
+        <div class="progreso ${dcls}"><i style="width:${Math.min(100, mb / G1_FRENO_MB * 100)}%"></i>
+            <span class="tope aviso" style="left:${G1_AVISO_MB / G1_FRENO_MB * 100}%" title="aviso a los 7 GB"></span></div>
+        <div class="fila tenue"><span>aviso a los 7 GB · se frena a los 10 GB</span>
+        <span>${mbDia == null ? 'ritmo: hacen falta 6 h de muestras' : mbDia > 0 ? 'crece ' + esc(num(mbDia)) + ' MB/día' : 'no crece'}</span></div></div>`;
+    h += '</div>';
+    // Gráficos (mismo rango que los de la máquina).
+    const graf = (titulo, campo, opciones, actual) => `<div class="grafico"><div class="cab"><span class="tenue">${esc(titulo)}</span><b>${esc(actual)}</b></div>
+        ${linea(serie.map(m => [m.t, m[campo]]), opciones)}</div>`;
+    h += '<div class="graficos" style="margin-top:10px">';
+    h += graf('Disco del nodo Ğ1', 'g1_mb', { color: 'var(--aviso)', umbral: G1_FRENO_MB, sufijo: ' MB' }, num(mb) + ' MB');
+    h += graf('Bloques sincronizados', 'g1_bloque', { color: 'var(--ok)', sufijo: '' }, num(i.bloque));
+    h += '</div>';
+    if (i.frenado) h += '<p class="tenue">Para seguir: <code>rm ~/g1-nodo-FRENADO && ~/start-g1-nodo.sh</code> en la caja.</p>';
+    return h;
+}
+
 function pintarCaja(c) {
     ultimaCaja = c;
     const el = $('vCaja');
@@ -324,6 +388,8 @@ function pintarCaja(c) {
     h += graf('Chequeos en verde', 'ok', { color: 'var(--ok)', sufijo: '' }, `${svcs.filter(x => claseDe(x.status) === 'ok').length}/${svcs.length}`);
     h += '</div>';
     if (rangoCaja === '7d') h += '<p class="tenue">7 días: promedio por hora; «chequeos en verde» es el peor momento de cada hora.</p>';
+
+    h += seccionNodoG1(c, serie);
 
     for (const [g, titulo] of Object.entries(GRUPOS)) {
         const lista = svcs.filter(x => (x.grupo || 'servicios') === g);
