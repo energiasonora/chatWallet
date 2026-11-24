@@ -11,6 +11,8 @@ cat > ~/start-g1-nodo.sh <<SCRIPT
 #!/bin/bash
 # Nodo espejo Ğ1 (instalado por chatWallet/poc/g1-nodo). RPC sólo en localhost:9944; afuera
 # sale por el túnel de Cloudflare (g1.chatwallet.org), nunca abriendo un puerto.
+# El monitor de la caja lo frena a los 10 GB y deja esta marca: con la marca no arranca.
+if [ -f ~/g1-nodo-FRENADO ]; then echo "g1-nodo frenado por tamaño: \$(cat ~/g1-nodo-FRENADO)"; exit 0; fi
 podman rm -f g1-nodo >/dev/null 2>&1 || true
 exec podman run -d --name g1-nodo \\
   --memory=1500m \\
@@ -26,12 +28,13 @@ SCRIPT
 chmod +x ~/start-g1-nodo.sh
 echo "Bajando la imagen (~85 MB)…"
 podman pull -q "$IMAGEN" >/dev/null
-~/start-g1-nodo.sh >/dev/null
+# Si ya está corriendo, no se reinicia (sólo se actualiza el script de arranque).
+podman container exists g1-nodo && [ "$(podman inspect --format '{{.State.Running}}' g1-nodo)" = true ] || ~/start-g1-nodo.sh >/dev/null
 # Arranque al encender, como los demás servicios de la caja.
 ( crontab -l 2>/dev/null | grep -v start-g1-nodo.sh; echo "@reboot sleep 35 && /home/$USER/start-g1-nodo.sh" ) | crontab -
 sleep 20
 echo "── registro ──"; podman logs --tail 8 g1-nodo 2>&1
 echo "── sincronización ──"
 curl -s -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"system_syncState","params":[]}' http://127.0.0.1:9944 || echo "(el RPC todavía no responde)"
-echo; echo "── disco del volumen ──"; podman volume inspect g1-datos --format '{{.Mountpoint}}' | xargs du -sh 2>/dev/null || true
+echo; echo "── disco del volumen ──"; podman unshare du -sh "$(podman volume inspect g1-datos --format '{{.Mountpoint}}')" 2>/dev/null || true
 REMOTO

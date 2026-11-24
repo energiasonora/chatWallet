@@ -55,6 +55,15 @@ Después:
    (la billetera), y publicar.
 3. Sumarlo al monitor de la caja (que avise si se atrasa).
 
+## El monitor lo vigila
+
+`uso/monitor/monitor.py` (chequeo `g1_nodo`, cada 10 min): avisa a los **7 GB**, y a los **10 GB**
+lo frena y deja `~/g1-nodo-FRENADO`, que el arranque respeta (no vuelve solo al prender la caja).
+También avisa si pasa una hora sin avanzar. El resumen de las 9 trae «🌐 Nodo Ğ1: bloque X de Y».
+Para seguir después de un freno: `rm ~/g1-nodo-FRENADO && ~/start-g1-nodo.sh`.
+Medido el 24/11/2026: 445 MB en el bloque 22 mil, ~1 GB de RAM; el disco bajó al pasar los
+14.400 bloques (empieza la poda del perfil `light`).
+
 ## Medir antes de seguir
 
 Cuando esté al día: disco del volumen (`podman volume inspect g1-datos`), RAM (`podman stats

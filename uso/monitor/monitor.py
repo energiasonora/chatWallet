@@ -634,6 +634,92 @@ def check_almacenamiento():
             {"id": "relayer_gas", "name": "Gas del relayer", "status": rst, "info": rinfo, "grupo": "almacenamiento"},
             {"id": "copia", "name": "Copia de respaldos (Samsung)", "status": cst, "info": cinfo, "grupo": "almacenamiento"}]
 
+# ── Nodo Ğ1 (poc/g1-nodo): que no se coma el disco de la caja ──────────────
+# El nodo espejo sincroniza días y su tamaño final no se conoce todavía. A G1_AVISO_MB se avisa;
+# a G1_FRENO_MB se frena y se deja una marca para que el @reboot no lo vuelva a arrancar
+# (start-g1-nodo.sh la respeta). Para seguir: borrar la marca y correr ~/start-g1-nodo.sh.
+G1_CONTENEDOR = "g1-nodo"
+G1_VOLUMEN = "g1-datos"
+G1_MARCA_FRENO = os.path.join(HOME, "g1-nodo-FRENADO")
+G1_AVISO_MB = int(os.environ.get("G1_AVISO_MB", 7 * 1024))
+G1_FRENO_MB = int(os.environ.get("G1_FRENO_MB", 10 * 1024))
+G1_INTERVAL = 600
+G1_TRABADO_SEG = 3600
+_g1_at, _g1 = 0, ("unknown", {"note": "sin medir"})
+_g1_avance = {"bloque": None, "desde": 0}   # último bloque visto y desde cuándo no cambia
+
+def _podman(*args, timeout=60):
+    return subprocess.run(["podman", *args], capture_output=True, text=True, timeout=timeout)
+
+def g1_sync():
+    req = urllib.request.Request("http://127.0.0.1:9944", method="POST",
+                                 data=b'{"jsonrpc":"2.0","id":1,"method":"system_syncState","params":[]}',
+                                 headers={"content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return json.load(r).get("result") or {}
+
+def check_g1_nodo():
+    """→ (status, info). unknown si el nodo no está instalado: no es una falla."""
+    if os.path.exists(G1_MARCA_FRENO):
+        return "degraded", {"resumen": "frenado por tamaño (borrar ~/g1-nodo-FRENADO para seguir)", "frenado": True}
+    try:
+        ins = _podman("inspect", "--format", "{{.State.Running}}", G1_CONTENEDOR, timeout=30)
+    except Exception as e:
+        return "unknown", {"error": f"podman: {e}"[:80]}
+    if ins.returncode != 0:
+        return "unknown", {"note": "no instalado"}
+    info = {"corriendo": ins.stdout.strip() == "true"}
+    try:
+        punto = _podman("volume", "inspect", G1_VOLUMEN, "--format", "{{.Mountpoint}}", timeout=30).stdout.strip()
+        du = _podman("unshare", "du", "-sm", punto, timeout=300)
+        info["mb"] = int(du.stdout.split()[0])
+    except Exception as e:
+        info["error"] = f"no pude medir el disco: {e}"[:80]
+    try:
+        st = g1_sync()
+        info["bloque"], info["meta"] = st.get("currentBlock"), st.get("highestBlock")
+        if info["bloque"] and info["meta"]:
+            info["pct"] = round(100 * info["bloque"] / info["meta"], 1)
+    except Exception as e:
+        info.setdefault("error", f"RPC: {e}"[:80])
+    if info.get("bloque") is not None:
+        if info["bloque"] != _g1_avance["bloque"]:
+            _g1_avance.update(bloque=info["bloque"], desde=time.time())
+        info["quieto_seg"] = int(time.time() - _g1_avance["desde"])
+    gb = f"{info['mb'] / 1024:.1f} GB" if "mb" in info else "? GB"
+    miles = lambda n: f"{n:,}".replace(",", ".") if isinstance(n, int) else "?"
+    info["resumen"] = f"bloque {miles(info.get('bloque'))} de {miles(info.get('meta'))} ({info.get('pct', '?')} %), {gb}"
+    if info.get("mb", 0) >= G1_FRENO_MB:
+        try:
+            _podman("stop", "-t", "30", G1_CONTENEDOR, timeout=90)
+            open(G1_MARCA_FRENO, "w").write(f"{fecha_hora(time.time())}: {info['resumen']}\n")
+            info["frenado"] = True
+        except Exception as e:
+            info["error"] = f"no pude frenarlo: {e}"[:80]
+        return "down", info
+    if not info["corriendo"]:
+        return "down", dict(info, error="el contenedor está parado")
+    if info.get("quieto_seg", 0) >= G1_TRABADO_SEG and info.get("pct", 0) < 99.9:
+        return "down", dict(info, error=f"sin avanzar hace {duracion(info['quieto_seg'])}")
+    if info.get("mb", 0) >= G1_AVISO_MB:
+        return "degraded", info
+    return "ok", info
+
+def check_g1():
+    global _g1_at, _g1
+    if time.time() - _g1_at >= G1_INTERVAL:
+        _g1, _g1_at = check_g1_nodo(), time.time()
+    st, info = _g1
+    if info.get("frenado") and st == "down":
+        msg = (f"🛑 Frené el nodo Ğ1: llegó a {info.get('mb', 0) / 1024:.1f} GB (tope {G1_FRENO_MB // 1024} GB) en "
+               f"{info.get('resumen', '')}. No vuelve a arrancar solo; para seguir: rm ~/g1-nodo-FRENADO && ~/start-g1-nodo.sh")
+    elif st == "degraded" and not info.get("frenado"):
+        msg = f"💾 El nodo Ğ1 ya ocupa {info.get('mb', 0) / 1024:.1f} GB ({info.get('resumen', '')}). A los {G1_FRENO_MB // 1024} GB lo freno."
+    else:
+        msg = f"⚠️ El nodo Ğ1: {info.get('error', '')} ({info.get('resumen', '')})."
+    evaluar("g1_nodo", "El nodo Ğ1", st, info.get("error") or info.get("resumen", ""), umbral=1, mensaje=msg)
+    return [{"id": "g1_nodo", "name": "Nodo Ğ1", "status": st, "info": info, "grupo": "almacenamiento"}]
+
 COPIA_FILE = os.path.join(MONITOR_DIR, "copia.json")
 COPIA_MAX_SEG = 36 * 3600   # corre de madrugada y reintenta hasta las 5:30: 36 h sin copia = algo anda mal
 
@@ -717,12 +803,16 @@ def resumen_diario(report, s):
         esp = [f"• no pude leer espacio-planes.json: {e}"]
     if esp:
         linea += "\n💾 Planes de espacio:\n" + "\n".join(esp)
+    g1st, g1info = _g1
+    if g1st != "unknown" or g1info.get("resumen"):
+        if g1info.get("resumen"):
+            linea += f"\n🌐 Nodo Ğ1: {g1info['resumen']}"
     avisar(linea)
 
 def check_all():
     global _muestra_at, _latido_log
     s = leer_sistema()
-    results = check_servicios() + check_sistema(s) + check_almacenamiento() + check_externos()
+    results = check_servicios() + check_sistema(s) + check_almacenamiento() + check_g1() + check_externos()
     malos = [x for x in results if x["status"] not in ("ok", "restarted", "unknown")]
     report = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -791,7 +881,7 @@ def start_http_server():
 def limpiar_alertas_huerfanas():
     """Una alerta abierta de algo que ya no se vigila no se cerraría nunca: se descarta."""
     vigentes = {s["id"] for s in SERVICES} | {e["id"] for e in EXTERNOS} | {
-        "internet", "temp", "ram", "carga", "corriente", "ipfs_repo", "pin_probe", "relayer_gas", "copia"} | {
+        "internet", "temp", "ram", "carga", "corriente", "ipfs_repo", "pin_probe", "relayer_gas", "copia", "g1_nodo"} | {
         "disco:" + m for m, _ in DISCOS}
     for cid in [k for k in estado["alertas"] if k not in vigentes]:
         logline(f"🧹 alerta descartada: {cid} (ya no se vigila)")
