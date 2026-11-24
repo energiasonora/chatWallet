@@ -47,6 +47,8 @@ ssh caja "curl -s -H 'content-type: application/json' -d '{\"jsonrpc\":\"2.0\",\
 Por el túnel de Cloudflare que ya usa la caja, como `g1.chatwallet.org → http://localhost:9944`
 (el túnel pasa WebSocket). Es un paso hacia afuera: lo decide y lo hace el usuario
 (`cloudflared tunnel route dns …` + la entrada `ingress` en el config del túnel).
+Eso lo hace `./poc/g1-nodo/exponer-en-el-tunel.sh` (y `--deshacer` lo vuelve atrás; el DNS se
+borra a mano en Cloudflare). Reinicia el túnel `stealthpay` por PID: ~40 s de 530 en las otras páginas.
 
 Después:
 1. Probarlo en el explorador sin tocar nada: `chatwallet.org/g1/?bloque=3652720&nodo=wss://g1.chatwallet.org`
