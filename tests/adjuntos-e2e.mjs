@@ -97,6 +97,12 @@ const elegir = (C, armar) => C.ev(`(async () => {
     inp.dispatchEvent(new Event('change')); return true; })()`);
 const espiarToasts = (C) => C.ev(`(() => { if (window.__toasts) { window.__toasts.length = 0; return true; } const o = window.showToast; window.__toasts = [];
     window.showToast = (m, t) => { window.__toasts.push(String(m)); return o?.(m, t); }; return true; })()`);
+async function clicReal(C, selector) {
+    const r = await C.ev(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e.scrollIntoView({ block: 'center' });
+        const b = e.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`);
+    for (const type of ['mousePressed', 'mouseReleased'])
+        await C.rpc('Input.dispatchMouseEvent', { type, x: r.x, y: r.y, button: 'left', clickCount: 1 });
+}
 const previa = (C) => C.ev(`(() => { const m = document.getElementById('adjPreviaModal'); return { abierta: !m.classList.contains('hidden'),
     comprimirVisible: !document.getElementById('adjPreviaComprimirFila').classList.contains('hidden'),
     tam: document.getElementById('adjPreviaTam').textContent, aviso: document.getElementById('adjPreviaAviso').textContent,
@@ -119,6 +125,8 @@ try {
     const [a, b] = await Promise.all([conReintento(A, wa.privateKey), conReintento(B, wb.privateKey)]);
     if (!a || !b) throw new Error('XMTP no arrancó');
     ok(!!a && !!b, 'A y B conectadas');
+    // Lo que salte al arrancar es de la recarga a mitad de carga (para meter la wallet), no de los adjuntos.
+    A.errores.length = 0; B.errores.length = 0;
     await abrirChat(B, wa.address);
     await abrirChat(A, wb.address);
     await espiarToasts(B); await espiarToasts(A);
@@ -146,6 +154,8 @@ try {
     await sleep(500);
     const g = await A.ev(`window.__guardado`);
     ok(g && g.n === "it's informe.pdf" && g.len === 50016 && g.m === 'application/pdf', 'tocarlo lo guarda con nombre, bytes y tipo', JSON.stringify(g));
+    const aviso = await A.ev(`[...document.querySelectorAll('.cw-notif')].map(n => n.textContent).join(' | ')`);
+    ok(/Archivo guardado/.test(aviso) && /tocá para abrir/.test(aviso), 'el aviso ofrece abrirlo', aviso);
     const prev = await A.ev(`contacts.find(c => c.address.toLowerCase() === '${wb.address.toLowerCase()}')?.lastMessage`);
     ok(/informe\.pdf/.test(prev || ''), 'la lista de chats muestra el nombre', prev);
 
@@ -168,6 +178,21 @@ try {
     const img = await A.ev(`(() => { const i = [...document.querySelectorAll('#messagesContainer img.adjunto-img')].pop(); return { w: i.naturalWidth, alt: i.alt }; })()`);
     ok(img.w <= 1600 && img.alt === 'foto.jpg', 'llegó achicada a JPEG', JSON.stringify(img));
     await captura(A, '2-recibido');
+
+    console.log('\n── tocar la foto: pantalla completa y Guardar ──');
+    await clicReal(A, '#messagesContainer img.adjunto-img');
+    await sleep(500);
+    const visor = await A.ev(`(() => { const v = document.getElementById('cwVisor'); if (!v) return null; const r = v.getBoundingClientRect(), i = v.querySelector('img');
+        return { w: r.width, h: r.height, img: i.naturalWidth, guardar: v.querySelector('.cw-visor-guardar').textContent.trim() }; })()`);
+    ok(visor && visor.w === 390 && visor.h === 844 && visor.img > 0 && visor.guardar === 'Guardar', 'abre a pantalla completa con Guardar', JSON.stringify(visor));
+    await captura(A, '3-visor');
+    await A.ev(`window.__guardado = null; document.querySelector('#cwVisor .cw-visor-guardar').click(); true`);
+    await sleep(500);
+    const g2 = await A.ev(`window.__guardado`);
+    ok(g2 && g2.n === 'foto.jpg' && g2.m === 'image/jpeg' && g2.len > 1000, 'Guardar guarda la foto', JSON.stringify(g2));
+    await A.ev(`history.back(); true`);
+    await sleep(600);
+    ok(await A.ev(`!document.getElementById('cwVisor') && !!currentConversation`), 'el botón atrás cierra el visor y deja el chat abierto');
     await captura(B, '2-enviado');
 
     console.log('\n── un archivo grande que no se puede achicar ──');

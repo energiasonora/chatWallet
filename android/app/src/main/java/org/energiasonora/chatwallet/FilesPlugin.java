@@ -1,6 +1,7 @@
 package org.energiasonora.chatwallet;
 
 import android.content.ContentValues;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -12,6 +13,8 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+
+import androidx.core.content.FileProvider;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -83,5 +86,34 @@ public class FilesPlugin extends Plugin {
                 call.reject("No se pudo guardar en Descargas: " + e.getMessage());
             }
         }).start();
+    }
+
+    /**
+     * Abrir un archivo ya guardado (el uri que devolvió saveToDownloads) con la app que el
+     * usuario elija: el visor de PDF, la galería, el reproductor. Lo usa el aviso «Guardado ·
+     * tocá para abrir». Un file:// (Android 9 o anterior) pasa por el FileProvider: Android no
+     * deja compartir rutas crudas con otras apps.
+     */
+    @PluginMethod
+    public void open(PluginCall call) {
+        final String uriStr = call.getString("uri");
+        final String mime = call.getString("mime", "*/*");
+        if (uriStr == null || uriStr.isEmpty()) { call.reject("Falta el archivo"); return; }
+        try {
+            Uri uri = Uri.parse(uriStr);
+            if ("file".equals(uri.getScheme())) {
+                uri = FileProvider.getUriForFile(getContext(),
+                        getContext().getPackageName() + ".fileprovider", new File(uri.getPath()));
+            }
+            Intent view = new Intent(Intent.ACTION_VIEW);
+            view.setDataAndType(uri, mime == null || mime.isEmpty() ? "*/*" : mime);
+            view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent chooser = Intent.createChooser(view, null);
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getActivity().startActivity(chooser);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("No hay una app para abrir este archivo: " + e.getMessage());
+        }
     }
 }

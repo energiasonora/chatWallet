@@ -453,6 +453,13 @@
         .adjunto-otro { display: inline-flex; align-items: center; gap: .4rem; font-size: .9rem; }
         .adjunto-img { max-width: 100%; max-height: 18rem; border-radius: .75rem; display: block; }
         .adjunto-guardable { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        .adjunto-img { cursor: zoom-in; }
+        .cw-visor { position: fixed; inset: 0; z-index: 90; background: #000; display: flex; align-items: center; justify-content: center; }
+        .cw-visor img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .cw-visor-barra { position: absolute; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: center;
+            padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px 12px; background: linear-gradient(rgba(0,0,0,.6), transparent); }
+        .cw-visor-btn { color: #fff; background: rgba(255,255,255,.12); border-radius: 9999px; padding: .6rem; display: inline-flex; align-items: center; gap: .4rem; }
+        .cw-visor-guardar { padding: .55rem 1rem; font-weight: 600; }
 
         /* Barra de grabación: reemplaza al campo de texto mientras se graba. */
         #vozBarra { display: none; }
@@ -10855,6 +10862,31 @@
                 return name;
             };
 
+            // Guardar y avisar con la opción de abrirlo: «Guardado · tocá para abrir». En el APK abre
+            // la app que elija el usuario (visor de PDF, galería…); en la web, una pestaña nueva
+            // (lo que el navegador sepa mostrar: PDF, imagen, audio, video, texto).
+            window.cwGuardarYAvisar = async (name, bytes, mime = 'application/octet-stream') => {
+                let abrir = null, donde = name;
+                if (NativeFiles) {
+                    const res = await NativeFiles.saveToDownloads({ name, base64: bytesToBase64(bytes), mime });
+                    if (res?.uri) { donde = `Descargas/${name}`; abrir = () => NativeFiles.open({ uri: res.uri, mime }); }
+                } else {
+                    donde = await window.cwGuardarBytes(name, bytes, mime);
+                    abrir = () => {
+                        const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+                        window.open(url, '_blank', 'noopener');
+                        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                    };
+                }
+                cwNotify({
+                    title: t('adj_guardado'),
+                    body: donde + (abrir ? ' · ' + t('adj_tocar_abrir') : ''),
+                    type: 'success', duration: 7000,
+                    onClick: abrir ? () => { Promise.resolve(abrir()).catch(e => { console.warn('[abrir]', e); showToast(t('adj_sin_app'), 'error'); }); } : null,
+                });
+                return donde;
+            };
+
             // ── Historial archivado en Configuración ────────────────────────
             function renderHistoryArchive() {
                 const box = document.getElementById('historyArchiveBox');
@@ -13829,6 +13861,48 @@
                 return cont;
             }
 
+            // Visor de una foto del chat a pantalla completa, con Guardar. Se cierra con la X, tocando
+            // el fondo o con el botón atrás del teléfono/navegador.
+            function cwVerImagen(a, src) {
+                document.getElementById('cwVisor')?.remove();
+                const v = document.createElement('div');
+                v.id = 'cwVisor';
+                v.className = 'cw-visor';
+                const img = new Image();
+                img.src = src; img.alt = a.filename || '';
+                const barra = document.createElement('div');
+                barra.className = 'cw-visor-barra';
+                const cerrarB = document.createElement('button');
+                cerrarB.type = 'button'; cerrarB.className = 'cw-visor-btn'; cerrarB.setAttribute('aria-label', t('adj_cancelar'));
+                cerrarB.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+                const guardarB = document.createElement('button');
+                guardarB.type = 'button'; guardarB.className = 'cw-visor-btn cw-visor-guardar';
+                guardarB.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+                const lbl = document.createElement('span'); lbl.textContent = t('adj_guardar_btn');
+                guardarB.appendChild(lbl);
+                barra.append(cerrarB, guardarB);
+                v.append(img, barra);
+                document.body.appendChild(v);
+                let cerrado = false;
+                const cerrar = (desdeAtras) => {
+                    if (cerrado) return; cerrado = true;
+                    window.removeEventListener('popstate', alVolver);
+                    v.remove();
+                    if (!desdeAtras && history.state && history.state.cwVisor) history.back();
+                };
+                const alVolver = () => cerrar(true);
+                // El botón atrás cierra el visor en vez de salir del chat.
+                try { history.pushState({ cwVisor: 1 }, ''); window.addEventListener('popstate', alVolver); } catch (e) { }
+                cerrarB.addEventListener('click', () => cerrar(false));
+                v.addEventListener('click', (e) => { if (e.target === v) cerrar(false); });
+                guardarB.addEventListener('click', async () => {
+                    try {
+                        let nombre = a.filename || 'foto.jpg';
+                        await window.cwGuardarYAvisar(nombre, a.bytes, a.mimeType || 'image/jpeg');
+                    } catch (err) { console.warn('[visor] guardar', err); showToast(t('adj_error_guardar'), 'error'); }
+                });
+            }
+
             // Lo que va adentro de la burbuja de un adjunto.
             function cwVistaAdjunto(a) {
                 if (a && !a.remoto && a.bytes && a.bytes.length) {
@@ -13838,20 +13912,28 @@
                         img.className = 'adjunto-img';
                         img.alt = a.filename || '';
                         img.src = URL.createObjectURL(new Blob([a.bytes], { type: a.mimeType }));
+                        // Tocar la foto la abre a pantalla completa. Un toque largo es para reaccionar
+                        // (el picker): ese no abre el visor.
+                        let desde = 0;
+                        img.addEventListener('pointerdown', () => { desde = Date.now(); });
+                        img.addEventListener('click', (e) => {
+                            if (Date.now() - desde > 400) return;
+                            e.stopPropagation();
+                            cwVerImagen(a, img.src);
+                        });
                         return img;
                     }
                 }
                 const s = document.createElement('span');
                 s.className = 'adjunto-otro';
                 s.textContent = cwAdjuntoEtiqueta(a);   // textContent: el nombre lo eligió la otra punta
-                if (a && !a.remoto && a.bytes && a.bytes.length && window.cwGuardarBytes) {
+                if (a && !a.remoto && a.bytes && a.bytes.length && window.cwGuardarYAvisar) {
                     s.classList.add('adjunto-guardable');
                     s.title = t('adj_guardar');
                     s.addEventListener('click', async (e) => {
                         e.stopPropagation();
                         try {
-                            const donde = await window.cwGuardarBytes(a.filename || t('adj_archivo'), a.bytes, a.mimeType || 'application/octet-stream');
-                            showToast(t('adj_guardado') + (typeof donde === 'string' && donde ? ` (${donde})` : ''), 'success');
+                            await window.cwGuardarYAvisar(a.filename || t('adj_archivo'), a.bytes, a.mimeType || 'application/octet-stream');
                         } catch (err) { console.warn('[adjunto] guardar', err); showToast(t('adj_error_guardar'), 'error'); }
                     });
                 }
@@ -25785,6 +25867,9 @@
                     "adj_foto": "📷 Foto",
                     "adj_archivo": "Archivo",
                     "chat_attach": "Adjuntar",
+                    "adj_tocar_abrir": "tocá para abrir",
+                    "adj_sin_app": "No hay una app para abrir este archivo.",
+                    "adj_guardar_btn": "Guardar",
                     "adj_previa_titulo": "Enviar archivo",
                     "adj_comprimir": "Comprimir imagen",
                     "adj_cancelar": "Cancelar",
@@ -26661,6 +26746,9 @@
                     "adj_foto": "📷 Photo",
                     "adj_archivo": "File",
                     "chat_attach": "Attach",
+                    "adj_tocar_abrir": "tap to open",
+                    "adj_sin_app": "No app can open this file.",
+                    "adj_guardar_btn": "Save",
                     "adj_previa_titulo": "Send file",
                     "adj_comprimir": "Compress image",
                     "adj_cancelar": "Cancel",
@@ -27537,6 +27625,9 @@
                     "adj_foto": "📷 Photo",
                     "adj_archivo": "Fichier",
                     "chat_attach": "Joindre",
+                    "adj_tocar_abrir": "touchez pour ouvrir",
+                    "adj_sin_app": "Aucune application ne peut ouvrir ce fichier.",
+                    "adj_guardar_btn": "Enregistrer",
                     "adj_previa_titulo": "Envoyer un fichier",
                     "adj_comprimir": "Compresser l'image",
                     "adj_cancelar": "Annuler",
