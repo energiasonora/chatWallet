@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.115 — 2026-11-24
+
+- **Explorador Ğ1 propio, en `chatwallet.org/g1/`.** «Ver en el explorador de bloques» ya no
+  abre polkadot.js (pensado para programadores y difícil en el celu): abre una página en
+  castellano que muestra el bloque en llano (quién pagó a quién, cuánto, la comisión y el
+  comentario) y lo **comprueba contra un nodo de la red Ğ1**. Tocá una dirección y ves esa
+  cuenta: su saldo leído de la cadena, su identidad Ğ1 y sus movimientos, cada uno con link a
+  su bloque. También se puede buscar un bloque o una dirección.
 - **Chat por radio, sin internet.** Con un dongle FlyLog conectado por Bluetooth, en Modo
   frío aparece 📡 en Contactos: ves quién está cerca con su ChatWallet y le escribís. El
   mensaje viaja por radio de dongle a dongle (LoRa, kilómetros en campo abierto), cifrado con
