@@ -26421,6 +26421,7 @@
                     "cold_modal_title": "Modo frío (offline)",
                     "cold_modal_desc": "Vas a pasar la wallet a modo frío: se desconecta de internet y queda como un dispositivo de firma offline. Las transferencias se hacen por código QR.",
                     "cold_modal_what": "¿Qué es esto?",
+                    "cold_back_online": "Volviendo a conectar…",
                     "cold_modal_what_d": "Un teléfono en modo frío guarda la clave sin tocar la red: firma transacciones y mensajes, y lo firmado sale por un código QR que escanea otro dispositivo conectado. Con un dongle FlyLog además podés chatear cifrado por radio (📡 en Contactos). Para volver, apagá el interruptor en Configuración.",
                     "cold_modal_confirm": "Confirmar",
                     "cold_splash_title": "Modo frío activado",
@@ -27301,6 +27302,7 @@
                     "cold_modal_title": "Cold mode (offline)",
                     "cold_modal_desc": "You are about to switch the wallet to cold mode: it disconnects from the internet and becomes an offline signing device. Transfers happen over QR codes.",
                     "cold_modal_what": "What is this?",
+                    "cold_back_online": "Reconnecting…",
                     "cold_modal_what_d": "A phone in cold mode keeps the key away from the network: it signs transactions and messages, and what it signs leaves as a QR code scanned by another, connected device. With a FlyLog dongle you can also chat encrypted over radio (📡 in Contacts). To go back, turn the switch off in Settings.",
                     "cold_modal_confirm": "Confirm",
                     "cold_splash_title": "Cold mode is on",
@@ -28181,6 +28183,7 @@
                     "cold_modal_title": "Mode hors ligne",
                     "cold_modal_desc": "Vous allez passer le portefeuille en mode hors ligne : il se déconnecte d'internet et devient un dispositif de signature hors ligne. Les transferts se font par code QR.",
                     "cold_modal_what": "Qu'est-ce que c'est ?",
+                    "cold_back_online": "Reconnexion…",
                     "cold_modal_what_d": "Un téléphone en mode froid garde la clé loin du réseau : il signe transactions et messages, et ce qu'il signe sort par un code QR scanné par un autre appareil connecté. Avec un dongle FlyLog, vous pouvez aussi discuter chiffré par radio (📡 dans Contacts). Pour revenir, désactivez l'interrupteur dans Paramètres.",
                     "cold_modal_confirm": "Confirmer",
                     "cold_splash_title": "Mode hors ligne activé",
@@ -29160,10 +29163,19 @@
                 }
             });
 
+            // Salir del modo frío RECARGA la app. goOffline() suelta el cliente XMTP pero su
+            // worker sigue con la base (OPFS) abierta y trabada; arrancar otro cliente en la
+            // misma página no la puede abrir y XMTP estrena instalación: salía el aviso «el
+            // navegador borró los chats», la agenda se rearmaba del respaldo (otro orden) y a
+            // los 9 s se revocaba la instalación de antes (pasó el 24/11/2026 en el S10+).
+            // Al recargar, el worker muere, el candado se suelta y se reabre LA MISMA base.
+            // El modo frío no se guarda: la app vuelve sola en caliente.
             async function goOnlineWrapper() {
                 isOffline = false;
-                await goOnline();
-                updateOfflineUI();
+                const sw = document.getElementById('coldModeSwitch');
+                if (sw) sw.disabled = true;
+                showToast(t('cold_back_online') || 'Volviendo a conectar…', 'info', 4000);
+                setTimeout(() => location.reload(), 350);
             }
 
             // Offline Mode Modal Listeners

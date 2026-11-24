@@ -17,6 +17,11 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Salir del Modo frío ya no rehace los chats.** Al volver a conectarte, la app abría el chat
+  por segunda vez sin cerrar el primero: no podía usar tu base guardada, armaba una nueva,
+  avisaba que «el navegador borró los chats», rearmaba la lista desde el respaldo (en otro
+  orden) y daba de baja la conexión anterior. Ahora, al apagar el Modo frío, la app se
+  recarga y retoma tus chats tal como estaban.
 - **📡 en la pantalla principal.** En Modo frío aparece la radio al lado del chat, con su
   estado a la vista: punto gris sin dongle, ámbar mientras lo busca, verde enlazado, y un
   número con cuántos ChatWallet con dongle se oyen cerca. Tocándolo se conecta o se ve quién está.
