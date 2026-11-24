@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.113 — 2026-11-24
+
+- **Adjuntar archivos en el chat.** En el **+** del chat hay un botón nuevo, **Adjuntar**.
+  El archivo viaja dentro del mensaje, cifrado de punta a punta como un texto: no pasa por
+  ningún servidor. Antes de mandarlo ves una vista previa; las fotos van comprimidas (como en
+  Telegram) y podés destildar **Comprimir imagen** para mandar el original. Por ahora entran
+  archivos de hasta 900 KB. Quien lo recibe ve la foto en la burbuja, o toca el nombre del
+  archivo para guardarlo.
 - **Tu seudónimo Ğ1 es tu link.** Si tenés identidad Ğ1, el botón de compartir manda
   `chatwallet.org/@TuNombre` en vez de la dirección g1 larga. Al abrir `chatwallet.org/@nombre`
   se busca primero ese seudónimo Ğ1 (sin importar mayúsculas) y se ve su tarjeta; los nombres
