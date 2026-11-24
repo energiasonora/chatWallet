@@ -17,7 +17,9 @@
        bloque y el último bloque finalizado. Si el hash coincide con el del indexador, lo que
        se muestra es de ese bloque de verdad.
   Las dos listas se pueden cambiar en ⚙ (se guardan en este navegador) o por la URL:
-    ?bloque=3652720&nodo=wss://…&indexador=https://…/v1/graphql
+    ?bloque=3652720&nodo=wss://…&indexador=https://…/v1/graphql   ·   ?cuenta=g1…
+  En una cuenta, el SALDO sale de la cadena (System.Account leído del nodo: clave armada con
+  blake2b acá mismo); identidad, dividendo sin cobrar y movimientos, del indexador.
   Cuando corramos un nodo propio (la caja o el Samsung), alcanza con ponerlo primero en
   la lista: ver poc/g1-nodo/README.md.
 -->
@@ -83,6 +85,12 @@
     border-radius: .6rem; padding: .5rem; font: 12px ui-monospace, monospace; }
   .ajustes .fila { display: flex; gap: .5rem; margin-top: .7rem; flex-wrap: wrap; }
   .ajustes button { background: var(--chip); color: var(--text); border: 1px solid var(--line); border-radius: .6rem; padding: .5rem .8rem; cursor: pointer; }
+  .cuenta-link { color: inherit; text-decoration: none; display: block; }
+  .cuenta-link .dir { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .mov-monto { font-size: 1.15rem; font-weight: 700; }
+  .mov-monto.entra { color: var(--ok); } .mov-monto.sale { color: var(--text); }
+  .mov .cuenta-link { display: inline; }
+  button.mas { width: 100%; margin-top: .8rem; background: var(--chip); color: var(--text); border: 1px solid var(--line); border-radius: .7rem; padding: .65rem; font-weight: 600; cursor: pointer; }
   .hidden { display: none !important; }
   footer { color: var(--soft); font-size: .8rem; text-align: center; margin-top: 1.5rem; }
 </style>
@@ -97,7 +105,7 @@
   </header>
 
   <form class="buscar" id="formBuscar">
-    <input id="inBloque" inputmode="numeric" autocomplete="off" placeholder="Número de bloque" data-t-ph="buscar_ph">
+    <input id="inBloque" autocomplete="off" placeholder="Bloque o dirección g1…" data-t-ph="buscar_ph2">
     <button class="primario" type="submit" data-t="ver">Ver</button>
   </form>
 
@@ -151,6 +159,14 @@
       error_idx: 'No respondió ningún indexador. Probá de nuevo en un rato o cambiá la fuente en ⚙.',
       fallo: 'falló', ok: 'salió bien', nodo: 'Nodo', explicar: '¿Cómo se lee esto?',
       explicacion: 'Un bloque es una página del libro de la red: junta las operaciones firmadas de unos segundos. Cada operación tiene resultados (eventos): ahí se ve el pago, la comisión y si salió bien. El hash es la huella del bloque; como cada bloque incluye la huella del anterior, cambiar algo viejo rompería toda la cadena.',
+      buscar_ph2: 'Bloque o dirección g1…', cuenta: 'Cuenta', saldo: 'Saldo', saldo_cadena: 'según la cadena', reservado: 'reservado',
+      du_pend: 'de dividendo universal sin cobrar (se cobra solo con el próximo pago)', movimientos: 'Movimientos',
+      sin_mov: 'Esta cuenta todavía no tiene movimientos.', mas: 'Ver más', recibido: 'Recibido de', enviado: 'Enviado a',
+      cuenta_no: 'Esa dirección no es una cuenta Ğ1 válida.', cuenta_vacia: 'Esta cuenta no existe en la cadena (nunca recibió Ğ1, o quedó vacía).',
+      saldo_idx: 'según el indexador (no se pudo leer la cadena)', ident: 'Identidad Ğ1', sin_ident: 'Sin identidad Ğ1 (una billetera común)',
+      st_Member: 'Miembro: cobra el dividendo universal', st_Unvalidated: 'Identidad creada, todavía sin las 5 certificaciones',
+      st_Unconfirmed: 'Identidad sin confirmar', st_NotMember: 'Ya no es miembro', st_Revoked: 'Identidad revocada',
+      bloque_n: 'bloque', idx_nota: 'Movimientos, identidad y dividendo: del indexador.',
       guardado: 'Guardado.'
     },
     en: {
@@ -172,6 +188,14 @@
       error_idx: 'No indexer answered. Try again later or change the source in ⚙.',
       fallo: 'failed', ok: 'succeeded', nodo: 'Node', explicar: 'How to read this?',
       explicacion: 'A block is a page of the network\'s ledger: it groups a few seconds of signed operations. Each operation has results (events): that is where the payment, the fee and the outcome show up. The hash is the block\'s fingerprint; since every block includes the previous one\'s, changing anything old would break the whole chain.',
+      buscar_ph2: 'Block or g1… address', cuenta: 'Account', saldo: 'Balance', saldo_cadena: 'from the chain', reservado: 'reserved',
+      du_pend: 'of unclaimed universal dividend (claimed automatically with the next payment)', movimientos: 'Transfers',
+      sin_mov: 'This account has no transfers yet.', mas: 'Show more', recibido: 'Received from', enviado: 'Sent to',
+      cuenta_no: 'That is not a valid Ğ1 address.', cuenta_vacia: 'This account does not exist on chain (never received Ğ1, or was emptied).',
+      saldo_idx: 'from the indexer (could not read the chain)', ident: 'Ğ1 identity', sin_ident: 'No Ğ1 identity (a plain wallet)',
+      st_Member: 'Member: receives the universal dividend', st_Unvalidated: 'Identity created, not yet 5 certifications',
+      st_Unconfirmed: 'Unconfirmed identity', st_NotMember: 'No longer a member', st_Revoked: 'Revoked identity',
+      bloque_n: 'block', idx_nota: 'Transfers, identity and dividend: from the indexer.',
       guardado: 'Saved.'
     },
     fr: {
@@ -193,6 +217,14 @@
       error_idx: 'Aucun indexeur n\'a répondu. Réessayez plus tard ou changez la source dans ⚙.',
       fallo: 'a échoué', ok: 'a réussi', nodo: 'Nœud', explicar: 'Comment lire ceci ?',
       explicacion: 'Un bloc est une page du registre du réseau : il regroupe quelques secondes d\'opérations signées. Chaque opération a des résultats (événements) : on y voit le paiement, les frais et l\'issue. Le hash est l\'empreinte du bloc ; chaque bloc incluant celle du précédent, modifier quoi que ce soit d\'ancien casserait toute la chaîne.',
+      buscar_ph2: 'Bloc ou adresse g1…', cuenta: 'Compte', saldo: 'Solde', saldo_cadena: 'selon la chaîne', reservado: 'réservé',
+      du_pend: 'de dividende universel non réclamé (réclamé automatiquement au prochain paiement)', movimientos: 'Mouvements',
+      sin_mov: 'Ce compte n\'a encore aucun mouvement.', mas: 'Voir plus', recibido: 'Reçu de', enviado: 'Envoyé à',
+      cuenta_no: 'Ce n\'est pas une adresse Ğ1 valide.', cuenta_vacia: 'Ce compte n\'existe pas sur la chaîne (jamais crédité, ou vidé).',
+      saldo_idx: 'selon l\'indexeur (chaîne illisible)', ident: 'Identité Ğ1', sin_ident: 'Sans identité Ğ1 (portefeuille simple)',
+      st_Member: 'Membre : reçoit le dividende universel', st_Unvalidated: 'Identité créée, pas encore 5 certifications',
+      st_Unconfirmed: 'Identité non confirmée', st_NotMember: 'N\'est plus membre', st_Revoked: 'Identité révoquée',
+      bloque_n: 'bloc', idx_nota: 'Mouvements, identité et dividende : de l\'indexeur.',
       guardado: 'Enregistré.'
     }
   };
@@ -204,6 +236,73 @@
   document.documentElement.lang = LANG;
   document.querySelectorAll('[data-t]').forEach(function (e) { e.textContent = t(e.dataset.t); });
   document.querySelectorAll('[data-t-ph]').forEach(function (e) { e.placeholder = t(e.dataset.tPh); });
+
+  // ── blake2b (RFC 7693) con BigInt: sólo se usa para claves cortas, la velocidad no importa ──
+  var B2_IV = ['6a09e667f3bcc908', 'bb67ae8584caa73b', '3c6ef372fe94f82b', 'a54ff53a5f1d36f1',
+    '510e527fade682d1', '9b05688c2b3e6c1f', '1f83d9abfb41bd6b', '5be0cd19137e2179'].map(function (h) { return BigInt('0x' + h); });
+  var B2_S = [[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],[14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3],[11,8,12,0,5,2,15,13,10,14,3,6,7,1,9,4],
+    [7,9,3,1,13,12,11,14,2,6,5,10,4,0,15,8],[9,0,5,7,2,4,10,15,14,1,11,12,6,8,3,13],[2,12,6,10,0,11,8,3,4,13,7,5,15,14,1,9],
+    [12,5,1,15,14,13,4,10,0,7,6,3,9,2,8,11],[13,11,7,14,12,1,3,9,5,0,15,4,8,6,2,10],[6,15,14,9,11,3,0,8,12,2,13,7,1,4,10,5],
+    [10,2,8,4,7,6,1,5,15,11,9,14,3,12,13,0]];
+  var M64 = (1n << 64n) - 1n;
+  function rotr(x, n) { return ((x >> BigInt(n)) | (x << BigInt(64 - n))) & M64; }
+  function blake2b(datos, largo) {
+    var h = B2_IV.slice(); h[0] ^= 0x01010000n ^ BigInt(largo);
+    var t = 0n, n = datos.length, bloques = Math.max(1, Math.ceil(n / 128));
+    for (var b = 0; b < bloques; b++) {
+      var ultimo = b === bloques - 1, m = [];
+      var trozo = new Uint8Array(128); trozo.set(datos.subarray(b * 128, Math.min(n, b * 128 + 128)));
+      t += BigInt(ultimo ? n - b * 128 : 128);
+      for (var i = 0; i < 16; i++) { var w = 0n; for (var j = 7; j >= 0; j--) w = (w << 8n) | BigInt(trozo[i * 8 + j]); m.push(w); }
+      var v = h.concat(B2_IV); v[12] ^= t & M64; v[13] ^= t >> 64n; if (ultimo) v[14] ^= M64;
+      var G = function (a, b2, c, d, x, y) {
+        v[a] = (v[a] + v[b2] + x) & M64; v[d] = rotr(v[d] ^ v[a], 32); v[c] = (v[c] + v[d]) & M64; v[b2] = rotr(v[b2] ^ v[c], 24);
+        v[a] = (v[a] + v[b2] + y) & M64; v[d] = rotr(v[d] ^ v[a], 16); v[c] = (v[c] + v[d]) & M64; v[b2] = rotr(v[b2] ^ v[c], 63);
+      };
+      for (var r = 0; r < 12; r++) {
+        var s = B2_S[r % 10];
+        G(0, 4, 8, 12, m[s[0]], m[s[1]]); G(1, 5, 9, 13, m[s[2]], m[s[3]]); G(2, 6, 10, 14, m[s[4]], m[s[5]]); G(3, 7, 11, 15, m[s[6]], m[s[7]]);
+        G(0, 5, 10, 15, m[s[8]], m[s[9]]); G(1, 6, 11, 12, m[s[10]], m[s[11]]); G(2, 7, 8, 13, m[s[12]], m[s[13]]); G(3, 4, 9, 14, m[s[14]], m[s[15]]);
+      }
+      for (i = 0; i < 8; i++) h[i] ^= v[i] ^ v[i + 8];
+    }
+    var out = new Uint8Array(largo);
+    for (i = 0; i < largo; i++) out[i] = Number((h[i >> 3] >> BigInt(8 * (i & 7))) & 0xffn);
+    return out;
+  }
+  function aHex(u) { return Array.from(u, function (b) { return b.toString(16).padStart(2, '0'); }).join(''); }
+
+  // ── Direcciones Ğ1 (SS58, prefijo 4450): base58 → clave pública, con la suma de control ──
+  var B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function deBase58(s) {
+    var n = 0n; for (var i = 0; i < s.length; i++) { var d = B58.indexOf(s[i]); if (d < 0) return null; n = n * 58n + BigInt(d); }
+    var bytes = []; while (n > 0n) { bytes.unshift(Number(n & 0xffn)); n >>= 8n; }
+    for (i = 0; i < s.length && s[i] === '1'; i++) bytes.unshift(0);
+    return new Uint8Array(bytes);
+  }
+  // → clave pública (32 bytes) o null si no es una dirección Ğ1 válida.
+  function publicaDeG1(dir) {
+    if (!/^g1[1-9A-HJ-NP-Za-km-z]{40,50}$/.test(dir || '')) return null;
+    var b = deBase58(dir);
+    if (!b || b.length !== 36) return null;   // 2 de prefijo + 32 + 2 de control
+    var cuerpo = b.subarray(0, 34);
+    var pre = new TextEncoder().encode('SS58PRE'), conPre = new Uint8Array(pre.length + 34);
+    conPre.set(pre); conPre.set(cuerpo, pre.length);
+    var suma = blake2b(conPre, 64);
+    if (suma[0] !== b[34] || suma[1] !== b[35]) return null;
+    return b.subarray(2, 34);
+  }
+  // Clave de System.Account(dir): twox128("System") ++ twox128("Account") ++ blake2_128(pub) ++ pub.
+  var PREFIJO_CUENTA = '26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9';
+  function claveCuenta(pub) { return '0x' + PREFIJO_CUENTA + aHex(blake2b(pub, 16)) + aHex(pub); }
+  // AccountInfo de Duniter: nonce, consumers, providers, sufficients (u32 cada uno) y después
+  // AccountData { free, reserved, fee_frozen: u64, linked_idty: Option<u32> }. En céntimos.
+  function leerCuenta(hex) {
+    if (!hex) return { libre: 0, reservado: 0, existe: false };
+    var u = new Uint8Array(hex.slice(2).match(/../g).map(function (x) { return parseInt(x, 16); }));
+    var u64 = function (o) { var v = 0n; for (var i = 7; i >= 0; i--) v = (v << 8n) | BigInt(u[o + i]); return Number(v); };
+    return { libre: u64(16), reservado: u64(24), existe: true };
+  }
 
   // Nombres de operaciones y eventos en lenguaje llano (los que aparecen al pagar).
   var LLANO = {
@@ -253,7 +352,7 @@
     var lineas = function (v) { return v.split(/\s+/).map(function (s) { return s.trim(); }).filter(Boolean); };
     try { localStorage.setItem(CLAVE, JSON.stringify({ nodos: lineas($('inNodos').value), indexadores: lineas($('inIndexadores').value) })); } catch (e) { }
     pintarAjustes(); $('ajustes').classList.add('hidden');
-    var b = bloqueDeUrl(); if (b !== null) mostrar(b);
+    abrir(destinoDeUrl());
   };
   $('btnRestaurar').onclick = function () { try { localStorage.removeItem(CLAVE); } catch (e) { } pintarAjustes(); };
 
@@ -322,9 +421,15 @@
     (hijos || []).forEach(function (h) { if (h) e.appendChild(typeof h === 'string' ? document.createTextNode(h) : h); });
     return e;
   }
-  function persona(nombre, dir) {
-    return el('dd', null, [nombre ? el('div', { cls: 'nombre', text: nombre }) : null, el('div', { cls: 'dir', text: dir })]);
+  function linkCuenta(dir, hijos) {
+    var a = el('a', { href: '?cuenta=' + encodeURIComponent(dir) + (LANG_URL ? '&lang=' + LANG_URL : ''), cls: 'cuenta-link' }, hijos);
+    a.onclick = function (e) { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); ir({ cuenta: dir }); };
+    return a;
   }
+  function persona(nombre, dir) {
+    return el('dd', null, [linkCuenta(dir, [nombre ? el('div', { cls: 'nombre', text: nombre }) : null, el('div', { cls: 'dir', text: dir })])]);
+  }
+  var LANG_URL = new URLSearchParams(location.search).get('lang');
 
   // ── Mostrar un bloque ───────────────────────────────────────────────────────────
   var turno = 0;
@@ -422,22 +527,136 @@
     sello.dataset.nodo = v.nodo;
   }
 
-  function bloqueDeUrl() {
-    var v = new URLSearchParams(location.search).get('bloque') || (location.hash.match(/bloque=(\d+)/) || [])[1];
+  // ── Mostrar una cuenta ──────────────────────────────────────────────────────────
+  var Q_CUENTA = 'query($id:String!,$n:Int!,$off:Int!){ accounts(filter:{id:{equalTo:$id}}){nodes{ balance identity{ name isMember status firstEligibleUd } }} ' +
+    'transfers(filter:{or:[{fromId:{equalTo:$id}},{toId:{equalTo:$id}}]}, orderBy:BLOCK_NUMBER_DESC, first:$n, offset:$off){ totalCount nodes{ ' +
+    'blockNumber timestamp amount fromId toId comment{ remark } from{ identity{ name } } to{ identity{ name } } } } }';
+  var Q_DU = 'query($desde:Int!){ universalDividends(first:1000, orderBy:INDEX_ASC, filter:{ index:{ greaterThanOrEqualTo:$desde } }){ nodes{ amount } } }';
+  var POR_PAGINA = 20;
+  // El saldo, de la cadena: System.Account leído de un nodo (el indexador llegó a dar 214 Ğ1 de menos).
+  async function saldoDeCadena(pub) {
+    var clave = claveCuenta(pub);
+    for (var i = 0, l = leerFuentes().nodos; i < l.length; i++) {
+      try {
+        var r = (await rpc(l[i], [['state_getStorage', [clave]]]))[0];
+        if (r && r.error) throw new Error(r.error.message);
+        var c = leerCuenta(r); c.nodo = l[i]; return c;
+      } catch (e) { console.warn('[nodo]', l[i], e); }
+    }
+    return null;
+  }
+  async function mostrarCuenta(dir) {
+    var mio = ++turno, vista = $('vista');
+    $('inBloque').value = dir;
+    document.title = t('cuenta') + ' ' + dir.slice(0, 8) + '… · Ğ1';
+    var pub = publicaDeG1(dir);
+    if (!pub) { vista.replaceChildren(el('p', { cls: 'estado error', text: t('cuenta_no') })); return; }
+    vista.replaceChildren(el('p', { cls: 'estado', text: t('cargando') }));
+    var cadenaP = saldoDeCadena(pub);
+    var d = null;
+    try { d = (await consultar(Q_CUENTA, { id: dir, n: POR_PAGINA, off: 0 })).data; } catch (e) { console.warn(e); }
+    var cadena = await cadenaP;
+    if (mio !== turno) return;
+    if (!d && !cadena) { vista.replaceChildren(el('p', { cls: 'estado error', text: t('error_idx') })); return; }
+    var acc = d && d.accounts.nodes[0], idty = acc && acc.identity;
+
+    // Saldo: de la cadena; si no hay nodo, el del indexador avisando.
+    var saldoTxt, saldoNota, selloCls;
+    if (cadena) { saldoTxt = g1(cadena.libre); saldoNota = '✓ ' + t('saldo_cadena'); selloCls = 'sello ok'; }
+    else { saldoTxt = g1(acc ? acc.balance : 0); saldoNota = '⚠ ' + t('saldo_idx'); selloCls = 'sello warn'; }
+    var sello = el('div', { cls: selloCls, text: saldoNota });
+    if (cadena) { sello.title = t('nodo') + ': ' + cadena.nodo; sello.dataset.nodo = cadena.nodo; }
+    var cab = el('section', { cls: 'card' }, [
+      el('h2', { text: t('cuenta') }),
+      idty && idty.name ? el('div', { cls: 'bloque-num', text: idty.name }) : null,
+      el('div', { cls: 'dir', text: dir }),
+      el('div', { cls: 'monto', style: 'margin-top:.7rem', text: saldoTxt }),
+      cadena && cadena.reservado ? el('div', { cls: 'nota', text: '+ ' + g1(cadena.reservado) + ' ' + t('reservado') }) : null,
+      el('div', { id: 'duPend', cls: 'nota hidden' }),
+      sello,
+      cadena && !cadena.existe ? el('p', { cls: 'nota', text: t('cuenta_vacia') }) : null
+    ]);
+    var ident = el('section', { cls: 'card' }, [
+      el('h2', { text: t('ident') }),
+      el('p', { style: 'margin:0', text: idty ? (idty.name + ' · ' + (t('st_' + idty.status) !== 'st_' + idty.status ? t('st_' + idty.status) : idty.status)) : t('sin_ident') })
+    ]);
+    var movs = el('section', { cls: 'card' }, [el('h2', { text: t('movimientos') + (d ? ' (' + d.transfers.totalCount + ')' : '') })]);
+    var lista = el('div');
+    movs.appendChild(lista);
+    var pintarMovs = function (nodes) {
+      nodes.forEach(function (p) {
+        var entra = p.toId === dir;
+        var otro = entra ? p.fromId : p.toId, otroN = entra ? (p.from && p.from.identity && p.from.identity.name) : (p.to && p.to.identity && p.to.identity.name);
+        var fecha = new Date(p.timestamp).toLocaleString(LOC, { dateStyle: 'medium', timeStyle: 'short' });
+        var linkB = el('a', { href: '?bloque=' + p.blockNumber + (LANG_URL ? '&lang=' + LANG_URL : ''), text: t('bloque_n') + ' #' + p.blockNumber.toLocaleString(LOC) });
+        linkB.onclick = function (e) { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); ir({ bloque: p.blockNumber }); };
+        lista.appendChild(el('div', { cls: 'pago mov' }, [
+          el('div', { cls: 'mov-monto ' + (entra ? 'entra' : 'sale'), text: (entra ? '+' : '−') + g1(p.amount) }),
+          el('div', { cls: 'nota', style: 'margin-top:0' }, [(entra ? t('recibido') : t('enviado')) + ' ']),
+          linkCuenta(otro, [otroN ? el('span', { cls: 'nombre', text: otroN + ' ' }) : null, el('span', { cls: 'dir', text: otroN ? otro.slice(0, 10) + '…' : otro })]),
+          p.comment && p.comment.remark ? el('div', { cls: 'comentario', text: p.comment.remark }) : null,
+          el('div', { cls: 'nota' }, [fecha + ' · ', linkB])
+        ]));
+      });
+    };
+    if (d) {
+      if (!d.transfers.nodes.length) lista.appendChild(el('p', { cls: 'nota', text: t('sin_mov') }));
+      pintarMovs(d.transfers.nodes);
+      var vistos = d.transfers.nodes.length;
+      if (vistos < d.transfers.totalCount) {
+        var mas = el('button', { type: 'button', cls: 'mas', text: t('mas') });
+        mas.onclick = async function () {
+          mas.disabled = true;
+          try {
+            var r = (await consultar(Q_CUENTA, { id: dir, n: POR_PAGINA, off: vistos })).data;
+            pintarMovs(r.transfers.nodes); vistos += r.transfers.nodes.length;
+            if (vistos >= r.transfers.totalCount) mas.remove(); else mas.disabled = false;
+          } catch (e) { mas.disabled = false; }
+        };
+        movs.appendChild(mas);
+      }
+      movs.appendChild(el('p', { cls: 'nota', text: t('idx_nota') }));
+    }
+    vista.replaceChildren(cab, ident, movs);
+
+    // Dividendo sin cobrar (solo miembros): mismo cálculo que la billetera de la app.
+    if (idty && idty.isMember && idty.firstEligibleUd > 0) {
+      try {
+        var du = (await consultar(Q_DU, { desde: idty.firstEligibleUd })).data;
+        var pend = du.universalDividends.nodes.reduce(function (s, u) { return s + Number(u.amount || 0); }, 0);
+        if (mio === turno && pend > 0) { var x = $('duPend'); x.textContent = '+ ' + g1(pend) + ' ' + t('du_pend'); x.classList.remove('hidden'); }
+      } catch (e) { }
+    }
+  }
+
+  // ── Navegación: ?bloque=N o ?cuenta=g1… ─────────────────────────────────────────
+  function destinoDeUrl() {
+    var q = new URLSearchParams(location.search);
+    var c = q.get('cuenta');
+    if (c) return { cuenta: c.trim() };
+    var v = q.get('bloque') || (location.hash.match(/bloque=(\d+)/) || [])[1];
     var n = Number(v);
-    return v && Number.isSafeInteger(n) && n >= 0 ? n : null;
+    return v && Number.isSafeInteger(n) && n >= 0 ? { bloque: n } : null;
+  }
+  function abrir(dest) { if (!dest) return; if (dest.cuenta) mostrarCuenta(dest.cuenta); else mostrar(dest.bloque); }
+  function ir(dest) {
+    var u = new URL(location.href);
+    u.searchParams.delete('bloque'); u.searchParams.delete('cuenta');
+    if (dest.cuenta) u.searchParams.set('cuenta', dest.cuenta); else u.searchParams.set('bloque', String(dest.bloque));
+    history.pushState(null, '', u);
+    window.scrollTo(0, 0);
+    abrir(dest);
   }
   $('formBuscar').onsubmit = function (e) {
     e.preventDefault();
-    var n = Number(String($('inBloque').value).replace(/[.\s,]/g, ''));
+    var v = String($('inBloque').value).trim();
+    if (/^g1/i.test(v)) { ir({ cuenta: v }); return; }
+    var n = Number(v.replace(/[.\s,]/g, ''));
     if (!Number.isSafeInteger(n) || n < 0) return;
-    var u = new URL(location.href); u.searchParams.set('bloque', String(n));
-    history.pushState(null, '', u);
-    mostrar(n);
+    ir({ bloque: n });
   };
-  window.addEventListener('popstate', function () { var b = bloqueDeUrl(); if (b !== null) mostrar(b); });
-  var inicial = bloqueDeUrl();
-  if (inicial !== null) mostrar(inicial);
+  window.addEventListener('popstate', function () { abrir(destinoDeUrl()); });
+  abrir(destinoDeUrl());
 })();
 </script>
 </body>

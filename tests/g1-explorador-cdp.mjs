@@ -46,6 +46,34 @@ try {
     ok(ancho <= 390, 'no se sale de la pantalla a lo ancho', String(ancho));
     await foto('1-bloque');
 
+    console.log('── tocar la dirección abre la cuenta ──');
+    await ev(`[...document.querySelectorAll('.cuenta-link')].find(a => a.textContent.includes('Xunorus')).click(); true`);
+    ok(await esperar(`/[?&]cuenta=g1Pb8LtH/.test(location.search) && !!document.querySelector('.monto') && document.querySelector('.sello')?.classList.contains('ok')`, 40), 'abre la cuenta con el saldo comprobado en la cadena',
+        await ev(`(document.querySelector('.monto')?.textContent || '') + ' · ' + (document.querySelector('.sello')?.textContent || '') + ' · ' + (document.querySelector('.sello')?.dataset.nodo || '')`));
+    const cu = await ev(`({ nombre: document.querySelector('.bloque-num')?.textContent, ident: document.querySelectorAll('#vista .card')[1]?.textContent, movs: document.querySelectorAll('.mov').length, h: document.querySelectorAll('#vista .card h2')[2]?.textContent })`);
+    ok(cu.nombre === 'Xunorus' && /Xunorus · /.test(cu.ident), 'nombre e identidad Ğ1 en llano', cu.ident);
+    ok(cu.movs >= 11 && /Movimientos \(\d+\)/.test(cu.h), 'lista los movimientos', cu.h);
+    const olivos = await ev(`(() => { const m = [...document.querySelectorAll('.mov')].find(m => m.textContent.includes('olivos 14/11/26')); return m && m.textContent; })()`);
+    ok(/\+120,00 Ğ1/.test(olivos || '') && /Recibido de/.test(olivos || ''), 'el pago de 120 Ğ1 figura como recibido', olivos);
+    await foto('4-cuenta');
+    await ev(`[...document.querySelectorAll('.mov')].find(m => m.textContent.includes('olivos 14/11/26')).querySelector('a[href*="bloque=3652720"]').click(); true`);
+    ok(await esperar(`/#3\.652\.720/.test(document.querySelector('.bloque-num')?.textContent || '')`), 'desde el movimiento se vuelve al bloque');
+    await rpc('Runtime.evaluate', { expression: 'history.back()' });
+    ok(await esperar(`/[?&]cuenta=/.test(location.search) && !!document.querySelector('.mov')`), 'atrás vuelve a la cuenta');
+
+    console.log('── una cuenta con muchos movimientos: Ver más ──');
+    await rpc('Page.navigate', { url: BASE + '?cuenta=g1LZB3pV1gDLAdixBoNDZwaBdYTxx4BGVu3vuuLbqY42bqTTf' + ES });
+    ok(await esperar(`document.querySelectorAll('.mov').length === 20 && !!document.querySelector('button.mas')`, 40), 'muestra 20 y el botón Ver más');
+    await ev(`document.querySelector('button.mas').click(); true`);
+    ok(await esperar(`document.querySelectorAll('.mov').length > 20`, 30), 'Ver más trae los siguientes', String(await ev(`document.querySelectorAll('.mov').length`)));
+    ok(await ev(`/Sin identidad Ğ1/.test(document.body.textContent)`), 'una billetera sin identidad lo dice');
+
+    console.log('── dirección mal escrita ──');
+    await rpc('Page.navigate', { url: BASE + '?cuenta=g1Pb8LtH4vn5XMHAYQVaBGVmLXU3UQxw6zdhf6C4NE1HcDyWX' + ES });
+    ok(await esperar(`/no es una cuenta Ğ1 válida/.test(document.body.textContent)`, 10), 'la suma de control la rechaza');
+    await ev(`document.getElementById('inBloque').value = 'g1Pb8LtH4vn5XMHAYQVaBGVmLXU3UQxw6zdhf6C4NE1HcDyWW'; document.getElementById('formBuscar').requestSubmit(); true`);
+    ok(await esperar(`/[?&]cuenta=g1Pb8/.test(location.search) && !!document.querySelector('.mov')`, 40), 'buscar una dirección abre la cuenta');
+
     console.log('── buscar otro bloque ──');
     await ev(`document.getElementById('inBloque').value = '1'; document.getElementById('formBuscar').requestSubmit(); true`);
     ok(await esperar(`/#1$/.test(document.querySelector('.bloque-num')?.textContent || '') && /[?&]bloque=1(&|$)/.test(location.search)`), 'buscar cambia el bloque y la URL');
