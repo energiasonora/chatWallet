@@ -67,6 +67,12 @@ con él, warp saltaba sólo el 2 % y después volvía a bloque por bloque. Por e
 queda `DUNITER_WARP_CHECKPOINT_HEADER` (un JSON con un encabezado reciente, comprobado contra
 dos nodos). Pasar de completa a warp exige base vacía: `./poc/g1-nodo/instalar-en-la-caja.sh --de-cero`.
 
+**Resultado (24/11/2026):** con warp sin checkpoint el nodo pasó de cero a la punta de la cadena
+(#3.757.750) en **4 minutos**: ~25 s de pruebas GRANDPA, 33 MiB de estado, 262 MB en disco, carga
+1,5. Después completa la historia en segundo plano («Block history»: encabezados viejos, sin
+ejecutarlos); hasta que llega, `chain_getBlockHash` de un bloque viejo da `null` (el explorador
+pasa al nodo siguiente). El saldo (`state_getStorage` de System.Account) ya da igual que gyroi.
+
 ## El monitor lo vigila
 
 `uso/monitor/monitor.py` (chequeo `g1_nodo`, cada 10 min): avisa a los **7 GB**, y a los **10 GB**
