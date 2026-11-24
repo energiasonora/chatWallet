@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **📡 en la pantalla principal.** En Modo frío aparece la radio al lado del chat, con su
+  estado a la vista: punto gris sin dongle, ámbar mientras lo busca, verde enlazado, y un
+  número con cuántos ChatWallet con dongle se oyen cerca. Tocándolo se conecta o se ve quién está.
+- **Modo frío sin trabas.** La confirmación y la pantalla de bienvenida salen solo la primera
+  vez; esa pantalla se cierra sola, junto con Configuración, y te deja en el inicio. Las
+  siguientes veces el interruptor prende directo. «¿Qué es esto?» ya no lleva a una página
+  inexistente: la explicación se despliega ahí mismo, también sin internet.
+
 ## 3.115 — 2026-11-24
 
 - **Explorador Ğ1 propio, en `chatwallet.org/g1/`.** «Ver en el explorador de bloques» ya no

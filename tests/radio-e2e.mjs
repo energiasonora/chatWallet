@@ -77,15 +77,40 @@ const FAKE_BLE = (dongleId) => `(() => {
     return true;
 })()`;
 
-async function identidad(C, pk, dongleId) {
+const vis = (id) => `(() => { const e = document.getElementById('${id}'); return !!e && !e.classList.contains('hidden') && !!(e.offsetWidth || e.offsetHeight); })()`;
+// El interruptor de Configuración, como lo toca la gente: la primera vez confirma, muestra el
+// splash, cierra Configuración y vuelve al inicio; el splash se va solo. Después, directo.
+async function frioPorLaUI(C) {
+    await C.ev(`localStorage.removeItem('cw:frioVisto'); document.getElementById('settingsBtn').click(); true`);
+    await new Promise(r => setTimeout(r, 400));
+    await C.ev(`document.getElementById('coldModeSwitch').click(); true`);
+    await new Promise(r => setTimeout(r, 300));
+    ok(await C.ev(vis('offlineModeModal')), 'primera vez: pide confirmar el modo frío');
+    await C.ev(`document.getElementById('confirmOfflineModeBtn').click(); true`);
+    await new Promise(r => setTimeout(r, 600));
+    ok(await C.ev(vis('coldModeSplash')) && !(await C.ev(vis('settingsModal'))), 'splash a la vista y Configuración cerrada');
+    await new Promise(r => setTimeout(r, 4000));
+    ok(!(await C.ev(vis('coldModeSplash'))) && await C.ev(`document.getElementById('walletView').classList.contains('active') && isOffline`),
+        'el splash se cierra solo y queda en la pantalla principal, en frío');
+    // Segunda vez: sin modal ni splash.
+    await C.ev(`isOffline = false; updateOfflineUI(); document.getElementById('settingsBtn').click(); true`);
+    await new Promise(r => setTimeout(r, 400));
+    await C.ev(`document.getElementById('coldModeSwitch').click(); true`);
+    await new Promise(r => setTimeout(r, 600));
+    ok(await C.ev(`isOffline`) && !(await C.ev(vis('offlineModeModal'))) && !(await C.ev(vis('coldModeSplash'))) && !(await C.ev(vis('settingsModal'))),
+        'segunda vez: prende directo, sin modal ni splash, y cierra Configuración');
+}
+
+async function identidad(C, pk, dongleId, porLaUI = false) {
     await C.rpc('Page.navigate', { url: BASE });
     await C.listo(`typeof renderContacts === 'function'`);
     await C.ev(`localStorage.setItem('xmtp-chat-wallet', '${pk}'); true`);
     await C.rpc('Page.navigate', { url: BASE });
     const addr = await C.listo(`typeof currentWallet !== 'undefined' && currentWallet && currentWallet.address`, 90);
     await C.ev(FAKE_BLE(dongleId));
+    if (porLaUI) await frioPorLaUI(C);
     // Modo frío, como en la demo: sin internet.
-    await C.ev(`(async () => { isOffline = true; await goOffline(); updateOfflineUI(); hideColdSplash && hideColdSplash(); return true; })()`);
+    else await C.ev(`(async () => { isOffline = true; await goOffline(); updateOfflineUI(); hideColdSplash && hideColdSplash(); return true; })()`);
     return addr;
 }
 
@@ -95,7 +120,7 @@ async function identidad(C, pk, dongleId) {
     const aire = { drop: 0, largos: [], lineas: 0 };
     let relay;
     try {
-        const addrA = await identidad(A, pa.privateKey, 'A218');
+        const addrA = await identidad(A, pa.privateKey, 'A218', true);
         const addrB = await identidad(B, pb.privateKey, 'B730');
         ok(addrA && addrB, 'dos billeteras cargadas en modo frío', `${addrA?.slice(0, 8)} / ${addrB?.slice(0, 8)}`);
 
@@ -114,6 +139,9 @@ async function identidad(C, pk, dongleId) {
             }
         }, 150);
 
+        ok(await A.ev(`(() => { const b = document.getElementById('radioHeaderBtn'); return !!b && !!b.offsetWidth && !b.classList.contains('radio-on'); })()`),
+            'A: 📡 en la pantalla principal (modo frío), apagado');
+        if (process.env.SHOTS) { const r = await A.rpc('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(process.env.SHOTS + '/radio-header-off.png', Buffer.from(r.result.data, 'base64')); }
         // 1) Conectar los dos dongles → se oyen los «hola»
         await A.ev(`cwRadio.radioConectar().then(() => true)`);
         await B.ev(`cwRadio.radioConectar().then(() => true)`);
@@ -122,6 +150,9 @@ async function identidad(C, pk, dongleId) {
         const cercaA = await A.listo(`cwRadio.radio.nearby['${addrB.toLowerCase()}'] ? true : false`, 15);
         const cercaB = await B.listo(`cwRadio.radio.nearby['${addrA.toLowerCase()}'] ? true : false`, 15);
         ok(cercaA && cercaB, 'cada uno ve al otro «cerca por radio» (hola con clave pública)');
+        ok(await A.listo(`(() => { const b = document.getElementById('radioHeaderBtn'); const n = document.getElementById('radioHeaderCerca'); return b.classList.contains('radio-on') && !n.classList.contains('hidden') && n.textContent === '1'; })()`, 5),
+            'A: 📡 del inicio en verde y con «1 cerca»');
+        if (process.env.SHOTS) { await A.ev(`radioCerrarModal && radioCerrarModal(); showView('walletView'); true`); const r = await A.rpc('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(process.env.SHOTS + '/radio-header-on.png', Buffer.from(r.result.data, 'base64')); }
         ok(await A.ev(`contacts.every(c => c.address.toLowerCase() !== '${addrB.toLowerCase()}')`), 'oír un hola NO crea contactos solo');
         await A.ev(`radioAbrirModal(); true`);
         ok(await A.ev(`document.getElementById('radioNearby').innerText.includes('Chatear')`), 'el panel lista al vecino con «Chatear»');

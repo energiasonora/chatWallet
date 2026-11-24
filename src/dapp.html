@@ -74,6 +74,14 @@
         .radio-btn.radio-on { background: #0891b2 !important; box-shadow: 0 0 0 2px rgba(34, 211, 238, .45); }
         .radio-btn.radio-wait { animation: radioPulso 1.2s ease-in-out infinite; }
         @keyframes radioPulso { 50% { opacity: .45; } }
+        /* 📡 del header: el estado lo dice el punto (gris suelto · ámbar buscando · verde enlazado)
+           y el número, cuántos ChatWallet con dongle se oyen cerca. */
+        #radioHeaderBtn.radio-on { background: transparent !important; box-shadow: none; }
+        #radioHeaderBtn .radio-dot { position: absolute; bottom: 5px; right: 5px; width: 10px; height: 10px; border-radius: 50%; background: #6b7280; border: 2px solid #111827; }
+        #radioHeaderBtn.radio-on .radio-dot { background: #22c55e; }
+        #radioHeaderBtn.radio-wait .radio-dot { background: #f59e0b; }
+        #radioHeaderBtn.radio-wait { animation: none; }
+        #radioHeaderBtn.radio-wait .radio-dot { animation: radioPulso 1.2s ease-in-out infinite; }
         .cold-mode {
             background: #111827;
             /* Fondo gris oscuro casi negro */
@@ -2247,8 +2255,12 @@
                 Vas a pasar la wallet a modo frío: se desconecta de internet y queda como un
                 dispositivo de firma offline. Las transferencias se hacen por código QR.
             </p>
-            <a href="/docs/" target="_blank" class="text-indigo-400 hover:underline text-sm block"
-                data-i18n-key="cold_modal_what">¿Qué es esto?</a>
+            <!-- Antes era un link a /docs/ (no existe, 404) — y además el modo frío corta
+                 internet: la explicación tiene que viajar con la app. -->
+            <details class="text-sm">
+                <summary class="text-indigo-400 hover:underline cursor-pointer" data-i18n-key="cold_modal_what">¿Qué es esto?</summary>
+                <p class="text-gray-400 mt-2 leading-relaxed" data-i18n-key="cold_modal_what_d">Un teléfono en modo frío guarda la clave sin tocar la red: firma transacciones y mensajes, y lo firmado sale por un código QR que escanea otro dispositivo conectado. Con un dongle FlyLog además podés chatear cifrado por radio (📡 en Contactos). Para volver, apagá el interruptor en Configuración.</p>
+            </details>
             <div class="flex space-x-4 pt-2">
                 <button id="cancelOfflineModeBtn"
                     class="w-full p-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg transition-all text-white font-semibold"
@@ -2552,6 +2564,10 @@
 
             <!-- Derecha: acceso rápido a Chats -->
             <div class="flex items-center space-x-2">
+                <!-- Radio sin internet (dongle FlyLog): solo en modo frío, con el estado a la vista -->
+                <button id="radioHeaderBtn" type="button" title="Radio: sin dongle conectado"
+                    class="solo-frio radio-btn relative p-2 rounded-full hover:bg-gray-700 text-xl leading-none">📡<span
+                        class="radio-dot"></span><span id="radioHeaderCerca" class="unread-badge hidden">0</span></button>
                 <button id="chatHeaderBtn" title="Chats"
                     class="relative text-indigo-400 hover:text-white hover:bg-indigo-600/30 transition-colors duration-200 p-2 rounded-full">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -12454,11 +12470,19 @@
                         : radio.busy ? '⏳ Buscando el dongle…' : 'Sin dongle conectado.';
                 }
                 if (btn) btn.textContent = radio.dev ? 'Soltar dongle' : 'Conectar dongle';
+                const hb = document.getElementById('radioHeaderBtn');
+                if (hb) hb.title = 'Radio: ' + (status ? status.textContent : st);
                 radioPintarCerca();
                 if (typeof updateOfflineComposeUI === 'function') updateOfflineComposeUI();
             }
 
             function radioPintarCerca() {
+                const badge = document.getElementById('radioHeaderCerca');
+                if (badge) {
+                    const n = radio.dev ? Object.values(radio.nearby).filter(x => Date.now() - x.ts < 10 * 60000).length : 0;
+                    badge.textContent = String(n);
+                    badge.classList.toggle('hidden', !n);
+                }
                 const box = document.getElementById('radioNearby');
                 if (!box) return;
                 box.innerHTML = '';
@@ -12810,6 +12834,7 @@
             }
 
             document.getElementById('radioBtnSidebar')?.addEventListener('click', radioAbrirModal);
+            document.getElementById('radioHeaderBtn')?.addEventListener('click', radioAbrirModal);
             document.getElementById('radioComposeBtn')?.addEventListener('click', radioAbrirModal);
             document.getElementById('closeRadioModal')?.addEventListener('click', radioCerrarModal);
             document.getElementById('radioModal')?.addEventListener('click', (e) => { if (e.target.id === 'radioModal') radioCerrarModal(); });
@@ -26396,6 +26421,7 @@
                     "cold_modal_title": "Modo frío (offline)",
                     "cold_modal_desc": "Vas a pasar la wallet a modo frío: se desconecta de internet y queda como un dispositivo de firma offline. Las transferencias se hacen por código QR.",
                     "cold_modal_what": "¿Qué es esto?",
+                    "cold_modal_what_d": "Un teléfono en modo frío guarda la clave sin tocar la red: firma transacciones y mensajes, y lo firmado sale por un código QR que escanea otro dispositivo conectado. Con un dongle FlyLog además podés chatear cifrado por radio (📡 en Contactos). Para volver, apagá el interruptor en Configuración.",
                     "cold_modal_confirm": "Confirmar",
                     "cold_splash_title": "Modo frío activado",
                     "cold_splash_line1": "Tu wallet está desconectada de internet.",
@@ -27275,6 +27301,7 @@
                     "cold_modal_title": "Cold mode (offline)",
                     "cold_modal_desc": "You are about to switch the wallet to cold mode: it disconnects from the internet and becomes an offline signing device. Transfers happen over QR codes.",
                     "cold_modal_what": "What is this?",
+                    "cold_modal_what_d": "A phone in cold mode keeps the key away from the network: it signs transactions and messages, and what it signs leaves as a QR code scanned by another, connected device. With a FlyLog dongle you can also chat encrypted over radio (📡 in Contacts). To go back, turn the switch off in Settings.",
                     "cold_modal_confirm": "Confirm",
                     "cold_splash_title": "Cold mode is on",
                     "cold_splash_line1": "Your wallet is disconnected from the internet.",
@@ -28154,6 +28181,7 @@
                     "cold_modal_title": "Mode hors ligne",
                     "cold_modal_desc": "Vous allez passer le portefeuille en mode hors ligne : il se déconnecte d'internet et devient un dispositif de signature hors ligne. Les transferts se font par code QR.",
                     "cold_modal_what": "Qu'est-ce que c'est ?",
+                    "cold_modal_what_d": "Un téléphone en mode froid garde la clé loin du réseau : il signe transactions et messages, et ce qu'il signe sort par un code QR scanné par un autre appareil connecté. Avec un dongle FlyLog, vous pouvez aussi discuter chiffré par radio (📡 dans Contacts). Pour revenir, désactivez l'interrupteur dans Paramètres.",
                     "cold_modal_confirm": "Confirmer",
                     "cold_splash_title": "Mode hors ligne activé",
                     "cold_splash_line1": "Votre portefeuille est déconnecté d'internet.",
@@ -29121,7 +29149,10 @@
             const coldModeSwitch = document.getElementById('coldModeSwitch');
             coldModeSwitch?.addEventListener('change', () => {
                 if (!isOffline) {
-                    coldModeSwitch.checked = false;   // lo confirma el modal, no el tap
+                    coldModeSwitch.checked = false;   // lo confirma el modal (o activarFrio), no el tap
+                    // La explicación (modal + splash) es para la primera vez; después el
+                    // interruptor prende directo y avisa con un toast.
+                    if (frioYaVisto()) { activarFrio(false); return; }
                     offlineModeModal.classList.remove('hidden');
                     offlineModeModal.classList.add('flex');
                 } else {
@@ -29145,14 +29176,28 @@
                 offlineModeModal.classList.remove('flex');
             });
 
-            confirmOfflineModeBtn.addEventListener('click', async () => {
+            confirmOfflineModeBtn.addEventListener('click', () => activarFrio(true));
+
+            const FRIO_VISTO_KEY = 'cw:frioVisto';
+            function frioYaVisto() { try { return localStorage.getItem(FRIO_VISTO_KEY) === '1'; } catch (e) { return false; } }
+            // Prender el modo frío deja al usuario en la pantalla principal: cierra el modal,
+            // Configuración y cualquier vista abierta. El splash se va solo a los 4 s.
+            async function activarFrio(primera) {
                 offlineModeModal.classList.add('hidden');
                 offlineModeModal.classList.remove('flex');
+                settingsModal.classList.add('hidden');
+                settingsModal.classList.remove('flex');
+                showView('walletView');
                 isOffline = true;
                 await goOffline();
                 updateOfflineUI();
-                showColdSplash();
-            });
+                if (primera) {
+                    try { localStorage.setItem(FRIO_VISTO_KEY, '1'); } catch (e) {}
+                    showColdSplash();
+                } else {
+                    showToast(t('cold_splash_title') || 'Modo frío activado', 'info', 2500);
+                }
+            }
 
             // --- Splash de Modo Frío ---
             const coldModeSplash = document.getElementById('coldModeSplash');
@@ -29165,15 +29210,20 @@
                 // Reiniciar la animación de entrada por si se reactiva
                 const card = document.getElementById('coldModeSplashCard');
                 if (card) { card.style.animation = 'none'; void card.offsetWidth; card.style.animation = ''; }
+                clearTimeout(coldSplashTimer);
+                coldSplashTimer = setTimeout(hideColdSplash, 4000);
             }
+            let coldSplashTimer = null;
 
             function hideColdSplash() {
+                clearTimeout(coldSplashTimer);
                 if (!coldModeSplash) return;
                 coldModeSplash.classList.add('hidden');
                 coldModeSplash.classList.remove('flex');
             }
 
             if (coldModeSplashOk) coldModeSplashOk.addEventListener('click', hideColdSplash);
+            if (coldModeSplash) coldModeSplash.addEventListener('click', hideColdSplash);
 
             async function goOffline() {
                 console.log("Cambiando a modo OFFLINE...");
