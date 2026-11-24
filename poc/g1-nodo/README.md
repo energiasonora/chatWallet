@@ -61,7 +61,11 @@ Medido el 24/11/2026: la sincronización completa (re-ejecutar cada bloque desde
 **2,6 bloques/s** (~2 semanas para 3,75 millones) y subía la carga de la caja a 4,8 con 2 núcleos,
 con 700 MB de swap. Por eso el nodo arranca con `DUNITER_SYNC=warp` (baja el estado finalizado
 con su prueba de GRANDPA y completa la historia después, sin ejecutarla) y `--cpus=1.5`.
-Pasar de completa a warp exige base vacía: `./poc/g1-nodo/instalar-en-la-caja.sh --de-cero`.
+El binario trae un punto de partida incorporado para el warp de Ğ1 que es viejo (bloque 84.128):
+con él, warp saltaba sólo el 2 % y después volvía a bloque por bloque. Por eso también
+`DUNITER_NO_CHECKPOINT=true` (warp con las pruebas de GRANDPA de la red). Si la red no las sirve,
+queda `DUNITER_WARP_CHECKPOINT_HEADER` (un JSON con un encabezado reciente, comprobado contra
+dos nodos). Pasar de completa a warp exige base vacía: `./poc/g1-nodo/instalar-en-la-caja.sh --de-cero`.
 
 ## El monitor lo vigila
 

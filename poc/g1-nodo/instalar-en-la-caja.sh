@@ -19,6 +19,9 @@ podman rm -f g1-nodo >/dev/null 2>&1 || true
 # warp: baja el estado ya finalizado (con su prueba) en vez de re-ejecutar cada bloque desde
 # 2023; la historia de bloques se completa después, sin ejecutarla. La sincronización completa
 # medida en la caja iba a 2,6 bloques/s (~2 semanas) y cargaba la caja a 4,8 con 2 núcleos.
+# NO_CHECKPOINT: el binario trae un punto de partida incorporado para el warp de Ğ1 que es viejo
+# (bloque 84.128): con él, warp saltaba sólo el 2 % y el resto volvía a ser bloque por bloque.
+# Sin él, el warp va con las pruebas de GRANDPA de la red hasta lo último finalizado.
 # --cpus=1.5: que siempre quede medio núcleo para IPFS, el relayer y los respaldos.
 exec podman run -d --name g1-nodo \\
   --memory=1500m --cpus=1.5 \\
@@ -28,6 +31,7 @@ exec podman run -d --name g1-nodo \\
   -e DUNITER_NODE_NAME=chatwallet-caja \\
   -e DUNITER_PRUNING_PROFILE=light \\
   -e DUNITER_SYNC=warp \\
+  -e DUNITER_NO_CHECKPOINT=true \\
   -e DUNITER_NO_TELEMETRY=true \\
   -e DUNITER_NO_PROMETHEUS=true \\
   $IMAGEN
