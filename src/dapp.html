@@ -70,6 +70,10 @@
         }
 
         /* --- Estilos para Modo Offline (Cold Wallet) - TEMA GRIS --- */
+        body:not(.cold-mode) .solo-frio { display: none !important; }
+        .radio-btn.radio-on { background: #0891b2 !important; box-shadow: 0 0 0 2px rgba(34, 211, 238, .45); }
+        .radio-btn.radio-wait { animation: radioPulso 1.2s ease-in-out infinite; }
+        @keyframes radioPulso { 50% { opacity: .45; } }
         .cold-mode {
             background: #111827;
             /* Fondo gris oscuro casi negro */
@@ -2296,6 +2300,11 @@
                         <span data-i18n-key="cold_splash_f3_d">mové lo firmado a un dispositivo online escaneando.</span></span>
                 </div>
             </div>
+            <div class="mt-3 flex items-start gap-3 text-gray-200 text-sm text-left">
+                <span class="text-lg leading-none mt-0.5">📡</span>
+                <span><strong class="text-white">Chat por radio:</strong>
+                    <span>con un dongle FlyLog, mensajes cifrados de teléfono a teléfono, sin internet (📡 en Contactos).</span></span>
+            </div>
             <button id="coldModeSplashOk"
                 class="mt-8 w-full p-3 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold transition-all"
                 data-i18n-key="cold_splash_ok">Entendido</button>
@@ -3000,6 +3009,8 @@
                                 <input type="file" id="chatAttachInput" class="hidden">
                             </div>
                         </div>
+                        <button id="radioComposeBtn" type="button" title="Radio sin internet (dongle FlyLog)"
+                            class="hidden radio-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors focus:outline-none flex-shrink-0 text-lg leading-none">📡</button>
                         <button id="offlineScanReplyBtn" type="button" title="Escanear respuesta (QR)"
                             class="hidden p-3 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors focus:outline-none flex-shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
@@ -3288,6 +3299,9 @@
             <div class="contacts-sidebar-header">
                 <h2 class="text-lg font-bold">Contactos</h2>
                 <div class="flex items-center space-x-2">
+                    <!-- Radio sin internet (dongle FlyLog): solo en modo frío -->
+                    <button id="radioBtnSidebar" type="button" title="Radio sin internet (dongle FlyLog)"
+                        class="solo-frio radio-btn bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full text-sm leading-none">📡</button>
                     <button id="importContactsBtn" title="Importar Contactos"
                         class="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -3767,6 +3781,30 @@
                 <button id="offlineMsgScanReplyBtn"
                     class="w-full px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-500 font-semibold">Escanear
                     respuesta</button>
+            </div>
+        </div>
+
+        <!-- Radio sin internet: mensajes cifrados por el dongle FlyLog (BLE → LoRa / ESP-NOW) -->
+        <div id="radioModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 rounded-xl p-5 w-full max-w-md space-y-4 max-h-[85vh] overflow-y-auto">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-cyan-300">📡 Radio sin internet</h3>
+                    <button type="button" id="closeRadioModal"
+                        class="p-1 rounded-full hover:bg-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                <p class="text-sm text-gray-400">Con un dongle FlyLog los mensajes viajan por radio de un
+                    teléfono a otro, cifrados con tu billetera: sin internet, sin señal de celular y sin
+                    ningún servidor en el medio.</p>
+                <div id="radioStatus" class="text-sm text-gray-300"></div>
+                <button type="button" id="radioConnectBtn"
+                    class="w-full px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 font-semibold">Conectar dongle</button>
+                <div>
+                    <h4 class="text-sm font-semibold text-gray-300 mb-2">Cerca por radio</h4>
+                    <div id="radioNearby" class="space-y-2"></div>
+                </div>
+                <p class="text-xs text-gray-500">Los que están cerca oyen que pasa un mensaje, pero solo el
+                    destinatario puede leerlo. El nombre con el que alguien aparece por radio lo elige esa
+                    persona: no está confirmado.</p>
             </div>
         </div>
 
@@ -12157,8 +12195,13 @@
                 t.textContent = new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 meta.appendChild(t);
                 const tag = document.createElement('span');
-                tag.title = 'Mensaje offline por QR';
-                tag.textContent = (m.dir === 'received' && m.verified === false) ? ' ⚠️ QR' : ' 🔒 QR';
+                if (m.via === 'radio') {
+                    if (m.rid) tag.dataset.rid = m.rid;
+                    radioPintarTag(tag, m);
+                } else {
+                    tag.title = 'Mensaje offline por QR';
+                    tag.textContent = (m.dir === 'received' && m.verified === false) ? ' ⚠️ QR' : ' 🔒 QR';
+                }
                 meta.appendChild(tag);
 
                 bubble.appendChild(span);
@@ -12173,7 +12216,7 @@
                 if (!contact.pubKey) {
                     const warn = document.createElement('div');
                     warn.className = 'handshake-message';
-                    warn.innerHTML = `<span class="content">🔑 Aún no tenés la clave pública de este contacto. Escaneá su QR de identidad (Recibir → QR de chat) para poder enviarle mensajes cifrados.</span>`;
+                    warn.innerHTML = `<span class="content">🔑 Aún no tenés la clave pública de este contacto. Escaneá su QR de identidad (Recibir → QR de chat), o conectá el dongle 📡: cuando su ChatWallet con dongle esté cerca, las claves se intercambian solas.</span>`;
                     messagesContainer.appendChild(warn);
                 }
                 const thread = getOfflineThread(contact.address);
@@ -12189,13 +12232,18 @@
             // Ajusta el compositor (input + botones) según modo online/offline.
             function updateOfflineComposeUI() {
                 const scanBtn = document.getElementById('offlineScanReplyBtn');
+                const radioBtn = document.getElementById('radioComposeBtn');
                 if (isOffline && currentOfflineContact) {
-                    messageInput.placeholder = 'Mensaje offline (se genera un QR cifrado)…';
+                    messageInput.placeholder = (radioListo() && currentOfflineContact.pubKey)
+                        ? 'Mensaje por radio 📡 (cifrado)…'
+                        : 'Mensaje offline (se genera un QR cifrado)…';
                     cancelReply(); // el modo respuesta (reply XMTP) no existe en el circuito frío
                     if (scanBtn) scanBtn.classList.remove('hidden');
+                    if (radioBtn) radioBtn.classList.remove('hidden');
                 } else {
                     messageInput.placeholder = 'Escribe un mensaje...';
                     if (scanBtn) scanBtn.classList.add('hidden');
+                    if (radioBtn) radioBtn.classList.add('hidden');
                 }
             }
 
@@ -12222,6 +12270,552 @@
                 messageInput.value = '';
                 showOfflineMsgQrModal(qrData);
             }
+
+            // ─────────────────────────────────────────────────────────────
+            //  RADIO SIN INTERNET — mensajes cifrados por el dongle FlyLog
+            //  El dongle (flylog/dongle, firmware lora_bridge) puentea BLE (Nordic UART)
+            //  ↔ LoRa 915 / ESP-NOW. Una línea escrita por BLE sale al aire como
+            //  "<id>|<línea>" y del otro lado llega "RX <id> <línea> [-95dBm 9.5dB]".
+            //  El aire corta en 200 B (LoRa) / 196 (ESP-NOW): cada línea va con ≤ 190.
+            //  No hace falta tocar el firmware: viaja por el camino de texto de siempre.
+            //  Sobre "CWR1": ECDH entre las llaves fijas + AES-GCM (ver CWR abajo).
+            //  Los mensajes van al MISMO hilo offline que los QR (via: 'radio').
+            // ─────────────────────────────────────────────────────────────
+            // CWR1 — mensajes cifrados de ChatWallet por la radio del dongle FlyLog.
+            // Núcleo sin DOM: se prueba en node y se pega tal cual en dapp.html.
+            // Requiere `ethers` (v6) global y WebCrypto (crypto.subtle).
+            //
+            // Una línea por frame: 'CWR1' + base64url(frame). El dongle le antepone '<id>|'
+            // y el aire corta en 200 B (LoRa) / 196 B (ESP-NOW): la línea va con ≤ 190.
+            //
+            //   MSG   0x11 | to4 | from4 | nonce12 | AES-GCM(ts4 BE + texto utf8) + tag16
+            //   ACK   0x12 | to4 | from4 | id4 (= nonce[0..4]) | mac8
+            //   HELLO 0x13 | pub33 (comprimida) | alias utf8 (≤ 24 B)
+            //
+            // to/from = primeros 4 bytes de la address. La clave es ECDH entre las llaves
+            // FIJAS de los dos (sin efímera ni firma: si la etiqueta GCM valida, sólo pudo
+            // escribirlo el dueño de la otra llave). AAD = los 9 bytes de cabecera.
+            const CWR = (() => {
+                const PREFIX = 'CWR1';
+                const T_MSG = 0x11, T_ACK = 0x12, T_HELLO = 0x13;
+                const MAX_LINE = 190;
+                const MAX_TEXT_BYTES = Math.floor((MAX_LINE - PREFIX.length) * 3 / 4) - (21 + 4 + 16); // 98
+                const MAX_ALIAS_BYTES = 24;
+                const enc = new TextEncoder(), dec = new TextDecoder();
+
+                function b64u(bytes) {
+                    let s = '';
+                    for (const b of bytes) s += String.fromCharCode(b);
+                    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                }
+                function unb64u(str) {
+                    const s = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+                    const out = new Uint8Array(s.length);
+                    for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+                    return out;
+                }
+                const addrHint = (address) => ethers.getBytes(ethers.getAddress(address)).slice(0, 4);
+                const eq = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+                const hex = (b) => ethers.hexlify(b).slice(2);
+
+                // Utf8 truncado sin cortar un carácter al medio.
+                function utf8Fit(text, max) {
+                    let b = enc.encode(text);
+                    if (b.length <= max) return b;
+                    let cut = max;
+                    while (cut > 0 && (b[cut] & 0xC0) === 0x80) cut--;
+                    return b.slice(0, cut);
+                }
+
+                // Clave de la pareja: sha256('CWR1' + x del punto compartido). Simétrica:
+                // mi privada × tu pública = tu privada × mi pública.
+                const keyCache = new Map();
+                async function pairKey(myPriv, peerPubHex) {
+                    const k = myPriv + ':' + peerPubHex;
+                    if (keyCache.has(k)) return keyCache.get(k);
+                    const pub = '0x' + String(peerPubHex).replace(/^0x/, '');
+                    const shared = ethers.getBytes(new ethers.SigningKey(myPriv).computeSharedSecret(pub)); // 04|x|y
+                    const raw = ethers.getBytes(ethers.sha256(ethers.concat([enc.encode(PREFIX), shared.slice(1, 33)])));
+                    const aes = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+                    const entry = { raw, aes };
+                    keyCache.set(k, entry);
+                    return entry;
+                }
+                function ackMac(raw, id) {
+                    return ethers.getBytes(ethers.computeHmac('sha256', raw, ethers.concat([enc.encode('ack'), id]))).slice(0, 8);
+                }
+
+                async function buildMsg({ myPriv, myAddress, peerAddress, peerPub, text, ts }) {
+                    const body = utf8Fit(text, MAX_TEXT_BYTES);
+                    if (body.length < enc.encode(text).length) throw new Error(`Mensaje muy largo para la radio (máx ${MAX_TEXT_BYTES} bytes).`);
+                    const head = new Uint8Array(9);
+                    head[0] = T_MSG; head.set(addrHint(peerAddress), 1); head.set(addrHint(myAddress), 5);
+                    const nonce = crypto.getRandomValues(new Uint8Array(12));
+                    const secs = Math.floor((ts || Date.now()) / 1000);
+                    const plain = new Uint8Array(4 + body.length);
+                    new DataView(plain.buffer).setUint32(0, secs >>> 0);
+                    plain.set(body, 4);
+                    const { aes } = await pairKey(myPriv, peerPub);
+                    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce, additionalData: head }, aes, plain));
+                    const frame = ethers.getBytes(ethers.concat([head, nonce, ct]));
+                    return { line: PREFIX + b64u(frame), id: hex(nonce.slice(0, 4)) };
+                }
+
+                async function buildAck({ myPriv, myAddress, peerAddress, peerPub, id }) {
+                    const { raw } = await pairKey(myPriv, peerPub);
+                    const idB = ethers.getBytes('0x' + id);
+                    const f = new Uint8Array(21);
+                    f[0] = T_ACK; f.set(addrHint(peerAddress), 1); f.set(addrHint(myAddress), 5);
+                    f.set(idB, 9); f.set(ackMac(raw, idB), 13);
+                    return PREFIX + b64u(f);
+                }
+
+                function buildHello({ myPubCompressed, alias }) {
+                    const pub = ethers.getBytes(myPubCompressed);
+                    const a = utf8Fit(String(alias || '').replace(/\s+/g, ' ').trim(), MAX_ALIAS_BYTES);
+                    return PREFIX + b64u(ethers.getBytes(ethers.concat([new Uint8Array([T_HELLO]), pub, a])));
+                }
+
+                // Parte la línea sin descifrar nada. null si no es CWR1 o está mal formada.
+                function parse(line) {
+                    if (!line || !line.startsWith(PREFIX)) return null;
+                    let f;
+                    try { f = unb64u(line.slice(PREFIX.length)); } catch (e) { return null; }
+                    if (f[0] === T_HELLO && f.length >= 34) {
+                        const pubHex = hex(f.slice(1, 34));
+                        let address;
+                        try { address = ethers.computeAddress('0x' + pubHex); } catch (e) { return null; }
+                        return { type: 'hello', pub: pubHex, address, alias: dec.decode(f.slice(34)) };
+                    }
+                    if (f[0] === T_MSG && f.length >= 9 + 12 + 16 + 4)
+                        return { type: 'msg', to: f.slice(1, 5), from: f.slice(5, 9), frame: f };
+                    if (f[0] === T_ACK && f.length === 21)
+                        return { type: 'ack', to: f.slice(1, 5), from: f.slice(5, 9), id: hex(f.slice(9, 13)), mac: f.slice(13, 21) };
+                    return null;
+                }
+                const isForMe = (p, myAddress) => !!p && !!p.to && eq(p.to, addrHint(myAddress));
+                const fromMatches = (p, address) => !!p && !!p.from && eq(p.from, addrHint(address));
+
+                // Intenta descifrar con un candidato { address, pub }. null si no es de él.
+                async function openMsg(p, { myPriv }, cand) {
+                    if (!fromMatches(p, cand.address)) return null;
+                    const f = p.frame, head = f.slice(0, 9), nonce = f.slice(9, 21), ct = f.slice(21);
+                    try {
+                        const { aes } = await pairKey(myPriv, cand.pub);
+                        const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce, additionalData: head }, aes, ct));
+                        const ts = new DataView(plain.buffer).getUint32(0) * 1000;
+                        return { text: dec.decode(plain.slice(4)), ts, id: hex(nonce.slice(0, 4)) };
+                    } catch (e) { return null; }
+                }
+                async function checkAck(p, { myPriv }, cand) {
+                    if (!fromMatches(p, cand.address)) return false;
+                    const { raw } = await pairKey(myPriv, cand.pub);
+                    return eq(ackMac(raw, ethers.getBytes('0x' + p.id)), p.mac);
+                }
+
+                return { PREFIX, MAX_LINE, MAX_TEXT_BYTES, utf8Len: (t) => enc.encode(t).length,
+                    buildMsg, buildAck, buildHello, parse, isForMe, fromMatches, openMsg, checkAck };
+            })();
+            window.CWR = CWR;
+
+            const RADIO_NUS = {
+                service: '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+                rx: '6e400002-b5a3-f393-e0a9-e50e24dcca9e',   // el teléfono escribe
+                tx: '6e400003-b5a3-f393-e0a9-e50e24dcca9e',   // el teléfono recibe (notify)
+            };
+            const RADIO_HELLO_MS = 60000;        // cada cuánto decimos "acá estoy" (~0,6 s de aire)
+            const RADIO_ACK_WAIT_MS = 7000;      // sin acuse en este tiempo, se reintenta
+            const RADIO_TRIES = 3;
+            const RADIO_MAX_PARTES = 5;          // un texto largo sale en varios mensajes
+            const radio = {
+                dev: null, id: null, air: null, buf: '', busy: false, wanted: false,
+                retry: 0, retryTimer: null, helloTimer: null, lastHelloReply: 0,
+                nearby: {},                      // addrLower → { address, pub, alias, ts, rssi }
+                pending: {},                     // id → { addr, line, tries, timer }
+                seen: new Set(),                 // ids recibidos (dedup de reintentos)
+                cola: [], enviando: false,
+            };
+            const radioListo = () => !!radio.dev;
+            const radioBle = () => window.CwBle && window.CwBle.BleClient;
+
+            function radioPintar() {
+                const st = radio.dev ? 'on' : (radio.busy || radio.retryTimer) ? 'wait' : 'off';
+                document.querySelectorAll('.radio-btn').forEach(b => {
+                    b.classList.toggle('radio-on', st === 'on');
+                    b.classList.toggle('radio-wait', st === 'wait');
+                });
+                const status = document.getElementById('radioStatus');
+                const btn = document.getElementById('radioConnectBtn');
+                const cerca = Object.values(radio.nearby).filter(n => Date.now() - n.ts < 10 * 60000).length;
+                if (status) {
+                    status.textContent = radio.dev
+                        ? `✅ Enlazado con ${radio.dev.name || 'el dongle'}${radio.air ? ' · ' + (radio.air === 'LORA' ? 'LoRa' : radio.air === 'ESPNOW' ? 'ESP-NOW' : radio.air) : ''} · ${cerca} cerca`
+                        : radio.retryTimer ? '⏳ Se cortó: reintentando la conexión sola…'
+                        : radio.busy ? '⏳ Buscando el dongle…' : 'Sin dongle conectado.';
+                }
+                if (btn) btn.textContent = radio.dev ? 'Soltar dongle' : 'Conectar dongle';
+                radioPintarCerca();
+                if (typeof updateOfflineComposeUI === 'function') updateOfflineComposeUI();
+            }
+
+            function radioPintarCerca() {
+                const box = document.getElementById('radioNearby');
+                if (!box) return;
+                box.innerHTML = '';
+                const lista = Object.values(radio.nearby).sort((a, b) => b.ts - a.ts);
+                if (!lista.length) {
+                    const p = document.createElement('p');
+                    p.className = 'text-xs text-gray-500';
+                    p.textContent = radio.dev ? 'Todavía nadie. Cuando otro ChatWallet con dongle esté cerca, aparece acá.' : 'Conectá el dongle para ver quién está cerca.';
+                    box.appendChild(p);
+                    return;
+                }
+                for (const n of lista) {
+                    const c = contacts.find(x => x.address.toLowerCase() === n.address.toLowerCase());
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between gap-2 bg-gray-700/60 rounded-lg px-3 py-2';
+                    const info = document.createElement('div');
+                    info.className = 'min-w-0';
+                    const nom = document.createElement('div');
+                    nom.className = 'text-sm font-semibold truncate';
+                    nom.textContent = (c && c.name) || n.alias || shortAddr(n.address);
+                    const sub = document.createElement('div');
+                    sub.className = 'text-xs text-gray-400 truncate';
+                    const hace = Math.round((Date.now() - n.ts) / 60000);
+                    sub.textContent = `${n.address.slice(0, 6)}…${n.address.slice(-4)} · ${hace < 1 ? 'recién' : 'hace ' + hace + ' min'}${n.rssi != null ? ' · ' + n.rssi + ' dBm' : ''}`;
+                    info.appendChild(nom); info.appendChild(sub);
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'px-3 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-sm font-semibold flex-shrink-0';
+                    b.textContent = 'Chatear';
+                    b.addEventListener('click', () => radioAbrirChat(n.address));
+                    row.appendChild(info); row.appendChild(b);
+                    box.appendChild(row);
+                }
+            }
+
+            function radioAbrirModal() {
+                const m = document.getElementById('radioModal');
+                if (!m) return;
+                radioPintar();
+                m.classList.remove('hidden'); m.classList.add('flex');
+            }
+            function radioCerrarModal() {
+                const m = document.getElementById('radioModal');
+                if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+            }
+
+            // Contacto para alguien oído por radio. La 0x sale de SU clave pública (no se
+            // puede mentir), el alias no: va como nombre solo si no lo conocíamos.
+            async function radioAsegurarContacto(address, { crear = true } = {}) {
+                const k = address.toLowerCase();
+                const n = radio.nearby[k];
+                let c = contacts.find(x => x.address.toLowerCase() === k);
+                if (!c) {
+                    if (!crear || isBlockedContact(address)) return null;
+                    c = { name: (n && n.alias) || shortAddr(address), address, unreadCount: 0, status: 'offline',
+                        lastSeen: null, avatar: ANON_AVATAR, pubKey: (n && n.pub) || null };
+                    contacts.push(c);
+                    await clearTombstone(address);
+                    saveContacts();
+                    try { renderContacts(); } catch (e) { }
+                } else if (n && n.pub && c.pubKey !== n.pub) {
+                    const faltaba = !c.pubKey;
+                    c.pubKey = n.pub; saveContacts();
+                    // El chat abierto decía «falta la clave»: ya no.
+                    if (faltaba && isOffline && currentOfflineContact && currentOfflineContact.address.toLowerCase() === k) renderOfflineThread(c);
+                }
+                return c;
+            }
+
+            async function radioAbrirChat(address) {
+                const c = await radioAsegurarContacto(address);
+                if (!c) return;
+                radioCerrarModal();
+                await startChatWithContact(c);
+            }
+
+            // --- BLE ---
+            async function radioWrite(line) {
+                const ble = radioBle();
+                if (!radio.dev || !ble) return false;
+                try {
+                    const bytes = new TextEncoder().encode(line + '\n');
+                    await ble.writeWithoutResponse(radio.dev.deviceId, RADIO_NUS.service, RADIO_NUS.rx, new DataView(bytes.buffer));
+                    return true;
+                } catch (e) { console.warn('[radio] no se pudo escribir', e); return false; }
+            }
+            // El aire es uno solo y LoRa tarda ~1 s por mensaje: se manda de a uno.
+            function radioEncolar(line, urgente) {
+                if (urgente) radio.cola.unshift(line); else radio.cola.push(line);
+                radioBombear();
+            }
+            async function radioBombear() {
+                if (radio.enviando) return;
+                radio.enviando = true;
+                try {
+                    while (radio.cola.length && radio.dev) {
+                        await radioWrite(radio.cola.shift());
+                        await new Promise(r => setTimeout(r, radio.air === 'ESPNOW' ? 250 : 1300));
+                    }
+                } finally { radio.enviando = false; }
+            }
+
+            function radioOnChunk(dv) {
+                radio.buf += new TextDecoder().decode(dv);
+                let i;
+                while ((i = radio.buf.indexOf('\n')) >= 0) {
+                    const line = radio.buf.slice(0, i).replace(/\r$/, '');
+                    radio.buf = radio.buf.slice(i + 1);
+                    radioLinea(line).catch(e => console.warn('[radio]', e));
+                }
+                if (radio.buf.length > 4096) radio.buf = '';
+            }
+
+            async function radioLinea(line) {
+                if (!line) return;
+                if (line.startsWith('# id=')) {
+                    const g = (re) => { const m = line.match(re); return m ? m[1] : null; };
+                    radio.id = g(/id=(\S+)/); radio.air = g(/air=(\S+)/);
+                    radioPintar();
+                    return;
+                }
+                const m = line.match(/^RX (\S+) (CWR1[A-Za-z0-9_-]+)(?: \[(-?\d+)dBm)?/);
+                if (!m) return;   // posiciones, alias de FlyLog, texto suelto: no son para ChatWallet
+                await radioFrame(m[2], m[3] != null ? Number(m[3]) : null);
+            }
+
+            async function radioFrame(line, rssi) {
+                if (!currentWallet) return;
+                const p = CWR.parse(line);
+                if (!p) return;
+                const yo = { myPriv: currentWallet.privateKey };
+                if (p.type === 'hello') {
+                    if (p.address.toLowerCase() === currentWallet.address.toLowerCase()) return;
+                    const k = p.address.toLowerCase();
+                    const nuevo = !radio.nearby[k] || Date.now() - radio.nearby[k].ts > 5 * 60000;
+                    radio.nearby[k] = { address: p.address, pub: p.pub, alias: p.alias, ts: Date.now(), rssi };
+                    await radioAsegurarContacto(p.address, { crear: false });   // solo completa la clave
+                    // Alguien nuevo: le contestamos con el nuestro, así no espera un minuto.
+                    if (nuevo && Date.now() - radio.lastHelloReply > 10000) {
+                        radio.lastHelloReply = Date.now();
+                        radioHello();
+                    }
+                    radioPintar();
+                    return;
+                }
+                if (!CWR.isForMe(p, currentWallet.address)) return;   // pasa de largo: no es para mí
+                const cands = [];
+                for (const c of contacts) if (c.pubKey && c.address && /^0x/i.test(c.address)) cands.push({ address: c.address, pub: String(c.pubKey).replace(/^0x/, '') });
+                for (const n of Object.values(radio.nearby)) cands.push({ address: n.address, pub: n.pub });
+                if (p.type === 'ack') {
+                    const pend = radio.pending[p.id];
+                    if (!pend) return;
+                    const cand = cands.find(c => c.address.toLowerCase() === pend.addr);
+                    if (!cand || !(await CWR.checkAck(p, yo, cand))) return;
+                    clearTimeout(pend.timer);
+                    delete radio.pending[p.id];
+                    radioMarcar(pend.addr, p.id, { ack: true, fail: false });
+                    return;
+                }
+                // MSG
+                let abierto = null, de = null;
+                for (const c of cands) {
+                    if (!CWR.fromMatches(p, c.address)) continue;
+                    abierto = await CWR.openMsg(p, yo, c);
+                    if (abierto) { de = c; break; }
+                }
+                if (!abierto) { console.warn('[radio] mensaje para mí que no pude abrir (¿falta su clave?)'); return; }
+                // Acuse siempre, también a los repetidos: si se perdió el anterior, el otro reintenta.
+                radioEncolar(await CWR.buildAck({ myPriv: currentWallet.privateKey, myAddress: currentWallet.address,
+                    peerAddress: de.address, peerPub: de.pub, id: abierto.id }), true);
+                if (radio.seen.has(abierto.id)) return;
+                radio.seen.add(abierto.id);
+                if (radio.seen.size > 500) radio.seen = new Set([...radio.seen].slice(-250));
+                const contact = await radioAsegurarContacto(de.address);
+                if (!contact) return;   // bloqueado
+                const msg = { dir: 'received', text: abierto.text, ts: Date.now(), sentTs: abierto.ts, verified: true, via: 'radio', rssi };
+                addOfflineMessage(contact.address, msg);
+                contact.lastMessage = abierto.text;
+                contact.lastMessageTimestamp = Date.now();
+                const abiertoAhora = isOffline && currentOfflineContact && currentOfflineContact.address.toLowerCase() === contact.address.toLowerCase();
+                if (abiertoAhora) {
+                    renderOfflineMsg(msg);
+                } else {
+                    contact.unreadCount = (contact.unreadCount || 0) + 1;
+                    showToast(`📡 ${contact.name}: ${abierto.text.slice(0, 80)}`, 'info', 5000);
+                }
+                saveContacts();
+                try { renderContacts(); } catch (e) { }
+                vibrar([30, 60, 30]);
+            }
+
+            // Cambia el estado de un enviado (acuse / sin acuse) en el hilo y en pantalla.
+            function radioMarcar(addrLower, id, cambios) {
+                const hilo = offlineThreads[addrLower] || [];
+                const m = hilo.find(x => x.rid === id);
+                if (!m) return;
+                Object.assign(m, cambios);
+                saveOfflineThreads();
+                const tag = messagesContainer && messagesContainer.querySelector(`[data-rid="${id}"]`);
+                if (tag) radioPintarTag(tag, m);
+            }
+            function radioPintarTag(tag, m) {
+                if (m.dir === 'sent') {
+                    tag.textContent = m.ack ? ' 📡 ✓✓' : m.fail ? ' 📡 ✗' : ' 📡 ✓';
+                    tag.title = m.ack ? 'Llegó por radio' : m.fail ? 'Sin confirmación: puede no haber llegado' : 'Enviado por radio, esperando confirmación';
+                    tag.style.color = m.ack ? '#67e8f9' : m.fail ? '#fca5a5' : '';
+                } else {
+                    tag.textContent = ' 📡';
+                    tag.title = 'Llegó por radio' + (m.rssi != null ? ` (${m.rssi} dBm)` : '');
+                }
+            }
+
+            function radioHello() {
+                if (!radio.dev || !currentWallet) return;
+                const alias = (readOwnProfile() || {}).alias || '';
+                radioEncolar(CWR.buildHello({ myPubCompressed: currentWallet.signingKey.compressedPublicKey, alias }));
+            }
+            function radioArrancarHello() {
+                clearInterval(radio.helloTimer);
+                radioHello();
+                radio.helloTimer = setInterval(radioHello, RADIO_HELLO_MS);
+            }
+
+            // Parte un texto largo en pedazos que entren en un mensaje, por palabras.
+            function radioPartir(text) {
+                const max = CWR.MAX_TEXT_BYTES, out = [];
+                let rest = text.trim();
+                while (rest) {
+                    if (CWR.utf8Len(rest) <= max) { out.push(rest); break; }
+                    let cut = Math.min(rest.length, max);
+                    while (cut > 1 && CWR.utf8Len(rest.slice(0, cut)) > max) cut--;
+                    const cc = rest.charCodeAt(cut - 1);
+                    if (cc >= 0xD800 && cc <= 0xDBFF) cut--;   // no partir un emoji
+                    const sp = rest.lastIndexOf(' ', cut);
+                    if (sp > cut * 0.6) cut = sp;
+                    out.push(rest.slice(0, cut).trim());
+                    rest = rest.slice(cut).trim();
+                }
+                return out;
+            }
+
+            async function sendRadioMessage(text) {
+                const c = currentOfflineContact;
+                if (!c || !radio.dev) return;
+                if (!c.pubKey) {
+                    showToast('Todavía no tengo la clave de este contacto. Cuando su ChatWallet con dongle esté cerca, se intercambian solas.', 'error', 6000);
+                    return;
+                }
+                const partes = radioPartir(text);
+                if (partes.length > RADIO_MAX_PARTES) {
+                    showToast(`Muy largo para la radio (máx. ~${RADIO_MAX_PARTES * 90} letras).`, 'error');
+                    return;
+                }
+                messageInput.value = '';
+                for (const parte of partes) {
+                    let built;
+                    try {
+                        built = await CWR.buildMsg({ myPriv: currentWallet.privateKey, myAddress: currentWallet.address,
+                            peerAddress: c.address, peerPub: String(c.pubKey).replace(/^0x/, ''), text: parte });
+                    } catch (e) { showToast(e.message, 'error', 5000); return; }
+                    const msg = { dir: 'sent', text: parte, ts: Date.now(), verified: true, via: 'radio', rid: built.id, ack: false };
+                    addOfflineMessage(c.address, msg);
+                    renderOfflineMsg(msg);
+                    const addr = c.address.toLowerCase();
+                    const pend = { addr, line: built.line, tries: 1, timer: null };
+                    const vigilar = () => {
+                        pend.timer = setTimeout(() => {
+                            if (!radio.pending[built.id]) return;
+                            if (pend.tries >= RADIO_TRIES || !radio.dev) {
+                                delete radio.pending[built.id];
+                                radioMarcar(addr, built.id, { fail: true });
+                                return;
+                            }
+                            pend.tries++;
+                            radioEncolar(pend.line);
+                            vigilar();
+                        }, RADIO_ACK_WAIT_MS + radio.cola.length * 1300);
+                    };
+                    radio.pending[built.id] = pend;
+                    radioEncolar(built.line);
+                    vigilar();
+                }
+                c.lastMessage = partes[partes.length - 1];
+                c.lastMessageTimestamp = Date.now();
+                saveContacts();
+            }
+
+            function radioSeFue(silencioso) {
+                const dev = radio.dev;
+                clearInterval(radio.helloTimer);
+                radio.dev = null; radio.id = null; radio.air = null; radio.buf = ''; radio.busy = false; radio.cola = [];
+                radioPintar();
+                if (!silencioso) showToast('📡 El dongle se desconectó — reintentando.', 'info');
+                if (radio.wanted && dev) radioReintentar(dev);
+            }
+            function radioReintentar(dev) {
+                if (radio.retryTimer) return;
+                const espera = Math.min(2000 * Math.pow(2, radio.retry), 30000);
+                radio.retry++;
+                radio.retryTimer = setTimeout(async () => {
+                    radio.retryTimer = null;
+                    if (!radio.wanted || radio.dev) return;
+                    try {
+                        const ble = radioBle();
+                        await ble.connect(dev.deviceId, () => radioSeFue(true));
+                        await ble.startNotifications(dev.deviceId, RADIO_NUS.service, RADIO_NUS.tx, radioOnChunk);
+                        radio.dev = dev; radio.buf = ''; radio.retry = 0;
+                        radioPintar();
+                        await radioWrite('.stat');
+                        radioArrancarHello();
+                        showToast('📡 Dongle de vuelta.', 'success');
+                    } catch (e) { radioReintentar(dev); }
+                }, espera);
+                radioPintar();
+            }
+
+            async function radioConectar() {
+                const ble = radioBle();
+                if (!ble) { showToast('El Bluetooth todavía no cargó. Probá de nuevo en un segundo.', 'error'); return; }
+                if (!currentWallet) { showToast('Cargá tu billetera primero.', 'error'); return; }
+                radio.busy = true; radioPintar();
+                try {
+                    // neverForLocation: en Android 12+ no pide ubicación (el manifest declara
+                    // BLUETOOTH_SCAN con ese flag). En Android ≤ 11 el sistema la exige igual.
+                    await ble.initialize({ androidNeverForLocation: true });
+                    const dev = await ble.requestDevice({ namePrefix: 'FLYLOG-', optionalServices: [RADIO_NUS.service] });
+                    await ble.connect(dev.deviceId, () => radioSeFue());
+                    await ble.startNotifications(dev.deviceId, RADIO_NUS.service, RADIO_NUS.tx, radioOnChunk);
+                    radio.dev = dev; radio.busy = false; radio.buf = ''; radio.wanted = true; radio.retry = 0;
+                    radioPintar();
+                    await radioWrite('.stat');
+                    radioArrancarHello();
+                    showToast('📡 Dongle enlazado. Ya podés chatear por radio.', 'success');
+                } catch (e) {
+                    radio.busy = false; radioPintar();
+                    const msg = String((e && e.message) || e);
+                    if (/cancel|User cancelled|abort/i.test(msg)) return;
+                    console.warn('[radio]', e);
+                    showToast('No se pudo conectar el dongle: ' + msg.slice(0, 90), 'error', 6000);
+                }
+            }
+            async function radioSoltar() {
+                const dev = radio.dev;
+                radio.wanted = false;
+                if (radio.retryTimer) { clearTimeout(radio.retryTimer); radio.retryTimer = null; }
+                radioSeFue(true);
+                if (dev && radioBle()) { try { await radioBle().disconnect(dev.deviceId); } catch (e) { } }
+                showToast('📡 Dongle soltado.', 'info');
+            }
+
+            document.getElementById('radioBtnSidebar')?.addEventListener('click', radioAbrirModal);
+            document.getElementById('radioComposeBtn')?.addEventListener('click', radioAbrirModal);
+            document.getElementById('closeRadioModal')?.addEventListener('click', radioCerrarModal);
+            document.getElementById('radioModal')?.addEventListener('click', (e) => { if (e.target.id === 'radioModal') radioCerrarModal(); });
+            document.getElementById('radioConnectBtn')?.addEventListener('click', () => radio.dev ? radioSoltar() : radioConectar());
+            // Para las pruebas (tests/radio-e2e.mjs): entrar líneas como si vinieran del dongle.
+            window.cwRadio = { radio, radioLinea, radioConectar, radioSoltar, radioPartir };
 
             const inboxAddressCache = new Map();
             const inboxAddressPending = new Map();
@@ -23775,8 +24369,10 @@
                     if (!messageText) return;
 
                     // Modo OFFLINE: no hay red; se genera un QR cifrado para el interlocutor.
+                    // Con el dongle enlazado y la clave del otro, va por radio; si no, QR.
                     if (isOffline && currentOfflineContact) {
-                        await sendOfflineMessage(messageText);
+                        if (radioListo() && currentOfflineContact.pubKey) await sendRadioMessage(messageText);
+                        else await sendOfflineMessage(messageText);
                         return;
                     }
 
@@ -30107,6 +30703,14 @@
             if (est) est.textContent = tr('install_pwa_done', 'Instalada — mirá tu pantalla de inicio.');
             console.log('PWA was installed');
         });
+    </script>
+    <!-- Puente al dongle de radio FlyLog. El WebView de Android NO tiene Web Bluetooth:
+         en el APK se llega por el plugin nativo, y BleClient tapa las dos puntas con la
+         misma llamada (nativo en el APK, Web Bluetooth en Chrome). Módulo aparte: el
+         script clásico lo busca en window.CwBle recién al tocar «Conectar dongle». -->
+    <script type="module">
+        import { BleClient } from '@capacitor-community/bluetooth-le';
+        if (!window.CwBle) window.CwBle = { BleClient };
     </script>
 </body>
 

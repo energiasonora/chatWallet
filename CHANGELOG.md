@@ -17,6 +17,12 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Chat por radio, sin internet.** Con un dongle FlyLog conectado por Bluetooth, en Modo
+  frío aparece 📡 en Contactos: ves quién está cerca con su ChatWallet y le escribís. El
+  mensaje viaja por radio de dongle a dongle (LoRa, kilómetros en campo abierto), cifrado con
+  tu billetera: sin internet, sin señal de celular y sin servidor. Cuando llega ves ✓✓; si
+  no llega, se reintenta solo. Los textos largos salen en varias partes.
+
 ## 3.114 — 2026-11-24
 
 - **Las fotos del chat se abren a pantalla completa.** Tocá una foto y se ve grande, con

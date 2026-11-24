@@ -10,6 +10,7 @@
     "deploy": "bash deploy.sh"
   },
   "dependencies": {
+    "@capacitor-community/bluetooth-le": "7.3.2",
     "@capacitor/android": "7",
     "@capacitor/app": "7",
     "@capacitor/cli": "7",

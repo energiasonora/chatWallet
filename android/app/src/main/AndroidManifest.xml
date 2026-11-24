@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="false"
@@ -104,4 +105,17 @@
          muerto en el APK y sólo se sentían en Chrome. Medido en el APK 3.28, que se
          empaquetó sin VIBRATE. Es un permiso normal: no le pide nada al usuario. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Dongle de radio FlyLog (BLE → LoRa/ESP-NOW): mensajes sin internet.
+         Android 12+: BLUETOOTH_SCAN con neverForLocation, así escanear NO pide ubicación
+         (va junto con initialize({androidNeverForLocation:true}); con el flag y sin esta
+         declaración el escaneo vuelve VACÍO y sin error, ver flylog/dongle/README).
+         Android ≤ 11 exige ubicación para escanear BLE: la del plugin queda sólo hasta 30. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" tools:targetApi="s" tools:node="replace" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" tools:targetApi="s" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" tools:node="replace" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"
+        android:maxSdkVersion="30" tools:node="replace" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 </manifest>
