@@ -79,6 +79,33 @@ async function chrome(port) {
         ok(inst1 && inst1 === inst2, 'misma instalación de XMTP (no se rehízo la base)', `${String(inst1).slice(0, 8)} → ${String(inst2).slice(0, 8)}`);
         ok(!(await C.ev(toasts)), 'sin el aviso «el navegador borró los chats»');
         ok(!(await C.ev(`isOffline`)) && !(await C.ev(`document.body.classList.contains('cold-mode')`)), 'quedó en caliente');
+        // Un mensaje que llega por internet MIENTRAS estás en frío: ¿aparece al volver?
+        const pkB = Wallet.createRandom().privateKey;
+        const B = await chrome(9444);
+        try {
+            await B.rpc('Page.navigate', { url: BASE });
+            await B.listo(`typeof renderContacts === 'function'`);
+            await B.ev(`localStorage.setItem('xmtp-chat-wallet', '${pkB}'); true`);
+            await B.rpc('Page.navigate', { url: BASE });
+            ok(!!(await B.listo(`typeof chatwalletxmtp !== 'undefined' && chatwalletxmtp && !isXmtpInitializing`, 150)), 'B: XMTP arrancó');
+            const addrA = await C.ev(`currentWallet.address`);
+            await C.ev(`document.getElementById('settingsBtn').click(); true`); await sleep(400);
+            await C.ev(`document.getElementById('coldModeSwitch').click(); true`); await sleep(1500);
+            ok(await C.ev(`isOffline`), 'A: de nuevo en frío');
+            const texto = 'hola mientras estabas en frío ' + Date.now();
+            await B.ev(`(async () => { const c = await chatwalletxmtp.conversations.createDmWithIdentifier({ identifier: '${addrA}', identifierKind: 0 }); await c.sync().catch(() => {}); await c.sendText(${JSON.stringify(texto)}); return true; })()`);
+            await sleep(6000);
+            ok(!(await C.ev(`[...document.querySelectorAll('*')].some(e => e.children.length === 0 && e.tagName !== 'SCRIPT' && (e.textContent || '').includes(${JSON.stringify(texto)}))`)),
+                'A en frío: el mensaje NO entra mientras está en frío');
+            await C.ev(`document.getElementById('settingsBtn').click(); true`); await sleep(400);
+            await C.ev(`document.getElementById('coldModeSwitch').click(); true`); await sleep(2500);
+            await C.listo(`typeof chatwalletxmtp !== 'undefined' && chatwalletxmtp && !isXmtpInitializing && !isOffline`, 150);
+            const addrB = (await B.ev(`currentWallet.address`)).toLowerCase();
+            ok(!!(await C.listo(`contacts.some(c => (c.address || '').toLowerCase() === '${addrB}')`, 60)), 'A al volver: aparece B en la lista de chats');
+            const unread = await C.ev(`(() => { const c = contacts.find(c => (c.address || '').toLowerCase() === '${addrB}'); return c ? (c.unread || c.unreadCount || 0) : -1; })()`);
+            ok(!!(await C.listo(`(async () => { const dms = await chatwalletxmtp.conversations.listDms(); for (const d of dms) { const ms = await d.messages(); if (ms.some(m => typeof m.content === 'string' && m.content.includes(${JSON.stringify(texto)}))) return true; } return false; })()`, 60)),
+                'A al volver: el mensaje está en su base', `sin leer: ${unread}`);
+        } finally { B.close(); }
     } catch (e) { ok(false, 'excepción', e.message); }
     finally { C.close(); }
     console.log(fails ? `\n✗ ${fails} fallas` : '\n✓ todo bien');

@@ -20,7 +20,7 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
 fi
 [ -f "$BUILD/dapp.html" ] || { echo "✗ no hay $BUILD/dapp.html"; exit 1; }
 
-pkill -f "remote-debugging-port=9443" 2>/dev/null
+pkill -f "remote-debugging-port=944[34]" 2>/dev/null
 echo "✦ sirviendo $BUILD en :${WEB_PORT}…"
 python3 -m http.server "$WEB_PORT" --bind 127.0.0.1 --directory "$BUILD" > /tmp/web-frio.log 2>&1 &
 WEB_PID=$!
