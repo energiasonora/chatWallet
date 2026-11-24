@@ -381,7 +381,7 @@ try {
     await deslizar();
     ok(await listo(`/bloque #2923999/.test(document.querySelector('#g1EnvioModal [data-g1="estado"]').textContent)`, 15), 'confirma con el bloque', (await envio())?.estado);
     const exp = await ev(`(() => { const a = document.querySelector('#g1EnvioModal [data-g1="explorador"]'); return a ? { href: a.href, target: a.target, txt: a.textContent } : null; })()`);
-    ok(exp && exp.href === 'https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fg1.gyroi.de%3A443#/explorer/query/2923999' && exp.target === '_blank', 'con el link al bloque en el explorador', JSON.stringify(exp));
+    ok(exp && exp.href === 'https://chatwallet.org/g1/?bloque=2923999' && exp.target === '_blank', 'con el link al bloque en el explorador', JSON.stringify(exp));
     const mandado = (await ev(`window.__g1envios`))[0];
     const esperada = cuentaG1(P1, '//0');
     ok(mandado && mandado.de === MIEMBRO && mandado.publica === hexDe(esperada.publica), 'firma con TU cuenta Ğ1 (la //0 de tu frase, desde la raíz guardada)', JSON.stringify(mandado));
@@ -428,7 +428,7 @@ try {
     ok(fs1[0].nota === '<img src=x onerror="window.__xss=1">pan' && !(await ev(`!!window.__xss`)), 'el comentario se muestra como texto (sin ejecutar nada)');
     ok(fs1[1].quien === 'g1Descon…1111' && fs1[1].monto === '−25,00 Ğ1' && fs1[1].nota === null, 'salida: cuenta sin nombre, en negativo', JSON.stringify(fs1[1]));
     ok(/Para: g1Desconocida/.test(fs1[1].det) && /Bloque #2922000/.test(fs1[1].det), 'el detalle trae la cuenta completa y el bloque');
-    ok(await ev(`[...document.querySelectorAll('.hist-fila [data-g1="explorador"]')].some(a => a.href.endsWith('#/explorer/query/2922000') && a.target === '_blank')`), 'y el link al bloque en el explorador');
+    ok(await ev(`[...document.querySelectorAll('.hist-fila [data-g1="explorador"]')].some(a => a.href === 'https://chatwallet.org/g1/?bloque=2922000' && a.target === '_blank')`), 'y el link al bloque en el explorador');
     await ev(`document.querySelector('#transactionList .hist-fila').click()`);
     ok(await ev(`!document.querySelector('#transactionList .hist-detalle').classList.contains('hidden')`), 'tocar una fila abre el detalle');
     await ev(`document.getElementById('historyMas').click()`);

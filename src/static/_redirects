@@ -21,6 +21,10 @@
 /tools/         /tools/index.html   200
 /tools/sign     /tools/sign.html    200
 /tools/bip39    /tools/bip39.html   200
+# Explorador Ğ1 propio (src/static/g1/index.html): chatwallet.org/g1/?bloque=N. Mismo 301 que
+# /tools para que la página quede siempre con la barra final.
+/g1             /g1/                301
+/g1/            /g1/index.html      200
 # chatwallet.org/@nombre → abre el chat con esa persona. `nombre` puede ser una dirección
 # 0x…, un nombre ENS (vitalik.eth, jesse.base.eth) o un nombre pelado (xunorus → xunorus.eth);
 # lo resuelve la dapp (cwDireccionDeDestino), no el hosting. Redirección y no reescritura: así

@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Explorador Ğ1 · ChatWallet</title>
+<meta name="description" content="Mirá un bloque de la cadena Ğ1 (Duniter v2) en castellano: quién pagó a quién, cuánto y con qué comentario, comprobado contra un nodo de la red.">
+<link rel="icon" href="/chatWalletWhite.png">
+<!--
+  Explorador Ğ1 de ChatWallet. Página autocontenida (se copia tal cual a chatwallet.org/g1/).
+
+  De dónde salen los datos — dos fuentes, a propósito:
+    1. El INDEXADOR (duniter-squid, GraphQL): arma el relato legible (transferencias,
+       comentarios, nombres de identidad, operaciones y eventos). Es cómodo pero es un
+       intermediario: podría mentir o estar atrasado.
+    2. Un NODO de la red (JSON-RPC por WebSocket, sin librerías): se le pide el hash del
+       bloque y el último bloque finalizado. Si el hash coincide con el del indexador, lo que
+       se muestra es de ese bloque de verdad.
+  Las dos listas se pueden cambiar en ⚙ (se guardan en este navegador) o por la URL:
+    ?bloque=3652720&nodo=wss://…&indexador=https://…/v1/graphql
+  Cuando corramos un nodo propio (la caja o el Samsung), alcanza con ponerlo primero en
+  la lista: ver poc/g1-nodo/README.md.
+-->
+<style>
+  :root {
+    --bg: #0f1420; --card: #171e2d; --line: #2a3346; --text: #e5e7eb; --soft: #94a3b8;
+    --accent: #818cf8; --ok: #34d399; --warn: #fbbf24; --bad: #f87171; --g1: #eab308;
+    --chip: #222b3d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f3f4f6; --card: #ffffff; --line: #e5e7eb; --text: #111827; --soft: #4b5563;
+      --accent: #4f46e5; --ok: #059669; --warn: #b45309; --bad: #dc2626; --g1: #a16207;
+      --chip: #f1f5f9;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 40rem; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 16px 40px; }
+  header { display: flex; align-items: center; gap: .6rem; margin-bottom: .9rem; }
+  header h1 { font-size: 1.15rem; margin: 0; flex: 1; }
+  header h1 span { color: var(--g1); }
+  .icon-btn { background: var(--chip); color: var(--text); border: 1px solid var(--line); border-radius: 9999px;
+    width: 2.4rem; height: 2.4rem; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  form.buscar { display: flex; gap: .5rem; margin-bottom: 1rem; }
+  form.buscar input { flex: 1; min-width: 0; background: var(--card); color: var(--text); border: 1px solid var(--line);
+    border-radius: .7rem; padding: .7rem .8rem; font-size: 1rem; }
+  button.primario { background: var(--accent); color: #fff; border: 0; border-radius: .7rem; padding: .7rem 1rem;
+    font-weight: 600; font-size: .95rem; cursor: pointer; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 1rem; padding: 1rem; margin-bottom: .9rem; }
+  .card h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--soft); margin: 0 0 .6rem; }
+  .bloque-num { font-size: 1.5rem; font-weight: 700; }
+  .fecha { color: var(--soft); }
+  .sello { display: inline-flex; align-items: center; gap: .35rem; font-size: .85rem; font-weight: 600;
+    padding: .25rem .6rem; border-radius: 9999px; margin-top: .55rem; }
+  .sello.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+  .sello.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .sello.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  .pago { border-top: 1px solid var(--line); padding-top: .8rem; margin-top: .8rem; }
+  .pago:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+  .monto { font-size: 1.6rem; font-weight: 700; color: var(--g1); }
+  .partes { display: grid; grid-template-columns: auto 1fr; gap: .25rem .6rem; margin-top: .5rem; align-items: baseline; }
+  .partes dt { color: var(--soft); font-size: .85rem; }
+  .partes dd { margin: 0; min-width: 0; }
+  .nombre { font-weight: 600; }
+  .dir { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--soft); word-break: break-all; }
+  .comentario { margin-top: .6rem; background: var(--chip); border-radius: .6rem; padding: .5rem .7rem; overflow-wrap: anywhere; }
+  .comentario::before { content: "💬 "; }
+  .nota { color: var(--soft); font-size: .85rem; margin-top: .4rem; }
+  ol.lista { list-style: none; padding: 0; margin: 0; }
+  ol.lista li { padding: .5rem 0; border-top: 1px solid var(--line); }
+  ol.lista li:first-child { border-top: 0; }
+  .tec { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--soft); }
+  details summary { cursor: pointer; font-weight: 600; }
+  details[open] summary { margin-bottom: .6rem; }
+  .hash { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  a { color: var(--accent); }
+  .estado { text-align: center; color: var(--soft); padding: 2rem 0; }
+  .error { color: var(--bad); }
+  .ajustes label { display: block; font-weight: 600; margin: .6rem 0 .25rem; }
+  .ajustes textarea { width: 100%; min-height: 4.5rem; background: var(--bg); color: var(--text); border: 1px solid var(--line);
+    border-radius: .6rem; padding: .5rem; font: 12px ui-monospace, monospace; }
+  .ajustes .fila { display: flex; gap: .5rem; margin-top: .7rem; flex-wrap: wrap; }
+  .ajustes button { background: var(--chip); color: var(--text); border: 1px solid var(--line); border-radius: .6rem; padding: .5rem .8rem; cursor: pointer; }
+  .hidden { display: none !important; }
+  footer { color: var(--soft); font-size: .8rem; text-align: center; margin-top: 1.5rem; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Explorador <span>Ğ1</span></h1>
+    <button class="icon-btn" id="btnAjustes" type="button" aria-label="Ajustes" title="Ajustes">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </header>
+
+  <form class="buscar" id="formBuscar">
+    <input id="inBloque" inputmode="numeric" autocomplete="off" placeholder="Número de bloque" data-t-ph="buscar_ph">
+    <button class="primario" type="submit" data-t="ver">Ver</button>
+  </form>
+
+  <section class="card ajustes hidden" id="ajustes">
+    <h2 data-t="ajustes">Ajustes</h2>
+    <p class="nota" data-t="ajustes_nota">De dónde se leen los datos. Se prueban en orden; uno por renglón. Si corrés tu propio nodo, ponelo primero.</p>
+    <label for="inNodos" data-t="nodos">Nodos (para comprobar)</label>
+    <textarea id="inNodos" spellcheck="false"></textarea>
+    <label for="inIndexadores" data-t="indexadores">Indexadores (para el detalle)</label>
+    <textarea id="inIndexadores" spellcheck="false"></textarea>
+    <div class="fila">
+      <button type="button" id="btnGuardar" data-t="guardar">Guardar</button>
+      <button type="button" id="btnRestaurar" data-t="restaurar">Volver a los de siempre</button>
+    </div>
+  </section>
+
+  <div id="vista"><p class="estado" data-t="inicio">Escribí un número de bloque.</p></div>
+
+  <footer><span data-t="pie">Hecho por</span> <a href="https://chatwallet.org">ChatWallet</a> · <span data-t="pie2">datos de la red Ğ1 (Duniter v2)</span></footer>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Fuentes por defecto ─────────────────────────────────────────────────────────
+  // Los mismos nodos que usa la billetera (src/js/g1-cadena.js) y los mismos indexadores
+  // que Ius (ius/js/g1.js). Nuestro nodo propio irá primero cuando exista.
+  var NODOS = ['wss://g1.gyroi.de:443', 'wss://g1.asycn.io:443/ws/', 'wss://g1-v2s.cgeek.fr'];
+  var INDEXADORES = ['https://squid.g1.brussels.ovh/v1/graphql', 'https://g1-squid.axiom-team.fr/v1/graphql'];
+  var CLAVE = 'cw-g1-explorador-fuentes';
+
+  // ── Textos ──────────────────────────────────────────────────────────────────────
+  var TXT = {
+    es: {
+      buscar_ph: 'Número de bloque', ver: 'Ver', ajustes: 'Ajustes', guardar: 'Guardar', restaurar: 'Volver a los de siempre',
+      ajustes_nota: 'De dónde se leen los datos. Se prueban en orden; uno por renglón. Si corrés tu propio nodo, ponelo primero.',
+      nodos: 'Nodos (para comprobar)', indexadores: 'Indexadores (para el detalle)', inicio: 'Escribí un número de bloque.',
+      pie: 'Hecho por', pie2: 'datos de la red Ğ1 (Duniter v2)', cargando: 'Buscando el bloque…',
+      bloque: 'Bloque', pagos: 'Pagos en este bloque', sin_pagos: 'En este bloque no hubo pagos.',
+      de: 'De', para: 'Para', comision: 'Comisión', sin_comision: 'sin comisión',
+      que_paso: 'Todo lo que pasó en el bloque', operaciones: 'Operaciones firmadas', eventos: 'Resultados (eventos)',
+      tecnico: 'Datos técnicos', hash: 'Hash del bloque', anterior: 'Hash del bloque anterior', runtime: 'Versión de la red',
+      crudo: 'Ver los datos crudos en polkadot.js ↗',
+      verif_ok: 'Comprobado contra un nodo: el bloque es este y ya es definitivo',
+      verif_ok_nofin: 'Comprobado contra un nodo: el bloque es este (todavía no es definitivo)',
+      verif_mal: 'El nodo dice otro hash para este bloque: el indexador podría estar equivocado',
+      verif_sin: 'No se pudo comprobar contra ningún nodo; los datos son sólo del indexador',
+      verificando: 'Comprobando contra un nodo de la red…',
+      no_existe: 'Ese bloque no está en el indexador (¿todavía no existe?).',
+      error_idx: 'No respondió ningún indexador. Probá de nuevo en un rato o cambiá la fuente en ⚙.',
+      fallo: 'falló', ok: 'salió bien', nodo: 'Nodo', explicar: '¿Cómo se lee esto?',
+      explicacion: 'Un bloque es una página del libro de la red: junta las operaciones firmadas de unos segundos. Cada operación tiene resultados (eventos): ahí se ve el pago, la comisión y si salió bien. El hash es la huella del bloque; como cada bloque incluye la huella del anterior, cambiar algo viejo rompería toda la cadena.',
+      guardado: 'Guardado.'
+    },
+    en: {
+      buscar_ph: 'Block number', ver: 'View', ajustes: 'Settings', guardar: 'Save', restaurar: 'Reset to defaults',
+      ajustes_nota: 'Where data is read from. Tried in order; one per line. If you run your own node, put it first.',
+      nodos: 'Nodes (to verify)', indexadores: 'Indexers (for details)', inicio: 'Type a block number.',
+      pie: 'Made by', pie2: 'data from the Ğ1 network (Duniter v2)', cargando: 'Looking up the block…',
+      bloque: 'Block', pagos: 'Payments in this block', sin_pagos: 'No payments in this block.',
+      de: 'From', para: 'To', comision: 'Fee', sin_comision: 'no fee',
+      que_paso: 'Everything that happened in the block', operaciones: 'Signed operations', eventos: 'Results (events)',
+      tecnico: 'Technical data', hash: 'Block hash', anterior: 'Previous block hash', runtime: 'Network version',
+      crudo: 'See raw data on polkadot.js ↗',
+      verif_ok: 'Verified against a node: this is the block, and it is final',
+      verif_ok_nofin: 'Verified against a node: this is the block (not final yet)',
+      verif_mal: 'The node reports a different hash for this block: the indexer may be wrong',
+      verif_sin: 'Could not verify against any node; data comes from the indexer only',
+      verificando: 'Verifying against a network node…',
+      no_existe: 'That block is not in the indexer (does it exist yet?).',
+      error_idx: 'No indexer answered. Try again later or change the source in ⚙.',
+      fallo: 'failed', ok: 'succeeded', nodo: 'Node', explicar: 'How to read this?',
+      explicacion: 'A block is a page of the network\'s ledger: it groups a few seconds of signed operations. Each operation has results (events): that is where the payment, the fee and the outcome show up. The hash is the block\'s fingerprint; since every block includes the previous one\'s, changing anything old would break the whole chain.',
+      guardado: 'Saved.'
+    },
+    fr: {
+      buscar_ph: 'Numéro de bloc', ver: 'Voir', ajustes: 'Réglages', guardar: 'Enregistrer', restaurar: 'Valeurs par défaut',
+      ajustes_nota: 'D\'où sont lues les données. Essayées dans l\'ordre ; une par ligne. Si vous avez votre propre nœud, mettez-le en premier.',
+      nodos: 'Nœuds (pour vérifier)', indexadores: 'Indexeurs (pour le détail)', inicio: 'Tapez un numéro de bloc.',
+      pie: 'Fait par', pie2: 'données du réseau Ğ1 (Duniter v2)', cargando: 'Recherche du bloc…',
+      bloque: 'Bloc', pagos: 'Paiements dans ce bloc', sin_pagos: 'Aucun paiement dans ce bloc.',
+      de: 'De', para: 'À', comision: 'Frais', sin_comision: 'sans frais',
+      que_paso: 'Tout ce qui s\'est passé dans le bloc', operaciones: 'Opérations signées', eventos: 'Résultats (événements)',
+      tecnico: 'Données techniques', hash: 'Hash du bloc', anterior: 'Hash du bloc précédent', runtime: 'Version du réseau',
+      crudo: 'Voir les données brutes sur polkadot.js ↗',
+      verif_ok: 'Vérifié auprès d\'un nœud : c\'est bien ce bloc, et il est définitif',
+      verif_ok_nofin: 'Vérifié auprès d\'un nœud : c\'est bien ce bloc (pas encore définitif)',
+      verif_mal: 'Le nœud indique un autre hash pour ce bloc : l\'indexeur se trompe peut-être',
+      verif_sin: 'Impossible de vérifier auprès d\'un nœud ; données de l\'indexeur seulement',
+      verificando: 'Vérification auprès d\'un nœud du réseau…',
+      no_existe: 'Ce bloc n\'est pas dans l\'indexeur (existe-t-il déjà ?).',
+      error_idx: 'Aucun indexeur n\'a répondu. Réessayez plus tard ou changez la source dans ⚙.',
+      fallo: 'a échoué', ok: 'a réussi', nodo: 'Nœud', explicar: 'Comment lire ceci ?',
+      explicacion: 'Un bloc est une page du registre du réseau : il regroupe quelques secondes d\'opérations signées. Chaque opération a des résultats (événements) : on y voit le paiement, les frais et l\'issue. Le hash est l\'empreinte du bloc ; chaque bloc incluant celle du précédent, modifier quoi que ce soit d\'ancien casserait toute la chaîne.',
+      guardado: 'Enregistré.'
+    }
+  };
+  var LANG = (function () {
+    var l = (new URLSearchParams(location.search).get('lang') || navigator.language || 'es').slice(0, 2).toLowerCase();
+    return TXT[l] ? l : 'es';
+  })();
+  function t(k) { return (TXT[LANG] && TXT[LANG][k]) || TXT.es[k] || k; }
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-t]').forEach(function (e) { e.textContent = t(e.dataset.t); });
+  document.querySelectorAll('[data-t-ph]').forEach(function (e) { e.placeholder = t(e.dataset.tPh); });
+
+  // Nombres de operaciones y eventos en lenguaje llano (los que aparecen al pagar).
+  var LLANO = {
+    es: {
+      'Timestamp.set': 'La hora del bloque (la pone la red)',
+      'Utility.batch_all': 'Un paquete de operaciones: o salen todas o ninguna',
+      'Utility.batch': 'Un paquete de operaciones',
+      'Balances.transfer_keep_alive': 'Transferencia (sin dejar la cuenta en cero)',
+      'Balances.transfer_allow_death': 'Transferencia',
+      'Balances.transfer_all': 'Transferencia de todo el saldo',
+      'System.remark_with_event': 'Comentario',
+      'UniversalDividend.claim_uds': 'Cobrar el dividendo universal',
+      'Certification.add_cert': 'Certificar a una persona',
+      'Identity.confirm_identity': 'Confirmar una identidad',
+      'System.ExtrinsicSuccess': 'La operación salió bien',
+      'System.ExtrinsicFailed': 'La operación falló',
+      'System.Remarked': 'Se guardó el comentario',
+      'Balances.Transfer': 'Se movió la plata',
+      'Balances.Withdraw': 'Se descontó de la cuenta',
+      'Balances.Deposit': 'Se acreditó en la cuenta',
+      'Utility.ItemCompleted': 'Una parte del paquete terminó',
+      'Utility.BatchCompleted': 'El paquete terminó entero',
+      'TransactionPayment.TransactionFeePaid': 'Se pagó la comisión',
+      'UniversalDividend.UdsClaimed': 'Se cobró el dividendo universal',
+      'Quota.Refunded': 'La red devolvió la comisión (cuota gratuita)'
+    }
+  };
+  function llano(clave) { return (LLANO[LANG] && LLANO[LANG][clave]) || null; }
+
+  // ── Fuentes (ajustes) ───────────────────────────────────────────────────────────
+  function leerFuentes() {
+    var g = null;
+    try { g = JSON.parse(localStorage.getItem(CLAVE) || 'null'); } catch (e) { }
+    var q = new URLSearchParams(location.search);
+    var nodos = (g && g.nodos && g.nodos.length) ? g.nodos : NODOS.slice();
+    var idx = (g && g.indexadores && g.indexadores.length) ? g.indexadores : INDEXADORES.slice();
+    // Por la URL: van primero (sirve para probar un nodo propio sin tocar los ajustes).
+    if (q.get('nodo')) nodos = [q.get('nodo')].concat(nodos.filter(function (n) { return n !== q.get('nodo'); }));
+    if (q.get('indexador')) idx = [q.get('indexador')].concat(idx.filter(function (n) { return n !== q.get('indexador'); }));
+    return { nodos: nodos.filter(urlValida(/^wss?:\/\//)), indexadores: idx.filter(urlValida(/^https?:\/\//)) };
+  }
+  function urlValida(re) { return function (u) { try { return re.test(u) && !!new URL(u); } catch (e) { return false; } }; }
+  var $ = function (id) { return document.getElementById(id); };
+  function pintarAjustes() { var f = leerFuentes(); $('inNodos').value = f.nodos.join('\n'); $('inIndexadores').value = f.indexadores.join('\n'); }
+  $('btnAjustes').onclick = function () { pintarAjustes(); $('ajustes').classList.toggle('hidden'); };
+  $('btnGuardar').onclick = function () {
+    var lineas = function (v) { return v.split(/\s+/).map(function (s) { return s.trim(); }).filter(Boolean); };
+    try { localStorage.setItem(CLAVE, JSON.stringify({ nodos: lineas($('inNodos').value), indexadores: lineas($('inIndexadores').value) })); } catch (e) { }
+    pintarAjustes(); $('ajustes').classList.add('hidden');
+    var b = bloqueDeUrl(); if (b !== null) mostrar(b);
+  };
+  $('btnRestaurar').onclick = function () { try { localStorage.removeItem(CLAVE); } catch (e) { } pintarAjustes(); };
+
+  // ── Indexador (GraphQL) ─────────────────────────────────────────────────────────
+  var Q_BLOQUE = 'query($n:Int!){ blocks(filter:{height:{equalTo:$n}}){nodes{ height hash parentHash timestamp specVersion ' +
+    'extrinsics(orderBy:INDEX_ASC){nodes{ index fee success error calls(filter:{parentId:{isNull:true}}){nodes{ pallet name }} }} ' +
+    'events(orderBy:INDEX_ASC){nodes{ index pallet name extrinsic{ index } }} }} ' +
+    'transfers(filter:{blockNumber:{equalTo:$n}}){nodes{ fromId toId amount ' +
+    'comment{ remark } from{ identity{ name } } to{ identity{ name } } }} }';
+  async function consultar(query, variables) {
+    var ultimo;
+    for (var i = 0, l = leerFuentes().indexadores; i < l.length; i++) {
+      try {
+        var ctl = new AbortController(); var to = setTimeout(function () { ctl.abort(); }, 10000);
+        var r = await fetch(l[i], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: query, variables: variables }), signal: ctl.signal });
+        clearTimeout(to);
+        var j = await r.json();
+        if (j.errors) throw new Error(j.errors[0].message);
+        if (!j.data) throw new Error('sin datos');
+        return { data: j.data, fuente: l[i] };
+      } catch (e) { ultimo = e; console.warn('[indexador]', l[i], e); }
+    }
+    throw ultimo || new Error('sin indexadores');
+  }
+
+  // ── Nodo (JSON-RPC por WebSocket, sin librerías) ────────────────────────────────
+  function rpc(url, llamadas) {
+    return new Promise(function (ok, mal) {
+      var ws; try { ws = new WebSocket(url); } catch (e) { mal(e); return; }
+      var res = {}, faltan = llamadas.length;
+      var to = setTimeout(function () { try { ws.close(); } catch (e) { } mal(new Error('timeout')); }, 9000);
+      ws.onopen = function () { llamadas.forEach(function (c, i) { ws.send(JSON.stringify({ jsonrpc: '2.0', id: i + 1, method: c[0], params: c[1] })); }); };
+      ws.onmessage = function (e) {
+        var m; try { m = JSON.parse(e.data); } catch (x) { return; }
+        if (!m.id) return;
+        res[m.id - 1] = m.error ? { error: m.error } : m.result;
+        if (--faltan === 0) { clearTimeout(to); try { ws.close(); } catch (x) { } ok(llamadas.map(function (_, i) { return res[i]; })); }
+      };
+      ws.onerror = function () { clearTimeout(to); mal(new Error('websocket')); };
+    });
+  }
+  async function verificar(n, hashIdx) {
+    for (var i = 0, l = leerFuentes().nodos; i < l.length; i++) {
+      try {
+        var r = await rpc(l[i], [['chain_getBlockHash', [n]], ['chain_getFinalizedHead', []]]);
+        var h = r[0], fin = r[1];
+        if (typeof h !== 'string') throw new Error('sin hash');
+        var hdr = (await rpc(l[i], [['chain_getHeader', [fin]]]))[0];
+        var finNum = hdr && hdr.number ? parseInt(hdr.number, 16) : -1;
+        return { nodo: l[i], coincide: h.toLowerCase() === hashIdx.toLowerCase(), final: n <= finNum };
+      } catch (e) { console.warn('[nodo]', l[i], e); }
+    }
+    return null;
+  }
+
+  // ── Formato ─────────────────────────────────────────────────────────────────────
+  var LOC = LANG === 'es' ? 'es-AR' : LANG;
+  function hex(h) { return String(h || '').replace(/^\\x/, '0x'); }
+  function g1(centimos) {
+    var n = Number(centimos) / 100;
+    return n.toLocaleString(LOC, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Ğ1';
+  }
+  function el(tag, attrs, hijos) {
+    var e = document.createElement(tag);
+    for (var k in (attrs || {})) { if (k === 'text') e.textContent = attrs[k]; else if (k === 'cls') e.className = attrs[k]; else e.setAttribute(k, attrs[k]); }
+    (hijos || []).forEach(function (h) { if (h) e.appendChild(typeof h === 'string' ? document.createTextNode(h) : h); });
+    return e;
+  }
+  function persona(nombre, dir) {
+    return el('dd', null, [nombre ? el('div', { cls: 'nombre', text: nombre }) : null, el('div', { cls: 'dir', text: dir })]);
+  }
+
+  // ── Mostrar un bloque ───────────────────────────────────────────────────────────
+  var turno = 0;
+  async function mostrar(n) {
+    var mio = ++turno;
+    var vista = $('vista');
+    $('inBloque').value = String(n);
+    document.title = t('bloque') + ' #' + n.toLocaleString(LOC) + ' · Ğ1';
+    vista.replaceChildren(el('p', { cls: 'estado', text: t('cargando') }));
+    var d;
+    try { d = await consultar(Q_BLOQUE, { n: n }); }
+    catch (e) { if (mio === turno) vista.replaceChildren(el('p', { cls: 'estado error', text: t('error_idx') })); return; }
+    if (mio !== turno) return;
+    var b = d.data.blocks.nodes[0];
+    if (!b) { vista.replaceChildren(el('p', { cls: 'estado', text: t('no_existe') })); return; }
+
+    // Encabezado: número, fecha y sello de verificación.
+    var fecha = new Date(b.timestamp);
+    var sello = el('div', { cls: 'sello warn', text: '⏳ ' + t('verificando') });
+    var cab = el('section', { cls: 'card' }, [
+      el('div', { cls: 'bloque-num', text: t('bloque') + ' #' + b.height.toLocaleString(LOC) }),
+      el('div', { cls: 'fecha', text: fecha.toLocaleString(LOC, { dateStyle: 'full', timeStyle: 'medium' }) }),
+      sello
+    ]);
+
+    // Pagos.
+    var pagos = el('section', { cls: 'card' }, [el('h2', { text: t('pagos') })]);
+    var tr = d.data.transfers.nodes;
+    if (!tr.length) pagos.appendChild(el('p', { cls: 'nota', text: t('sin_pagos') }));
+    // El indexador no enlaza la transferencia con su operación: los eventos Balances.Transfer
+    // del bloque van en el mismo orden, y de ahí sale de qué operación es (y su comisión).
+    var evTr = b.events.nodes.filter(function (e) { return e.pallet === 'Balances' && e.name === 'Transfer' && e.extrinsic; });
+    tr.forEach(function (p, i) {
+      var x = evTr[i] && b.extrinsics.nodes.filter(function (x) { return x.index === evTr[i].extrinsic.index; })[0];
+      var fee = x ? x.fee : null;
+      var div = el('div', { cls: 'pago' }, [
+        el('div', { cls: 'monto', text: g1(p.amount) }),
+        el('dl', { cls: 'partes' }, [
+          el('dt', { text: t('de') }), persona(p.from && p.from.identity && p.from.identity.name, p.fromId),
+          el('dt', { text: t('para') }), persona(p.to && p.to.identity && p.to.identity.name, p.toId),
+          el('dt', { text: t('comision') }), el('dd', { text: fee == null ? '—' : (Number(fee) === 0 ? t('sin_comision') : g1(fee)) })
+        ]),
+        p.comment && p.comment.remark ? el('div', { cls: 'comentario', text: p.comment.remark }) : null
+      ]);
+      pagos.appendChild(div);
+    });
+
+    // Todo lo que pasó: operaciones y sus eventos, en llano y con el nombre técnico al lado.
+    var lista = el('ol', { cls: 'lista' });
+    b.extrinsics.nodes.forEach(function (x) {
+      var c = x.calls.nodes[0] || {};
+      var clave = c.pallet + '.' + c.name;
+      var evs = b.events.nodes.filter(function (e) { return e.extrinsic && e.extrinsic.index === x.index; });
+      var sub = el('ol', { cls: 'lista', style: 'margin:.4rem 0 0 .9rem' });
+      evs.forEach(function (e) {
+        var k = e.pallet + '.' + e.name;
+        sub.appendChild(el('li', null, [llano(k) || k, ' ', el('span', { cls: 'tec', text: llano(k) ? k : '' })]));
+      });
+      lista.appendChild(el('li', null, [
+        el('strong', { text: (x.index + 1) + '. ' + (llano(clave) || clave) + ' ' }),
+        el('span', { cls: 'tec', text: (llano(clave) ? clave + ' · ' : '') + (x.success ? t('ok') : t('fallo')) }),
+        sub
+      ]));
+    });
+    var todo = el('section', { cls: 'card' }, [
+      el('details', null, [el('summary', { text: t('que_paso') + ' (' + b.extrinsics.nodes.length + ' · ' + b.events.nodes.length + ')' }), lista])
+    ]);
+
+    // Técnico.
+    var hashB = hex(b.hash);
+    var nodoCrudo = leerFuentes().nodos[0] || NODOS[0];
+    var tec = el('section', { cls: 'card' }, [
+      el('details', null, [
+        el('summary', { text: t('tecnico') }),
+        el('dl', { cls: 'partes' }, [
+          el('dt', { text: t('hash') }), el('dd', { cls: 'hash', text: hashB }),
+          el('dt', { text: t('anterior') }), el('dd', { cls: 'hash', text: hex(b.parentHash) }),
+          el('dt', { text: t('runtime') }), el('dd', { text: String(b.specVersion) })
+        ]),
+        el('p', null, [el('a', { href: 'https://polkadot.js.org/apps/?rpc=' + encodeURIComponent(nodoCrudo) + '#/explorer/query/' + b.height, target: '_blank', rel: 'noopener', text: t('crudo') })]),
+        el('p', { cls: 'nota', text: d.fuente })
+      ])
+    ]);
+    var ayuda = el('section', { cls: 'card' }, [el('details', null, [el('summary', { text: t('explicar') }), el('p', { text: t('explicacion') })])]);
+
+    vista.replaceChildren(cab, pagos, todo, ayuda, tec);
+
+    // Comprobar contra un nodo (en paralelo: lo de arriba ya se ve).
+    var v = await verificar(b.height, hashB);
+    if (mio !== turno) return;
+    if (!v) { sello.className = 'sello warn'; sello.textContent = '⚠ ' + t('verif_sin'); return; }
+    if (!v.coincide) { sello.className = 'sello bad'; sello.textContent = '✗ ' + t('verif_mal'); }
+    else { sello.className = 'sello ok'; sello.textContent = '✓ ' + (v.final ? t('verif_ok') : t('verif_ok_nofin')); }
+    sello.title = t('nodo') + ': ' + v.nodo;
+    sello.dataset.nodo = v.nodo;
+  }
+
+  function bloqueDeUrl() {
+    var v = new URLSearchParams(location.search).get('bloque') || (location.hash.match(/bloque=(\d+)/) || [])[1];
+    var n = Number(v);
+    return v && Number.isSafeInteger(n) && n >= 0 ? n : null;
+  }
+  $('formBuscar').onsubmit = function (e) {
+    e.preventDefault();
+    var n = Number(String($('inBloque').value).replace(/[.\s,]/g, ''));
+    if (!Number.isSafeInteger(n) || n < 0) return;
+    var u = new URL(location.href); u.searchParams.set('bloque', String(n));
+    history.pushState(null, '', u);
+    mostrar(n);
+  };
+  window.addEventListener('popstate', function () { var b = bloqueDeUrl(); if (b !== null) mostrar(b); });
+  var inicial = bloqueDeUrl();
+  if (inicial !== null) mostrar(inicial);
+})();
+</script>
+</body>
+</html>

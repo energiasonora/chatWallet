@@ -16341,13 +16341,13 @@
 
             // Formulario de envío. prellenado: { destino, monto (céntimos), comentario }.
             // ── Explorador de bloques Ğ1 ─────────────────────────────────────────────────
-            // Duniter v2 no tiene un explorador propio que ande hoy; polkadot.js Apps lee
-            // cualquier cadena Substrate conectándose a un nodo, y muestra el bloque con sus
-            // transferencias y comentarios. Se abre afuera, como los exploradores de las redes EVM.
-            const NODO_EXPLORADOR_G1 = 'wss://g1.gyroi.de:443';
+            // El explorador propio (chatwallet.org/g1/, src/static/g1/index.html): cuenta el bloque
+            // en llano (quién pagó a quién, cuánto, con qué comentario) y lo comprueba contra un nodo
+            // de la red. Adentro deja el link a polkadot.js para quien quiera los datos crudos.
+            // URL pública fija (no location): en el APK location es localhost.
             function urlBloqueG1(bloque) {
                 if (!Number.isSafeInteger(bloque) || bloque < 0) return null;
-                return `https://polkadot.js.org/apps/?rpc=${encodeURIComponent(NODO_EXPLORADOR_G1)}#/explorer/query/${bloque}`;
+                return `https://chatwallet.org/g1/?bloque=${bloque}`;
             }
             function enlaceBloqueG1(bloque, clase = 'text-xs text-indigo-400 hover:underline') {
                 const url = urlBloqueG1(bloque);
