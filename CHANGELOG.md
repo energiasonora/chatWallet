@@ -17,6 +17,13 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.114 — 2026-11-24
+
+- **Las fotos del chat se abren a pantalla completa.** Tocá una foto y se ve grande, con
+  **Guardar** arriba; el botón atrás la cierra sin salir del chat.
+- **Abrir lo que guardaste.** Al guardar una foto o un archivo del chat, el aviso dice
+  «tocá para abrir»: en la app lo abre con la aplicación que elijas (el visor de PDF, la
+  galería…), y en la web en una pestaña nueva.
 ## 3.113 — 2026-11-24
 
 - **Adjuntar archivos en el chat.** En el **+** del chat hay un botón nuevo, **Adjuntar**.
