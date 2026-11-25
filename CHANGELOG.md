@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.118 — 2026-11-25
+
 - **Si este dispositivo quedó dado de baja del chat, la app lo dice y lo arregla.** Puede pasar
   (el error de salir del Modo frío, arreglado en la 3.116, dio de baja las dos conexiones de un
   teléfono). El dispositivo no recibía ni mandaba nada y la app no lo decía: el chat ofrecía
