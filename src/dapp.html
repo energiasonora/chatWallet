@@ -3402,50 +3402,23 @@
 
         <!-- Contacts Sidebar -->
         <div id="contactsSidebar" class="contacts-sidebar">
-            <!-- Header: título + gestión de contactos (importar/exportar/añadir) + cerrar -->
+            <!-- Header: título + lo único que se hace desde acá: armar un grupo o añadir un contacto.
+                 El 📡 ya está en el encabezado principal (Modo frío) y en el + del chat; importar y
+                 exportar la agenda viven en Configuración («Llevar contactos a otro dispositivo»).
+                 Con cinco botones, en un S9 (320px) el de añadir contacto quedaba cortado. -->
             <div class="contacts-sidebar-header">
-                <h2 class="text-lg font-bold">Contactos</h2>
-                <div class="flex items-center space-x-2">
-                    <!-- Radio sin internet (dongle FlyLog): solo en modo frío -->
-                    <button id="radioBtnSidebar" type="button" title="Radio sin internet (dongle FlyLog)"
-                        class="solo-frio radio-btn bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full text-sm leading-none">📡</button>
-                    <button id="importContactsBtn" title="Importar Contactos"
-                        class="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                            stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" y1="3" x2="12" y2="15" />
-                        </svg>
-                    </button>
-                    <input type="file" id="importContactsInput" class="hidden" accept=".json">
-                    <button id="exportContactsBtn" title="Exportar Contactos"
-                        class="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                            stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="7 10 12 15 17 10" />
-                            <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                    </button>
+                <h2 class="text-base sm:text-lg font-bold min-w-0 truncate">Contactos</h2>
+                <div class="flex items-center space-x-1.5 flex-shrink-0">
+                    <!-- «+ Grupo» con texto: el ícono de tres figuras solo no se entendía. -->
                     <button id="newGroupBtnSidebar" title="Nuevo grupo"
-                        class="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-full">
-                        <!-- Tres figuras + signo más: el mismo trazo que "añadir contacto" pero en
-                             grupo. Trazo 1.7 y no 2: con 2 las tres cabezas se tocan entre sí y a
-                             16px el ícono se vuelve una mancha. El más va abajo a la derecha
-                             porque a lo ancho las tres figuras ya no dejan lugar al costado. -->
+                        class="bg-gray-600 hover:bg-gray-500 text-white pl-1.5 pr-2 py-1.5 rounded-full flex items-center gap-0.5 text-sm font-semibold leading-5">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                            fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
-                            stroke-linejoin="round">
-                            <circle cx="4.2" cy="7.6" r="2" />
-                            <circle cx="10.8" cy="6.2" r="2.3" />
-                            <circle cx="17.2" cy="7.6" r="2" />
-                            <path d="M1 17.4v-.7a3.3 3.3 0 0 1 3.3-3.3h9.3a3.3 3.3 0 0 1 3.3 3.3v.7" />
-                            <line x1="20" y1="17" x2="20" y2="23" />
-                            <line x1="17" y1="20" x2="23" y2="20" />
+                            fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                            stroke-linejoin="round" aria-hidden="true">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
+                        <span data-i18n-key="sidebar_new_group">Grupo</span>
                     </button>
                     <button id="addContactBtnSidebar" title="Añadir Contacto"
                         class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full">
@@ -3459,7 +3432,7 @@
                         </svg>
                     </button>
                     <button id="closeSidebarBtn"
-                        class="close-sidebar-btn p-2 rounded-full hover:bg-gray-700 transition-colors">
+                        class="close-sidebar-btn p-1.5 rounded-full hover:bg-gray-700 transition-colors" style="margin-right:-0.4rem">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -4698,6 +4671,17 @@
                     <button id="importContactsQrBtn" data-i18n-key="settings_contacts_import"
                         class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                         ⇩ Importar</button>
+                </div>
+                <!-- Con un archivo .json (antes eran dos botones en el encabezado de la agenda). -->
+                <p class="text-xs text-gray-500 text-center" data-i18n-key="settings_contacts_file_desc">O con un archivo (.json):</p>
+                <div class="flex gap-2">
+                    <button id="exportContactsBtn" type="button" data-i18n-key="settings_contacts_file_export"
+                        class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                        ⇪ Guardar archivo</button>
+                    <button id="importContactsBtn" type="button" data-i18n-key="settings_contacts_file_import"
+                        class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                        ⇩ Cargar archivo</button>
+                    <input type="file" id="importContactsInput" class="hidden" accept=".json">
                 </div>
 
                 <!-- Compartir acceso al chat: RETIRADO (CHAT_LINK_ENABLED = false). Resultó
@@ -12979,7 +12963,6 @@
                 showToast('📡 Dongle soltado.', 'info');
             }
 
-            document.getElementById('radioBtnSidebar')?.addEventListener('click', radioAbrirModal);
             document.getElementById('radioHeaderBtn')?.addEventListener('click', radioAbrirModal);
             document.getElementById('radioMenuBtn')?.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -27091,6 +27074,10 @@
                     "settings_contacts_desc": "Por QR entre dos dispositivos, o copiando y pegando el texto (mismo teléfono). No viaja ninguna llave.",
                     "settings_contacts_export": "⇪ Exportar",
                     "settings_contacts_import": "⇩ Importar",
+                    "settings_contacts_file_desc": "O con un archivo (.json):",
+                    "settings_contacts_file_export": "⇪ Guardar archivo",
+                    "settings_contacts_file_import": "⇩ Cargar archivo",
+                    "sidebar_new_group": "Grupo",
                     "settings_link_title": "Compartir acceso al chat",
                     "settings_link_desc": "Otra wallet, en otro dispositivo, con los mismos chats, contactos y bloqueados. Tu frase semilla NO viaja.",
                     "settings_link_grant": "⇪ Dar acceso",
@@ -27974,6 +27961,10 @@
                     "settings_contacts_desc": "Via QR between two devices, or copy-paste the text (same phone). No key ever travels.",
                     "settings_contacts_export": "⇪ Export",
                     "settings_contacts_import": "⇩ Import",
+                    "settings_contacts_file_desc": "Or with a file (.json):",
+                    "settings_contacts_file_export": "⇪ Save file",
+                    "settings_contacts_file_import": "⇩ Load file",
+                    "sidebar_new_group": "Group",
                     "settings_link_title": "Share chat access",
                     "settings_link_desc": "Another wallet, on another device, with the same chats, contacts and blocked list. Your seed phrase does NOT travel.",
                     "settings_link_grant": "⇪ Grant access",
@@ -28857,6 +28848,10 @@
                     "settings_contacts_desc": "Par QR entre deux appareils, ou en copiant-collant le texte (même téléphone). Aucune clé ne voyage.",
                     "settings_contacts_export": "⇪ Exporter",
                     "settings_contacts_import": "⇩ Importer",
+                    "settings_contacts_file_desc": "Ou avec un fichier (.json) :",
+                    "settings_contacts_file_export": "⇪ Enregistrer le fichier",
+                    "settings_contacts_file_import": "⇩ Charger un fichier",
+                    "sidebar_new_group": "Groupe",
                     "settings_link_title": "Partager l'accès au chat",
                     "settings_link_desc": "Un autre portefeuille, sur un autre appareil, avec les mêmes discussions, contacts et bloqués. Votre phrase de récupération ne circule PAS.",
                     "settings_link_grant": "⇪ Donner l'accès",

@@ -145,7 +145,7 @@ async function identidad(C, pk, dongleId, porLaUI = false) {
         // 1) Conectar los dos dongles → se oyen los «hola»
         await A.ev(`cwRadio.radioConectar().then(() => true)`);
         await B.ev(`cwRadio.radioConectar().then(() => true)`);
-        ok(await A.listo(`!!cwRadio.radio.dev && document.getElementById('radioBtnSidebar').classList.contains('radio-on')`, 10), 'A: dongle enlazado, botón 📡 encendido');
+        ok(await A.listo(`!!cwRadio.radio.dev && document.getElementById('radioHeaderBtn').classList.contains('radio-on')`, 10), 'A: dongle enlazado, botón 📡 encendido');
         ok(await A.listo(`cwRadio.radio.air === 'LORA'`, 5), 'A: leyó el aire del .stat (LORA)');
         const cercaA = await A.listo(`cwRadio.radio.nearby['${addrB.toLowerCase()}'] ? true : false`, 15);
         const cercaB = await B.listo(`cwRadio.radio.nearby['${addrA.toLowerCase()}'] ? true : false`, 15);
