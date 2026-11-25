@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.121 — 2026-11-25
+
 - **La línea 🤝 ya no inventa cómo empezó un contacto.** Al reconectar un dispositivo, el chat
   se rearma, y en medio de una conversación de siempre aparecía, por ejemplo, «🤝 Entraste por su
   enlace de invitación». Ahora esa línea sale solo al comienzo de un contacto nuevo.
