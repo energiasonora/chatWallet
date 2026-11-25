@@ -17785,16 +17785,14 @@
             function renderAddressQr(address) {
                 if (!qrCodeEl || !address) return;
                 qrCodeEl.innerHTML = '';
-                const baseUrl = PUBLIC_INVITE_BASE;
-                // Incluimos la clave pública comprimida (pk) para el handshake de identidad:
-                // el que escanea puede cifrarnos mensajes offline por QR sin necesidad de red.
-                const pk = myCompressedPubKey();
+                // La clave pública comprimida (pk) va para el handshake de identidad: el que escanea
+                // puede cifrarnos mensajes offline por QR sin necesidad de red. Y de ella sale la 0x.
                 // Con la red Ğ1 elegida, el QR de la billetera es la cuenta Ğ1 a secas: es lo que
                 // leen Ğecko y Cesium² para pagarte.
                 const g1 = redG1Activa() && cuentaG1Guardada();
                 // Con Monero, el QR es el URI estándar: lo leen Feather, Cake, Monerujo…
                 const xmr = !g1 && redXmrActiva() && estadoXmr();
-                const chatUrl = g1 ? g1.g1 : xmr ? `monero:${xmr.direccion}` : (pk ? `${baseUrl}?address=${address}&pk=${pk}` : `${baseUrl}?address=${address}`);
+                const chatUrl = g1 ? g1.g1 : xmr ? `monero:${xmr.direccion}` : buildInviteUrl(address);
                 // Tema claro = modo escaneo: módulos NEGROS sobre fondo BLANCO con margen
                 // (zona de silencio). El QR índigo-sobre-oscuro es lindo pero los lectores
                 // lo detectan mal (bajo contraste y sin quiet zone).
@@ -17866,12 +17864,15 @@
             }
 
             // Link de invitación canónico (URL pública, la misma que codifica el QR — NUNCA location.href).
-            function buildInviteUrl() {
-                if (!currentWallet) return null;
+            // Con la clave pública alcanza: la 0x sale de ella (cwAddressDePk), así que ?address= sobraba
+            // y engordaba el QR (~148 → ~97 caracteres). Lo leen las versiones desde la 3.116 (escáner,
+            // link abierto en la web, App Link y agenda); sin pk, como antes, va la address.
+            function buildInviteUrl(address = currentWallet && currentWallet.address) {
+                if (!address) return null;
                 const pk = myCompressedPubKey();
-                return pk
-                    ? `${PUBLIC_INVITE_BASE}?address=${currentWallet.address}&pk=${pk}`
-                    : `${PUBLIC_INVITE_BASE}?address=${currentWallet.address}`;
+                // Sólo si la pk ES de esa dirección: si no, el link llevaría a otra cuenta.
+                const mia = pk && String(cwAddressDePk(pk) || '').toLowerCase() === String(address).toLowerCase();
+                return mia ? `${PUBLIC_INVITE_BASE}?pk=${pk}` : `${PUBLIC_INVITE_BASE}?address=${address}`;
             }
 
             // ═══ TEMA CLARO/OSCURO ═══

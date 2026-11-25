@@ -63,7 +63,7 @@ try {
 
     // ── 1. Ğ1 apagada: el link de siempre ──
     await tocarCompartir();
-    ok(/\/dapp\?address=0x[0-9a-fA-F]{40}&pk=/.test(await copiado() || ''), 'Ğ1 apagada → link EVM de siempre');
+    ok(/\/dapp\?pk=0[23][0-9a-f]{64}$/.test(await copiado() || ''), 'Ğ1 apagada → link EVM de siempre (sólo la pk, desde 3.123)');
     ok(!(await hayModal('g1VinculoPublicoModal')), 'Ğ1 apagada → no pregunta nada');
 
     // ── 2. Ğ1 activa, sin vínculo público → pregunta; «Ahora no» → link común y no vuelve a preguntar ──
@@ -75,10 +75,10 @@ try {
     ok(await copiado() === null, '…y todavía no compartió nada');
     ok((await ev(`document.querySelector('#g1VinculoPublicoModal [data-g1="cuenta"]').textContent`)) === miG1, 'la pregunta muestra tu cuenta Ğ1');
     await ev(`document.querySelector('#g1VinculoPublicoModal [data-g1="comun"]').click()`); await sleep(600);
-    ok(/\/dapp\?address=/.test(await copiado() || ''), '«Ahora no» → comparte el link común');
+    ok(/\/dapp\?pk=/.test(await copiado() || ''), '«Ahora no» → comparte el link común');
     ok(!(await hayModal('g1VinculoPublicoModal')), '…y cierra la pregunta');
     await tocarCompartir();
-    ok(!(await hayModal('g1VinculoPublicoModal')) && /\/dapp\?address=/.test(await copiado() || ''), 'segunda vez: no vuelve a preguntar, link común');
+    ok(!(await hayModal('g1VinculoPublicoModal')) && /\/dapp\?pk=/.test(await copiado() || ''), 'segunda vez: no vuelve a preguntar, link común');
 
     // ── 3. Publicar (cadena simulada): el comentario es un vínculo válido de TU 0x con TU g1 ──
     await ev(`localStorage.removeItem('cw-g1-vinculo-publico-no-${dir.toLowerCase()}');
@@ -117,7 +117,7 @@ try {
     // Indexador caído: no se pregunta nada, va el link común.
     await ev(`(async()=>{ const G=${B}.G1; G.vinculoDeEvm = async()=>{ throw new Error('caído') }; })()`);
     await tocarCompartir();
-    ok(!(await hayModal('g1VinculoPublicoModal')) && /\/dapp\?address=/.test(await copiado() || ''), 'indexador caído → link común, sin preguntar');
+    ok(!(await hayModal('g1VinculoPublicoModal')) && /\/dapp\?pk=/.test(await copiado() || ''), 'indexador caído → link común, sin preguntar');
 
     // ── 5. Cuenta Ğ1 que no existe en la cadena: avisa y ofrece el link común ──
     await ev(`(async()=>{ const G=${B}.G1; G.vinculoDeEvm = async()=>null; })();
@@ -127,7 +127,7 @@ try {
     ok(!(await ev(`window.__publicado2 || false`)), 'cuenta inexistente → no intenta publicar');
     ok(/todavía no existe/.test(await ev(`document.querySelector('#g1VinculoPublicoModal [data-g1="estado"]').textContent`)), '…y lo explica');
     await ev(`document.querySelector('#g1VinculoPublicoModal [data-g1="comun"]').click()`); await sleep(600);
-    ok(/\/dapp\?address=/.test(await copiado() || ''), '…y comparte el link común');
+    ok(/\/dapp\?pk=/.test(await copiado() || ''), '…y comparte el link común');
     ok(await ev(`localStorage.getItem('cw-g1-vinculo-publico-no-${dir.toLowerCase()}')`) === null, 'eso no cuenta como «Ahora no»: se vuelve a ofrecer cuando exista');
 
     // ── 6. Del otro lado: /@g1… abre la tarjeta Ğ1 ──

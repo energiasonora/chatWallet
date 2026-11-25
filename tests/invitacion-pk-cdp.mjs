@@ -69,6 +69,22 @@ try {
     ok(await ev(`extractAddressFromData('${BASE}?address=${k.addr}&pk=${k.truchoPk}')`) === k.addr, 'par trucho: la 0x del link se respeta');
     ok(await ev(`extractAddressFromData('${BASE}?address=${k.addr}')`) === k.addr, 'link viejo sin pk sigue andando');
 
+    // ── El link que armamos (3.123): sólo ?pk=, sin ?address= (la 0x sale de la pk) ──
+    // Así el QR de la billetera baja de ~148 a ~97 caracteres. Lo leen las versiones desde la 3.116.
+    const mio = await ev(`JSON.stringify({ url: buildInviteUrl(), addr: currentWallet.address, pk: myCompressedPubKey() })`).then(JSON.parse);
+    ok(mio.url === `${BASE}?pk=${mio.pk}`, `el link de invitación lleva sólo la pk (${mio.url.length} caracteres)`);
+    ok(mio.url.length < 100, 'y entra en menos de 100 caracteres');
+    ok(await ev(`extractAddressFromData(buildInviteUrl())`) === mio.addr, 'ida y vuelta: de ese link sale MI dirección');
+    ok(await ev(`extractPubKeyFromData(buildInviteUrl())`) === mio.pk, 'y mi pk');
+    ok(await ev(`buildInviteUrl('0x' + '33'.repeat(20))`) === `${BASE}?address=0x${'33'.repeat(20)}`,
+        'si la pk no es de esa dirección, va la address (nunca un link que lleve a otra cuenta)');
+    // El QR de la billetera codifica ese mismo link.
+    const datoQr = await ev(`(() => { const Orig = window.QRCodeStyling; let dato = null;
+        window.QRCodeStyling = function (o) { dato = o && o.data; return new Orig(o); };
+        try { renderAddressQr(currentWallet.address); } finally { window.QRCodeStyling = Orig; }
+        return dato; })()`);
+    ok(datoQr === mio.url, `el QR de la billetera lleva ese link (“${String(datoQr).slice(0, 40)}…”)`);
+
     // ── De punta a punta: el contacto que queda ──
     const contacto = (a) => ev(`(()=>{const c=contacts.find(c=>c.address.toLowerCase()==='${a.toLowerCase()}'); return c?{pubKey:c.pubKey||null}:null})()`);
     await ev(`void handleScannedData('${BASE}?address=${k.addr}&pk=${k.truchoPk}').catch(()=>{})`); await sleep(2500);
