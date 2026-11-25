@@ -6890,6 +6890,7 @@
                         }
                     } catch (e) { console.warn('reconcile al arrancar:', e); }
                     setTimeout(() => vigilarInstalaciones(), 20000);
+                    setTimeout(() => cwAvisarSiDispositivoDadoDeBaja().catch(() => { }), 6000);
                     await handleUrlParameters();
                 } catch (e) {
                     console.error("Background XMTP Error:", e);
@@ -13844,10 +13845,40 @@
                 try {
                     const yo = String(chatwalletxmtp.installationId || '');
                     const estados = await withTimeout(Client.fetchInboxStates([chatwalletxmtp.inboxId], XMTP_ENV), 12000, 'fetchInboxStates');
-                    const vivas = (estados && estados[0] && estados[0].installations) || [];
-                    if (!yo || !vivas.length) return null;
+                    if (!yo || !estados || !estados[0]) return null;
+                    // Con la red respondiendo, una lista VACÍA también es "dada de baja": son todas,
+                    // ésta incluida. Antes daba null ("no sé") y el chat ofrecía "Reabrir", que no
+                    // puede arreglar nada, en vez de "Reconectar". Pasó en el S10+ el 25/11/2026:
+                    // la cuenta quedó con 0 instalaciones vivas (el bug de salir del Modo frío
+                    // estrenaba una y daba de baja la otra, y al recargar al revés) y el teléfono
+                    // seguía usando una muerta: no recibía ni mandaba nada.
+                    const vivas = estados[0].installations || [];
                     return vivas.some(i => String(i.id || '') === yo);
                 } catch (e) { return null; }
+            }
+
+            // Lo mismo al arrancar, sin esperar a que se abra un chat: un dispositivo dado de baja
+            // no recibe NADA (ni manda), y desde afuera parece que nadie te escribe. Aviso fijo
+            // arriba con el único arreglo que hay: reconectarlo (base nueva + respaldo).
+            async function cwAvisarSiDispositivoDadoDeBaja() {
+                if (!chatwalletxmtp || isOffline) return;
+                const viva = await cwInstalacionViva();
+                document.getElementById('cwDispositivoBaja')?.remove();
+                if (viva !== false) return;
+                console.error('⚠️ La instalación de XMTP de este dispositivo está dada de baja: no entra ni sale nada.');
+                const stack = document.getElementById('noticeStack');
+                if (!stack) return;
+                const el = document.createElement('div');
+                el.id = 'cwDispositivoBaja';
+                el.className = 'cw-aviso-ambar text-sm rounded-lg p-3 mx-3 my-2 text-center leading-relaxed';
+                el.innerHTML = `<span>${escHtml(t('dispositivo_baja'))}</span> ` +
+                    `<button type="button" class="underline font-semibold ml-1">${escHtml(t('chat_fuera_reconectar'))}</button>`;
+                el.querySelector('button').onclick = (ev) => {
+                    ev.currentTarget.disabled = true;
+                    ev.currentTarget.textContent = '…';
+                    cwReconectarDispositivo();
+                };
+                stack.prepend(el);
             }
 
             // Aviso arriba del hilo cuando el chat se muestra sin haber podido sincronizar.
@@ -27062,7 +27093,8 @@
                     "chat_fuera_grupo": "Ya no formás parte de este grupo en este dispositivo: ves lo que estaba guardado.",
                     "chat_fuera_reabrir": "Reabrir el chat",
                     "chat_fuera_sigue": "Sigue fuera de la conversación. Pedile a la otra persona que te escriba (o escribile desde otro de tus dispositivos): eso suele volver a sumar a este.",
-                    "chat_fuera_baja": "Este dispositivo fue dado de baja del chat desde otro de tus dispositivos. Ves lo guardado, pero acá ya no entran mensajes nuevos hasta reconectarlo.",
+                    "chat_fuera_baja": "Este dispositivo quedó dado de baja del chat. Ves lo guardado, pero acá ya no entran mensajes nuevos hasta reconectarlo.",
+                    "dispositivo_baja": "Este dispositivo quedó dado de baja del chat: no recibe ni manda mensajes. Reconectarlo lo vuelve a sumar y trae tu historial del respaldo.",
                     "apk_of_titulo": "ChatWallet anda mejor como app",
                     "apk_of_titulo_inv": "Te invitaron a ChatWallet",
                     "apk_of_texto": "En Android, la app te avisa de mensajes y pagos aunque la cierres; el navegador no. Instalala antes de crear tu cuenta y no vas a tener que mudarla después.",
@@ -27943,7 +27975,8 @@
                     "chat_fuera_grupo": "You're no longer part of this group on this device: you're seeing what was saved.",
                     "chat_fuera_reabrir": "Reopen the chat",
                     "chat_fuera_sigue": "Still out of the conversation. Ask the other person to write to you (or write from another of your devices): that usually adds this one back.",
-                    "chat_fuera_baja": "This device was removed from the chat from another of your devices. You see what was saved, but new messages won't arrive here until you reconnect it.",
+                    "chat_fuera_baja": "This device was removed from the chat. You see what was saved, but new messages won't arrive here until you reconnect it.",
+                    "dispositivo_baja": "This device was removed from the chat: it can't receive or send messages. Reconnecting adds it back and brings your history from the backup.",
                     "apk_of_titulo": "ChatWallet works better as an app",
                     "apk_of_titulo_inv": "You've been invited to ChatWallet",
                     "apk_of_texto": "On Android, the app notifies you of messages and payments even when closed; the browser doesn't. Install it before creating your account so you won't have to move it later.",
@@ -28824,7 +28857,8 @@
                     "chat_fuera_grupo": "Tu ne fais plus partie de ce groupe sur cet appareil : tu vois ce qui était enregistré.",
                     "chat_fuera_reabrir": "Rouvrir le chat",
                     "chat_fuera_sigue": "Toujours hors de la conversation. Demande à l'autre personne de t'écrire (ou écris-lui depuis un autre de tes appareils) : en général, cela réintègre celui-ci.",
-                    "chat_fuera_baja": "Cet appareil a été retiré du chat depuis un autre de tes appareils. Tu vois ce qui était enregistré, mais les nouveaux messages n'arriveront plus ici tant que tu ne le reconnectes pas.",
+                    "chat_fuera_baja": "Cet appareil a été retiré du chat. Tu vois ce qui était enregistré, mais les nouveaux messages n'arriveront plus ici tant que tu ne le reconnectes pas.",
+                    "dispositivo_baja": "Cet appareil a été retiré du chat : il ne reçoit ni n'envoie de messages. Le reconnecter le rajoute et récupère ton historique depuis la sauvegarde.",
                     "apk_of_titulo": "ChatWallet marche mieux en app",
                     "apk_of_titulo_inv": "On t'a invité sur ChatWallet",
                     "apk_of_texto": "Sur Android, l'app te prévient des messages et paiements même fermée ; le navigateur, non. Installe-la avant de créer ton compte et tu n'auras pas à le déménager ensuite.",

@@ -63,7 +63,10 @@ try {
         Object.defineProperty(window, 'Client', { configurable: true,
             set(v) { real = v; },
             get() { return real && new Proxy(real, { get(t, k) {
-                return k === 'create' ? async () => { throw new Error('XMTP afuera a propósito (test)'); } : Reflect.get(t, k);
+                if (k === 'create') return async () => { throw new Error('XMTP afuera a propósito (test)'); };
+                // El estado del inbox "en la red" lo pone la prueba (ver la sección del dispositivo dado de baja).
+                if (k === 'fetchInboxStates' && window.__fetchInboxStates) return window.__fetchInboxStates;
+                return Reflect.get(t, k);
             } }); } });
     })();` });
     await rpc('Page.navigate', { url: BASE });
@@ -161,6 +164,32 @@ try {
     ok(ruido2.s === 1 && ruido2.n === 1, 'y suena y avisa', JSON.stringify(ruido2));
     ahora = await ev(lista);
     ok(ahora[0] === MAC, 'y macM1 sigue primero', ahora.map(a => a.slice(0, 6)).join(' '));
+
+    console.log('\n── un dispositivo dado de baja se dice y se puede reconectar ──');
+    // El S10+ el 25/11/2026: la cuenta con 0 instalaciones vivas en la red. Antes eso daba
+    // "no sé" (null), el chat ofrecía "Reabrir" y nada avisaba que no entraba ni salía nada.
+    const baja = async (respuesta) => ev(`(async () => {
+        window.__reconectar = 0;
+        window.cwReconectarDispositivo = () => { window.__reconectar++; };
+        chatwalletxmtp.installationId = 'yo-instalacion';
+        window.__fetchInboxStates = async () => { ${respuesta} };
+        const viva = await cwInstalacionViva();
+        await cwAvisarSiDispositivoDadoDeBaja();
+        const aviso = document.getElementById('cwDispositivoBaja');
+        const texto = aviso ? aviso.textContent : '';   // antes del click: el botón pasa a "…"
+        if (aviso) aviso.querySelector('button').click();
+        return { viva, aviso: !!aviso, enLaPila: !!aviso && aviso.parentNode.id === 'noticeStack',
+                 texto, reconectar: window.__reconectar }; })()`);
+    let b = await baja(`return [{ installations: [] }];`);
+    ok(b.viva === false, 'con 0 instalaciones vivas en la red, este dispositivo cuenta como dado de baja (antes: null)', String(b.viva));
+    ok(b.aviso && b.enLaPila && /Reconectar este dispositivo/.test(b.texto), 'y aparece el aviso fijo arriba, con el botón de reconectar', b.texto.slice(0, 80));
+    ok(b.reconectar === 1, 'el botón reconecta');
+    b = await baja(`return [{ installations: [{ id: 'otra' }] }];`);
+    ok(b.viva === false && b.aviso, 'si están vivas sólo otras, también');
+    b = await baja(`return [{ installations: [{ id: 'otra' }, { id: 'yo-instalacion' }] }];`);
+    ok(b.viva === true && !b.aviso, 'si ésta está viva, no hay aviso (y se saca el que había)');
+    b = await baja(`throw new Error('sin red');`);
+    ok(b.viva === null && !b.aviso, 'si la red no contesta, no se asusta a nadie (null, sin aviso)');
 
     console.log('\n── el respaldo no vuelve a ensuciarla ──');
     ok(await ev(`esVistaPreviaDeSistema(${JSON.stringify(aviso('x'))}) && !esVistaPreviaDeSistema('hola') && !esVistaPreviaDeSistema('{"cw":1}')`),

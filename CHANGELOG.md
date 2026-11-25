@@ -17,6 +17,12 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Si este dispositivo quedó dado de baja del chat, la app lo dice y lo arregla.** Puede pasar
+  (el error de salir del Modo frío, arreglado en la 3.116, dio de baja las dos conexiones de un
+  teléfono). El dispositivo no recibía ni mandaba nada y la app no lo decía: el chat ofrecía
+  «Reabrir», que no sirve en ese caso. Ahora aparece un aviso arriba con **Reconectar este
+  dispositivo**, que lo vuelve a sumar al chat y trae tu historial del respaldo.
+
 ## 3.117 — 2026-11-25
 
 - **La lista de chats ya no se desordena por avisos internos.** Cuando alguien suma o cambia
