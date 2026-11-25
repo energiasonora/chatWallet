@@ -1800,15 +1800,95 @@
             margin-bottom: auto;
         }
 
-        /* 100svh = alto real en móvil (descuenta la barra del navegador). Lo que
-           se resta es el cromado fijo: header, nav del footer, padding del main,
-           la address debajo del QR, el bloque de balance y la fila de botones.
-           --cw-notice-h lo mide JS (ver el ResizeObserver de #noticeStack): los
-           avisos aparecen y desaparecen, así que su alto no puede ser una
-           constante — sin esto, con los dos avisos abiertos el QR no se enteraba
-           de que le quedaban ~120px menos. */
-        #qr-code-wrapper>div {
-            max-width: clamp(150px, calc(100svh - 430px - var(--cw-notice-h, 0px)), 280px);
+        /* ── El QR ocupa el alto que REALMENTE queda (vertical) ────────────
+           Antes el tamaño salía de una cuenta fija: 100svh − 430px − avisos. En el
+           S9 (25/11/2026: pantalla con zoom → 320px de ancho, letra al 110%, saldo
+           «0,00 USDC» en dos renglones, botón «Pasar USDC») lo de abajo medía más
+           que esos 430px: el wrapper se encogía (min-height:0) pero el QR no, y
+           centrado dentro de él se salía por ARRIBA, fuera de #walletView, donde
+           el scroll no llega: le faltaban los dos cuadrados de arriba.
+           Ahora lo achica el propio flex: QR, saldo, botones y «Pasar USDC» son
+           hijos de la MISMA columna (.flex-grow se disuelve, como en apaisado), el
+           wrapper es lo único que cede, y el QR toma el 100% de lo que le quedó
+           (cadena de flex con min-height:0 hasta el canvas). El piso de 120px pasa
+           al wrapper: si ni así entra, la columna desborda hacia ABAJO y
+           #walletView scrollea (los márgenes auto respetan el borde de arriba).
+           Apaisado tiene su propia grilla más abajo: no se toca. */
+        @media not all and (orientation: landscape) and (max-height: 560px) {
+            #walletView>.flex-grow {
+                display: contents;
+            }
+
+            #qr-code-wrapper {
+                flex: 0 1 auto;
+                flex-direction: column;
+                /* 120px de QR + relleno (py-2 + p-2) + la fila de la dirección */
+                min-height: calc(120px + 4.5rem);
+            }
+
+            #qr-code-wrapper>div {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                flex: 0 1 auto;
+                min-height: 0;
+                max-width: 280px;
+            }
+
+            #qr-code {
+                flex: 0 1 auto;
+                min-height: 0;
+                max-height: none;
+            }
+
+            #qr-code canvas,
+            #qr-code img,
+            #qr-code svg {
+                min-height: 0;
+                max-height: 100%;
+            }
+
+            #walletView .relative.text-center,
+            #walletView>.grid,
+            #walletView>.grid+div {
+                flex-shrink: 0;
+            }
+        }
+
+        /* Pantallas bajas (el S9: 619px de alto; con el saldo en dos renglones, gas y
+           «Pasar USDC» le sobraban 37px y el botón quedaba bajo el nav): los márgenes de
+           alrededor del QR son lo primero que se va, antes que el QR mismo. Mismo
+           alcance que el bloque de arriba (todo menos el celu apaisado), cortado en 700px. */
+        @media (orientation: portrait) and (max-height: 700px),
+        (min-height: 561px) and (max-height: 700px) {
+            #qr-code-wrapper {
+                padding-top: 0;
+                padding-bottom: 0;
+                /* 120px de QR + p-2 de la caja + la fila de la dirección (con mt-1) */
+                min-height: calc(120px + 3rem);
+            }
+
+            #qr-code-wrapper>div>.mt-3 {
+                margin-top: 0.25rem;
+            }
+
+            #walletView .relative.text-center {
+                margin-top: 0.5rem;
+            }
+
+            #walletView>.grid {
+                padding-top: 0.5rem;
+                padding-bottom: 0.5rem;
+            }
+        }
+
+        /* Saldo grande: el ticker al lado del monto, más chico (ver pintarSaldoPrincipal).
+           Sin recortar: si es largo, parte por sus espacios o, en último caso, por letras. */
+        #balanceDisplay .cw-saldo-ticker {
+            font-size: 0.55em;
+            font-weight: 600;
+            opacity: 0.85;
+            overflow-wrap: anywhere;
         }
 
         /* ── Wallet en horizontal (celu apaisado) ─────────────────────────
@@ -3028,11 +3108,16 @@
                                     </svg>
                                     <span class="font-semibold" data-i18n-key="chat_attach">Adjuntar</span>
                                 </button>
+                                <!-- Radio sin internet (dongle FlyLog): sólo en Modo frío. Va en el menú y no en la
+                                     fila del compositor, que con un botón más dejaba el campo de texto muy angosto. -->
+                                <button id="radioMenuBtn" type="button"
+                                    class="hidden w-full text-left p-3 hover:bg-gray-600/50 flex items-center space-x-3 rounded-b-xl transition-colors">
+                                    <span class="w-5 text-center text-lg leading-none">📡</span>
+                                    <span class="font-semibold" data-i18n-key="radio_menu">Radio sin internet</span>
+                                </button>
                                 <input type="file" id="chatAttachInput" class="hidden">
                             </div>
                         </div>
-                        <button id="radioComposeBtn" type="button" title="Radio sin internet (dongle FlyLog)"
-                            class="hidden radio-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors focus:outline-none flex-shrink-0 text-lg leading-none">📡</button>
                         <button id="offlineScanReplyBtn" type="button" title="Escanear respuesta (QR)"
                             class="hidden p-3 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors focus:outline-none flex-shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
@@ -7130,7 +7215,9 @@
                     if (!el || val === null || val === undefined) continue;
                     // Solo se enmascara lo que es un monto: '---', 'N/A' o 'Error CWLT' se muestran
                     // tal cual (esconder un error no protege nada y confunde).
-                    el.textContent = (hide && /^[<\d.,]/.test(val)) ? '••••' : val;
+                    const mostrado = (hide && /^[<\d.,]/.test(val)) ? '••••' : val;
+                    if (k === 'main') pintarSaldoPrincipal(el, mostrado);
+                    else el.textContent = mostrado;
                 }
                 renderInfoG1();
                 cwPintarValorPrincipal();
@@ -7150,6 +7237,23 @@
                     if (!ver && currentWallet) ver = cwCctpLista().some(cwCctpEnMarcha);
                 } catch (e) { ver = false; }   // antes de que exista la tabla de CCTP
                 b.parentElement.classList.toggle('hidden', !ver);
+            }
+
+            // El saldo grande: monto a tamaño completo y el ticker más chico al lado. En una
+            // pantalla angosta (S9: 320px) «0,00 USDC» entero a text-4xl iba en dos renglones y se
+            // comía ~40px del QR. El ticker NO se recorta nunca (USDC.e, cbBTC, USDT0, o lo que el
+            // usuario le puso a su red): si no entra, baja entero al renglón de abajo.
+            // Con nodos y textContent: el ticker de una red personalizada lo escribe el usuario.
+            function pintarSaldoPrincipal(el, texto) {
+                const m = /^([<\d.,]\S*)\s+(\S.*)$/.exec(texto);
+                if (!m) { el.textContent = texto; return; }
+                const monto = document.createElement('span');
+                monto.className = 'cw-saldo-monto';
+                monto.textContent = m[1];
+                const ticker = document.createElement('span');
+                ticker.className = 'cw-saldo-ticker';
+                ticker.textContent = m[2];
+                el.replaceChildren(monto, document.createTextNode(' '), ticker);
             }
 
             function setBalanceText(slot, text, num) {
@@ -12290,7 +12394,7 @@
             // Ajusta el compositor (input + botones) según modo online/offline.
             function updateOfflineComposeUI() {
                 const scanBtn = document.getElementById('offlineScanReplyBtn');
-                const radioBtn = document.getElementById('radioComposeBtn');
+                const radioBtn = document.getElementById('radioMenuBtn');
                 if (isOffline && currentOfflineContact) {
                     messageInput.placeholder = (radioListo() && currentOfflineContact.pubKey)
                         ? 'Mensaje por radio 📡 (cifrado)…'
@@ -12877,7 +12981,13 @@
 
             document.getElementById('radioBtnSidebar')?.addEventListener('click', radioAbrirModal);
             document.getElementById('radioHeaderBtn')?.addEventListener('click', radioAbrirModal);
-            document.getElementById('radioComposeBtn')?.addEventListener('click', radioAbrirModal);
+            document.getElementById('radioMenuBtn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.getElementById('chatActionsContainer')?.classList.add('hidden');
+                const mas = document.querySelector('#chatActionsToggle svg');
+                if (mas) mas.style.transform = 'rotate(0deg)';
+                radioAbrirModal();
+            });
             document.getElementById('closeRadioModal')?.addEventListener('click', radioCerrarModal);
             document.getElementById('radioModal')?.addEventListener('click', (e) => { if (e.target.id === 'radioModal') radioCerrarModal(); });
             document.getElementById('radioConnectBtn')?.addEventListener('click', () => radio.dev ? radioSoltar() : radioConectar());
@@ -26750,6 +26860,7 @@
                     "adj_foto": "📷 Foto",
                     "adj_archivo": "Archivo",
                     "chat_attach": "Adjuntar",
+                    "radio_menu": "Radio sin internet",
                     "adj_tocar_abrir": "tocá para abrir",
                     "adj_sin_app": "No hay una app para abrir este archivo.",
                     "adj_guardar_btn": "Guardar",
@@ -27632,6 +27743,7 @@
                     "adj_foto": "📷 Photo",
                     "adj_archivo": "File",
                     "chat_attach": "Attach",
+                    "radio_menu": "Radio (no internet)",
                     "adj_tocar_abrir": "tap to open",
                     "adj_sin_app": "No app can open this file.",
                     "adj_guardar_btn": "Save",
@@ -28514,6 +28626,7 @@
                     "adj_foto": "📷 Photo",
                     "adj_archivo": "Fichier",
                     "chat_attach": "Joindre",
+                    "radio_menu": "Radio sans internet",
                     "adj_tocar_abrir": "touchez pour ouvrir",
                     "adj_sin_app": "Aucune application ne peut ouvrir ce fichier.",
                     "adj_guardar_btn": "Enregistrer",

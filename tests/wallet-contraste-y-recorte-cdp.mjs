@@ -81,13 +81,22 @@ const RECORTE = `(() => {
     const saldo = document.getElementById('balanceValue')
         || document.querySelector('#walletView .text-4xl, #walletView .text-3xl');
     const qr = document.querySelector('#qr-code canvas, #qr-code img');
+    // …pero #walletView SÍ recorta (overflow-y:auto): lo que se sale por arriba de su caja
+    // no se ve ni scrolleando. Así se escapó el QR del S9 (25/11/2026): dentro de la ventana,
+    // fuera de la vista, sin los dos cuadrados de arriba. Se mide con el scroll arriba.
+    w.scrollTop = 0;
+    const v = w.getBoundingClientRect(), q = qr ? qr.getBoundingClientRect() : null;
+    const saldoB = (document.querySelector('#walletView .relative.text-center') || w).getBoundingClientRect();
     return JSON.stringify({
         filaBottom: Math.round(r.bottom), navTop: Math.round(navArriba), ventana: innerHeight,
         tapada: r.bottom > navArriba + 1,
         scrollPendiente: w.scrollHeight - w.clientHeight,
         saldoVisible: dentro(saldo),
         qrVisible: dentro(qr),
-        altoQr: qr ? Math.round(qr.getBoundingClientRect().height) : null
+        qrDentroDeLaVista: !!q && q.top >= v.top - 1 && q.height > 0,
+        qrRecortado: q ? Math.max(0, Math.round(v.top - q.top)) : null,
+        saldoEncimaDeLaFila: Math.round(saldoB.bottom - r.top) > 1 ? Math.round(saldoB.bottom - r.top) : 0,
+        altoQr: q ? Math.round(q.height) : null
     });
 })()`;
 
@@ -119,7 +128,73 @@ for (const alto of [900, 760, 700, 640]) {
     ok(r.scrollPendiente === 0, `ventana ${alto}px: entra todo sin scroll (sobra ${r.scrollPendiente}px)`);
     ok(r.saldoVisible, `ventana ${alto}px: el saldo se ve`);
     ok(r.qrVisible, `ventana ${alto}px: el QR se ve entero (${r.altoQr}px)`);
+    ok(r.qrDentroDeLaVista, `ventana ${alto}px: y no se sale de la vista por arriba (recorte ${r.qrRecortado}px)`);
 }
+
+// ─────────── 2b. la pantalla del S9 ───────────
+// Medida en el teléfono (25/11/2026): «tamaño de pantalla» agrandado → 320×619 px CSS. En la
+// app no había avisos; el saldo «0,00 USDC» va en dos renglones y debajo están el gas y
+// «Pasar USDC a otra red». Antes: QR de 173px con 29px comidos arriba.
+console.log('\n── pantalla del S9 (320×619, saldo en dos renglones, gas y Pasar USDC) ──');
+const comoElS9 = `(() => {
+    document.querySelectorAll('#noticeStack > *').forEach(n => n.style.display = 'none');
+    setBalanceText('main', '0,00 USDC', 0);
+    document.getElementById('chainNameDisplay').textContent = 'USDC on Arbitrum';
+    document.getElementById('gasBalanceDisplay').classList.remove('hidden');
+    document.getElementById('cctpOpenBtn').parentElement.classList.remove('hidden');
+    return true; })()`;
+await cargar('dark');
+await rpc('Emulation.setDeviceMetricsOverride', { width: 320, height: 619, deviceScaleFactor: 3.375, mobile: true });
+await sleep(900);
+await ev(comoElS9);
+await sleep(900);
+const s9 = JSON.parse(await ev(RECORTE) || '{}');
+ok(s9.qrDentroDeLaVista, `el QR sale entero, sin comerse el borde de arriba (recorte ${s9.qrRecortado}px)`);
+ok(s9.altoQr >= 120, `y no baja del mínimo escaneable (${s9.altoQr}px ≥ 120)`);
+ok(s9.scrollPendiente === 0, `entra todo sin scroll (sobra ${s9.scrollPendiente}px)`);
+ok(!s9.tapada, `la fila de botones no queda bajo el nav (${s9.filaBottom} vs ${s9.navTop})`);
+ok(!s9.saldoEncimaDeLaFila, `el saldo no se encima con los botones (${s9.saldoEncimaDeLaFila}px)`);
+const cctpAbajo = await ev(`(() => { const b = document.getElementById('cctpOpenBtn').getBoundingClientRect();
+    const n = document.getElementById('appNav').getBoundingClientRect(); return b.height > 0 && b.bottom <= n.top + 1; })()`);
+ok(cctpAbajo, '«Pasar USDC a otra red» se ve entero, arriba del nav');
+
+// El saldo: monto grande y ticker más chico al lado, en UN renglón (antes «0,00» / «USDC» en
+// dos, ~40px menos para el QR). Y el ticker no se recorta nunca, aunque sea largo.
+const SALDO = `(() => { const p = document.getElementById('balanceDisplay');
+    const lh = parseFloat(getComputedStyle(p).lineHeight) || 40;
+    return JSON.stringify({ texto: p.textContent, renglones: Math.round(p.getBoundingClientRect().height / lh),
+        ticker: (p.querySelector('.cw-saldo-ticker') || {}).textContent || null,
+        anchoOk: p.scrollWidth <= p.clientWidth + 1 }); })()`;
+const saldoS9 = JSON.parse(await ev(SALDO));
+ok(saldoS9.texto === '0,00 USDC', `el texto del saldo queda igual (“${saldoS9.texto}”)`);
+ok(saldoS9.ticker === 'USDC', `con el ticker aparte (“${saldoS9.ticker}”)`);
+ok(saldoS9.renglones === 1, `y en un solo renglón (${saldoS9.renglones})`);
+ok(s9.altoQr >= 125, `lo que le deja más lugar al QR (${s9.altoQr}px)`);
+
+for (const largo of ['1.234.567,89 USDC (BASE)', '12,5 ESTEESUNTICKERLARGUISIMO']) {
+    await ev(`setBalanceText('main', ${JSON.stringify(largo)}, 1); true`);
+    await sleep(500);
+    const sl = JSON.parse(await ev(SALDO));
+    const rl = JSON.parse(await ev(RECORTE) || '{}');
+    ok(sl.texto === largo && sl.ticker === largo.split(' ').slice(1).join(' ') && sl.anchoOk,
+        `ticker largo entero, sin cortar ni desbordar (“${sl.texto}”, ${sl.renglones} renglones)`);
+    ok(rl.qrDentroDeLaVista, `y el QR sigue entero (recorte ${rl.qrRecortado}px; scroll ${rl.scrollPendiente}px)`);
+}
+// Lo que no es un monto va tal cual, y el saldo oculto no muestra ticker.
+await ev(`setBalanceText('main', 'Error USDC'); true`);
+ok(JSON.parse(await ev(SALDO)).ticker === null, 'un error se muestra tal cual, sin partirlo');
+await ev(`setBalanceText('main', '0,00 USDC', 0); true`);
+await sleep(300);
+
+// Con un aviso arriba ya no entra todo: ahí la vista scrollea, pero el QR NO se corta.
+await ev(`(() => { const d = document.createElement('div'); d.id = 'avisoDePrueba';
+    d.style.cssText = 'height:110px;flex-shrink:0'; d.textContent = 'aviso de prueba';
+    document.getElementById('noticeStack').appendChild(d); return true; })()`);
+await sleep(900);
+const s9aviso = JSON.parse(await ev(RECORTE) || '{}');
+ok(s9aviso.qrDentroDeLaVista, `con un aviso arriba el QR tampoco se corta (recorte ${s9aviso.qrRecortado}px; scroll ${s9aviso.scrollPendiente}px)`);
+ok(!s9aviso.saldoEncimaDeLaFila, `ni el saldo se encima con los botones (${s9aviso.saldoEncimaDeLaFila}px)`);
+await rpc('Emulation.clearDeviceMetricsOverride');
 
 // Y en tema claro también, que el QR cambia de tamaño con el tema.
 await cargar('light');
