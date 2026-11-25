@@ -207,6 +207,33 @@ try {
         return { botones: reconectar.length, arriba: !!document.getElementById('cwDispositivoBaja') }; })()`);
     ok(soloChat.botones === 1 && soloChat.arriba, 'y si el chat lo descubre primero, pone el de arriba (no uno propio)', JSON.stringify(soloChat));
 
+    console.log('\n── la línea 🤝 cuenta el comienzo del contacto, no una reconexión ──');
+    // S10+, 25/11/2026: tras reconectar el dispositivo, el DM se rearmó y en medio del chat con
+    // macM1 apareció "🤝 Entraste por su enlace de invitación · 02:43".
+    const hs = await ev(`(() => {
+        currentChatContact = contacts.find(c => c.address === '${MAC}');
+        localStorage.setItem('cw-par-origen-${MAC}', 'link');
+        const creacion = (id) => ({ id, contentType: { typeId: 'group_updated' }, senderInboxId: 'yo-inbox',
+            sentAtNs: BigInt(Date.now()) * 1000000n,
+            content: { initiatedByInboxId: 'yo-inbox', addedInboxes: [{ inboxId: 'otro-inbox' }], removedInboxes: [], leftInboxes: [], metadataFieldChanges: [] } });
+        const texto = (id, txt) => ({ id, contentType: { typeId: 'text' }, senderInboxId: 'otro-inbox', content: txt,
+            sentAt: new Date(), sentAtNs: BigInt(Date.now()) * 1000000n });
+        const lineas = () => [...messagesContainer.querySelectorAll('.handshake-message')].map(e => e.textContent);
+        // Un contacto que recién empieza: el evento de creación es lo primero del hilo.
+        messagesContainer.innerHTML = ''; processedMessages.clear(); handshakeShownInChat = false;
+        addMessageToUI(creacion('hs-1'), 'sent');
+        addMessageToUI(texto('tx-1', 'hola'), 'received');
+        const nuevo = lineas();
+        // Un par de siempre, con el DM rearmado: hay historial antes del evento.
+        messagesContainer.innerHTML = ''; processedMessages.clear(); handshakeShownInChat = false;
+        addMessageToUI(texto('tx-2', 'un mensaje de hace días'), 'received');
+        addMessageToUI(creacion('hs-2'), 'sent');
+        addMessageToUI(texto('tx-3', 'yes'), 'received');
+        const rearmado = lineas();
+        return { nuevo, rearmado }; })()`);
+    ok(hs.nuevo.length === 1 && /enlace de invitación/.test(hs.nuevo[0]), 'en un contacto nuevo la línea 🤝 sale (con su origen)', JSON.stringify(hs.nuevo));
+    ok(hs.rearmado.length === 0, 'con historial antes, un DM rearmado no inventa "Entraste por su enlace"', JSON.stringify(hs.rearmado));
+
     console.log('\n── el respaldo no vuelve a ensuciarla ──');
     ok(await ev(`esVistaPreviaDeSistema(${JSON.stringify(aviso('x'))}) && !esVistaPreviaDeSistema('hola') && !esVistaPreviaDeSistema('{"cw":1}')`),
         'reconoce una vista previa de sistema y nada más');

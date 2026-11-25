@@ -15370,8 +15370,15 @@
                 } else if (isHandshakeMessage(messageContent)) {
                     // Solo el primer evento de sistema por chat. Los demás (stitching de grupos MLS) no se
                     // muestran para no ensuciar el UX, pero se loguean con su id+contenido por si sirve para debug.
-                    if (handshakeShownInChat) {
+                    // Y sólo si es el COMIENZO del hilo. Si ya hay mensajes antes, este evento es un DM
+                    // rearmado (reconectar el dispositivo, uno nuevo, una base rehecha): el par ya
+                    // existía y contar cómo "empezó" es falso. Pasó en el S10+ el 25/11/2026: tras
+                    // reconectar, en medio del chat con macM1 apareció "🤝 Entraste por su enlace de
+                    // invitación · 02:43", con el origen guardado de cuando se conocieron.
+                    // (El hilo se dibuja en orden cronológico, así que lo anterior ya está en pantalla.)
+                    if (handshakeShownInChat || messagesContainer.querySelector('.message-bubble')) {
                         console.debug('[handshake omitido]', message.id, messageContent);
+                        handshakeShownInChat = true;
                         return;
                     }
                     handshakeShownInChat = true;
