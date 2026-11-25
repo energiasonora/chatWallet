@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.120 — 2026-11-25
+
 - **El explorador Ğ1 (`chatwallet.org/g1/`) dice quién lo hace:** «Hecho por Energía Sonora»,
   con enlace a energiasonora.org (antes decía ChatWallet).
 
