@@ -17,6 +17,9 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **El explorador Ğ1 (`chatwallet.org/g1/`) dice quién lo hace:** «Hecho por Energía Sonora»,
+  con enlace a energiasonora.org (antes decía ChatWallet).
+
 ## 3.119 — 2026-11-25
 
 - **El aviso de dispositivo dado de baja sale una sola vez.** Con un chat abierto aparecía
