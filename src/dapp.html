@@ -10186,14 +10186,17 @@
             // arreglo evita que vuelva a pasar, pero el renglón viejo sigue mostrando JSON en
             // crudo hasta que llegue otro mensaje. Se reemplaza por el último mensaje de verdad
             // que haya en el almacén local; si no hay ninguno, se deja sin vista previa.
+            // Desde la 3.117 también los avisos de sistema de XMTP (`{"initiatedByInboxId":…`,
+            // ver esAvisoDeSistemaXmtp), que además habían corrido la fecha y el orden del chat.
             async function limpiarVistasPreviasDePlomeria() {
                 let cambios = 0;
                 for (const c of (contacts || [])) {
-                    if (typeof c.lastMessage !== 'string' || !esMensajeDeSincronia(c.lastMessage)) continue;
+                    if (typeof c.lastMessage !== 'string') continue;
+                    if (!esMensajeDeSincronia(c.lastMessage) && !esVistaPreviaDeSistema(c.lastMessage)) continue;
                     let texto = null, ts = 0;
                     try {
                         for (const r of await msgStoreGetByPeer(String(c.address || '').toLowerCase())) {
-                            if (esMensajeDeSincronia(r.content)) continue;
+                            if (esMensajeDeSincronia(r.content) || esVistaPreviaDeSistema(r.content)) continue;
                             if ((r.ts || 0) > ts) { ts = r.ts || 0; texto = xmtpMessagePreview(msgRecordToUiMessage(r)); }
                         }
                     } catch (e) { /* sin almacén, el renglón queda sin vista previa */ }
@@ -10526,7 +10529,9 @@
                         });
                         contactsChanged = true;
                     } else {
-                        if ((bc.lastMessageTimestamp || 0) > (contacts[idx].lastMessageTimestamp || 0)) {
+                        // Un respaldo subido antes de la 3.117 puede traer de vista previa un aviso
+                        // de sistema con su fecha: no vale como último mensaje.
+                        if ((bc.lastMessageTimestamp || 0) > (contacts[idx].lastMessageTimestamp || 0) && !esVistaPreviaDeSistema(bc.lastMessage)) {
                             contacts[idx].lastMessage = bc.lastMessage;
                             contacts[idx].lastMessageTimestamp = bc.lastMessageTimestamp;
                             contactsChanged = true;
@@ -10541,7 +10546,12 @@
                         }
                     }
                 }
-                if (contactsChanged) await saveContacts();
+                if (contactsChanged) {
+                    await saveContacts();
+                    // Los contactos que entraron del respaldo pueden traer una vista previa de
+                    // sistema; recién ahora el almacén tiene sus mensajes para reemplazarla.
+                    limpiarVistasPreviasDePlomeria().catch(e => console.warn('[lista]', e));
+                }
                 return added;
             }
 
@@ -13434,10 +13444,15 @@
                                 }
                                 // Una app vinculada no es un contacto (cw-connect/SPEC.md §8).
                                 if (contactAddress && !String(contactAddress).startsWith('group:') && window.cwEsApp?.(contactAddress)) return;
+                                // Aviso de sistema (alguien entró/salió, un dispositivo nuevo): se dibuja
+                                // en el chat abierto, pero no es un mensaje para la lista (ver esAvisoDeSistemaXmtp).
+                                const esAvisoDeSistema = esAvisoDeSistemaXmtp(message);
                                 if (contactAddress) {
                                     // Mensaje POSTERIOR al borrado: el contacto vuelve. Se levanta la lápida
-                                    // para que el reconcile no lo vuelva a filtrar.
+                                    // para que el reconcile no lo vuelva a filtrar. Un aviso de sistema no
+                                    // es un mensaje: no lo revive (al grupo lo revive la reinvitación, arriba).
                                     const wasDeletedAt = tombstones[contactAddress.toLowerCase()]?.at || 0;
+                                    if (wasDeletedAt && esAvisoDeSistema) return;
                                     if (wasDeletedAt) await clearTombstone(contactAddress);
 
                                     // Respaldo soberano: persistir el mensaje en el store propio (dedup por id).
@@ -13460,7 +13475,9 @@
                                     const lastMsgText = xmtpMessagePreview(message);
                                     const contactIndex = contacts.findIndex(c => c.address.toLowerCase() === contactAddress.toLowerCase());
 
-                                    if (contactIndex > -1) {
+                                    if (contactIndex > -1 && esAvisoDeSistema) {
+                                        // Ni vista previa, ni orden, ni no leídos.
+                                    } else if (contactIndex > -1) {
                                         contacts[contactIndex].lastMessage = lastMsgText;
                                         contacts[contactIndex].lastMessageTimestamp = messageTimestamp;
                                         if (!isSentByMe && !isChatOpen) {
@@ -13473,11 +13490,13 @@
                                         // Nuevo contacto (tanto si me escriben como si escribí yo desde otro dispositivo)
                                         console.log("Añadiendo nuevo contacto desde mensaje:", contactAddress);
                                         const shortAddress = contactAddress.startsWith('0x') ? `${contactAddress.slice(0, 6)}...${contactAddress.slice(-4)}` : contactAddress.slice(0, 10) + '...';
+                                        // Alguien abrió un DM con vos: el contacto aparece ya, pero el
+                                        // aviso de creación no es su primer mensaje.
                                         contacts.push({
                                             name: shortAddress,
                                             address: contactAddress,
-                                            unreadCount: (!isSentByMe && !isChatOpen) ? 1 : 0,
-                                            lastMessage: lastMsgText,
+                                            unreadCount: (!isSentByMe && !isChatOpen && !esAvisoDeSistema) ? 1 : 0,
+                                            lastMessage: esAvisoDeSistema ? null : lastMsgText,
                                             lastMessageTimestamp: messageTimestamp,
                                             status: 'offline',
                                             lastSeen: null,
@@ -13494,7 +13513,7 @@
 
                                 // Una invitación sin aceptar no suena ni notifica: queda marcada en la lista.
                                 const esInvitacion = inGroup && !!findGroupContact(chatKey.conv?.id || groupIdFromKey(contactAddress))?.invitacion;
-                                if (!isSentByMe && !esInvitacion) {
+                                if (!isSentByMe && !esInvitacion && !esAvisoDeSistema) {
                                     playNewMessageSound();
                                     // En un grupo la notificación se titula con el grupo (y el cuerpo
                                     // lleva el autor): "Nuevo mensaje de <fulano>" a secas no diría
@@ -14282,6 +14301,25 @@
                 } catch (e) {
                     return false;
                 }
+            }
+
+            // Avisos de sistema de XMTP ('group_updated'): quién entró o salió de la conversación,
+            // un dispositivo nuevo de alguien, la creación del DM. No los escribió nadie, así que no
+            // son "el último mensaje" de un chat: no cambian la vista previa ni el orden de la
+            // lista, no cuentan como no leídos, no suenan ni reviven un contacto borrado.
+            // Antes el stream los trataba como mensajes: el 24/11/2026 un cambio de dispositivo
+            // metió uno en cada chat del S10+ y los 17 quedaron con `{"initiatedByInboxId":…`
+            // de vista previa, todos en "Ayer" y en un orden que no tenía que ver con nada.
+            function esAvisoDeSistemaXmtp(message) {
+                if (message?.contentType?.typeId === 'group_updated') return true;
+                const c = message?.content;
+                return !!(c && typeof c === 'object' && typeof c.initiatedByInboxId === 'string');
+            }
+            // Lo mismo, sobre una vista previa ya guardada (texto): para limpiar lo que quedó.
+            function esVistaPreviaDeSistema(texto) {
+                if (typeof texto !== 'string' || !texto.startsWith('{')) return false;
+                try { const d = JSON.parse(texto); return !!(d && typeof d.initiatedByInboxId === 'string'); }
+                catch (e) { return false; }
             }
 
             // ═══════════════════════════════════════════════════════════════

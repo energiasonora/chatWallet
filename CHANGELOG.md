@@ -17,6 +17,13 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **La lista de chats ya no se desordena por avisos internos.** Cuando alguien suma o cambia
+  un dispositivo, la red manda un aviso a cada conversación. La app lo tomaba como un mensaje:
+  ponía `{"initiatedByInboxId":…` como vista previa, lo subía en la lista, lo contaba como no
+  leído, sonaba y hasta podía devolver un contacto que habías borrado. Ahora esos avisos no
+  cuentan, y al abrir la app los chats que quedaron así vuelven a mostrar su último mensaje de
+  verdad, en el orden que corresponde.
+
 ## 3.116 — 2026-11-25
 
 - **Navegar con el dedo: izquierda avanza, derecha vuelve.** En un chat, deslizar a la derecha
