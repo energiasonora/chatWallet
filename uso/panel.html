@@ -78,6 +78,8 @@
     .progreso .tope { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--mal); opacity:.7; }
     .progreso .tope.aviso { background:var(--aviso); }
     .nodo-g1 { display:grid; gap:12px; }
+    h2.con-link { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+    h2.con-link a { text-transform:none; letter-spacing:0; font-size:13px; color:var(--acento); text-decoration:none; font-weight:500; }
     .nodo-g1 .fila { display:flex; justify-content:space-between; gap:8px; align-items:baseline; flex-wrap:wrap; }
     .nodo-g1 .fila b { font-size:18px; font-variant-numeric:tabular-nums; }
     .segmentos { display:inline-flex; border:1px solid var(--borde); border-radius:9px; overflow:hidden; }
@@ -299,7 +301,9 @@ function seccionNodoG1(c, serie) {
     if (!svc || (svc.status === 'unknown' && !svc.info?.resumen)) return '';
     const i = svc.info || {};
     const cls = claseDe(svc.status);
-    let h = '<h2>Nodo Ğ1</h2><div class="caja nodo-g1">';
+    // Link al explorador (chatwallet.org/g1), parado en el último bloque que tiene el nodo.
+    const expl = 'https://chatwallet.org/g1/' + (i.bloque ? '?bloque=' + encodeURIComponent(i.bloque) : '');
+    let h = `<h2 class="con-link">Nodo Ğ1 <a href="${expl}" target="_blank" rel="noopener">Ver en el explorador →</a></h2><div class="caja nodo-g1">`;
     // Estado en una frase.
     const al_dia = i.pct != null && i.pct >= 99.9;
     const frase = i.frenado ? 'Frenado por tamaño: no vuelve a arrancar solo'

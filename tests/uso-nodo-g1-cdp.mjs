@@ -69,7 +69,9 @@ try {
     escenario({ corriendo: true, mb: ultima.g1_mb, bloque: ultima.g1_bloque, meta: 3757000, pct: +(100 * ultima.g1_bloque / 3757000).toFixed(1), ram: '1.04GB',
         resumen: 'bloque … de …' }, 'ok');
     await entrar();
-    ok(await esperar(`[...document.querySelectorAll('h2')].some(h => h.textContent === 'Nodo Ğ1')`), 'aparece la sección Nodo Ğ1');
+    ok(await esperar(`[...document.querySelectorAll('h2')].some(h => h.textContent.startsWith('Nodo Ğ1'))`), 'aparece la sección Nodo Ğ1');
+    const href = await ev(`[...document.querySelectorAll('h2')].find(h => h.textContent.startsWith('Nodo Ğ1'))?.querySelector('a')?.href || ''`);
+    ok(/^https:\/\/chatwallet\.org\/g1\/\?bloque=\d+$/.test(href), 'link al explorador en el último bloque — ' + href);
     const v = await ev(`(() => { const s = document.querySelector('.nodo-g1'); return { txt: s.textContent.replace(/\\s+/g, ' '),
         sync: s.querySelectorAll('.progreso i')[0].style.width, disco: s.querySelectorAll('.progreso i')[1].style.width,
         graf: [...document.querySelectorAll('.grafico .cab .tenue')].map(e => e.textContent) }; })()`);
@@ -79,7 +81,7 @@ try {
     ok(parseFloat(v.sync) > 25 && parseFloat(v.sync) < 35 && parseFloat(v.disco) > 13 && parseFloat(v.disco) < 15, 'las barras', `sincro ${v.sync} · disco ${v.disco}`);
     ok(v.graf.includes('Disco del nodo Ğ1') && v.graf.includes('Bloques sincronizados'), 'los dos gráficos');
     ok(await ev(`document.documentElement.scrollWidth`) <= 390, 'entra a lo ancho en el celu');
-    await ev(`[...document.querySelectorAll('h2')].find(h => h.textContent === 'Nodo Ğ1').scrollIntoView(); true`);
+    await ev(`[...document.querySelectorAll('h2')].find(h => h.textContent.startsWith('Nodo Ğ1')).scrollIntoView(); true`);
     await foto('1-sincronizando');
 
     console.log('── 7 días ──');
@@ -105,7 +107,7 @@ try {
     escenario({ note: 'no instalado' }, 'unknown');
     await entrar();
     await esperar(`!!document.querySelector('.estado-grande')`);
-    ok(!(await ev(`[...document.querySelectorAll('h2')].some(h => h.textContent === 'Nodo Ğ1')`)), 'sin nodo, no hay sección');
+    ok(!(await ev(`[...document.querySelectorAll('h2')].some(h => h.textContent.startsWith('Nodo Ğ1'))`)), 'sin nodo, no hay sección');
 
     ok(!errores.length, 'sin excepciones', errores.join(' | ').slice(0, 300));
 } catch (e) { ok(false, 'la prueba se cortó', e.message); }
