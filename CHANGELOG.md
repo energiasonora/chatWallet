@@ -17,6 +17,8 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.116 — 2026-11-25
+
 - **Navegar con el dedo: izquierda avanza, derecha vuelve.** En un chat, deslizar a la derecha
   (en cualquier parte, también sobre un mensaje) te devuelve a la agenda: el chat se corre con
   el dedo y deja ver la agenda debajo. Para responder un mensaje se lo desliza a la izquierda.
