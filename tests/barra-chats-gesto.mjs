@@ -124,7 +124,7 @@ try {
     p = await ev(posicion);
     ok(!p.activa, 'un scroll vertical (con algo de desvío) no la abre');
 
-    await ev(`(() => { const r = document.createElement('div'); r.id = 'filaPrueba'; r.dataset.gestoPropio = 'responder';
+    await ev(`(() => { const r = document.createElement('div'); r.id = 'filaPrueba'; r.dataset.gestoPropio = 'izquierda';
         r.style.cssText = 'position:fixed;left:0;right:0;top:300px;height:80px;z-index:20;background:rgba(255,0,0,.1)';
         document.body.appendChild(r); return true; })()`);
     await arrastrar(330, 150, 340, 10, 20);

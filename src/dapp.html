@@ -710,6 +710,12 @@
             transform: translateX(0);
         }
 
+        /* El último chat que abriste: deslizar a la izquierda con la agenda abierta lo reabre.
+           Una raya índigo a la izquierda (se lee igual en tema claro y oscuro). */
+        .contact-item.cw-ultimo-chat {
+            box-shadow: inset 3px 0 0 #6366f1;
+        }
+
         .user-profile-section {
             padding: 1rem;
             border-bottom: 1px solid #374151;
@@ -11597,6 +11603,7 @@
 
                 contactsListSidebar.innerHTML = '';
                 let totalUnread = 0;
+                const ultimoChat = ultimoChatDireccion();
 
                 if (contacts.length === 0) {
                     contactsListSidebar.innerHTML = `<p class="text-center text-gray-500 mt-8">No tienes contactos. <br>¡Añade uno para empezar a chatear!</p>`;
@@ -11652,6 +11659,8 @@
 
                         const contactEl = document.createElement('div');
                         contactEl.className = 'contact-item flex items-center p-3 bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-700 transition gap-3 mb-2';
+                        contactEl.dataset.address = contact.address;
+                        if (ultimoChat && contact.address && contact.address.toLowerCase() === ultimoChat) contactEl.classList.add('cw-ultimo-chat');
                         // Un grupo no se edita ni se bloquea como contacto: solo se sale (y eso es
                         // exactamente lo que hace su botón de borrar).
                         const rowActions = isG
@@ -12065,8 +12074,30 @@
             }
 
             // --- Chat ---
+            // El último chat que abriste: deslizar a la izquierda con la agenda abierta lo reabre
+            // (principal ←← último chat), y su fila lleva una marca para que se vea qué va a abrir.
+            // Se marca en vez de subirlo en la lista: la lista sigue ordenada por el último
+            // mensaje y no se mueve bajo el dedo. Se guarda para que valga también después de
+            // reiniciar la app; al olvidar la billetera se borra (dice con quién hablaste).
+            const ULTIMO_CHAT_KEY = 'cw-ultimo-chat';
+            function ultimoChatDireccion() {
+                try { return (localStorage.getItem(ULTIMO_CHAT_KEY) || '').toLowerCase(); } catch (e) { return ''; }
+            }
+            function ultimoChatContacto() {
+                const a = ultimoChatDireccion();
+                return a ? (contacts.find(c => c.address && c.address.toLowerCase() === a) || null) : null;
+            }
+            function recordarUltimoChat(address) {
+                const a = String(address || '').toLowerCase();
+                if (!a) return;
+                try { localStorage.setItem(ULTIMO_CHAT_KEY, a); } catch (e) { }
+                contactsListSidebar.querySelectorAll('.contact-item').forEach(el =>
+                    el.classList.toggle('cw-ultimo-chat', (el.dataset.address || '').toLowerCase() === a));
+            }
+
             async function startChatWithContact(contact) {
                 currentChatContact = contact;   // lo usa el pull-to-refresh para recargar el hilo
+                recordarUltimoChat(contact.address);
                 // Cada apertura invalida las cargas anteriores: si abrís B mientras A todavía
                 // sincroniza, la carga de A ya no pisa la pantalla (era otra fuente de hilos raros/vacíos).
                 chatOpenToken++;
@@ -15030,9 +15061,12 @@
 
             // ── Gestos sobre las burbujas ────────────────────────────────────
             // Long-press (450ms, mouse o touch) y doble tap/click → picker de reacciones.
-            // Swipe horizontal dominante (>55px) sobre la fila → modo respuesta.
+            // Swipe hacia la IZQUIERDA (>55px, eje dominante) sobre la fila → modo respuesta.
+            // Hacia la derecha la fila no hace nada: ese gesto es "volver" (el chat se va y
+            // queda la agenda), y como casi toda la pantalla del chat son burbujas, si la fila
+            // se lo quedara volver sólo andaría en los huecos entre mensajes.
             function attachMessageGestures(row, bubble, msgId) {
-                row.dataset.gestoPropio = 'responder';   // la barra de chats no le roba este deslizamiento
+                row.dataset.gestoPropio = 'izquierda';   // los gestos de navegación no le roban ←
                 let lpTimer = null, pStartX = 0, pStartY = 0, pMoved = false;
                 const clearLp = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
                 bubble.addEventListener('pointerdown', (e) => {
@@ -15050,19 +15084,24 @@
                 // dentro de las burbujas para que gane el picker.
                 bubble.addEventListener('contextmenu', (e) => { e.preventDefault(); });
 
-                let tStartX = 0, tStartY = 0, swiping = false, dx = 0;
+                let tStartX = 0, tStartY = 0, swiping = false, dx = 0, ajeno = false;
                 row.addEventListener('touchstart', (e) => {
                     const t = e.touches[0];
-                    tStartX = t.clientX; tStartY = t.clientY; swiping = false; dx = 0;
+                    tStartX = t.clientX; tStartY = t.clientY; swiping = false; dx = 0; ajeno = false;
                 }, { passive: true });
                 row.addEventListener('touchmove', (e) => {
+                    if (ajeno) return;
                     const t = e.touches[0];
                     const mx = t.clientX - tStartX, my = t.clientY - tStartY;
                     if (!swiping) {
-                        if (Math.abs(mx) > 14 && Math.abs(mx) > Math.abs(my) * 1.5) { swiping = true; clearLp(); }
+                        if (Math.abs(mx) > 14 && Math.abs(mx) > Math.abs(my) * 1.5) {
+                            clearLp();
+                            if (mx > 0) { ajeno = true; return; }   // → es "volver": no es de la fila
+                            swiping = true;
+                        }
                         else { if (Math.abs(my) > 10) clearLp(); return; }
                     }
-                    dx = Math.max(-80, Math.min(80, mx));
+                    dx = Math.max(-80, Math.min(0, mx));
                     row.style.transition = 'none';
                     row.style.transform = `translateX(${dx}px)`;
                 }, { passive: true });
@@ -18521,10 +18560,12 @@
                 }
                 // 4. Sidebar de contactos abierta
                 if (contactsSidebar && contactsSidebar.classList.contains('active')) { closeSidebar(); return; }
-                // 5. Cualquier vista que no sea la principal (chat, historial, docs)
+                // 5. Chat → a la agenda, igual que la flecha ← y deslizar a la derecha.
                 const activeView = document.querySelector('.view.active');
+                if (activeView && activeView.id === 'chatView') { volverDelChat(); return; }
+                // 6. Cualquier otra vista que no sea la principal (historial, balances, archivos)
                 if (!activeView || activeView.id !== 'walletView') { showView('walletView'); return; }
-                // 6. Ya en la principal sin nada abierto → al fondo
+                // 7. Ya en la principal sin nada abierto → al fondo
                 try { NativeApp.minimizeApp(); } catch (e) { }
             }
 
@@ -24282,7 +24323,7 @@
             async function olvidarDatosLocales(dir) {
                 [WALLET_MNEMONIC_KEY, WALLET_BACKUP_DONE_KEY, NETWORKS_STORAGE_KEY, SELECTED_NETWORK_KEY, WALLET_ORIGIN_KEY,
                  CONTACTS_STORAGE_KEY, TOMBSTONES_STORAGE_KEY, OWN_PROFILE_KEY, OFFLINE_THREADS_KEY, STEALTH_PENDING_KEY,
-                 WC_SESSIONS_KEY, WC_ACTIVITY_KEY, WC_APPS_KEY, NOTIFIED_TS_KEY, 'cw-link-force-restore'
+                 WC_SESSIONS_KEY, WC_ACTIVITY_KEY, WC_APPS_KEY, NOTIFIED_TS_KEY, 'cw-link-force-restore', 'cw-ultimo-chat'
                 ].forEach(k => { try { localStorage.removeItem(k); } catch (e) { } });
                 // Todo lo que lleva la dirección en el nombre (respaldo, Ğ1, Monero, instalación XMTP…).
                 if (dir) Object.keys(localStorage).filter(k => k.toLowerCase().includes(dir)).forEach(k => localStorage.removeItem(k));
@@ -24320,15 +24361,19 @@
 
             // El botón del header copia el LINK DE INVITACIÓN (la address se copia bajo el QR).
             copyAddressButton.addEventListener('click', shareInviteLink);
-            backToContactsBtn.addEventListener('click', () => {
-                // Close chat view and show wallet view, also open sidebar
+            // Salir de un chat vuelve a la AGENDA (la principal con la barra de chats abierta): un
+            // nivel por vez, principal → agenda → chat. Es el mismo destino para la flecha ←, el
+            // botón atrás de Android y deslizar a la derecha; antes la flecha iba a la agenda y el
+            // botón de Android a la principal (y sin avisar que dejabas de estar en línea).
+            function volverDelChat() {
                 // "En línea" es en ESTE chat: al salir se deja de renovar y se avisa (mejor
                 // esfuerzo; si el aviso no llega, la ventana lo vence igual).
                 presenciaPararLatido();
                 if (currentConversation) sendPresence(currentConversation, 'offline').catch(() => { });
                 showView('walletView');
                 openSidebar();
-            });
+            }
+            backToContactsBtn.addEventListener('click', volverDelChat);
 
             const chatHeaderInfo = document.getElementById('chatHeaderInfo');
             if (chatHeaderInfo) {
@@ -25223,7 +25268,10 @@
                 const headerBtn = document.getElementById('chatHeaderBtn');
                 if (contactsSidebar && contactsSidebar.classList.contains('active') &&
                     !contactsSidebar.contains(e.target) && // y el click no es dentro del sidebar
-                    (!headerBtn || !headerBtn.contains(e.target)) // y no es sobre el botón de chat del header (si no, lo abriría y cerraría a la vez)
+                    (!headerBtn || !headerBtn.contains(e.target)) && // y no es sobre el botón de chat del header (si no, lo abriría y cerraría a la vez)
+                    // Ni la flecha ← del chat, que vuelve a la agenda: la abría y este mismo click
+                    // la cerraba, así que la flecha te dejaba en la principal.
+                    !backToContactsBtn.contains(e.target)
                 ) {
                     closeSidebar();
                 }
@@ -25259,37 +25307,105 @@
                 }, true);
             }
 
-            // --- Barra de chats con el dedo (como Off Player) ---
-            // La barra sigue al dedo para abrir y para cerrar, el fondo se oscurece a la par, y al
-            // soltar decide la velocidad (un gesto rápido manda la dirección) o, si fue lento, dónde
-            // quedó. Antes sólo cerraba arrastrando; para abrir había que hacer un "flick" que la
-            // tiraba entera de golpe al levantar el dedo.
+            // --- Navegar con el dedo: principal → agenda → chat ---
+            // Una sola regla: deslizar a la IZQUIERDA avanza, a la DERECHA vuelve, un nivel por gesto.
+            //   · principal   ← abre la agenda
+            //   · agenda      ← reabre el último chat   · → la cierra
+            //   · chat        ← sobre una burbuja: responder   · → vuelve a la agenda
+            // Así principal ←← te deja en el último chat, y del chat a la principal es →→.
+            // La barra sigue al dedo para abrir y para cerrar (como Off Player), el fondo se oscurece
+            // a la par, y al soltar decide la velocidad (un gesto rápido manda la dirección) o, si fue
+            // lento, dónde quedó. Al volver del chat, el chat se corre con el dedo y deja ver la agenda
+            // que estaba debajo: mientras dura el gesto, la pantalla (header + contenido) sube por
+            // encima de la barra con un telón opaco detrás, porque el header es translúcido.
             // El gesto agarra en cualquier parte de la pantalla y no sólo en el borde: los paneles
             // Edge de Samsung se quedan con la franja del borde derecho y ahí el toque no llega.
-            (function gestoBarraChats() {
+            (function gestosDeNavegacion() {
                 const MIN = 8;        // px para decidir si es horizontal o es scroll
                 let x0 = 0, y0 = 0, dx = 0, w = 300, t0 = 0, siguiendo = false, eje = '';
+                let accion = '';            // 'barra' (abrir/cerrar la agenda) · 'adelante' · 'volver'
+                let soloDerecha = false;    // arrancó sobre una burbuja: su ← es responder, no navegar
+                let animando = false;       // el chat terminando de irse o de volver: no tomar otro gesto
+                let filaUltimo = null, capas = [], telon = null, anchoPantalla = 390;
                 const abierta = () => contactsSidebar.classList.contains('active');
-                // No robarle el dedo a lo que ya tiene su propio gesto horizontal: deslizar para
-                // responder un mensaje, descartar una notificación, los sliders y los campos de texto.
+                const enChat = () => chatView.classList.contains('active');
+                // No robarle el dedo a lo que ya tiene su propio gesto horizontal: descartar una
+                // notificación, los sliders y los campos de texto. Las burbujas son aparte: se quedan
+                // con ← (responder) y → sigue siendo volver.
                 const saltear = (el) => !!(el && el.closest && el.closest(
-                    'input, textarea, select, [contenteditable="true"], dialog, [data-gesto-propio], .cw-notif'));
+                    'input, textarea, select, [contenteditable="true"], dialog, .cw-notif, [data-gesto-propio]:not([data-gesto-propio="izquierda"])'));
                 const pos = () => Math.max(0, Math.min(w, (abierta() ? 0 : w) + dx));
+                const pickerAbierto = () => {
+                    const p = document.getElementById('reactionPicker');
+                    return !!(p && !p.classList.contains('hidden') && p.offsetWidth);
+                };
 
                 document.addEventListener('touchstart', (e) => {
                     siguiendo = false;
-                    if (e.touches.length !== 1 || saltear(e.target)) return;
+                    if (animando || e.touches.length !== 1 || saltear(e.target)) return;
                     if (!abierta()) {
                         // Sin wallet no hay chats, y con un modal encima la barra quedaría detrás.
                         if (typeof currentWallet === 'undefined' || !currentWallet) return;
                         if (modalesALaVista().length) return;
                         const scanner = document.getElementById('scannerView');
                         if (scanner && !scanner.classList.contains('hidden') && scanner.offsetWidth) return;
+                        if (enChat() && pickerAbierto()) return;
                     }
                     const t = e.touches[0];
-                    x0 = t.clientX; y0 = t.clientY; dx = 0; eje = ''; t0 = performance.now(); siguiendo = true;
+                    x0 = t.clientX; y0 = t.clientY; dx = 0; eje = ''; accion = ''; t0 = performance.now();
+                    soloDerecha = !!e.target.closest?.('[data-gesto-propio="izquierda"]');
+                    siguiendo = true;
                     w = contactsSidebar.getBoundingClientRect().width || 300;
                 }, { passive: true });
+
+                function empezar() {
+                    if (accion === 'barra') {
+                        contactsSidebar.style.transition = 'none';
+                        sidebarOverlay.style.transition = 'none';
+                        sidebarOverlay.style.visibility = 'visible';
+                        document.body.style.overflow = 'hidden';
+                    } else if (accion === 'adelante') {
+                        filaUltimo = contactsListSidebar.querySelector('.contact-item.cw-ultimo-chat');
+                        if (filaUltimo) filaUltimo.style.transition = 'none';
+                    } else if (accion === 'volver') {
+                        anchoPantalla = window.innerWidth || 390;
+                        const shell = document.getElementById('app-shell');
+                        // Debajo, la agenda ya abierta (sin animar: la tapa el chat)…
+                        contactsSidebar.style.transition = 'none';
+                        contactsSidebar.style.transform = '';
+                        contactsSidebar.classList.add('active');
+                        sidebarOverlay.style.transition = 'none';
+                        sidebarOverlay.classList.add('active');
+                        document.body.style.overflow = 'hidden';
+                        // …y encima la pantalla del chat. Son ítems flex del shell: el z-index les
+                        // vale sin cambiarles el position (que movería a sus hijos absolutos).
+                        const fondo = getComputedStyle(document.body).backgroundColor;
+                        telon = document.createElement('div');
+                        telon.id = 'cwTelonChat';
+                        telon.style.cssText = 'position:fixed;inset:0;z-index:44;pointer-events:none;'
+                            + `background:${fondo && fondo !== 'transparent' && !/,\s*0\)$/.test(fondo) ? fondo : '#111827'};`
+                            + 'box-shadow:-10px 0 30px rgba(0,0,0,.35);will-change:transform;';
+                        shell.appendChild(telon);
+                        capas = [appHeader, document.getElementById('noticeStack'), shell.querySelector(':scope > .flex.flex-1')]
+                            .filter(Boolean);
+                        capas.forEach(el => { el.style.zIndex = '45'; el.style.transition = 'none'; el.style.willChange = 'transform'; });
+                    }
+                }
+
+                function mover() {
+                    if (accion === 'barra') {
+                        const x = pos();
+                        contactsSidebar.style.transform = `translateX(${x}px)`;
+                        sidebarOverlay.style.opacity = String(1 - x / w);
+                    } else if (accion === 'adelante') {
+                        // La fila del último chat acompaña al dedo, frenada: "esto es lo que abre".
+                        if (filaUltimo) filaUltimo.style.transform = `translateX(${Math.max(-56, Math.min(0, dx * 0.5))}px)`;
+                    } else if (accion === 'volver') {
+                        const tr = `translateX(${Math.max(0, Math.min(anchoPantalla, dx))}px)`;
+                        telon.style.transform = tr;
+                        capas.forEach(el => { el.style.transform = tr; });
+                    }
+                }
 
                 document.addEventListener('touchmove', (e) => {
                     if (!siguiendo) return;
@@ -25299,36 +25415,98 @@
                     if (!eje) {
                         if (Math.abs(dx) < MIN && Math.abs(dy) < MIN) return;
                         eje = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y';
-                        // Vertical (scroll), o empujar hacia donde la barra ya está: soltar.
-                        if (eje === 'y' || (abierta() ? dx < 0 : dx > 0)) { siguiendo = false; return; }
-                        contactsSidebar.style.transition = 'none';
-                        sidebarOverlay.style.transition = 'none';
-                        sidebarOverlay.style.visibility = 'visible';
-                        document.body.style.overflow = 'hidden';
+                        // Vertical (scroll), o el ← de una burbuja (responder): soltar.
+                        if (eje === 'y' || (soloDerecha && dx < 0)) { siguiendo = false; return; }
+                        if (abierta()) accion = dx > 0 ? 'barra' : (ultimoChatContacto() ? 'adelante' : '');
+                        else if (enChat()) accion = dx > 0 ? 'volver' : '';
+                        else accion = dx < 0 ? 'barra' : '';
+                        if (!accion) { siguiendo = false; return; }
+                        empezar();
                     }
-                    if (e.cancelable) e.preventDefault();   // el dedo maneja la barra, no el scroll
-                    const x = pos();
-                    contactsSidebar.style.transform = `translateX(${x}px)`;
-                    sidebarOverlay.style.opacity = String(1 - x / w);
+                    if (e.cancelable) e.preventDefault();   // el dedo maneja la pantalla, no el scroll
+                    mover();
                 }, { passive: false });
+
+                function limpiarCapas() {
+                    capas.forEach(el => { el.style.zIndex = ''; el.style.transform = ''; el.style.transition = ''; el.style.willChange = ''; });
+                    capas = [];
+                    if (telon) { telon.remove(); telon = null; }
+                }
+
+                // El chat termina de irse (irse) o vuelve a su lugar; recién ahí se cambia de vista.
+                function terminarVolver(irse) {
+                    animando = true;
+                    const tr = `translateX(${irse ? anchoPantalla : 0}px)`;
+                    [telon, ...capas].forEach(el => {
+                        el.style.transition = 'transform .22s cubic-bezier(.22, .61, .36, 1)';
+                        el.style.transform = tr;
+                    });
+                    setTimeout(() => {
+                        try {
+                            if (irse) {
+                                // Fuera de pantalla ya: pasar a la principal y bajar las capas en el
+                                // mismo cuadro deja la agenda arriba, como siempre.
+                                volverDelChat();
+                            } else {
+                                // Se arrepintió: la agenda de abajo se guarda sin animar (la tapa el chat).
+                                contactsSidebar.classList.remove('active');
+                                sidebarOverlay.classList.remove('active');
+                                document.body.style.overflow = '';
+                            }
+                        } finally {
+                            limpiarCapas();
+                            void contactsSidebar.offsetWidth;   // que se aplique sin transición…
+                            requestAnimationFrame(() => {       // …antes de devolvérsela
+                                contactsSidebar.style.transition = '';
+                                sidebarOverlay.style.transition = '';
+                                animando = false;
+                            });
+                        }
+                    }, 240);
+                }
+
+                function reabrirUltimoChat() {
+                    const c = ultimoChatContacto();
+                    if (!c) return;
+                    vibrar(10);
+                    closeSidebar();
+                    // La agenda estaba abierta encima de ese mismo chat (por el botón del header):
+                    // alcanza con cerrarla.
+                    if (enChat() && currentChatContact && String(currentChatContact.address).toLowerCase() === c.address.toLowerCase()) return;
+                    Promise.resolve(startChatWithContact(c)).catch(err => console.warn('[gesto] reabrir el último chat:', err));
+                }
 
                 const soltar = (cancelado) => {
                     if (!siguiendo) return;
                     siguiendo = false;
-                    if (eje !== 'x') return;
+                    if (eje !== 'x' || !accion) return;
+                    const hecho = accion; accion = '';
                     const vel = dx / Math.max(1, performance.now() - t0);   // px/ms
-                    let abrir;
-                    if (cancelado) abrir = abierta();
                     // Igual que Off Player: pasados 60 px manda la dirección; un toque corto pero
-                    // rápido (flick) también; si no, dónde quedó la barra.
-                    else if (Math.abs(dx) > 60 || Math.abs(vel) > 0.4) abrir = dx < 0;
-                    else abrir = pos() < w / 2;
-                    // La transición la vuelve a poner la clase: se limpian los estilos del dedo.
-                    contactsSidebar.style.transition = '';
-                    sidebarOverlay.style.transition = '';
-                    sidebarOverlay.style.visibility = '';
-                    sidebarOverlay.style.opacity = '';
-                    if (abrir) openSidebar(); else closeSidebar();
+                    // rápido (flick) también; si no, dónde quedó.
+                    const decidido = Math.abs(dx) > 60 || Math.abs(vel) > 0.4;
+                    if (hecho === 'barra') {
+                        let abrir;
+                        if (cancelado) abrir = abierta();
+                        else if (decidido) abrir = dx < 0;
+                        else abrir = pos() < w / 2;
+                        // La transición la vuelve a poner la clase: se limpian los estilos del dedo.
+                        contactsSidebar.style.transition = '';
+                        sidebarOverlay.style.transition = '';
+                        sidebarOverlay.style.visibility = '';
+                        sidebarOverlay.style.opacity = '';
+                        if (abrir) openSidebar(); else closeSidebar();
+                    } else if (hecho === 'adelante') {
+                        const fila = filaUltimo; filaUltimo = null;
+                        if (fila) {
+                            fila.style.transition = 'transform .18s ease-out'; fila.style.transform = '';
+                            setTimeout(() => { fila.style.transition = ''; }, 200);   // que vuelva la de Tailwind (hover)
+                        }
+                        if (!cancelado && decidido && dx < 0) reabrirUltimoChat();
+                    } else if (hecho === 'volver') {
+                        const x = Math.max(0, Math.min(anchoPantalla, dx));
+                        terminarVolver(!cancelado && (decidido ? dx > 0 : x > anchoPantalla / 2));
+                    }
                 };
                 document.addEventListener('touchend', () => soltar(false));
                 document.addEventListener('touchcancel', () => soltar(true));

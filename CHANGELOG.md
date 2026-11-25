@@ -17,6 +17,15 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Navegar con el dedo: izquierda avanza, derecha vuelve.** En un chat, deslizar a la derecha
+  (en cualquier parte, también sobre un mensaje) te devuelve a la agenda: el chat se corre con
+  el dedo y deja ver la agenda debajo. Para responder un mensaje se lo desliza a la izquierda.
+  Con la agenda abierta, deslizar a la izquierda reabre el último chat que tuviste abierto, que
+  lleva una raya de color en la lista. Desde el inicio, dos veces a la izquierda te deja en ese
+  chat, y desde el chat, dos veces a la derecha te lleva al inicio.
+- **La flecha ← del chat y el botón atrás de Android van a la agenda.** La flecha intentaba
+  abrirla, pero el mismo toque la volvía a cerrar y terminabas en el inicio. Ahora la flecha, el
+  botón atrás y el gesto te llevan al mismo lugar.
 - **Salir del Modo frío ya no rehace los chats.** Al volver a conectarte, la app abría el chat
   por segunda vez sin cerrar el primero: no podía usar tu base guardada, armaba una nueva,
   avisaba que «el navegador borró los chats», rearmaba la lista desde el respaldo (en otro
