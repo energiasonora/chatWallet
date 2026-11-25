@@ -17,6 +17,16 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.122 — 2026-11-25
+
+- **El QR de la billetera ya no sale cortado en pantallas chicas.** En teléfonos con la pantalla
+  agrandada o la letra grande (un S9, por ejemplo) le faltaban las esquinas de arriba y no se
+  podía escanear. Ahora el QR se ajusta al lugar que queda y se ve siempre entero.
+- **El saldo entra en un renglón:** el monto grande y el ticker (USDC, ETH…) más chico al lado.
+  El ticker nunca se corta: si es largo, pasa entero al renglón de abajo.
+- **Modo frío: el chat vuelve a tener el campo de texto ancho.** El botón 📡 del chat por radio
+  ocupaba lugar al lado del campo; ahora «Radio sin internet» está dentro del menú **+**.
+
 ## 3.121 — 2026-11-25
 
 - **La línea 🤝 ya no inventa cómo empezó un contacto.** Al reconectar un dispositivo, el chat
