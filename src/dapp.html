@@ -13863,8 +13863,14 @@
             async function cwAvisarSiDispositivoDadoDeBaja() {
                 if (!chatwalletxmtp || isOffline) return;
                 const viva = await cwInstalacionViva();
-                document.getElementById('cwDispositivoBaja')?.remove();
-                if (viva !== false) return;
+                if (viva !== false) { document.getElementById('cwDispositivoBaja')?.remove(); return; }
+                cwMostrarDispositivoDadoDeBaja();
+            }
+            // Un solo aviso, arriba: el chat abierto no repite el suyo (salía dos veces, uno
+            // encima del otro, con el mismo botón; captura del S10+ del 25/11/2026).
+            function cwMostrarDispositivoDadoDeBaja() {
+                document.getElementById('cwChatSinSync')?.remove();
+                if (document.getElementById('cwDispositivoBaja')) return;
                 console.error('⚠️ La instalación de XMTP de este dispositivo está dada de baja: no entra ni sale nada.');
                 const stack = document.getElementById('noticeStack');
                 if (!stack) return;
@@ -13916,7 +13922,7 @@
                 pintar(t(esGrupo ? 'chat_fuera_grupo' : 'chat_fuera'));
                 if (esGrupo) return;
                 const viva = await cwInstalacionViva();
-                if (viva === false) { pintar(t('chat_fuera_baja'), t('chat_fuera_reconectar'), cwReconectarDispositivo); return; }
+                if (viva === false) { if (token === chatOpenToken) cwMostrarDispositivoDadoDeBaja(); return; }
                 if (cwReabrirIntentado === conv.id) { pintar(t('chat_fuera_sigue')); return; }
                 pintar(t('chat_fuera'), t('chat_fuera_reabrir'), async (ev) => {
                     const contacto = currentChatContact;

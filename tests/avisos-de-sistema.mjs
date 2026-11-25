@@ -191,6 +191,22 @@ try {
     b = await baja(`throw new Error('sin red');`);
     ok(b.viva === null && !b.aviso, 'si la red no contesta, no se asusta a nadie (null, sin aviso)');
 
+    // Con el aviso de arriba ya puesto, abrir un chat que falla con "inactive" no agrega otro
+    // (salían dos, uno encima del otro: captura del S10+ del 25/11/2026).
+    const doble = await ev(`(async () => {
+        window.__fetchInboxStates = async () => [{ installations: [] }];
+        await cwAvisarSiDispositivoDadoDeBaja();
+        await cwAvisarChatSinSync({ id: 'conv-x' }, new Error('Group is inactive'), chatOpenToken);
+        const reconectar = [...document.querySelectorAll('button')].filter(x => /Reconectar este dispositivo/.test(x.textContent));
+        return { botones: reconectar.length, delChat: !!document.getElementById('cwChatSinSync'), arriba: !!document.getElementById('cwDispositivoBaja') }; })()`);
+    ok(doble.botones === 1 && !doble.delChat && doble.arriba, 'con el chat abierto, el aviso de dado de baja sale una sola vez', JSON.stringify(doble));
+    const soloChat = await ev(`(async () => {
+        document.getElementById('cwDispositivoBaja')?.remove();
+        await cwAvisarChatSinSync({ id: 'conv-y' }, new Error('Group is inactive'), chatOpenToken);
+        const reconectar = [...document.querySelectorAll('button')].filter(x => /Reconectar este dispositivo/.test(x.textContent));
+        return { botones: reconectar.length, arriba: !!document.getElementById('cwDispositivoBaja') }; })()`);
+    ok(soloChat.botones === 1 && soloChat.arriba, 'y si el chat lo descubre primero, pone el de arriba (no uno propio)', JSON.stringify(soloChat));
+
     console.log('\n── el respaldo no vuelve a ensuciarla ──');
     ok(await ev(`esVistaPreviaDeSistema(${JSON.stringify(aviso('x'))}) && !esVistaPreviaDeSistema('hola') && !esVistaPreviaDeSistema('{"cw":1}')`),
         'reconoce una vista previa de sistema y nada más');

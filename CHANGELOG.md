@@ -17,6 +17,9 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **El aviso de dispositivo dado de baja sale una sola vez.** Con un chat abierto aparecía
+  repetido (arriba y en el chat, con el mismo botón). Ahora queda solo el de arriba.
+
 ## 3.118 — 2026-11-25
 
 - **Si este dispositivo quedó dado de baja del chat, la app lo dice y lo arregla.** Puede pasar
