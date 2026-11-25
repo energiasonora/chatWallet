@@ -17,6 +17,13 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.123 — 2026-11-25
+
+- **El QR de la billetera es más liviano.** El enlace de invitación ahora lleva solo tu clave
+  pública (tu dirección se calcula a partir de ella), así que pasó de ~150 a ~100 caracteres:
+  el QR tiene menos cuadraditos (49×49 en vez de 57×57), más grandes y fáciles de escanear.
+  Las versiones de la app anteriores a la 3.116 no lo leen con su escáner: conviene actualizar.
+
 ## 3.122 — 2026-11-25
 
 - **El QR de la billetera ya no sale cortado en pantallas chicas.** En teléfonos con la pantalla
