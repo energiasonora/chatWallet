@@ -17,6 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.124 — 2026-11-25
+
+- **El encabezado de la agenda quedó más simple:** solo **+ Grupo** (ahora con texto, el ícono
+  solo no se entendía) y añadir contacto. En pantallas chicas el botón de añadir contacto
+  quedaba cortado. El 📡 ya no se repite en la agenda (sigue en la pantalla principal en Modo
+  frío y en el **+** del chat), y guardar o cargar la agenda en un archivo pasó a
+  **Configuración → Llevar contactos a otro dispositivo**, junto al QR.
+
 ## 3.123 — 2026-11-25
 
 - **El QR de la billetera es más liviano.** El enlace de invitación ahora lleva solo tu clave
