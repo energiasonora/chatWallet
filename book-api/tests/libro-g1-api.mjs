@@ -1,3 +1,4 @@
+import { Wallet, SigningKey } from 'ethers';
 const B = 'http://127.0.0.1:8787', SQ = 'http://127.0.0.1:8799';
 const ADM = { Authorization: 'Bearer admin-prueba', 'Content-Type': 'application/json' };
 const CUENTA = 'g1XunorusCuentaDePrueba11111111111111111111111111';
@@ -69,6 +70,46 @@ chk(r.status === 200 && /Crypto-pour-Souverains\.pdf/.test(r.headers.get('conten
 [s, j] = await get('/purchases?address=' + encodeURIComponent('g1:g1CompradorFalso1111111111111111111111111111111111'));
 chk(j.purchases.length === 0, '/purchases no lista compras en Ğ1');
 
+// ── entrega por ChatWallet ──
+const comprador = Wallet.createRandom();
+const pkComp = SigningKey.computePublicKey(comprador.signingKey.publicKey, true).slice(2);
+const cw = (b) => post('/g1/chatwallet', b);
+[s] = await cw({ codigo: p1.codigo, s: '0'.repeat(32), wallet: comprador.address });
+chk(s === 404, 'ChatWallet: sin la clave del pedido no se puede cargar');
+[s] = await cw({ codigo: p1.codigo, s: p1.s, wallet: 'cualquier cosa' });
+chk(s === 400, 'ChatWallet: rechaza lo que no es dirección ni enlace');
+[s, j] = await cw({ codigo: p1.codigo, s: p1.s, wallet: `https://chatwallet.org/dapp?pk=${pkComp}` });
+chk(s === 200 && j.chatwallet === comprador.address.toLowerCase(), 'ChatWallet: acepta el enlace de invitación con ?pk= (saca la 0x)');
+[s, j] = await get('/admin/events?since=0', ADM);
+let ent = j.events.filter((e) => e.type === 'libro-g1-chat');
+chk(ent.length === 1 && ent[0].codigo === p1.codigo && ent[0].lang === 'fr' && ent[0].wallet_address === comprador.address.toLowerCase()
+  && ent[0].descarga === `https://libro.chatwallet.org/download?token=${tok}`, 'evento para el notificador: pagado + ChatWallet → enlace de descarga (FR)');
+[s] = await get('/admin/events?since=0');
+chk(s === 401, '/admin/events sigue pidiendo token');
+// cargada ANTES de pagar: el evento sale recién al pagarse
+const [, pw] = await post('/g1/pedido', { lang: 'es', wallet: comprador.address });
+chk(pw.chatwallet === comprador.address.toLowerCase(), 'ChatWallet también se puede dar al crear el pedido');
+const antes = Date.now();
+[s, j] = await get(`/admin/events?since=${antes - 60000}`, ADM);
+chk(!j.events.some((e) => e.codigo === pw.codigo), 'sin pago no hay envío');
+await pagar({ toId: CUENTA, amount: 15000, remark: pw.codigo });
+[s, j] = await get(`/g1/pedido?codigo=${pw.codigo}&s=${pw.s}`);
+chk(j.pagado, 'pago del pedido con ChatWallet');
+[s, j] = await get(`/admin/events?since=${antes}`, ADM);
+ent = j.events.filter((e) => e.codigo === pw.codigo);
+chk(ent.length === 1 && ent[0].type === 'libro-g1-chat', 'al pagarse sale el envío por ChatWallet');
+// cambiar la dirección vuelve a mandar
+await dormir(5);
+const otro = Wallet.createRandom();
+const marca = Date.now();
+[s, j] = await cw({ codigo: pw.codigo, s: pw.s, wallet: otro.address });
+[s, j] = await get(`/admin/events?since=${marca - 1}`, ADM);
+ent = j.events.filter((e) => e.codigo === pw.codigo);
+chk(ent.length === 1 && ent[0].wallet_address === otro.address.toLowerCase(), 'cambiar la dirección dispara un envío nuevo a la nueva');
+[s, j] = await cw({ codigo: pw.codigo, s: pw.s, wallet: otro.address });
+[s, j] = await get(`/admin/events?since=${Date.now() - 1}`, ADM);
+chk(!j.events.some((e) => e.codigo === pw.codigo), 'repetir la misma dirección no reenvía');
+
 // pedido ES pagado a mano
 const [, p2] = await post('/g1/pedido', { lang: 'es' });
 [s] = await post('/admin/g1/pagado', { codigo: p2.codigo });
@@ -105,10 +146,11 @@ await post('/admin/g1/config', { activo: false }, ADM);
 // panel y notificador
 [s, j] = await get('/admin/g1', ADM);
 const pag = j.pedidos.filter((p) => p.pagado);
-chk(pag.length === 3 && pag.some((p) => p.via === 'manual') && pag.find((p) => p.codigo === p1.codigo)?.recibido === 15000, 'panel: 3 pagados (uno a mano), lo recibido suma bien');
+chk(pag.length === 4 && pag.some((p) => p.via === 'manual') && pag.find((p) => p.codigo === p1.codigo)?.recibido === 15000, 'panel: 4 pagados (uno a mano), lo recibido suma bien');
 chk(pag.find((p) => p.codigo === p1.codigo)?.descargas === 1, 'panel: cuenta las descargas');
 [s, j] = await get('/admin/events?since=0', ADM);
-chk(j.events.filter((e) => e.network === 'g1').length === 3, 'el notificador de la caja ve las 3 ventas en Ğ1');
+chk(j.events.filter((e) => e.network === 'g1').length === 4, 'el notificador de la caja ve las 4 ventas en Ğ1');
+chk(pag.some((p) => p.chatwallet === otro.address.toLowerCase()), 'panel: muestra la ChatWallet del comprador');
 [s, j] = await get('/funding');
 chk(s === 200, '/funding sigue andando con compras en Ğ1 (sin monto ETH)');
 

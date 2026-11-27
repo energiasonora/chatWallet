@@ -76,10 +76,17 @@ chk(await visible('#vPago') && (await ev(`document.getElementById('codigo').text
 await fetch(SQ + '/_agregar', { method: 'POST', body: JSON.stringify({ toId: CUENTA, amount: 5000, remark: g.codigo }) });
 await dormir(6500);
 chk(await visible('#parcial') && /Faltan 100/.test(await ev(`document.getElementById('parcial').textContent`)), 'parcial: «Llegaron 50 Ğ1. Faltan 100 Ğ1»');
+// ChatWallet: inválida → aviso; válida → «cuando llegue el pago…»
+chk(await visible('#cwDir'), 'ChatWallet: recuadro visible con el pedido en curso');
+await ev(`document.getElementById('cwDir').value = 'nada'`); await clic('#cwGuardar'); await dormir(800);
+chk(await visible('#cwMal'), 'ChatWallet: avisa si no reconoce la dirección');
+await ev(`document.getElementById('cwDir').value = '0x1111111111111111111111111111111111111111'`); await clic('#cwGuardar'); await dormir(800);
+chk(await visible('#cwListo') && /0x1111…1111/.test(await ev(`document.getElementById('cwListo').textContent`)) && /Cuando llegue/.test(await ev(`document.getElementById('cwListo').textContent`)), 'ChatWallet: «Cuando llegue el pago, te lo mandamos… a 0x1111…1111»');
 await fetch(SQ + '/_agregar', { method: 'POST', body: JSON.stringify({ toId: CUENTA, amount: 10000, remark: g.codigo }) });
 await dormir(6500);
 chk(await visible('#vListo'), 'pagado: la página pasa sola a «Pago recibido»');
 chk(/\/download\?token=/.test(await ev(`document.getElementById('descargar').href`)) && await ev(`!!document.querySelector('#qrDescarga svg')`), 'botón Descargar + QR de descarga');
+chk(/Te lo mandamos por ChatWallet/.test(await ev(`document.getElementById('cwListo').textContent`)), 'ChatWallet: ya pago → «Te lo mandamos por ChatWallet…»');
 await foto('5-listo');
 
 // 7. nuevo pedido (modo mostrador)

@@ -121,6 +121,8 @@ CREATE TABLE IF NOT EXISTS g1_orders (
   from_account  TEXT,               -- g1 de quien pagó (null si fue manual)
   paid_centimos INTEGER,            -- lo recibido con el código (puede ser parcial mientras no está pago)
   block_number  INTEGER,
-  token         TEXT                -- token de /download (purchases.token)
+  token         TEXT,               -- token de /download (purchases.token)
+  wallet_address TEXT,              -- ChatWallet (0x) del comprador, opcional: el notificador le manda el enlace
+  wallet_at     INTEGER             -- epoch ms en que la cargó (dispara el envío si ya estaba pago)
 );
 CREATE INDEX IF NOT EXISTS idx_g1_orders_created ON g1_orders(created_at);

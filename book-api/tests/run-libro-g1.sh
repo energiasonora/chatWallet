@@ -1,5 +1,7 @@
 #!/bin/bash
-# Pruebas del libro en junas (Ğ1): API (34) + páginas en Chrome headless (27).
+# Pruebas del libro en junas (Ğ1): API (46) + páginas en Chrome headless (31).
+# Con XMTP=1 suma el envío por ChatWallet de punta a punta: copia del notificador de la caja
+# + dos identidades nuevas en XMTP dev (autor y comprador) que leen lo que les llegó (5).
 # Levanta un indexador Ğ1 falso (:8799) y el Worker local (:8787) con estado aparte.
 #   ./tests/run-libro-g1.sh            → ambas
 #   FOTOS=/algún/dir ./tests/run-libro-g1.sh   → guarda capturas de la página
@@ -20,3 +22,10 @@ for i in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:8787/g1/estado &&
 node tests/libro-g1-api.mjs
 npx wrangler d1 execute chatwallet-purchases --local --persist-to "$EST/d" --command "DELETE FROM g1_orders; DELETE FROM settings; DELETE FROM purchases;" > /dev/null
 node tests/libro-g1-pagina.mjs ${FOTOS:-}
+if [ -n "${XMTP:-}" ]; then
+  N="$EST/notificador"; mkdir -p "$N"
+  cp ../poc/sales-notifier/sales-notifier.mjs ../poc/sales-notifier/brand-avatar.webp ../poc/sales-notifier/package.json "$N/"
+  ln -s "$PWD/../poc/sales-notifier/node_modules" "$N/node_modules"
+  npx wrangler d1 execute chatwallet-purchases --local --persist-to "$EST/d" --command "DELETE FROM g1_orders; DELETE FROM settings; DELETE FROM purchases;" > /dev/null
+  node tests/libro-g1-notificador.mjs "$N"
+fi

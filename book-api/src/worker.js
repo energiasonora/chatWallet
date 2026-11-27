@@ -16,7 +16,7 @@
 //  Secrets: TOKEN_SECRET · MP_ACCESS_TOKEN · ADMIN_TOKEN (panel) · NOTIFIER_TOKEN (caja, solo /admin/events)
 // ════════════════════════════════════════════════
 import { ethers } from "ethers";
-import { rutaLibroG1 } from "./libro-g1.js";
+import { rutaLibroG1, eventosLibroG1 } from "./libro-g1.js";
 
 const CHAINLINK_ABI = [
   "function latestRoundData() view returns (uint80, int256 answer, uint256, uint256, uint80)",
@@ -674,9 +674,12 @@ async function adminEvents(url, env) {
        ORDER BY created_at ASC LIMIT 50`
     ).bind(since).all(),
   ]);
+  // Libro en junas: entregas por ChatWallet (si la tabla todavía no existe, no frena lo demás)
+  const libroG1 = await eventosLibroG1(env, since).catch(() => []);
   const events = [
     ...(orders.results || []).map((o) => ({ type: "pedido", at: o.paid_at || o.created_at, ...o })),
     ...(purchases.results || []).map((p) => ({ type: "compra-crypto", at: p.created_at, ...p })),
+    ...libroG1,
   ].sort((a, b) => a.at - b.at);
   return json(200, { now, events });
 }

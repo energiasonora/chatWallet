@@ -81,4 +81,9 @@ mercados de junas). Código en `src/libro-g1.js`; páginas estáticas en `libro/
   cadena), pedidos, «Marcar pagado» a mano (sin comentario / indexador caído) y QR de descarga.
   Usa el mismo `ADMIN_TOKEN` que book-admin. Cerrar sólo frena pedidos nuevos.
 - Tablas nuevas: `settings` y `g1_orders` (en `schema.sql`, `IF NOT EXISTS`).
-- Pruebas: `./tests/run-libro-g1.sh` (API 34 + páginas 27, indexador Ğ1 falso y Chrome headless).
+- **Por ChatWallet (opcional):** el comprador pega su 0x o su enlace de invitación (`?pk=` también:
+  el Worker saca la 0x); `/admin/events` emite `libro-g1-chat` al pagarse (o al cargar la 0x si ya
+  estaba pago) y el notificador de la caja le manda el enlace desde «Energía Sonora». El PDF (~53 MB)
+  no entra en un mensaje XMTP (~1 MB): viaja el enlace.
+- Pruebas: `./tests/run-libro-g1.sh` (API 46 + páginas 31, indexador Ğ1 falso y Chrome headless;
+  `XMTP=1` suma el envío real por XMTP dev, 5).

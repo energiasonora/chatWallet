@@ -56,6 +56,13 @@
   .enlaces button, .enlaces a { background: none; border: 0; font: inherit; color: var(--gris); text-decoration: underline; cursor: pointer; padding: 0; }
   footer { margin-top: 28px; text-align: center; font-size: .78rem; color: var(--gris); }
   footer a { color: inherit; }
+  .cw { border: 1px solid var(--linea); border-radius: 14px; padding: 14px; margin: 0 0 14px; }
+  .cw p { margin: 0 0 8px; font-size: .92rem; }
+  .cw .fila { display: flex; gap: 8px; }
+  .cw input { flex: 1; min-width: 0; font: inherit; font-size: .9rem; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 10px; }
+  .cw button { border: 0; border-radius: 10px; background: var(--tinta); color: #fff; font: inherit; font-size: .9rem; padding: 0 14px; cursor: pointer; }
+  .cw .listo { color: var(--ok); margin: 0; }
+  .cw .mal { color: #9a3b1e; margin: 6px 0 0; font-size: .85rem; }
   /* con un pedido en curso el QR tiene que verse sin bajar: tapa chica y sin texto */
   body.compacto .tapa { width: 74px; margin: 0 auto 6px; }
   body.compacto .kicker, body.compacto .lead, body.compacto .specs { display: none; }
@@ -129,6 +136,19 @@
     <div class="enlaces"><button type="button" id="nuevo" data-t="nuevo">Nuevo pedido</button></div>
   </section>
 
+  <!-- Recibirlo por ChatWallet (opcional, con el pedido en curso o ya pago) -->
+  <section class="cw" id="cwBox" hidden>
+    <div id="cwForm">
+      <p data-t="cwTitulo"><b>📲 ¿Tenés ChatWallet?</b> Te mandamos el libro al chat.</p>
+      <div class="fila">
+        <input id="cwDir" autocomplete="off" spellcheck="false" inputmode="text" data-t-ph="cwPh" placeholder="0x… o tu enlace de invitación">
+        <button type="button" id="cwGuardar" data-t="cwBoton">Enviar</button>
+      </div>
+      <p class="mal" id="cwMal" hidden></p>
+    </div>
+    <p class="listo" id="cwListo" hidden></p>
+  </section>
+
   <p class="nota aviso" id="error" hidden></p>
 
   <footer>
@@ -160,6 +180,10 @@
       nuevo: 'Nuevo pedido', autor: 'Xunorus · Energía Sonora', chatwallet: 'ChatWallet',
       du: (d) => `≈ ${d} DU`, errorRed: 'No hay conexión con el servidor. Probá de nuevo.',
       cerradaAhora: 'La venta acaba de cerrarse.', title: 'Cripto para Soberanos · en junas (Ğ1)',
+      cwTitulo: '<b>📲 ¿Tenés ChatWallet?</b> Te mandamos el libro al chat.', cwPh: '0x… o tu enlace de invitación',
+      cwBoton: 'Enviar', cwMal: 'No reconozco esa dirección. Pegá tu 0x o tu enlace de invitación de ChatWallet.',
+      cwEspera: (d) => `✓ Cuando llegue el pago, te lo mandamos por ChatWallet a ${d} (desde «Energía Sonora»).`,
+      cwEnviado: (d) => `✓ Te lo mandamos por ChatWallet a ${d}: llega en un minuto, desde «Energía Sonora».`,
       alt: 'Cripto para Soberanos',
     },
     fr: {
@@ -182,6 +206,10 @@
       nuevo: 'Nouvelle commande', autor: 'Xunorus · Energía Sonora', chatwallet: 'ChatWallet',
       du: (d) => `≈ ${d} DU`, errorRed: 'Pas de connexion avec le serveur. Réessayez.',
       cerradaAhora: 'La vente vient de fermer.', title: 'Crypto pour les Souverains · en junes (Ğ1)',
+      cwTitulo: '<b>📲 Vous avez ChatWallet ?</b> On vous envoie le livre dans le chat.', cwPh: '0x… ou votre lien d’invitation',
+      cwBoton: 'Envoyer', cwMal: 'Adresse non reconnue. Collez votre 0x ou votre lien d’invitation ChatWallet.',
+      cwEspera: (d) => `✓ Dès l’arrivée du paiement, on vous l’envoie par ChatWallet à ${d} (de « Energía Sonora »).`,
+      cwEnviado: (d) => `✓ On vous l’envoie par ChatWallet à ${d} : il arrive dans une minute, de « Energía Sonora ».`,
       alt: 'Crypto pour les Souverains',
     },
   };
@@ -202,6 +230,7 @@
       const v = T[lang][el.dataset.t];
       if (typeof v === 'string') el.innerHTML = v;
     });
+    document.querySelectorAll('[data-t-ph]').forEach((el) => (el.placeholder = T[lang][el.dataset.tPh]));
     $('titulo').innerHTML = t('titulo');
     $('tapa').src = lang === 'fr' ? 'tapa-fr.jpg' : 'tapa-es.jpg';
     $('tapa').alt = t('alt');
@@ -213,6 +242,7 @@
   function mostrar(id) {
     for (const v of ['vCargando', 'vAbierta', 'vCerrada', 'vPago', 'vListo']) $(v).hidden = v !== id;
     document.body.classList.toggle('compacto', id === 'vPago' || id === 'vListo');
+    $('cwBox').hidden = !(id === 'vPago' || id === 'vListo');
   }
   function error(msg) { $('error').textContent = msg || ''; $('error').hidden = !msg; }
 
@@ -221,8 +251,17 @@
     $('precioDu').textContent = est.du ? t('du', (est.centimos / est.du).toLocaleString(lang === 'fr' ? 'fr-FR' : 'es-AR', { maximumFractionDigits: 1 })) : '';
   }
 
+  const corta = (d) => `${d.slice(0, 6)}…${d.slice(-4)}`;
+  function pintarChatwallet() {
+    const d = pedido && pedido.chatwallet;
+    $('cwForm').hidden = !!d;
+    $('cwListo').hidden = !d;
+    if (d) $('cwListo').textContent = pedido.pagado ? t('cwEnviado', corta(d)) : t('cwEspera', corta(d));
+  }
+
   function pintarPedido() {
     const p = pedido;
+    pintarChatwallet();
     if (p.pagado) {
       mostrar('vListo');
       $('descargar').href = p.descarga;
@@ -317,7 +356,24 @@
     if (!confirmar) { confirmar = true; $('cancelar').textContent = t('confirmarCancelar'); setTimeout(() => { confirmar = false; $('cancelar').textContent = t('cancelar'); }, 4000); return; }
     localStorage.removeItem(CLAVE); pedido = null; confirmar = false; $('cancelar').textContent = t('cancelar'); iniciar();
   });
-  $('nuevo').addEventListener('click', () => { localStorage.removeItem(CLAVE); pedido = null; iniciar(); });
+  $('nuevo').addEventListener('click', () => { localStorage.removeItem(CLAVE); pedido = null; $('cwDir').value = ''; iniciar(); });
+  async function guardarChatwallet() {
+    const g = JSON.parse(localStorage.getItem(CLAVE) || 'null');
+    const v = $('cwDir').value.trim();
+    if (!g || !v) return;
+    $('cwGuardar').disabled = true;
+    try {
+      const p = await api('/g1/chatwallet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo: g.codigo, s: g.s, wallet: v }) });
+      pedido = { ...pedido, ...p };
+      $('cwMal').hidden = true;
+      pintarChatwallet();
+    } catch (e) {
+      $('cwMal').textContent = e.status === 400 ? t('cwMal') : t('errorRed');
+      $('cwMal').hidden = false;
+    } finally { $('cwGuardar').disabled = false; }
+  }
+  $('cwGuardar').addEventListener('click', guardarChatwallet);
+  $('cwDir').addEventListener('keydown', (e) => { if (e.key === 'Enter') guardarChatwallet(); });
   document.querySelectorAll('[data-copia]').forEach((b) => b.addEventListener('click', async () => {
     const id = b.dataset.copia;
     const v = id === 'monto' ? String(pedido.centimos / 100) : id === 'cuenta' ? pedido.cuenta : pedido.codigo;

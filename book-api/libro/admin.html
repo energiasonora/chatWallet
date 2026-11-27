@@ -131,6 +131,7 @@
         <div class="meta">${esc(p.lang === 'fr' ? 'FR' : 'ES')} · ${g1(p.centimos)} Ğ1 · ${hace(p.creado)} ·
           ${p.pagado
             ? `✓ pagado ${hace(p.pagado)} (${p.via === 'manual' ? 'a mano' : 'cadena'})${p.desde ? ' · de ' + esc(p.desde.slice(0, 8)) + '…' : ''} · ${p.descargas ?? 0} descargas`
+              + (p.chatwallet ? ` · 📲 ChatWallet ${esc(p.chatwallet.slice(0, 6))}…${esc(p.chatwallet.slice(-4))}` : '')
             : (p.recibido ? `llegaron ${g1(p.recibido)} Ğ1 (parcial)` : 'esperando el pago')}</div>
       </div>`).join('') : '<p class="info">Todavía no hay pedidos.</p>';
   }

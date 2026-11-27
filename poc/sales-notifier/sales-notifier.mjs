@@ -122,11 +122,12 @@ async function notifyBuyer(address, text) {
 
 // ── Formateo de eventos ──
 const FMT = { digital: 'Digital 📄', physical: 'Físico+digital 📦📄', 'physical-only': 'Físico 📦' };
-const NET = { 'arbitrum-one': 'Arbitrum', ethereum: 'Mainnet' };
+const NET = { 'arbitrum-one': 'Arbitrum', ethereum: 'Mainnet', g1: 'Ğ1' };
 
 function fmtEvent(ev) {
   const fmt = FMT[ev.format] || ev.format || '?';
   const lang = (ev.lang || 'es').toUpperCase();
+  if (ev.type === 'compra-crypto' && ev.network === 'g1') return `💰 Venta en junas (Ğ1) · ${fmt} ${lang} · libro.chatwallet.org`;
   if (ev.type === 'compra-crypto') {
     const eth = ev.amount_eth ? `${parseFloat(ev.amount_eth).toFixed(5)} ETH` : '';
     return `💰 Venta crypto · ${fmt} ${lang} · ${eth} (${NET[ev.network] || ev.network})`;
@@ -204,6 +205,27 @@ async function maybeDigest() {
   pollsFallidos = 0;
 }
 
+// Libro en junas (libro.chatwallet.org): si el comprador dejó su ChatWallet, el enlace de descarga
+// le llega por chat desde «Energía Sonora» (el PDF pesa ~53 MB: por XMTP viaja el enlace).
+const LIBRO_G1_TXT = {
+  es: (ev) => `📚 ¡Gracias por comprar Cripto para Soberanos en junas!\n\nTu PDF:\n${ev.descarga}\n\nEl enlace es tuyo y no vence: guardalo acá para volver a bajarlo cuando quieras. (Pedido ${ev.codigo})`,
+  fr: (ev) => `📚 Merci d’avoir acheté Crypto pour les Souverains en junes !\n\nVotre PDF :\n${ev.descarga}\n\nLe lien est à vous et n’expire pas : gardez-le ici pour le retélécharger quand vous voulez. (Commande ${ev.codigo})`,
+};
+
+async function entregarLibroG1(ev) {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(ev.wallet_address || '') || !/^https:\/\//.test(ev.descarga || '')) return;
+  const corta = `${ev.wallet_address.slice(0, 6)}…${ev.wallet_address.slice(-4)}`;
+  try {
+    await brandSend(ev.wallet_address, (LIBRO_G1_TXT[ev.lang] || LIBRO_G1_TXT.es)(ev));
+    console.log(`📚 ${new Date().toISOString()} → libro ${ev.codigo} a ${corta}`);
+    await notify(`📲 Libro en junas ${ev.codigo} enviado por ChatWallet a ${corta} (desde Energía Sonora)`);
+  } catch (e) {
+    // mejor esfuerzo, como notifyBuyer: puede no estar en XMTP. El comprador igual tiene la página.
+    console.log(`(libro ${ev.codigo} → ${corta} sin XMTP o falló: ${e.message})`);
+    await notify(`⚠️ Libro en junas ${ev.codigo}: no pude mandarlo por ChatWallet a ${corta} (${e.message}). Tiene la descarga en la página.`);
+  }
+}
+
 // ── Polling ──
 async function poll() {
   const resp = await fetch(`${CFG.API_BASE}/admin/events?since=${state.since}`, {
@@ -212,6 +234,7 @@ async function poll() {
   if (!resp.ok) throw new Error(`events ${resp.status}`);
   const { now, events } = await resp.json();
   for (const ev of events) {
+    if (ev.type === 'libro-g1-chat') { await entregarLibroG1(ev); continue; }
     await notify(fmtEvent(ev));
     // si el comprador dejó su ChatWallet, le confirmamos la compra por chat
     if (ev.type === 'pedido' && ev.wallet_address && /^0x[0-9a-fA-F]{40}$/.test(ev.wallet_address)) {

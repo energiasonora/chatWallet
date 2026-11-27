@@ -13,12 +13,16 @@
 //  El código es PÚBLICO (queda en la cadena como comentario): sólo sirve para reconocer el pago.
 //  La descarga sale con la clave secreta `s` que recibe el navegador del comprador al crear el
 //  pedido (y el autor desde el panel). Sin `s`, el pedido "no existe".
+//  Entrega por ChatWallet (opcional): si el comprador deja su 0x (POST /g1/chatwallet), el notificador
+//  de la caja le manda el enlace de descarga por chat desde la identidad «Energía Sonora»
+//  (lee /admin/events → eventos 'libro-g1-chat'). El PDF pesa ~53 MB: por XMTP viaja el enlace.
 //  Si el indexador se cae o el comprador olvidó el comentario: el autor lo marca a mano
 //  desde libro.chatwallet.org/admin (POST /admin/g1/pagado).
 //
 //  Cerrar la venta sólo impide pedidos NUEVOS: los pedidos abiertos se siguen verificando,
 //  para que nadie pague y se quede sin el libro.
 // ════════════════════════════════════════════════
+import { computeAddress } from "ethers";
 import QRCodeCore from "qrcode/lib/core/qrcode.js";
 import SvgTag from "qrcode/lib/renderer/svg-tag.js";
 
@@ -32,6 +36,18 @@ const PRECIO_INICIAL = 15000;         // céntimos de Ğ1 (la cadena usa 2 decim
 const FRENO_CONSULTA_MS = 4000;       // como mucho una consulta al indexador cada 4 s por pedido
 const MARGEN_RELOJ_MS = 10 * 60e3;    // transferencias desde 10 min antes del pedido (relojes)
 const CUENTA_RE = /^g1[1-9A-HJ-NP-Za-km-z]{45,50}$/;
+
+// Lo que pegue el comprador → su 0x: la dirección sola, o su enlace de invitación de ChatWallet
+// (?address=0x… o, desde la 3.123, ?pk=<clave pública comprimida, 66 hex>). Si no, null.
+export function direccionDe(texto) {
+  const t = String(texto || "").trim();
+  const a = t.match(/0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/);
+  if (a) return a[0].toLowerCase();
+  const pk = t.match(/(?:^|[?&]pk=)(0[23][0-9a-fA-F]{64})(?![0-9a-fA-F])/);
+  if (pk) { try { return computeAddress("0x" + pk[1]).toLowerCase(); } catch { return null; } }
+  return null;
+}
+const LIBRO_URL = "https://libro.chatwallet.org";
 
 // ── utilidades ───────────────────────────────────
 
@@ -178,6 +194,7 @@ function vistaPedido(p, url) {
     pago: enlacePago(p.cuenta, p.centimos, p.code),
     pagado: !!p.token,
     creado: p.created_at,
+    chatwallet: p.wallet_address || null,
   };
   if (p.token) {
     v.descarga = `${base}/download?token=${p.token}`;
@@ -202,14 +219,15 @@ async function estado(env) {
 async function crearPedido(req, env, url) {
   const b = await req.json().catch(() => ({}));
   const lang = b.lang === "fr" ? "fr" : "es";
+  const wallet = direccionDe(b.wallet);
   const aj = await leerAjustes(env);
   if (!aj.activo || !CUENTA_RE.test(aj.cuenta)) return json(403, { error: "cerrado" });
   for (let i = 0; i < 3; i++) {
     const code = nuevoCodigo();
     try {
       await env.DB.prepare(
-        "INSERT INTO g1_orders (code, secret, lang, centimos, cuenta, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-      ).bind(code, hex(16), lang, aj.centimos, aj.cuenta, Date.now()).run();
+        "INSERT INTO g1_orders (code, secret, lang, centimos, cuenta, created_at, wallet_address, wallet_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      ).bind(code, hex(16), lang, aj.centimos, aj.cuenta, Date.now(), wallet, wallet ? Date.now() : null).run();
       const p = await env.DB.prepare("SELECT * FROM g1_orders WHERE code = ?").bind(code).first();
       return json(200, vistaPedido(p, url));
     } catch (e) {
@@ -248,6 +266,42 @@ async function consultarPedido(url, env) {
   return json(200, { ...vistaPedido(p, url), recibido });
 }
 
+// POST /g1/chatwallet {codigo, s, wallet} → recibir el libro por ChatWallet (antes o después de pagar).
+// Cambiarla vuelve a mandar el enlace a la nueva dirección.
+async function ponerChatwallet(req, env, url) {
+  const b = await req.json().catch(() => ({}));
+  const code = String(b.codigo || "").toUpperCase().trim();
+  const p = await env.DB.prepare("SELECT * FROM g1_orders WHERE code = ?").bind(code).first();
+  if (!p || !iguales(String(b.s || ""), p.secret || "")) return json(404, { error: "Pedido no encontrado" });
+  const wallet = direccionDe(b.wallet);
+  if (!wallet) return json(400, { error: "direccion" });
+  if (wallet !== p.wallet_address) {
+    await env.DB.prepare("UPDATE g1_orders SET wallet_address = ?, wallet_at = ? WHERE code = ?")
+      .bind(wallet, Date.now(), code).run();
+  }
+  const q = await env.DB.prepare("SELECT * FROM g1_orders WHERE code = ?").bind(code).first();
+  return json(200, vistaPedido(q, url));
+}
+
+// Para /admin/events (notificador de la caja): pedidos pagados con ChatWallet del comprador.
+// Aparece al pagarse (si ya tenía la 0x) o al cargar la 0x (si ya estaba pago).
+export async function eventosLibroG1(env, since) {
+  const { results } = await env.DB.prepare(
+    `SELECT code, lang, wallet_address, token, paid_at, wallet_at FROM g1_orders
+     WHERE token IS NOT NULL AND wallet_address IS NOT NULL AND MAX(paid_at, COALESCE(wallet_at, 0)) > ?1
+     ORDER BY paid_at ASC LIMIT 50`
+  ).bind(since).all();
+  const base = env.LIBRO_URL || LIBRO_URL;
+  return (results || []).map((r) => ({
+    type: "libro-g1-chat",
+    at: Math.max(r.paid_at, r.wallet_at || 0),
+    codigo: r.code,
+    lang: r.lang,
+    wallet_address: r.wallet_address,
+    descarga: `${base}/download?token=${r.token}`,
+  }));
+}
+
 // ── panel (libro.chatwallet.org/admin) ───────────
 
 async function adminVer(env) {
@@ -262,7 +316,7 @@ async function adminVer(env) {
     } catch { /* indexador caído: el panel lo muestra como desconocido */ }
   }
   const { results } = await env.DB.prepare(
-    `SELECT code, lang, centimos, created_at, paid_at, via, from_account, paid_centimos, token,
+    `SELECT code, lang, centimos, created_at, paid_at, via, from_account, paid_centimos, token, wallet_address,
        (SELECT downloads FROM purchases WHERE purchases.token = g1_orders.token) AS downloads
      FROM g1_orders ORDER BY created_at DESC LIMIT 60`
   ).all();
@@ -271,7 +325,7 @@ async function adminVer(env) {
     pedidos: (results || []).map((r) => ({
       codigo: r.code, lang: r.lang, centimos: r.centimos, creado: r.created_at, pagado: r.paid_at,
       via: r.via, desde: r.from_account, recibido: r.paid_centimos, descargas: r.downloads ?? null,
-      tieneDescarga: !!r.token,
+      tieneDescarga: !!r.token, chatwallet: r.wallet_address || null,
     })),
   });
 }
@@ -349,5 +403,6 @@ export async function rutaLibroG1(request, env, url, path, isAdmin) {
   if (request.method === "GET" && path === "/g1/estado") return estado(env);
   if (request.method === "POST" && path === "/g1/pedido") return crearPedido(request, env, url);
   if (request.method === "GET" && path === "/g1/pedido") return consultarPedido(url, env);
+  if (request.method === "POST" && path === "/g1/chatwallet") return ponerChatwallet(request, env, url);
   return null;
 }
