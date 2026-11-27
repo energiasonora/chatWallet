@@ -64,3 +64,21 @@ agregá un CNAME proxied a `chatwallet-book-api.workers.dev`.
   formato (digital/físico/pickup) llega en la **Capa 1**.
 - `/purchases` devuelve el token como `id` (igual que Firebase) porque el frontend lo usa como
   token de descarga al detectar una compra previa.
+
+## Libro en junas (Ğ1) · libro.chatwallet.org
+
+Venta del PDF pagada en Ğ1, **aparte de /book y con interruptor** (el autor la abre en los
+mercados de junas). Código en `src/libro-g1.js`; páginas estáticas en `libro/` (binding `ASSETS`,
+`run_worker_first`: en `api.chatwallet.org` la API queda igual, las páginas sólo fuera de ese host).
+
+- `libro.chatwallet.org` — página pública (ES/FR). Crea un pedido `CPS-XXXXX` y muestra el QR
+  `june://<cuenta>?amount=…&comment=<código>` (lo leen Ğecko y ChatWallet).
+- El Worker busca en el indexador (squid) transferencias a la cuenta con ese comentario; si suman
+  el precio, crea la compra (`purchases`, network `g1`) y la página pasa sola a «Descargar».
+- El código es público (queda en la cadena); la descarga sale sólo con la clave `s` del pedido,
+  que guarda el navegador del comprador. `/purchases?address=` no lista compras en Ğ1.
+- `libro.chatwallet.org/admin` — abrir/cerrar, precio, cuenta que cobra (muestra de quién es en la
+  cadena), pedidos, «Marcar pagado» a mano (sin comentario / indexador caído) y QR de descarga.
+  Usa el mismo `ADMIN_TOKEN` que book-admin. Cerrar sólo frena pedidos nuevos.
+- Tablas nuevas: `settings` y `g1_orders` (en `schema.sql`, `IF NOT EXISTS`).
+- Pruebas: `./tests/run-libro-g1.sh` (API 34 + páginas 27, indexador Ğ1 falso y Chrome headless).

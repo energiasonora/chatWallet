@@ -8,8 +8,17 @@ account_id = "b40dda71c4e4812d9dd427e06cff7de8"  # cuenta CF de chatwallet (mism
 # custom_domain = true → wrangler crea el record DNS + cert automáticamente
 # (una "route" pelada no crea el DNS y el host queda en NXDOMAIN).
 routes = [
-  { pattern = "api.chatwallet.org", custom_domain = true }
+  { pattern = "api.chatwallet.org", custom_domain = true },
+  # Libro en junas (Ğ1): página aparte con interruptor (src/libro-g1.js + libro/)
+  { pattern = "libro.chatwallet.org", custom_domain = true }
 ]
+
+# Páginas estáticas de libro.chatwallet.org. run_worker_first: el Worker decide
+# (la API sigue igual en api.chatwallet.org; las páginas sólo fuera de ese host).
+[assets]
+directory = "./libro"
+binding = "ASSETS"
+run_worker_first = true
 
 # ── D1: compras + anti-replay de txHashes ──
 # Crear con:  wrangler d1 create chatwallet-purchases

@@ -90,3 +90,37 @@ CREATE TABLE IF NOT EXISTS orders (
 --   ALTER TABLE orders ADD COLUMN delivery_pref TEXT; ALTER TABLE orders ADD COLUMN tracking TEXT;
 --   ALTER TABLE orders ADD COLUMN email_sent_at INTEGER;
 --   ALTER TABLE orders ADD COLUMN discount_code TEXT; ALTER TABLE orders ADD COLUMN discount_pct INTEGER;
+
+-- ════════════════════════════════════════════════
+--  Libro en junas (Ğ1) · libro.chatwallet.org (src/libro-g1.js)
+--  DB ya existente (prod): estas dos tablas se crean con el mismo --file=schema.sql (IF NOT EXISTS).
+-- ════════════════════════════════════════════════
+
+-- Ajustes que el autor cambia desde libro.chatwallet.org/admin, sin redeploy:
+--   g1_activo (1/0) · g1_centimos (precio, céntimos de Ğ1) · g1_cuenta (g1… que cobra)
+--   g1_du / g1_du_at (DU vigente en caché, para mostrar el precio en DU)
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT,
+  updated_at INTEGER
+);
+
+-- Pedidos en Ğ1. El código va como comentario de la transferencia; al verse en la cadena
+-- se crea la fila en purchases (network 'g1', tx_hash 'g1:<id de la transferencia>').
+CREATE TABLE IF NOT EXISTS g1_orders (
+  code          TEXT PRIMARY KEY,   -- "CPS-XXXXX": PÚBLICO (comentario en la cadena), sólo reconoce el pago
+  secret        TEXT NOT NULL,      -- clave del comprador: sin ella /g1/pedido no da la descarga
+  lang          TEXT,               -- es | fr → edición del PDF
+  centimos      INTEGER NOT NULL,   -- precio al crear el pedido (si el autor lo cambia, no afecta a los abiertos)
+  cuenta        TEXT NOT NULL,      -- cuenta g1 que cobraba al crear el pedido
+  created_at    INTEGER NOT NULL,   -- epoch ms
+  checked_at    INTEGER,            -- última consulta al indexador (freno de 4 s)
+  paid_at       INTEGER,
+  via           TEXT,               -- cadena | manual
+  transfer_id   TEXT,               -- id de la transferencia en el indexador (la mayor, si hubo varias)
+  from_account  TEXT,               -- g1 de quien pagó (null si fue manual)
+  paid_centimos INTEGER,            -- lo recibido con el código (puede ser parcial mientras no está pago)
+  block_number  INTEGER,
+  token         TEXT                -- token de /download (purchases.token)
+);
+CREATE INDEX IF NOT EXISTS idx_g1_orders_created ON g1_orders(created_at);

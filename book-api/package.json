@@ -10,7 +10,8 @@
     "schema:remote": "wrangler d1 execute chatwallet-purchases --remote --file=schema.sql"
   },
   "dependencies": {
-    "ethers": "^6.16.0"
+    "ethers": "^6.16.0",
+    "qrcode": "^1.5.3"
   },
   "devDependencies": {
     "wrangler": "^4.45.0"

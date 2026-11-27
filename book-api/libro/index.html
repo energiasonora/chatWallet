@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cripto para Soberanos · en junas (Ğ1)</title>
+<meta name="description" content="El libro digital «Cripto para Soberanos», pagado en junas (Ğ1). 251 páginas, 13 capítulos.">
+<meta property="og:title" content="Cripto para Soberanos · en junas (Ğ1)">
+<meta property="og:description" content="El libro digital, pagado en junas (Ğ1). 251 páginas, 13 capítulos.">
+<meta property="og:image" content="https://libro.chatwallet.org/tapa-es.jpg">
+<meta name="theme-color" content="#0a0a0a">
+<style>
+  :root { --tinta:#0a0a0a; --papel:#fff; --gris:#6b6b6b; --linea:#e4e4e4; --acento:#2b9de3; --suave:#eef7fd; --ok:#1f8a4c; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--tinta); background: var(--papel);
+         line-height: 1.5; -webkit-text-size-adjust: 100%; }
+  main { max-width: 440px; margin: 0 auto; padding: 18px 18px 40px; }
+  .barra { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .marca { font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gris); }
+  .pills { display: inline-flex; border: 1px solid var(--linea); border-radius: 999px; padding: 3px; gap: 2px; }
+  .pills button { border: 0; background: none; font: inherit; font-size: .85rem; padding: 6px 12px; border-radius: 999px; cursor: pointer; color: var(--gris); }
+  .pills button[aria-pressed="true"] { background: var(--tinta); color: var(--papel); }
+  .tapa { display: block; width: 62%; max-width: 230px; margin: 6px auto 18px; border-radius: 3px 8px 8px 3px;
+          box-shadow: -4px 0 0 #d9d9d9 inset, 0 14px 28px rgba(0,0,0,.18), 0 3px 8px rgba(0,0,0,.12); aspect-ratio: 614/887; object-fit: cover; }
+  .kicker { margin: 0; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gris); text-align: center; }
+  h1 { font-size: 1.9rem; line-height: 1.1; margin: 4px 0 10px; text-align: center; letter-spacing: -.01em; }
+  h1 em { font-style: italic; font-weight: 400; }
+  .lead { margin: 0 0 6px; text-align: center; }
+  .specs { margin: 0 0 18px; text-align: center; color: var(--gris); font-size: .9rem; }
+  .precio { text-align: center; margin: 0 0 16px; }
+  .precio b { font-size: 2.3rem; letter-spacing: -.02em; }
+  .precio span { display: block; color: var(--gris); font-size: .9rem; }
+  .btn { display: block; width: 100%; border: 0; border-radius: 999px; padding: 15px 18px; font: inherit; font-weight: 600; font-size: 1.05rem;
+         background: var(--acento); color: #fff; cursor: pointer; text-align: center; text-decoration: none; }
+  .btn:disabled { opacity: .55; cursor: wait; }
+  .btn.sec { background: var(--papel); color: var(--tinta); border: 1px solid var(--tinta); font-weight: 500; font-size: .95rem; padding: 11px 16px; }
+  .caja { background: var(--suave); border-radius: 14px; padding: 16px; margin: 0 0 14px; }
+  .aviso { text-align: center; color: var(--gris); font-size: .95rem; }
+  .qr { background: #fff; border-radius: 10px; padding: 6px; width: 78%; max-width: 270px; margin: 4px auto 10px; }
+  .qr svg { display: block; width: 100%; height: auto; }
+  .codigo { text-align: center; margin: 6px 0 12px; }
+  .codigo small { display: block; color: var(--gris); font-size: .82rem; }
+  .codigo strong { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1.7rem; letter-spacing: .06em; }
+  dl { margin: 0 0 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; font-size: .9rem; }
+  dt { color: var(--gris); }
+  dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  .copiar { border: 1px solid var(--linea); background: #fff; border-radius: 8px; font: inherit; font-size: .8rem; padding: 4px 8px; cursor: pointer; }
+  .estado { display: flex; gap: 10px; align-items: center; justify-content: center; margin: 12px 0 4px; font-size: .95rem; }
+  .punto { width: 10px; height: 10px; border-radius: 50%; background: var(--acento); animation: latido 1.2s ease-in-out infinite; flex: none; }
+  @keyframes latido { 50% { opacity: .25; } }
+  .nota { font-size: .84rem; color: var(--gris); margin: 10px 0 0; }
+  .ok { color: var(--ok); }
+  .listo h2 { text-align: center; margin: 4px 0 12px; font-size: 1.35rem; }
+  .enlaces { display: flex; justify-content: center; gap: 16px; margin-top: 14px; font-size: .88rem; }
+  .enlaces button, .enlaces a { background: none; border: 0; font: inherit; color: var(--gris); text-decoration: underline; cursor: pointer; padding: 0; }
+  footer { margin-top: 28px; text-align: center; font-size: .78rem; color: var(--gris); }
+  footer a { color: inherit; }
+  /* con un pedido en curso el QR tiene que verse sin bajar: tapa chica y sin texto */
+  body.compacto .tapa { width: 74px; margin: 0 auto 6px; }
+  body.compacto .kicker, body.compacto .lead, body.compacto .specs { display: none; }
+  body.compacto h1 { font-size: 1.25rem; margin: 0 0 10px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="barra">
+    <span class="marca">Ğ1 · junas</span>
+    <div class="pills" role="group" aria-label="Idioma">
+      <button type="button" data-lang="es" aria-pressed="true">Castellano</button>
+      <button type="button" data-lang="fr" aria-pressed="false">Français</button>
+    </div>
+  </div>
+
+  <img class="tapa" id="tapa" src="tapa-es.jpg" alt="Cripto para Soberanos">
+  <p class="kicker" data-t="kicker">Libro digital · en junas</p>
+  <h1 id="titulo">Cripto para <em>Soberanos</em></h1>
+  <p class="lead" data-t="lead">Una guía práctica para empezar de cero en cripto desde la soberanía: la semilla, la wallet, la cadena, privacidad y herencia.</p>
+  <p class="specs" data-t="specs">251 páginas · 13 capítulos · PDF</p>
+
+  <!-- Cargando -->
+  <section id="vCargando"><p class="aviso" data-t="cargando">Cargando…</p></section>
+
+  <!-- Venta abierta -->
+  <section id="vAbierta" hidden>
+    <p class="precio"><b id="precio">150 Ğ1</b><span id="precioDu"></span></p>
+    <button class="btn" id="comprar" type="button" data-t="comprar">Comprar con junas</button>
+    <p class="nota" style="text-align:center" data-t="comoSe">Pagás desde Ğecko, Cesium² o ChatWallet. La descarga se habilita sola al llegar el pago.</p>
+  </section>
+
+  <!-- Venta cerrada -->
+  <section id="vCerrada" hidden>
+    <div class="caja aviso">
+      <p style="margin:0 0 6px" data-t="cerrada1"><b>La venta en junas está cerrada ahora.</b></p>
+      <p style="margin:0" data-t="cerrada2">La abro cuando participo en un mercado de junas.</p>
+    </div>
+    <p class="nota" style="text-align:center"><span data-t="otrasFormas">Con ETH o Mercado Pago:</span> <a href="https://chatwallet.org/book">chatwallet.org/book</a></p>
+  </section>
+
+  <!-- Pedido: esperando el pago -->
+  <section id="vPago" hidden>
+    <div class="caja">
+      <p style="margin:0 0 6px;text-align:center" data-t="escanea"><b>Escaneá con tu billetera Ğ1</b></p>
+      <div class="qr" id="qrPago"></div>
+      <div class="codigo"><small data-t="comentario">Comentario de la transferencia (obligatorio)</small><strong id="codigo">CPS-·····</strong></div>
+      <dl>
+        <dt data-t="monto">Monto</dt><dd id="monto"></dd><button class="copiar" type="button" data-copia="monto" data-t="copiar">Copiar</button>
+        <dt data-t="cuenta">Cuenta</dt><dd id="cuenta"></dd><button class="copiar" type="button" data-copia="cuenta" data-t="copiar">Copiar</button>
+        <dt data-t="comentarioCorto">Comentario</dt><dd id="codigo2"></dd><button class="copiar" type="button" data-copia="codigo" data-t="copiar">Copiar</button>
+      </dl>
+      <a class="btn sec" id="abrirBilletera" href="#" data-t="abrir">Abrir en mi billetera (este teléfono)</a>
+      <div class="estado" id="estado"><span class="punto"></span><span id="estadoTxt" data-t="esperando">Esperando el pago…</span></div>
+      <p class="nota" id="parcial" hidden></p>
+      <p class="nota" data-t="sinComentario">Si tu billetera no dejó poner el comentario, mostrale este código a quien te vende y lo confirma a mano.</p>
+    </div>
+    <div class="enlaces"><button type="button" id="cancelar" data-t="cancelar">Cancelar este pedido</button></div>
+  </section>
+
+  <!-- Pagado -->
+  <section id="vListo" class="listo" hidden>
+    <div class="caja">
+      <h2 class="ok" data-t="gracias">¡Pago recibido, gracias!</h2>
+      <a class="btn" id="descargar" href="#" data-t="descargar">Descargar el PDF</a>
+      <p class="nota" style="text-align:center;margin-top:14px" data-t="otroTel">¿Pagaste desde otro teléfono? Escaneá este QR para bajarlo ahí:</p>
+      <div class="qr" id="qrDescarga"></div>
+      <p class="nota" style="text-align:center" data-t="guardado">El enlace queda guardado en este navegador: podés volver a bajarlo cuando quieras.</p>
+    </div>
+    <div class="enlaces"><button type="button" id="nuevo" data-t="nuevo">Nuevo pedido</button></div>
+  </section>
+
+  <p class="nota aviso" id="error" hidden></p>
+
+  <footer>
+    <span data-t="autor">Xunorus · Energía Sonora</span> ·
+    <a href="https://chatwallet.org" data-t="chatwallet">ChatWallet</a>
+  </footer>
+</main>
+
+<script>
+(() => {
+  const T = {
+    es: {
+      kicker: 'Libro digital · en junas', titulo: 'Cripto para <em>Soberanos</em>',
+      lead: 'Una guía práctica para empezar de cero en cripto desde la soberanía: la semilla, la wallet, la cadena, privacidad y herencia.',
+      specs: '251 páginas · 13 capítulos · PDF', cargando: 'Cargando…',
+      comprar: 'Comprar con junas', comoSe: 'Pagás desde Ğecko, Cesium² o ChatWallet. La descarga se habilita sola al llegar el pago.',
+      cerrada1: '<b>La venta en junas está cerrada ahora.</b>', cerrada2: 'La abro cuando participo en un mercado de junas.',
+      otrasFormas: 'Con ETH o Mercado Pago:',
+      escanea: '<b>Escaneá con tu billetera Ğ1</b>', comentario: 'Comentario de la transferencia (obligatorio)',
+      monto: 'Monto', cuenta: 'Cuenta', comentarioCorto: 'Comentario', copiar: 'Copiar', copiado: '✓',
+      abrir: 'Abrir en mi billetera (este teléfono)', esperando: 'Esperando el pago…',
+      sinIndexador: 'No pude consultar la cadena, reintento…',
+      parcial: (r, f) => `Llegaron ${r} Ğ1. Faltan ${f} Ğ1: mandalos con el mismo comentario.`,
+      sinComentario: 'Si tu billetera no dejó poner el comentario, mostrale este código a quien te vende y lo confirma a mano.',
+      cancelar: 'Cancelar este pedido', confirmarCancelar: 'Tocá de nuevo para cancelar',
+      gracias: '¡Pago recibido, gracias!', descargar: 'Descargar el PDF',
+      otroTel: '¿Pagaste desde otro teléfono? Escaneá este QR para bajarlo ahí:',
+      guardado: 'El enlace queda guardado en este navegador: podés volver a bajarlo cuando quieras.',
+      nuevo: 'Nuevo pedido', autor: 'Xunorus · Energía Sonora', chatwallet: 'ChatWallet',
+      du: (d) => `≈ ${d} DU`, errorRed: 'No hay conexión con el servidor. Probá de nuevo.',
+      cerradaAhora: 'La venta acaba de cerrarse.', title: 'Cripto para Soberanos · en junas (Ğ1)',
+      alt: 'Cripto para Soberanos',
+    },
+    fr: {
+      kicker: 'Livre numérique · en junes', titulo: 'Crypto pour les <em>Souverains</em>',
+      lead: 'Un guide pratique pour démarrer en crypto à partir de zéro, en souverain : la phrase secrète, le portefeuille, la chaîne, la vie privée et la transmission.',
+      specs: '251 pages · 13 chapitres · PDF', cargando: 'Chargement…',
+      comprar: 'Acheter en junes', comoSe: 'Vous payez avec Ğecko, Cesium² ou ChatWallet. Le téléchargement s’active tout seul à l’arrivée du paiement.',
+      cerrada1: '<b>La vente en junes est fermée pour le moment.</b>', cerrada2: 'Je l’ouvre quand je participe à un marché en junes.',
+      otrasFormas: 'En ETH ou Mercado Pago :',
+      escanea: '<b>Scannez avec votre portefeuille Ğ1</b>', comentario: 'Commentaire du virement (obligatoire)',
+      monto: 'Montant', cuenta: 'Compte', comentarioCorto: 'Commentaire', copiar: 'Copier', copiado: '✓',
+      abrir: 'Ouvrir dans mon portefeuille (ce téléphone)', esperando: 'En attente du paiement…',
+      sinIndexador: 'Impossible de consulter la chaîne, nouvel essai…',
+      parcial: (r, f) => `${r} Ğ1 reçues. Il manque ${f} Ğ1 : envoyez-les avec le même commentaire.`,
+      sinComentario: 'Si votre portefeuille n’a pas permis de mettre le commentaire, montrez ce code au vendeur : il le confirme à la main.',
+      cancelar: 'Annuler cette commande', confirmarCancelar: 'Touchez encore pour annuler',
+      gracias: 'Paiement reçu, merci !', descargar: 'Télécharger le PDF',
+      otroTel: 'Vous avez payé depuis un autre téléphone ? Scannez ce QR pour le télécharger là-bas :',
+      guardado: 'Le lien reste enregistré dans ce navigateur : vous pouvez le retélécharger quand vous voulez.',
+      nuevo: 'Nouvelle commande', autor: 'Xunorus · Energía Sonora', chatwallet: 'ChatWallet',
+      du: (d) => `≈ ${d} DU`, errorRed: 'Pas de connexion avec le serveur. Réessayez.',
+      cerradaAhora: 'La vente vient de fermer.', title: 'Crypto pour les Souverains · en junes (Ğ1)',
+      alt: 'Crypto pour les Souverains',
+    },
+  };
+  const $ = (id) => document.getElementById(id);
+  const CLAVE = 'libro-g1-pedido';
+  let lang = (localStorage.getItem('libro-g1-lang') || (navigator.language || '').slice(0, 2)) === 'fr' ? 'fr' : 'es';
+  let est = null;           // /g1/estado
+  let pedido = null;        // última respuesta de /g1/pedido
+  let timer = null, intentos = 0;
+
+  const t = (k, ...a) => { const v = T[lang][k]; return typeof v === 'function' ? v(...a) : v; };
+  const fmtG1 = (c) => (c / 100).toLocaleString(lang === 'fr' ? 'fr-FR' : 'es-AR', { maximumFractionDigits: 2 });
+
+  function pintarIdioma() {
+    document.documentElement.lang = lang;
+    document.title = t('title');
+    document.querySelectorAll('[data-t]').forEach((el) => {
+      const v = T[lang][el.dataset.t];
+      if (typeof v === 'string') el.innerHTML = v;
+    });
+    $('titulo').innerHTML = t('titulo');
+    $('tapa').src = lang === 'fr' ? 'tapa-fr.jpg' : 'tapa-es.jpg';
+    $('tapa').alt = t('alt');
+    document.querySelectorAll('.pills button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+    if (est) pintarPrecio();
+    if (pedido) pintarPedido();
+  }
+
+  function mostrar(id) {
+    for (const v of ['vCargando', 'vAbierta', 'vCerrada', 'vPago', 'vListo']) $(v).hidden = v !== id;
+    document.body.classList.toggle('compacto', id === 'vPago' || id === 'vListo');
+  }
+  function error(msg) { $('error').textContent = msg || ''; $('error').hidden = !msg; }
+
+  function pintarPrecio() {
+    $('precio').textContent = `${fmtG1(est.centimos)} Ğ1`;
+    $('precioDu').textContent = est.du ? t('du', (est.centimos / est.du).toLocaleString(lang === 'fr' ? 'fr-FR' : 'es-AR', { maximumFractionDigits: 1 })) : '';
+  }
+
+  function pintarPedido() {
+    const p = pedido;
+    if (p.pagado) {
+      mostrar('vListo');
+      $('descargar').href = p.descarga;
+      $('qrDescarga').innerHTML = p.qrDescarga || '';
+      return;
+    }
+    mostrar('vPago');
+    if (p.qrPago) $('qrPago').innerHTML = p.qrPago;
+    $('codigo').textContent = p.codigo;
+    $('codigo2').textContent = p.codigo;
+    $('monto').textContent = `${fmtG1(p.centimos)} Ğ1`;
+    $('cuenta').textContent = p.cuenta;
+    $('abrirBilletera').href = p.pago;
+    const r = Number(p.recibido) || 0;
+    $('parcial').hidden = !(r > 0 && r < p.centimos);
+    if (!$('parcial').hidden) $('parcial').textContent = t('parcial', fmtG1(r), fmtG1(p.centimos - r));
+    $('estadoTxt').textContent = p.indexador ? t('sinIndexador') : t('esperando');
+  }
+
+  async function api(path, opts) {
+    const r = await fetch(path, { cache: 'no-store', ...opts });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.error || r.status); e.status = r.status; throw e; }
+    return j;
+  }
+
+  function guardarPedido(p) {
+    localStorage.setItem(CLAVE, JSON.stringify({ codigo: p.codigo, s: p.s }));
+  }
+
+  async function consultar() {
+    clearTimeout(timer);
+    const g = JSON.parse(localStorage.getItem(CLAVE) || 'null');
+    if (!g) return;
+    try {
+      const p = await api(`/g1/pedido?codigo=${encodeURIComponent(g.codigo)}&s=${encodeURIComponent(g.s)}`);
+      // la consulta frenada no trae QR: se conserva el que ya está
+      pedido = { ...pedido, ...p };
+      error('');
+      pintarPedido();
+      if (p.pagado) return;
+    } catch (e) {
+      if (e.status === 404) { localStorage.removeItem(CLAVE); pedido = null; return iniciar(); }
+      error(t('errorRed'));
+    }
+    intentos++;
+    if (!document.hidden) timer = setTimeout(consultar, intentos < 360 ? 5000 : 20000);
+  }
+
+  async function comprar() {
+    $('comprar').disabled = true;
+    try {
+      const p = await api('/g1/pedido', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lang }) });
+      guardarPedido(p);
+      pedido = p;
+      intentos = 0;
+      error('');
+      pintarPedido();
+      timer = setTimeout(consultar, 5000);
+    } catch (e) {
+      if (e.status === 403) { error(t('cerradaAhora')); est = { ...est, abierto: false }; mostrar('vCerrada'); }
+      else error(t('errorRed'));
+    } finally { $('comprar').disabled = false; }
+  }
+
+  async function iniciar() {
+    clearTimeout(timer);
+    // ?codigo=&s= (enlace del panel) tiene prioridad sobre lo guardado
+    const q = new URLSearchParams(location.search);
+    if (q.get('codigo') && q.get('s')) {
+      localStorage.setItem(CLAVE, JSON.stringify({ codigo: q.get('codigo'), s: q.get('s') }));
+      history.replaceState(null, '', location.pathname);
+    }
+    if (localStorage.getItem(CLAVE)) { mostrar('vCargando'); return consultar(); }
+    try {
+      est = await api('/g1/estado');
+      error('');
+      if (est.abierto) { pintarPrecio(); mostrar('vAbierta'); }
+      else mostrar('vCerrada');
+    } catch { mostrar('vCerrada'); error(t('errorRed')); }
+  }
+
+  // ── eventos ──
+  document.querySelectorAll('.pills button').forEach((b) => b.addEventListener('click', () => {
+    lang = b.dataset.lang;
+    localStorage.setItem('libro-g1-lang', lang);
+    pintarIdioma();
+  }));
+  $('comprar').addEventListener('click', comprar);
+  let confirmar = false;
+  $('cancelar').addEventListener('click', () => {
+    if (!confirmar) { confirmar = true; $('cancelar').textContent = t('confirmarCancelar'); setTimeout(() => { confirmar = false; $('cancelar').textContent = t('cancelar'); }, 4000); return; }
+    localStorage.removeItem(CLAVE); pedido = null; confirmar = false; $('cancelar').textContent = t('cancelar'); iniciar();
+  });
+  $('nuevo').addEventListener('click', () => { localStorage.removeItem(CLAVE); pedido = null; iniciar(); });
+  document.querySelectorAll('[data-copia]').forEach((b) => b.addEventListener('click', async () => {
+    const id = b.dataset.copia;
+    const v = id === 'monto' ? String(pedido.centimos / 100) : id === 'cuenta' ? pedido.cuenta : pedido.codigo;
+    try { await navigator.clipboard.writeText(v); b.textContent = t('copiado'); setTimeout(() => (b.textContent = t('copiar')), 1500); } catch {}
+  }));
+  // al volver de la billetera, consultar enseguida
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && pedido && !pedido.pagado) consultar(); });
+
+  pintarIdioma();
+  iniciar();
+})();
+</script>
+</body>
+</html>

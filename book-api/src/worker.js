@@ -10,9 +10,13 @@
 //    GET  /purchases?address= · lista compras de una address
 //    GET  /funding            · recaudación acumulada (meta soberana)
 //    /admin/*                 · panel book-admin.html + notificador de la caja
+//  Libro en junas (Ğ1) · libro.chatwallet.org — ver src/libro-g1.js:
+//    GET /g1/estado · POST /g1/pedido · GET /g1/pedido?codigo= · /admin/g1/*
+//    páginas estáticas en libro/ (index.html, admin.html) vía el binding ASSETS
 //  Secrets: TOKEN_SECRET · MP_ACCESS_TOKEN · ADMIN_TOKEN (panel) · NOTIFIER_TOKEN (caja, solo /admin/events)
 // ════════════════════════════════════════════════
 import { ethers } from "ethers";
+import { rutaLibroG1 } from "./libro-g1.js";
 
 const CHAINLINK_ABI = [
   "function latestRoundData() view returns (uint80, int256 answer, uint256, uint256, uint80)",
@@ -706,7 +710,9 @@ async function purchases(url, env) {
   if (!address) return json(400, { error: "address requerida" });
 
   const { results } = await env.DB.prepare(
-    "SELECT token, address, tx_hash, amount_eth, block_number, network, format FROM purchases WHERE address = ? ORDER BY created_at DESC"
+    // Las compras en Ğ1 no se listan acá: la cuenta que paga es pública en la cadena
+    // (la descarga sale sólo con la clave del pedido, ver libro-g1.js).
+    "SELECT token, address, tx_hash, amount_eth, block_number, network, format FROM purchases WHERE address = ? AND (network IS NULL OR network != 'g1') ORDER BY created_at DESC"
   ).bind(address.toLowerCase()).all();
 
   // El frontend espera camelCase y usa `id` como token de descarga (paridad con Firebase).
@@ -736,6 +742,10 @@ export default {
     const C = cfg(env);
 
     try {
+      // Libro en junas: su API (/g1/*, /admin/g1*) responde en cualquier host.
+      const g1 = await rutaLibroG1(request, env, url, path, isAdmin);
+      if (g1) return g1;
+
       if (path.startsWith("/admin/")) {
         const authed = path === "/admin/events" ? isNotifier(request, env) : isAdmin(request, env);
         if (!authed) return json(401, { error: "No autorizado" });
@@ -757,6 +767,10 @@ export default {
       if (request.method === "GET" && path === "/funding") return await funding(env, C);
       if (request.method === "GET" && path === "/download") return await download(url, env, C);
       if (request.method === "GET" && path === "/purchases") return await purchases(url, env);
+      // Fuera de api.chatwallet.org (libro.chatwallet.org, o localhost en desarrollo):
+      // las páginas del libro en junas.
+      if (env.ASSETS && url.hostname !== "api.chatwallet.org" && request.method === "GET")
+        return await env.ASSETS.fetch(request);
       return json(404, { error: "Endpoint no encontrado" });
     } catch (e) {
       return json(500, { error: "Error interno", detail: String(e?.message || e) });
