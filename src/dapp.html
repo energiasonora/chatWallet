@@ -16227,6 +16227,84 @@
                 return g1Pintando;
             }
 
+            // --- Ğ1 que entra: suena y avisa ---------------------------------------------------
+            // El chat suena porque XMTP le avisa; un pago Ğ1 hecho desde Ğecko, Cesium² o el QR
+            // de un puesto no pasa por el chat y la app no se enteraba (ni el saldo cambiaba hasta
+            // recargar). Sin servidor que avise, con la app abierta se le pregunta al indexador
+            // cada 20 s por las últimas transferencias de tu cuenta Ğ1. Lo ya visto se anota por
+            // id; la primera vez solo se siembra (si no, avisaría cobros viejos). Lo que entró con
+            // la app cerrada se avisa al abrirla.
+            var G1_VIGIA_MS = 20 * 1000;
+            var g1Vigilando = false;
+            function claveCobrosG1(a) { return `cw-g1-cobros-vistos-${String(a).toLowerCase()}`; }
+
+            function sonarCobro() {
+                if (!toneStarted || !clickSynth) return;   // el navegador no deja sonar sin un toque previo
+                try {
+                    const now = Tone.now();
+                    clickSynth.triggerAttackRelease('E5', '16n', now + 0.05);
+                    clickSynth.triggerAttackRelease('B5', '8n', now + 0.17);
+                } catch (e) { console.warn('[g1] sonido del cobro:', e); }
+            }
+
+            async function vigilarCobrosG1() {
+                if (g1Vigilando || !currentWallet || isOffline) return;
+                const cuenta = cuentaG1Guardada();
+                if (!cuenta || !cuenta.g1 || typeof window.cwCargarBilleteraG1 !== 'function') return;
+                g1Vigilando = true;
+                const dir = currentWallet.address;
+                try {
+                    const B = await window.cwCargarBilleteraG1();
+                    const h = await withTimeout(B.historial(cuenta.g1, { cantidad: 10 }), 15000, 'cobros Ğ1');
+                    if (!currentWallet || currentWallet.address !== dir) return;   // cambió de billetera
+                    const entran = h.movimientos.filter(m => m.centimos > 0);
+                    const clave = claveCobrosG1(dir);
+                    const visto = leerJSONLocal(clave);
+                    const guardar = (ids) => {
+                        try { localStorage.setItem(clave, JSON.stringify({ g1: cuenta.g1, ids: ids.slice(0, 40) })); } catch (e) { }
+                    };
+                    if (!visto || visto.g1 !== cuenta.g1 || !Array.isArray(visto.ids)) {
+                        guardar(entran.map(m => m.id));
+                        return;
+                    }
+                    // La ventana de 10 sólo avanza: lo que no está anotado entró después.
+                    const nuevos = entran.filter(m => !visto.ids.includes(m.id));
+                    if (!nuevos.length) return;
+                    guardar(nuevos.map(m => m.id).concat(visto.ids));
+
+                    const total = nuevos.reduce((s, m) => s + m.centimos, 0);
+                    const ult = nuevos[0];                       // historial viene del más nuevo al más viejo
+                    const contacto = (contacts || []).find(c => c && c.g1 && c.g1 === ult.otro);
+                    const quien = (contacto && contacto.name) || ult.nombre || `${ult.otro.slice(0, 6)}…${ult.otro.slice(-4)}`;
+                    const titulo = nuevos.length === 1
+                        ? t('g1_cobro_titulo', { monto: formatoG1(total) })
+                        : t('g1_cobros_titulo', { n: nuevos.length, monto: formatoG1(total) });
+                    const cuerpo = ult.comentario
+                        ? t('g1_cobro_de_com', { quien, com: ult.comentario.slice(0, 120) })
+                        : t('g1_cobro_de', { quien });
+                    sonarCobro();
+                    vibrar([60, 80, 60]);
+                    // title/body van por textContent: el nombre y el comentario los escribe el otro.
+                    cwNotify({
+                        type: 'success', tag: 'g1-cobro', duration: 12000, title: titulo, body: cuerpo,
+                        onClick: () => { if (!redG1Activa()) activarRedG1(); }
+                    });
+                    if (NativeKeepAlive && document.hidden) {
+                        NativeKeepAlive.showMessage({ title: titulo, body: cuerpo, address: null, avatar: null }).catch(() => { });
+                    }
+                    marcarWalletConFondos();
+                    if (redG1Activa()) { g1Lectura = null; pintarRedG1(true); }
+                } catch (e) {
+                    console.warn('[g1] cobros:', e?.message || e);
+                } finally {
+                    g1Vigilando = false;
+                }
+            }
+            window.cwVigilarCobrosG1 = vigilarCobrosG1;
+            setTimeout(vigilarCobrosG1, 6000);
+            setInterval(vigilarCobrosG1, G1_VIGIA_MS);
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') vigilarCobrosG1(); });
+
             // "✦ Nombre · miembro Ğ1", o en qué punto está una identidad que no es miembro.
             function lineaIdentidadG1(id) {
                 if (id.miembro) return t('g1_member_line', { nombre: id.nombre });
@@ -27539,6 +27617,10 @@
                     "g1_chat_pagar": "Pagar con Ğ1",
                     "g1_chat_enviaste": "Enviaste",
                     "g1_chat_recibiste": "Te mandaron",
+                    "g1_cobro_titulo": "💰 Recibiste {monto} Ğ1",
+                    "g1_cobros_titulo": "💰 Recibiste {n} pagos: {monto} Ğ1",
+                    "g1_cobro_de": "de {quien}",
+                    "g1_cobro_de_com": "de {quien} · «{com}»",
                     "g1_chat_bloque": "bloque #{b}",
                     "g1_chat_verificando": "Buscando el pago en la cadena…",
                     "g1_chat_verificado": "✓ Verificado: llegaron {monto} Ğ1",
@@ -28426,6 +28508,10 @@
                     "g1_chat_pagar": "Pay with Ğ1",
                     "g1_chat_enviaste": "You sent",
                     "g1_chat_recibiste": "You received",
+                    "g1_cobro_titulo": "💰 You received {monto} Ğ1",
+                    "g1_cobros_titulo": "💰 You received {n} payments: {monto} Ğ1",
+                    "g1_cobro_de": "from {quien}",
+                    "g1_cobro_de_com": "from {quien} · “{com}”",
                     "g1_chat_bloque": "block #{b}",
                     "g1_chat_verificando": "Looking for the payment on chain…",
                     "g1_chat_verificado": "✓ Verified: {monto} Ğ1 arrived",
@@ -29313,6 +29399,10 @@
                     "g1_chat_pagar": "Payer en Ğ1",
                     "g1_chat_enviaste": "Vous avez envoyé",
                     "g1_chat_recibiste": "Vous avez reçu",
+                    "g1_cobro_titulo": "💰 Vous avez reçu {monto} Ğ1",
+                    "g1_cobros_titulo": "💰 Vous avez reçu {n} paiements : {monto} Ğ1",
+                    "g1_cobro_de": "de {quien}",
+                    "g1_cobro_de_com": "de {quien} · « {com} »",
                     "g1_chat_bloque": "bloc #{b}",
                     "g1_chat_verificando": "Recherche du paiement sur la chaîne…",
                     "g1_chat_verificado": "✓ Vérifié : {monto} Ğ1 reçus",

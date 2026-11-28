@@ -26,4 +26,4 @@ python3 -m http.server "$WEB_PORT" --bind 127.0.0.1 --directory "$BUILD" > /tmp/
 WEB_PID=$!
 sleep 1
 
-BASE="http://127.0.0.1:${WEB_PORT}/dapp.html" "$NODE_BIN" tests/g1-red-cdp.mjs
+BASE="http://127.0.0.1:${WEB_PORT}/dapp.html" "$NODE_BIN" "${TEST:-tests/g1-red-cdp.mjs}"
