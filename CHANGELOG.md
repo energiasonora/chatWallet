@@ -17,6 +17,10 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+- **Tocar el aviso de un cobro en junas abre el chat con quien te pagó**, si tiene
+  ChatWallet, aunque todavía no esté en tu agenda: alcanza con que haya vinculado su cuenta
+  Ğ1. Si no tiene ChatWallet, el aviso te lo dice.
+
 ## 3.125 — 2026-11-28
 
 - **Cuando te pagan en junas, ChatWallet suena.** Un pago Ğ1 hecho desde Ğecko, Cesium² o

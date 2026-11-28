@@ -16288,10 +16288,12 @@
                     // title/body van por textContent: el nombre y el comentario los escribe el otro.
                     cwNotify({
                         type: 'success', tag: 'g1-cobro', duration: 12000, title: titulo, body: cuerpo,
-                        onClick: () => { if (!redG1Activa()) activarRedG1(); }
+                        avatar: (contacto && contacto.avatar) || '',
+                        onClick: () => { abrirChatDeCuentaG1(ult.otro, ult.nombre).catch(e => console.warn('[g1] abrir chat del cobro:', e)); }
                     });
                     if (NativeKeepAlive && document.hidden) {
-                        NativeKeepAlive.showMessage({ title: titulo, body: cuerpo, address: null, avatar: null }).catch(() => { });
+                        // Con la dirección, tocar la notificación del sistema abre ese chat.
+                        NativeKeepAlive.showMessage({ title: titulo, body: cuerpo, address: contacto ? contacto.address : null, avatar: null }).catch(() => { });
                     }
                     marcarWalletConFondos();
                     if (redG1Activa()) { g1Lectura = null; pintarRedG1(true); }
@@ -16301,6 +16303,46 @@
                     g1Vigilando = false;
                 }
             }
+            // Tocar el aviso abre el chat con quien pagó, si tiene ChatWallet: primero tu agenda
+            // (el contacto con esa cuenta Ğ1), después el vínculo ius1 que publicó en la cadena
+            // (firmado por las dos llaves: lo verifica vinculoDeG1), como «Abrir chat» del
+            // escáner. Sin ChatWallet a la vista, abre tu red Ğ1.
+            async function abrirChatDeCuentaG1(g1, seudonimo) {
+                let c = (contacts || []).find(x => x && x.g1 === g1 && x.address && x.address.startsWith('0x'));
+                if (!c) {
+                    let evm = null;
+                    try {
+                        const B = await window.cwCargarBilleteraG1();
+                        const v = await withTimeout(B.G1.vinculoDeG1(g1, window.ethers), 15000, 'vínculo Ğ1');
+                        evm = v && v.evm;
+                    } catch (e) { console.warn('[g1] vínculo de quien pagó:', e?.message || e); }
+                    if (!evm) {
+                        showToast(t('g1_cobro_sin_chat'), 'info', 5000);
+                        if (!redG1Activa()) activarRedG1();
+                        return;
+                    }
+                    c = contacts.find(x => x.address.toLowerCase() === evm.toLowerCase());
+                    if (!c) {
+                        closeSidebar();
+                        // Sin await: handleScannedAddress crea el contacto antes de su primer
+                        // await y después espera el chat. Sin saludo: no vino por un QR.
+                        const abriendo = handleScannedAddress(evm, null, {});
+                        const n = contacts.find(x => x.address.toLowerCase() === evm.toLowerCase());
+                        if (n) {
+                            n.g1 = g1;
+                            if (seudonimo && n.name === shortAddr(n.address)) n.name = seudonimo;
+                            saveContacts(); renderContacts();
+                        }
+                        await abriendo;
+                        return;
+                    }
+                    // El vínculo está verificado: queda anotado y la próxima vez no se consulta.
+                    if (c.g1 !== g1) { c.g1 = g1; saveContacts(); }
+                }
+                closeSidebar();
+                await startChatWithContact(c);
+            }
+
             // Ritmo: seguido sólo cuando estás cobrando (la red Ğ1 en pantalla, el QR a la vista);
             // en otra red, de vez en cuando; en la web en segundo plano no se pregunta (al volver
             // se mira en el acto), y el APK en segundo plano mira por minuto para la notificación.
@@ -27641,6 +27683,7 @@
                     "g1_cobros_titulo": "💰 Recibiste {n} pagos: {monto} Ğ1",
                     "g1_cobro_de": "de {quien}",
                     "g1_cobro_de_com": "de {quien} · «{com}»",
+                    "g1_cobro_sin_chat": "Quien te pagó no tiene una ChatWallet vinculada a su cuenta Ğ1.",
                     "g1_chat_bloque": "bloque #{b}",
                     "g1_chat_verificando": "Buscando el pago en la cadena…",
                     "g1_chat_verificado": "✓ Verificado: llegaron {monto} Ğ1",
@@ -28532,6 +28575,7 @@
                     "g1_cobros_titulo": "💰 You received {n} payments: {monto} Ğ1",
                     "g1_cobro_de": "from {quien}",
                     "g1_cobro_de_com": "from {quien} · “{com}”",
+                    "g1_cobro_sin_chat": "Whoever paid you has no ChatWallet linked to their Ğ1 account.",
                     "g1_chat_bloque": "block #{b}",
                     "g1_chat_verificando": "Looking for the payment on chain…",
                     "g1_chat_verificado": "✓ Verified: {monto} Ğ1 arrived",
@@ -29423,6 +29467,7 @@
                     "g1_cobros_titulo": "💰 Vous avez reçu {n} paiements : {monto} Ğ1",
                     "g1_cobro_de": "de {quien}",
                     "g1_cobro_de_com": "de {quien} · « {com} »",
+                    "g1_cobro_sin_chat": "La personne qui vous a payé n’a pas de ChatWallet liée à son compte Ğ1.",
                     "g1_chat_bloque": "bloc #{b}",
                     "g1_chat_verificando": "Recherche du paiement sur la chaîne…",
                     "g1_chat_verificado": "✓ Vérifié : {monto} Ğ1 reçus",
