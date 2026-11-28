@@ -16231,7 +16231,7 @@
             // El chat suena porque XMTP le avisa; un pago Ğ1 hecho desde Ğecko, Cesium² o el QR
             // de un puesto no pasa por el chat y la app no se enteraba (ni el saldo cambiaba hasta
             // recargar). Sin servidor que avise, con la app abierta se le pregunta al indexador
-            // cada 20 s por las últimas transferencias de tu cuenta Ğ1. Lo ya visto se anota por
+            // por las últimas transferencias de tu cuenta Ğ1 (ritmo: ver vigiaTicG1). Lo ya visto se anota por
             // id; la primera vez solo se siembra (si no, avisaría cobros viejos). Lo que entró con
             // la app cerrada se avisa al abrirla.
             var G1_VIGIA_MS = 20 * 1000;
@@ -16255,7 +16255,8 @@
                 const dir = currentWallet.address;
                 try {
                     const B = await window.cwCargarBilleteraG1();
-                    const h = await withTimeout(B.historial(cuenta.g1, { cantidad: 10 }), 15000, 'cobros Ğ1');
+                    // 30 s: cada indexador se corta a los 12 s y son dos; así no se pisan dos vueltas.
+                    const h = await withTimeout(B.historial(cuenta.g1, { cantidad: 10 }), 30000, 'cobros Ğ1');
                     if (!currentWallet || currentWallet.address !== dir) return;   // cambió de billetera
                     const entran = h.movimientos.filter(m => m.centimos > 0);
                     const clave = claveCobrosG1(dir);
@@ -16300,10 +16301,29 @@
                     g1Vigilando = false;
                 }
             }
+            // Ritmo: seguido sólo cuando estás cobrando (la red Ğ1 en pantalla, el QR a la vista);
+            // en otra red, de vez en cuando; en la web en segundo plano no se pregunta (al volver
+            // se mira en el acto), y el APK en segundo plano mira por minuto para la notificación.
+            var G1_VIGIA_OTRA_MS = 2 * 60 * 1000;
+            var G1_VIGIA_FONDO_MS = 60 * 1000;
+            var g1VigiaUltima = 0;
+            function vigiaTicG1(ahora = Date.now()) {
+                let cada;
+                if (document.hidden) {
+                    if (!NativeKeepAlive) return false;
+                    cada = G1_VIGIA_FONDO_MS;
+                } else cada = redG1Activa() ? G1_VIGIA_MS : G1_VIGIA_OTRA_MS;
+                if (ahora - g1VigiaUltima < cada - 1000) return false;   // 1 s de holgura con el intervalo
+                g1VigiaUltima = ahora;
+                vigilarCobrosG1();
+                return true;
+            }
+            function vigiaYaG1() { g1VigiaUltima = Date.now(); vigilarCobrosG1(); }
             window.cwVigilarCobrosG1 = vigilarCobrosG1;
-            setTimeout(vigilarCobrosG1, 6000);
-            setInterval(vigilarCobrosG1, G1_VIGIA_MS);
-            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') vigilarCobrosG1(); });
+            window.cwVigiaTicG1 = vigiaTicG1;
+            setTimeout(vigiaYaG1, 6000);
+            setInterval(vigiaTicG1, G1_VIGIA_MS);
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') vigiaYaG1(); });
 
             // "✦ Nombre · miembro Ğ1", o en qué punto está una identidad que no es miembro.
             function lineaIdentidadG1(id) {

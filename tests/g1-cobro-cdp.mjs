@@ -3,7 +3,7 @@
 //
 // El indexador y la cadena Ğ1 se simulan; los pagos se "hacen" agregando transferencias
 // a window.__g1tr. Todo lo demás es la app real (build de Parcel).
-// Correr:  TEST=tests/g1-cobro-cdp.mjs ./tests/run-g1-red.sh   (o SKIP_BUILD=1 para no rebuildear)
+// Correr:  TEST=tests/g1-cobro-cdp.mjs ./tests/run-g1-red.sh   (SKIP_BUILD=1 para no rebuildear)
 
 import { spawn } from 'node:child_process';
 import os from 'node:os';
@@ -186,6 +186,21 @@ try {
     ok(await listo(`!!(currentWallet && currentWallet.address)`), 'reabre');
     ok(await listo(`[...document.querySelectorAll('.cw-notif[data-tag="g1-cobro"]')].some(n => /150,00 Ğ1/.test(n.textContent))`, 20), 'al abrir avisa el cobro que entró mientras tanto (sin tocar nada)');
 
+    console.log('\n── I) ritmo: seguido sólo con la red Ğ1 en pantalla ──');
+    const vueltas = () => ev(`window.__g1historial || 0`);
+    const tic = (haceSeg) => ev(`g1VigiaUltima = Date.now() - ${haceSeg * 1000}; window.cwVigiaTicG1()`);
+    ok(await tic(21) === true, 'con la red Ğ1 en pantalla: cada 20 s');
+    ok(await tic(10) === false, '…y no antes');
+    await ev(`localStorage.removeItem('cw-red-g1-' + currentWallet.address.toLowerCase()); true`);
+    ok(await tic(21) === false, 'en otra red: a los 20 s no pregunta');
+    ok(await tic(121) === true, 'en otra red: cada 2 minutos');
+    await ev(`Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); true`);
+    const antes = await vueltas();
+    ok(await tic(3600) === false, 'la web en segundo plano no pregunta (no es el APK)');
+    await sleep(500);
+    ok(await vueltas() === antes, 'ni una consulta', `${antes} → ${await vueltas()}`);
+    await ev(`delete document.hidden; localStorage.setItem('cw-red-g1-' + currentWallet.address.toLowerCase(), '1'); true`);
+
     console.log('\n── H) en francés ──');
     await ev(`localStorage.setItem('chatwallet-lang', 'fr'); true`);
     await limpiar();
@@ -199,7 +214,8 @@ try {
 } finally {
     try { ws?.close(); } catch { }
     proc.kill();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await sleep(1000);   // Chrome sigue escribiendo su carpeta un instante después de morir
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch { }
 }
 console.log(fails ? `\n❌ ${fails} fallas` : '\n✅ todo en verde');
 process.exit(fails ? 1 : 0);
