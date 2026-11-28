@@ -17,11 +17,14 @@ Las versiones anteriores a la 3.00 están en los
 
 ## Sin publicar
 
+## 3.125 — 2026-11-28
+
 - **Cuando te pagan en junas, ChatWallet suena.** Un pago Ğ1 hecho desde Ğecko, Cesium² o
   escaneando tu QR no pasaba por el chat, y la app no se enteraba: no sonaba y el saldo no
-  cambiaba hasta recargar. Ahora, con la app abierta, a los pocos segundos suena, vibra y
-  avisa **💰 Recibiste 2,00 Ğ1**, de quién y con qué comentario, y el saldo se actualiza solo.
-  Si te pagaron con la app cerrada, el aviso sale al abrirla.
+  cambiaba hasta recargar. Ahora suena, vibra y avisa **💰 Recibiste 2,00 Ğ1**, de quién y con
+  qué comentario, y el saldo se actualiza solo. Con la red Ğ1 en pantalla (cuando mostrás tu
+  QR para cobrar) se entera en unos 20 segundos; en otra red, dentro de los 2 minutos. Si te
+  pagaron con la app cerrada, el aviso sale al abrirla.
 
 ## 3.124 — 2026-11-25
 
